@@ -77,7 +77,7 @@ function tournamentCard(t){
 }
 function tournaments(){
   setHeader("Giải đấu","Tạo và quản lý giải pickleball");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<button class="btn primary" data-action="newTournament">＋ Tạo giải mới</button>':""}</div>
+  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">＋ Nội dung</button><button class="btn primary" data-action="newTournament">＋ Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
 }
 function players(){
@@ -119,8 +119,9 @@ function bracket(){
   return `<div class="panel"><div class="panel-head"><div><h2>Knock-out</h2><p>Top 2 mỗi bảng → bán kết → chung kết</p></div>${canManage()?'<button class="btn primary" data-action="autoBracket">Tạo bracket từ BXH</button>':""}</div><div class="bracket"><div class="round"><h3>BÁN KẾT</h3>${semis.map(bracketMatch).join("")||'<div class="empty">Chưa tạo bán kết</div>'}</div><div class="round"><h3>CHUNG KẾT</h3><div style="margin-top:55px">${bracketMatch(final)}</div></div><div class="round"><h3>VÔ ĐỊCH</h3><div class="bracket-match" style="margin-top:110px;text-align:center;padding:22px"><div style="font-size:34px">🏆</div><strong>${final?.winner?teamName(final.winner):"Chưa xác định"}</strong></div></div></div></div>`;
 }
 function courts(){
-  setHeader("Sân thi đấu","Theo dõi công suất từng sân");
-  return `<div class="page-grid">${[1,2,3,4,5,6].map(c=>{const live=state.matches.find(m=>String(m.court)===String(c)&&m.status==="live"),next=state.matches.find(m=>String(m.court)===String(c)&&m.status==="wait");return `<div class="panel"><div class="panel-head"><h2>Sân ${c}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`}).join("")}</div>`;
+  setHeader("Sân thi đấu","Theo dõi và cấu hình sân theo giải");
+  const cards=state.courts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),next=state.matches.find(m=>m.courtId===c.id&&m.status==="wait");return `<div class="panel"><div class="panel-head"><h2>${c.name}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
+  return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${state.courts.length} sân</p></div>${canManage()?'<button class="btn primary" data-action="newCourt">＋ Thêm sân</button>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
 }
 async function refereesPage(){
   setHeader("Trọng tài","Tài khoản và phân quyền nhập điểm");
@@ -165,6 +166,8 @@ function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
+  document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
+  document.querySelectorAll('[data-action="newCourt"]').forEach(b=>b.onclick=openCourtModal);
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
@@ -260,6 +263,30 @@ async function openMatchDetail(id){
   </div>`;
   $("#genericDialog").showModal();
   const btn=$("#saveAssignment");if(btn)btn.onclick=async()=>{try{await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,scheduledAt:$("#detailTime").value||null});$("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.")}catch(e){toast("Không thể cập nhật: "+e.message)}};
+}
+function openDivisionModal(){
+  if(!state.tournaments.length)return toast("Cần tạo giải trước.");
+  $("#genericTitle").textContent="Thêm nội dung thi đấu";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Giải<select id="dTournament">${state.tournaments.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")}</select></label>
+    <label class="field full">Tên nội dung<input id="dName" placeholder="VD: Đôi nam 3.0–3.5"></label>
+    <label class="field">Loại<select id="dType"><option value="doubles">Doubles</option><option value="mixed_doubles">Mixed Doubles</option><option value="singles">Singles</option><option value="team">Team</option></select></label>
+    <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Bảng + Knockout</option><option value="round_robin">Round Robin</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Double Elimination</option></select></label>
+    <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></label>
+    <label class="field">Điểm/set<select id="dPoints"><option value="11">11</option><option value="15">15</option><option value="21">21</option></select></label>
+    <label class="field">Top đi tiếp<input id="dAdvance" type="number" value="2" min="1"></label>
+    <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox" checked> Thắng cách 2</span></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveDivision">Thêm nội dung</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),winByTwo:$("#dWin2").checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
+}
+function openCourtModal(){
+  if(!state.tournaments.length)return toast("Cần tạo giải trước.");
+  $("#genericTitle").textContent="Thêm sân";
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Giải<select id="cTournament">${state.tournaments.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")}</select></label><label class="field full">Tên sân<input id="cName" placeholder="VD: Sân 1"></label><div class="field full"><button type="button" class="btn primary" id="saveCourt">Thêm sân</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveCourt").onclick=async()=>{try{await API.createCourt($("#cTournament").value,{name:$("#cName").value});$("#genericDialog").close();await refresh();toast("Đã thêm sân.")}catch(e){toast("Không thể thêm sân: "+e.message)}};
 }
 function openTournamentModal(){
   $("#genericTitle").textContent="Tạo giải mới";
