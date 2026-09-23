@@ -24,7 +24,7 @@ jobs:
           --health-retries 20
     env:
       DATABASE_URL: postgres://pickle:pickle_ci@127.0.0.1:5432/pickle
-      JWT_SECRET: ci-secret-only-not-production
+      JWT_SECRET: ci-secret-only-not-production-32chars-plus
       ADMIN_EMAIL: admin@pickle.test
       ADMIN_PASSWORD: ci-password-123
       NODE_ENV: test
