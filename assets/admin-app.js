@@ -80,10 +80,16 @@ function tournaments(){
   return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">＋ Nội dung</button><button class="btn primary" data-action="newTournament">＋ Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
 }
-function players(){
-  setHeader("VĐV & cặp đấu","Quản lý cặp thi đấu, CLB, seed và bảng");
-  return `<div class="panel"><div class="panel-head"><div><h2>Cặp đấu</h2><p>${state.teams.length} đội/cặp</p></div>
-    ${canManage()?'<div class="actions"><button class="btn primary" data-action="newTeam">＋ Thêm cặp</button></div>':""}</div>
+async function players(){
+  setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
+  const roster=canManage()?await API.players().catch(()=>[]):[];
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newClub">＋ CLB</button><button class="btn primary" data-action="newPlayer">＋ VĐV</button></div>':""}</div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+      ${roster.map(p=>`<tr><td><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Điều chỉnh rating</button>`:""}</td></tr>`).join("")}
+    </tbody></table></div>
+  </div>
+  <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<button class="btn primary" data-action="newTeam">＋ Thêm cặp</button>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Seed</th><th>Cặp VĐV</th><th>CLB</th><th>Bảng</th><th>W</th><th>L</th><th>+/-</th></tr></thead>
       <tbody>${state.teams.map(t=>`<tr><td>${t.seed||"—"}</td><td><b>${t.name}</b></td><td>${t.club}</td><td><span class="badge blue">${t.group||"—"}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf-t.pa>0?"+":""}${t.pf-t.pa}</td></tr>`).join("")}</tbody>
     </table></div>
@@ -169,6 +175,9 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
   document.querySelectorAll('[data-action="newCourt"]').forEach(b=>b.onclick=openCourtModal);
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
+  document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
+  document.querySelectorAll('[data-action="newClub"]').forEach(b=>b.onclick=openClubModal);
+  document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
@@ -299,6 +308,33 @@ function openTournamentModal(){
   </div>`;
   $("#genericDialog").showModal();
   $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");try{await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});$("#genericDialog").close();await refresh();toast("Đã tạo giải.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
+}
+async function openPlayerModal(){
+  const clubs=await API.clubs().catch(()=>[]);
+  $("#genericTitle").textContent="Thêm VĐV";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Họ tên<input id="pName"></label>
+    <label class="field">Biệt danh<input id="pNick"></label>
+    <label class="field">Giới tính<select id="pGender"><option value="">Chưa chọn</option><option value="male">Nam</option><option value="female">Nữ</option><option value="other">Khác</option></select></label>
+    <label class="field">CLB<select id="pClub"><option value="">Tự do</option>${clubs.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label>
+    <label class="field">Rating ban đầu<input id="pRating" type="number" min="0" step="0.001" value="3.000"></label>
+    <label class="field">Điện thoại<input id="pPhone"></label>
+    <div class="field full"><button type="button" class="btn primary" id="savePlayer">Thêm VĐV</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#savePlayer").onclick=async()=>{try{await API.createPlayer({fullName:$("#pName").value,nickname:$("#pNick").value,gender:$("#pGender").value||null,clubId:$("#pClub").value||null,rating:Number($("#pRating").value)||3,phone:$("#pPhone").value});$("#genericDialog").close();await render();toast("Đã thêm VĐV.")}catch(e){toast("Không thể thêm VĐV: "+e.message)}};
+}
+function openClubModal(){
+  $("#genericTitle").textContent="Thêm CLB";
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên CLB<input id="clubName"></label><label class="field full">Khu vực / Thành phố<input id="clubCity"></label><div class="field full"><button type="button" class="btn primary" id="saveClub">Thêm CLB</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveClub").onclick=async()=>{try{await API.createClub({name:$("#clubName").value,city:$("#clubCity").value});$("#genericDialog").close();await render();toast("Đã thêm CLB.")}catch(e){toast("Không thể thêm CLB: "+e.message)}};
+}
+function openRatingModal(playerId,name,current){
+  $("#genericTitle").textContent="Điều chỉnh rating";
+  $("#genericBody").innerHTML=`<div class="form-grid"><div class="field full"><b>${name}</b><span>Rating hiện tại: ${Number(current).toFixed(3)}</span></div><label class="field">Điều chỉnh (+/-)<input id="ratingDelta" type="number" step="0.001" placeholder="VD: 0.015 hoặc -0.010"></label><label class="field full">Lý do<textarea id="ratingReason" rows="3" placeholder="Bắt buộc ghi lý do"></textarea></label><div class="field full"><button type="button" class="btn primary" id="saveRating">Lưu rating</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveRating").onclick=async()=>{try{await API.adjustRating(playerId,{delta:Number($("#ratingDelta").value),reason:$("#ratingReason").value});$("#genericDialog").close();await render();toast("Đã cập nhật rating và audit.")}catch(e){toast("Không thể cập nhật: "+e.message)}};
 }
 function openTeamModal(){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
