@@ -15,6 +15,8 @@ const app=express();
 const server=http.createServer(app);
 const io=new SocketServer(server,{cors:{origin:true,credentials:true}});
 const port=Number(process.env.PORT||8080);
+if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
+if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
 
 app.use(helmet({contentSecurityPolicy:false}));
 app.use(express.json({limit:"2mb"}));
@@ -332,11 +334,22 @@ app.get("/api/audit",authRequired,allow("super_admin","organizer"),wrap(async(re
   const {rows}=await pool.query("select * from audit_logs order by created_at desc limit 500");res.json(rows);
 }));
 
+app.get("/api/health",wrap(async(req,res)=>{
+  const db=(await pool.query("select now() as now")).rows[0];
+  res.json({status:"ok",service:"pickle-tour",database:"ok",time:db.now});
+}));
+
 io.on("connection",socket=>{socket.emit("connected",{ok:true})});
 
+app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:process.env.NODE_ENV==="production"?"1h":0}));
+app.get("/",(req,res)=>res.sendFile(path.join(root,"index.html")));
+app.get("/index.html",(req,res)=>res.sendFile(path.join(root,"index.html")));
 app.get("/admin",(req,res)=>res.sendFile(path.join(root,"admin.html")));
+app.get("/admin.html",(req,res)=>res.sendFile(path.join(root,"admin.html")));
 app.get("/login",(req,res)=>res.sendFile(path.join(root,"login.html")));
-app.use(express.static(root,{extensions:["html"]}));
+app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
+app.get("/robots.txt",(req,res)=>res.sendFile(path.join(root,"robots.txt")));
+app.get("/sitemap.xml",(req,res)=>res.sendFile(path.join(root,"sitemap.xml"));
 
 app.use((err,req,res,next)=>{
   console.error(err);
