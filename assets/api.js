@@ -15,6 +15,7 @@
     request,
     login:(email,password)=>request("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})}),
     logout:()=>request("/api/auth/logout",{method:"POST"}),
+    changePassword:(currentPassword,newPassword)=>request("/api/auth/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})}),
     me:()=>request("/api/auth/me"),
     publicState:()=>request("/api/public/state"),
     adminState:()=>request("/api/admin/state"),
