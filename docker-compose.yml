@@ -29,7 +29,12 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8080/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
   pickle_pg:
