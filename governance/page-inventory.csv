@@ -1,0 +1,15 @@
+url,type,indexability,priority,status
+/,public,index,P0,BUILD_LAUNCH
+/tournament,public,index,P0,BUILD_LAUNCH
+/live,public,index,P0,BUILD_LAUNCH
+/ranking,public,index,P1,BUILD_LAUNCH
+/admin,app,noindex,P0,BUILD_LAUNCH
+/admin/tournaments,app,noindex,P0,BUILD_LAUNCH
+/admin/players,app,noindex,P0,BUILD_LAUNCH
+/admin/matches,app,noindex,P0,BUILD_LAUNCH
+/admin/scores,app,noindex,P0,BUILD_LAUNCH
+/admin/standings,app,noindex,P0,BUILD_LAUNCH
+/admin/bracket,app,noindex,P0,BUILD_LAUNCH
+/admin/courts,app,noindex,P1,BUILD_LAUNCH
+/admin/referees,app,noindex,P1,BUILD_POST_LAUNCH
+/admin/payments,app,noindex,P1,BUILD_POST_LAUNCH
