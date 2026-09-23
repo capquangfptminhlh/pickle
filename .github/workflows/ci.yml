@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pickle
+          POSTGRES_USER: pickle
+          POSTGRES_PASSWORD: pickle_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pickle -d pickle"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://pickle:pickle_ci@127.0.0.1:5432/pickle
+      JWT_SECRET: ci-secret-only-not-production
+      ADMIN_EMAIL: admin@pickle.test
+      ADMIN_PASSWORD: ci-password-123
+      NODE_ENV: test
+      PORT: 8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm install
+      - name: Syntax check
+        run: |
+          node --check server/index.js
+          node --check server/seed.js
+          node --check assets/admin-app.js
+          node --check assets/public.js
+          node --check assets/api.js
+      - name: Migrate and seed
+        run: |
+          npm run migrate
+          npm run seed
+      - name: Start app
+        run: |
+          npm start > app.log 2>&1 &
+          echo $! > app.pid
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8080/api/public/state >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/api/public/state
+      - name: Login and admin smoke test
+        run: |
+          curl -fsS -c cookies.txt -H 'Content-Type: application/json'             -d '{"email":"admin@pickle.test","password":"ci-password-123"}'             http://127.0.0.1:8080/api/auth/login
+          curl -fsS -b cookies.txt http://127.0.0.1:8080/api/admin/state
+      - name: Show server log on failure
+        if: failure()
+        run: cat app.log || true
