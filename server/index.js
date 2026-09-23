@@ -431,7 +431,7 @@ app.get("/admin.html",(req,res)=>res.sendFile(path.join(root,"admin.html")));
 app.get("/login",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/robots.txt",(req,res)=>res.sendFile(path.join(root,"robots.txt")));
-app.get("/sitemap.xml",(req,res)=>res.sendFile(path.join(root,"sitemap.xml"));
+app.get("/sitemap.xml",(req,res)=>res.sendFile(path.join(root,"sitemap.xml")));
 
 app.use((err,req,res,next)=>{
   console.error(err);
