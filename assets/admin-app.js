@@ -143,8 +143,8 @@ async function payments(){
 }
 function auditPage(){setHeader("Nhật ký hệ thống","Theo dõi mọi thay đổi điểm và quản trị");return `<div class="panel">${state.audit.map(a=>`<div style="padding:13px 0;border-bottom:1px solid #edf1ef"><b>${a.action}</b><div style="font-size:12px;color:#73847b;margin-top:4px">${a.time} • ${a.user} • ${a.detail}</div></div>`).join("")||'<div class="empty">Chưa có log.</div>'}</div>`}
 function settings(){
-  setHeader("Cấu hình","Rule thi đấu theo từng nội dung");
-  return `<div class="page-grid">${state.divisions.map(d=>`<div class="panel"><div class="panel-head"><div><h2>${d.name}</h2><p>${d.eventType} • ${d.format}</p></div></div>
+  setHeader("Cấu hình","Rule thi đấu và bảo mật tài khoản");
+  return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảo mật tài khoản</h2><p>Đổi mật khẩu đăng nhập hiện tại</p></div><button class="btn secondary" data-action="changePassword">Đổi mật khẩu</button></div></div><div class="page-grid">${state.divisions.map(d=>`<div class="panel"><div class="panel-head"><div><h2>${d.name}</h2><p>${d.eventType} • ${d.format}</p></div></div>
     <div class="form-grid">
       <label class="field">Best of<select data-rule-best="${d.id}" ${canManage()?"":"disabled"}><option value="1" ${d.bestOf===1?"selected":""}>1</option><option value="3" ${d.bestOf===3?"selected":""}>3</option><option value="5" ${d.bestOf===5?"selected":""}>5</option></select></label>
       <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}><option value="11" ${d.pointsToWin===11?"selected":""}>11</option><option value="15" ${d.pointsToWin===15?"selected":""}>15</option><option value="21" ${d.pointsToWin===21?"selected":""}>21</option></select></label>
@@ -169,6 +169,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
+  document.querySelectorAll('[data-action="changePassword"]').forEach(b=>b.onclick=openPasswordModal);
   document.querySelectorAll('[data-action="autoSchedule"]').forEach(b=>b.onclick=openAutoScheduleModal);
   document.querySelectorAll('[data-action="autoBracket"]').forEach(b=>b.onclick=openAutoBracketModal);
   document.querySelectorAll("[data-match-detail]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.matchDetail));
@@ -217,6 +218,12 @@ async function undoScore(){
   try{await API.undo(activeMatch.id);await refresh({keepDialog:true});toast("Đã Undo và ghi audit log.")}
   catch(e){toast(e.message==="NOTHING_TO_UNDO"?"Không còn thao tác để Undo.":"Không thể Undo: "+e.message)}
   finally{busy=false}
+}
+function openPasswordModal(){
+  $("#genericTitle").textContent="Đổi mật khẩu";
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mật khẩu hiện tại<input id="pwCurrent" type="password"></label><label class="field full">Mật khẩu mới<input id="pwNew" type="password" minlength="10"></label><label class="field full">Nhập lại mật khẩu mới<input id="pwConfirm" type="password" minlength="10"></label><div class="field full"><button type="button" class="btn primary" id="savePassword">Đổi mật khẩu</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href="/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 10 ký tự.":"Không thể đổi mật khẩu.")}};
 }
 function selectDivisionDialog(title,buttonText,onSubmit){
   if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
