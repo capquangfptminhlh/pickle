@@ -1,0 +1,6 @@
+page_or_area,asset,required,source,status
+Public home,hero tournament photography,no,NEW_LICENSED_OR_GENERATED,HOLD
+Tournament detail,event cover,no,ORGANIZER_UPLOAD,HOLD
+Player profile,avatar,no,PLAYER_UPLOAD,HOLD
+Admin,decorative imagery,no,NONE,PASS
+Score console,decorative imagery,no,NONE,PASS
