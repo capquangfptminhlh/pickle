@@ -238,7 +238,7 @@ app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
   const updated=await tx(async c=>{
     const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    const ev=(await c.query("select * from score_events where match_id=$1 and event_type<>'UNDO' order by id desc limit 1",[m.id])).rows[0];
+    const ev=(await c.query("select * from score_events where match_id=$1 and event_type<>'UNDO' and undone_at is null order by id desc limit 1",[m.id])).rows[0];
     if(!ev)throw Object.assign(new Error("NOTHING_TO_UNDO"),{status:400});
     const p=ev.payload||{};
     if(ev.event_type==="POINT"&&p.before){
@@ -249,10 +249,13 @@ app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
     }else if(ev.event_type==="MATCH_FINISH"){
       await c.query("update matches set winner_team_id=$1,status=$2,completed_at=null,version=version+1 where id=$3",[p.before?.winner||null,p.before?.status||"live",m.id]);
       if(p.before?.nextMatchId&&p.before?.nextSide){
+        const downstream=(await c.query("select status from matches where id=$1 for update",[p.before.nextMatchId])).rows[0];
+        if(downstream&&["live","completed"].includes(downstream.status))throw Object.assign(new Error("DOWNSTREAM_MATCH_STARTED"),{status:409});
         const col=p.before.nextSide==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=null,version=version+1 where id=$1`,[p.before.nextMatchId]);
       }
     }else throw Object.assign(new Error("UNDO_UNSUPPORTED"),{status:400});
     const r=await getMatch(c,m.id,false);
+    await c.query("update score_events set undone_at=now() where id=$1",[ev.id]);
     await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'UNDO',$3,$4)",[m.id,req.user.sub,{undoneEventId:ev.id},r.version]);
     await audit(c,req.user,"match",m.id,"UNDO_SCORE",ev,null,`Undo event ${ev.id}`);
     return r;
