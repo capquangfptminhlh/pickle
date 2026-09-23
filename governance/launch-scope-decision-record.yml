@@ -1,0 +1,16 @@
+version: 1
+observed_at: 2026-09-23
+decision: PASS_FOR_VERTICAL_SLICE
+approved_scope:
+  - admin_dashboard
+  - tournaments
+  - players_teams
+  - matches_schedule
+  - mobile_score_console
+  - standings
+  - bracket
+  - courts
+notes:
+  - User explicitly requested building immediately.
+  - This commit is a development vertical slice and is not claimed launch-complete.
+  - Public SEO pages, authentication, server persistence, payments and referee accounts remain outside this slice.
