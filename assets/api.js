@@ -22,6 +22,8 @@
     createTeam:(divisionId,payload)=>request(`/api/divisions/${divisionId}/teams`,{method:"POST",body:JSON.stringify(payload)}),
     updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
+    generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
+    generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     finishSet:(id,payload)=>request(`/api/matches/${id}/finish-set`,{method:"POST",body:JSON.stringify(payload)}),
