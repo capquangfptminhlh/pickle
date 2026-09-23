@@ -20,12 +20,18 @@
     adminState:()=>request("/api/admin/state"),
     createTournament:payload=>request("/api/tournaments",{method:"POST",body:JSON.stringify(payload)}),
     createTeam:(divisionId,payload)=>request(`/api/divisions/${divisionId}/teams`,{method:"POST",body:JSON.stringify(payload)}),
+    updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     finishSet:(id,payload)=>request(`/api/matches/${id}/finish-set`,{method:"POST",body:JSON.stringify(payload)}),
     finishMatch:(id,payload)=>request(`/api/matches/${id}/finish`,{method:"POST",body:JSON.stringify(payload)}),
     undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
     referees:()=>request("/api/users/referees"),
-    createReferee:payload=>request("/api/users/referees",{method:"POST",body:JSON.stringify(payload)})
+    createReferee:payload=>request("/api/users/referees",{method:"POST",body:JSON.stringify(payload)}),
+    registrations:()=>request("/api/registrations"),
+    createRegistration:(divisionId,payload)=>request(`/api/divisions/${divisionId}/registrations`,{method:"POST",body:JSON.stringify(payload)}),
+    addPayment:(registrationId,payload)=>request(`/api/registrations/${registrationId}/payment`,{method:"POST",body:JSON.stringify(payload)}),
+    reviewPayment:(paymentId,status)=>request(`/api/payment-records/${paymentId}`,{method:"PATCH",body:JSON.stringify({status})})
   };
 })();
