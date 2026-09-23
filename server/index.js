@@ -276,6 +276,88 @@ app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wra
   await emitState();res.json(after);
 }));
 
+
+app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const teams=(await c.query("select id,group_code from teams where division_id=$1 and status='active' order by group_code,seed nulls last,name",[d.id])).rows;
+    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))];
+    if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
+    let created=0,slot=0;
+    for(const group of groups){
+      let ids=teams.filter(t=>t.group_code===group).map(t=>t.id);
+      if(ids.length<2)continue;
+      if(ids.length%2===1)ids=[...ids,null];
+      const n=ids.length;let arr=[...ids];
+      for(let round=0;round<n-1;round++){
+        const pairs=[];
+        for(let i=0;i<n/2;i++){const a=arr[i],b=arr[n-1-i];if(a&&b)pairs.push([a,b])}
+        for(let i=0;i<pairs.length;i++){
+          const [a,b]=pairs[i];
+          const exists=(await c.query(`select 1 from matches where division_id=$1 and ((team_a_id=$2 and team_b_id=$3) or (team_a_id=$3 and team_b_id=$2)) limit 1`,[d.id,a,b])).rowCount;
+          if(exists)continue;
+          const batch=Math.floor(i/courts.length);
+          const court=courts[i%courts.length].id;
+          const minuteOffset=(slot+batch)*35;
+          await c.query(`
+            insert into matches(division_id,court_id,team_a_id,team_b_id,stage,round_no,scheduled_at,status)
+            values($1,$2,$3,$4,$5,$6,coalesce($7,now())+($8||' minutes')::interval,'scheduled')
+          `,[d.id,court,a,b,`Bảng ${group}`,round+1,d.start_at,String(minuteOffset)]);
+          created++;
+        }
+        slot+=Math.max(1,Math.ceil(pairs.length/courts.length));
+        arr=[arr[0],arr[n-1],...arr.slice(1,n-1)];
+      }
+      slot+=1;
+    }
+    await audit(c,req.user,"division",d.id,"GENERATE_ROUND_ROBIN",null,{created},`${created} matches`);
+    return {created};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const unfinished=Number((await c.query("select count(*)::int n from matches where division_id=$1 and stage like 'Bảng %' and status<>'completed'",[d.id])).rows[0].n);
+    if(unfinished>0)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+    const existing=Number((await c.query("select count(*)::int n from matches where division_id=$1 and (stage ilike '%Bán kết%' or stage ilike '%Chung kết%')",[d.id])).rows[0].n);
+    if(existing>0)throw Object.assign(new Error("BRACKET_ALREADY_EXISTS"),{status:409});
+    const teams=(await c.query("select id,group_code,seed from teams where division_id=$1 and status='active'",[d.id])).rows;
+    const completed=(await c.query("select * from matches where division_id=$1 and stage like 'Bảng %' and status='completed'",[d.id])).rows;
+    const mids=completed.map(m=>m.id);
+    const sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
+    const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push(s)}
+    const stats=new Map(teams.map(t=>[t.id,{w:0,l:0,pf:0,pa:0}]));
+    for(const m of completed){
+      let ap=0,bp=0;for(const s of setMap.get(m.id)||[]){ap+=s.score_a;bp+=s.score_b}
+      const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);
+      if(a){a.pf+=ap;a.pa+=bp;m.winner_team_id===m.team_a_id?a.w++:a.l++}
+      if(b){b.pf+=bp;b.pa+=ap;m.winner_team_id===m.team_b_id?b.w++:b.l++}
+    }
+    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
+    if(groups.length!==2||Number(d.advance_count)!==2)throw Object.assign(new Error("BRACKET_GENERATOR_SUPPORTS_TWO_GROUPS_TOP2"),{status:400});
+    const rank=g=>teams.filter(t=>t.group_code===g).sort((x,y)=>{const a=stats.get(x.id),b=stats.get(y.id);return b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999))});
+    const ga=rank(groups[0]),gb=rank(groups[1]);if(ga.length<2||gb.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
+    const tournamentId=(await c.query("select tournament_id from divisions where id=$1",[d.id])).rows[0].tournament_id;
+    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order limit 2",[tournamentId])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const start=(await c.query("select coalesce(max(scheduled_at),now()) + interval '45 minutes' t from matches where division_id=$1",[d.id])).rows[0].t;
+    const s1=(await c.query("insert into matches(division_id,court_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,'Bán kết 1',$5,'scheduled') returning id",[d.id,courts[0].id,ga[0].id,gb[1].id,start])).rows[0];
+    const s2=(await c.query("insert into matches(division_id,court_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,'Bán kết 2',$5,'scheduled') returning id",[d.id,(courts[1]||courts[0]).id,gb[0].id,ga[1].id,start])).rows[0];
+    const final=(await c.query("insert into matches(division_id,court_id,stage,scheduled_at,status) values($1,$2,'Chung kết',$3::timestamptz+interval '45 minutes','scheduled') returning id",[d.id,courts[0].id,start])).rows[0];
+    await c.query("update matches set next_match_id=$1,next_match_side='A' where id=$2",[final.id,s1.id]);
+    await c.query("update matches set next_match_id=$1,next_match_side='B' where id=$2",[final.id,s2.id]);
+    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,{semi1:s1.id,semi2:s2.id,final:final.id},"Top 2 each group");
+    return {semi1:s1.id,semi2:s2.id,final:final.id};
+  });
+  await emitState();res.json(result);
+}));
+
 app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {teamAId,teamBId,courtId,stage="Vòng bảng",scheduledAt,refereeUserId}=req.body;
   if(!teamAId||!teamBId||teamAId===teamBId)return res.status(400).json({error:"INVALID_TEAMS"});
