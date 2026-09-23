@@ -1,0 +1,63 @@
+name: Preview on GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "preview/**"
+      - "assets/styles.css"
+      - "assets/public.css"
+      - "assets/admin-app.js"
+      - "assets/tournament.js"
+      - "assets/ranking.js"
+      - ".github/workflows/preview-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pickle-preview-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build static preview artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf pages-dist
+          mkdir -p pages-dist/preview pages-dist/assets
+          cp preview/*.html preview/*.js pages-dist/preview/
+          cp assets/styles.css assets/public.css assets/admin-app.js assets/tournament.js assets/ranking.js pages-dist/assets/
+          touch pages-dist/.nojekyll
+          cat > pages-dist/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Pickle Tour Preview</title>
+          <meta http-equiv="refresh" content="0; url=preview/index.html">
+          <a href="preview/index.html">Open Pickle Tour preview</a>
+          HTML
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
