@@ -1,0 +1,9 @@
+website_os_source_repo: capquangfptminhlh/seo-web
+website_os_source_ref: main
+website_os_manifest: governance/website-os.manifest.yml
+website_os_entrypoint: AGENTS.md
+source_commit_sha: ef18d255150f3a77a7c7587feccf1ba7c419ad7b
+observed_at: 2026-09-23
+project_name: Pickle Tour
+project_repo: capquangfptminhlh/pickle
+compliance_status: BOOTSTRAP_RECORDED
