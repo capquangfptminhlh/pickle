@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b7a4b"><title>Chi tiết giải | Pickle Tour</title>
+<meta name="description" content="Lịch thi đấu, live score, bảng xếp hạng và bracket giải pickleball.">
+<link rel="stylesheet" href="assets/styles.css"><link rel="stylesheet" href="assets/public.css">
+</head><body class="public-body">
+<header class="public-header"><div class="public-container public-nav">
+<a class="public-brand" href="/"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
+<nav><a href="/">Trang chủ</a><a href="/ranking.html">Ranking</a><a href="/about.html">Giới thiệu</a></nav><a class="btn primary" href="/admin">Quản trị</a>
+</div></header>
+<main>
+<section class="public-hero" style="padding:46px 0"><div class="public-container"><span class="eyebrow">TOURNAMENT</span><h1 id="tourName" style="font-size:clamp(36px,6vw,64px);margin-bottom:12px">Đang tải...</h1><p id="tourMeta"></p></div></section>
+<section class="public-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">SCHEDULE</span><h2>Lịch & Live Score</h2></div></div><div id="tourMatches" class="public-match-grid"></div></div></section>
+<section class="public-section soft-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div></div></section>
+<section class="public-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div></div><div id="tourBracket"></div></div></section>
+</main>
+<footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
+<script src="/socket.io/socket.io.js"></script><script src="assets/api.js"></script><script src="assets/tournament.js"></script>
+</body></html>
