@@ -51,6 +51,11 @@ async function seedDemo(){
         insert into teams(division_id,name,club_id,seed,group_code) values($1,$2,$3,$4,$5) returning id
       `,[d.id,name,clubs[club],seed,g])).rows[0];
       teams[name]=row.id;
+      for(const person of name.split("/").map(x=>x.trim()).filter(Boolean)){
+        let p=(await c.query("select id from players where lower(full_name)=lower($1) limit 1",[person])).rows[0];
+        if(!p)p=(await c.query("insert into players(club_id,full_name,rating) values($1,$2,3.000) returning id",[clubs[club]||null,person])).rows[0];
+        await c.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[row.id,p.id]);
+      }
     }
 
     const courts=[];
