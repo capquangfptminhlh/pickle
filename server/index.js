@@ -277,6 +277,8 @@ app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wra
 app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {teamAId,teamBId,courtId,stage="Vòng bảng",scheduledAt,refereeUserId}=req.body;
   if(!teamAId||!teamBId||teamAId===teamBId)return res.status(400).json({error:"INVALID_TEAMS"});
+  const validTeams=Number((await pool.query("select count(*)::int n from teams where division_id=$1 and id=any($2::uuid[])",[req.params.id,[teamAId,teamBId]])).rows[0].n);
+  if(validTeams!==2)return res.status(400).json({error:"TEAMS_NOT_IN_DIVISION"});
   const row=(await pool.query(`
     insert into matches(division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status)
     values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
