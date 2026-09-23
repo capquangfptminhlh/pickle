@@ -93,7 +93,7 @@ function matchesPage(scoreOnly=false){
   setHeader(scoreOnly?"Nhập điểm":"Lịch & trận đấu",scoreOnly?"Giao diện courtside cho BTC/trọng tài":"Điều phối sân, giờ đấu và trạng thái");
   const arr=scoreOnly?state.matches.filter(m=>m.status!=="done"):state.matches;
   return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${[1,2,3,4,5,6].map(x=>`<option>${x}</option>`).join("")}</select>
-    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn primary" data-action="newMatch">＋ Tạo trận</button>':""}</div>
+    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn secondary" data-action="autoSchedule">Tạo lịch tự động</button><button class="btn primary" data-action="newMatch">＋ Tạo trận</button>':""}</div>
     <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p>${arr.length} trận</p></div></div>
       <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}</div>
     </div>
@@ -116,7 +116,7 @@ function bracket(){
   const semis=state.matches.filter(m=>m.stage.toLowerCase().includes("bán kết"));
   const finals=state.matches.filter(m=>m.stage.toLowerCase().includes("chung kết"));
   const final=finals[0];
-  return `<div class="panel"><div class="bracket"><div class="round"><h3>BÁN KẾT</h3>${semis.map(bracketMatch).join("")||'<div class="empty">Chưa tạo bán kết</div>'}</div><div class="round"><h3>CHUNG KẾT</h3><div style="margin-top:55px">${bracketMatch(final)}</div></div><div class="round"><h3>VÔ ĐỊCH</h3><div class="bracket-match" style="margin-top:110px;text-align:center;padding:22px"><div style="font-size:34px">🏆</div><strong>${final?.winner?teamName(final.winner):"Chưa xác định"}</strong></div></div></div></div>`;
+  return `<div class="panel"><div class="panel-head"><div><h2>Knock-out</h2><p>Top 2 mỗi bảng → bán kết → chung kết</p></div>${canManage()?'<button class="btn primary" data-action="autoBracket">Tạo bracket từ BXH</button>':""}</div><div class="bracket"><div class="round"><h3>BÁN KẾT</h3>${semis.map(bracketMatch).join("")||'<div class="empty">Chưa tạo bán kết</div>'}</div><div class="round"><h3>CHUNG KẾT</h3><div style="margin-top:55px">${bracketMatch(final)}</div></div><div class="round"><h3>VÔ ĐỊCH</h3><div class="bracket-match" style="margin-top:110px;text-align:center;padding:22px"><div style="font-size:34px">🏆</div><strong>${final?.winner?teamName(final.winner):"Chưa xác định"}</strong></div></div></div></div>`;
 }
 function courts(){
   setHeader("Sân thi đấu","Theo dõi công suất từng sân");
@@ -169,6 +169,8 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
+  document.querySelectorAll('[data-action="autoSchedule"]').forEach(b=>b.onclick=openAutoScheduleModal);
+  document.querySelectorAll('[data-action="autoBracket"]').forEach(b=>b.onclick=openAutoBracketModal);
   document.querySelectorAll("[data-match-detail]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.matchDetail));
   document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
@@ -216,6 +218,14 @@ async function undoScore(){
   catch(e){toast(e.message==="NOTHING_TO_UNDO"?"Không còn thao tác để Undo.":"Không thể Undo: "+e.message)}
   finally{busy=false}
 }
+function selectDivisionDialog(title,buttonText,onSubmit){
+  if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
+  $("#genericTitle").textContent=title;
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung<select id="autoDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label><div class="field full"><button type="button" class="btn primary" id="autoSubmit">${buttonText}</button></div></div>`;
+  $("#genericDialog").showModal();$("#autoSubmit").onclick=()=>onSubmit($("#autoDivision").value);
+}
+function openAutoScheduleModal(){selectDivisionDialog("Tạo lịch vòng bảng","Tạo lịch",async id=>{try{const r=await API.generateRoundRobin(id);$("#genericDialog").close();await refresh();toast(`Đã tạo ${r.created} trận vòng bảng.`)}catch(e){toast("Không thể tạo lịch: "+e.message)}})}
+function openAutoBracketModal(){selectDivisionDialog("Tạo bracket","Tạo từ BXH",async id=>{try{await API.generateBracket(id);$("#genericDialog").close();await refresh();toast("Đã tạo bán kết và chung kết.")}catch(e){const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa kết thúc.",BRACKET_ALREADY_EXISTS:"Bracket đã tồn tại.",BRACKET_GENERATOR_SUPPORTS_TWO_GROUPS_TOP2:"Auto bracket hiện áp dụng cấu hình 2 bảng, Top 2."}[e.message]||e.message;toast(m)}})}
 async function openMatchModal(){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
   const refs=canManage()?await API.referees().catch(()=>[]):[];
