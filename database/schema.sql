@@ -202,3 +202,6 @@ create index if not exists idx_score_events_match on score_events(match_id, crea
 create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
 
 alter table score_events add column if not exists undone_at timestamptz;
+
+alter table players alter column rating set default 3.000;
+create index if not exists idx_players_rating on players(rating desc, full_name);
