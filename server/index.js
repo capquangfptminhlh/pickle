@@ -430,6 +430,9 @@ app.get("/admin",(req,res)=>res.sendFile(path.join(root,"admin.html")));
 app.get("/admin.html",(req,res)=>res.sendFile(path.join(root,"admin.html")));
 app.get("/login",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
+app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.html")));
+app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
+app.get("/about.html",(req,res)=>res.sendFile(path.join(root,"about.html")));
 app.get("/robots.txt",(req,res)=>res.sendFile(path.join(root,"robots.txt")));
 app.get("/sitemap.xml",(req,res)=>res.sendFile(path.join(root,"sitemap.xml")));
 
