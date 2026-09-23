@@ -18,6 +18,7 @@ const port=Number(process.env.PORT||8080);
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
 
+app.set("trust proxy",1);
 app.use(helmet({contentSecurityPolicy:false}));
 app.use(express.json({limit:"2mb"}));
 app.use(cookieParser());
@@ -118,6 +119,15 @@ app.post("/api/auth/login",wrap(async(req,res)=>{
   res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
 }));
 app.post("/api/auth/logout",(req,res)=>{res.clearCookie("pickle_token");res.json({ok:true})});
+app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
+  const current=String(req.body.currentPassword||""),next=String(req.body.newPassword||"");
+  if(next.length<10)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  const u=(await pool.query("select * from app_users where id=$1",[req.user.sub])).rows[0];
+  if(!u||!u.password_hash||!(await verifyPassword(current,u.password_hash)))return res.status(401).json({error:"INVALID_CURRENT_PASSWORD"});
+  const {hashPassword}=await import("./auth.js");const h=await hashPassword(next);
+  await pool.query("update app_users set password_hash=$1 where id=$2",[h,u.id]);
+  res.clearCookie("pickle_token");res.json({ok:true,reauthenticate:true});
+}));
 app.get("/api/auth/me",authRequired,(req,res)=>res.json({user:req.user}));
 
 app.get("/api/public/state",wrap(async(req,res)=>res.json(await loadState({publicOnly:true}))));
@@ -433,8 +443,17 @@ app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.html")));
 app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
 app.get("/about.html",(req,res)=>res.sendFile(path.join(root,"about.html")));
-app.get("/robots.txt",(req,res)=>res.sendFile(path.join(root,"robots.txt")));
-app.get("/sitemap.xml",(req,res)=>res.sendFile(path.join(root,"sitemap.xml")));
+app.get("/robots.txt",(req,res)=>{
+  const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+  res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nSitemap: ${base}/sitemap.xml\n`);
+});
+app.get("/sitemap.xml",wrap(async(req,res)=>{
+  const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+  const tours=(await pool.query("select id from tournaments where public_visible=true order by start_at desc")).rows;
+  const urls=[`${base}/`,`${base}/ranking.html`,`${base}/about.html`,...tours.map(t=>`${base}/tournament.html?id=${encodeURIComponent(t.id)}`)];
+  const xml='<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+urls.map(u=>`<url><loc>${u.replace(/&/g,"&amp;")}</loc></url>`).join("")+"</urlset>";
+  res.type("application/xml").send(xml);
+}));
 
 app.use((err,req,res,next)=>{
   console.error(err);
