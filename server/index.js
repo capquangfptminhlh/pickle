@@ -67,7 +67,7 @@ async function loadState({publicOnly=false}={}){
   courts.forEach((c,i)=>courtIndex[c.id]=c.sort_order||i+1);
 
   const matches=matchRows.map(m=>({
-    id:m.id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
+    id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
     current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version
   }));
