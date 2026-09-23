@@ -1,0 +1,8 @@
+query_or_intent,intent,canonical_owner,priority,verification
+giải pickleball,tournament discovery,/,P0,UNVERIFIED
+lịch thi đấu pickleball,event schedule,/tournament,P0,UNVERIFIED
+kết quả pickleball,live results,/live,P0,UNVERIFIED
+bảng xếp hạng pickleball,ranking,/ranking,P1,UNVERIFIED
+phần mềm quản lý giải pickleball,product/admin,/,P1,UNVERIFIED
+nhập điểm giải pickleball,operator workflow,/admin/scores,P0,UNVERIFIED
+bracket pickleball,tournament bracket,/tournament,P1,UNVERIFIED
