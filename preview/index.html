@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b7a4b">
+  <title>Pickle Tour — Giải đấu, Live Score & Ranking</title>
+  <meta name="description" content="Theo dõi giải pickleball, lịch thi đấu, live score, bảng xếp hạng và bracket.">
+  <link rel="stylesheet" href="../assets/styles.css">\n  <link rel="stylesheet" href="../assets/public.css">
+</head>
+<body class="public-body">
+  <header class="public-header">
+    <div class="public-container public-nav">
+      <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
+      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="ranking.html">Ranking</a><a href="#bracket">Bracket</a><a href="about.html">Giới thiệu</a></nav>
+      <a class="btn primary" href="admin.html">Quản trị</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="public-hero">
+      <div class="public-container public-hero-grid">
+        <div>
+          <span class="eyebrow">PICKLEBALL • LIVE TOURNAMENT</span>
+          <h1>Mọi trận đấu.<br><em>Một nơi theo dõi.</em></h1>
+          <p>Giải đấu, lịch sân, tỷ số trực tiếp, bảng xếp hạng và nhánh loại trực tiếp được cập nhật từ bàn điều hành.</p>
+          <div class="hero-actions"><a class="btn primary" href="#live">Xem trận đang live</a><a class="btn secondary" href="#tournaments">Xem giải đấu</a></div>
+        </div>
+        <div class="hero-live-card">
+          <div class="hero-live-top"><span><i></i> LIVE CENTER</span><small id="liveCount">0 trận</small></div>
+          <div id="heroLive"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tournaments" class="public-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><p>Đang diễn ra, sắp mở và đã kết thúc.</p></div>
+        <div id="publicTours" class="page-grid"></div>
+      </div>
+    </section>
+
+    <section id="live" class="public-section soft-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">COURTSIDE</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài trên cùng trình duyệt.</p></div>
+        <div id="publicMatches" class="public-match-grid"></div>
+      </div>
+    </section>
+
+    <section id="ranking" class="public-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng vòng bảng</h2></div><p>Xếp theo số trận thắng, hiệu số và điểm ghi.</p></div>
+        <div id="publicStandings" class="grid-2"></div>
+      </div>
+    </section>
+
+    <section id="bracket" class="public-section soft-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div><p>Người thắng bán kết tự động lên trận chung kết.</p></div>
+        <div id="publicBracket"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Demo tournament operations platform • Dữ liệu minh họa</span></div></footer>
+  <script src="preview-api.js"></script>
+  <script src="preview-public.js"></script>
+</body>
+</html>
