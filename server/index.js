@@ -131,8 +131,65 @@ app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
 }));
 app.get("/api/auth/me",authRequired,(req,res)=>res.json({user:req.user}));
 
+app.get("/api/public/players",wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,c.name club_name
+    from players p left join clubs c on c.id=p.club_id
+    where p.active=true order by p.rating desc nulls last,p.full_name
+  `);
+  res.json(rows);
+}));
+app.get("/api/public/clubs",wrap(async(req,res)=>{
+  const {rows}=await pool.query("select id,name,slug,city from clubs order by name");res.json(rows);
+}));
+
 app.get("/api/public/state",wrap(async(req,res)=>res.json(await loadState({publicOnly:true}))));
 app.get("/api/admin/state",authRequired,wrap(async(req,res)=>res.json(await loadState())));
+
+app.get("/api/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,c.id club_id,c.name club_name
+    from players p left join clubs c on c.id=p.club_id order by p.full_name
+  `);res.json(rows);
+}));
+app.post("/api/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {fullName,nickname,gender,rating=3,phone,clubId}=req.body;if(!fullName)return res.status(400).json({error:"NAME_REQUIRED"});
+  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id) values($1,$2,$3,$4,$5,$6) returning *",[fullName,nickname||null,gender||null,rating,phone||null,clubId||null])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'CREATE_PLAYER',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
+}));
+app.patch("/api/players/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query(`
+    update players set full_name=coalesce($1,full_name),nickname=coalesce($2,nickname),gender=coalesce($3,gender),
+      phone=coalesce($4,phone),club_id=coalesce($5,club_id),active=coalesce($6,active)
+    where id=$7 returning *
+  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,req.body.phone??null,req.body.clubId??null,req.body.active??null,req.params.id])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+app.post("/api/players/:id/rating-adjust",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const delta=Number(req.body.delta),reason=String(req.body.reason||"").trim();
+  if(!Number.isFinite(delta)||Math.abs(delta)>1||!reason)return res.status(400).json({error:"DELTA_AND_REASON_REQUIRED"});
+  const row=await tx(async c=>{
+    const p=(await c.query("select * from players where id=$1 for update",[req.params.id])).rows[0];
+    if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const before=Number(p.rating||0),after=Math.max(0,before+delta);
+    await c.query("update players set rating=$1 where id=$2",[after,p.id]);
+    await c.query("insert into rating_history(player_id,before_rating,delta,after_rating,reason) values($1,$2,$3,$4,$5)",[p.id,before,delta,after,reason]);
+    await audit(c,req.user,"player",p.id,"ADJUST_RATING",{rating:before},{rating:after},reason);
+    return {...p,rating:after};
+  });res.json(row);
+}));
+app.get("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from clubs order by name");res.json(rows);
+}));
+app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const name=String(req.body.name||"").trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  let slug=slugify(name);if((await pool.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-4)}`;
+  const row=(await pool.query("insert into clubs(name,slug,city) values($1,$2,$3) returning *",[name,slug,req.body.city||null])).rows[0];res.status(201).json(row);
+}));
+app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
+  await pool.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[req.params.id,playerId]);res.status(201).json({ok:true});
+}));
 
 app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {name,venue,startAt,eventType="doubles",format="pool_to_knockout"}=req.body;
