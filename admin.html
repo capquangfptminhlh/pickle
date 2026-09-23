@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b7a4b">
   <title>Pickle Tour Admin</title>
-  <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">
+  <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">\n  <meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -17,14 +17,11 @@
       </div>
       <nav id="nav"></nav>
       <div class="side-bottom">
-        <label class="role-label">Vai trò
-          <select id="roleSelect">
-            <option value="super">Super Admin</option>
-            <option value="organizer">BTC giải</option>
-            <option value="referee">Trọng tài</option>
-          </select>
-        </label>
-        <button class="ghost danger" id="resetDemo">Khôi phục dữ liệu demo</button>
+        <div class="role-label">Đăng nhập
+          <strong id="userName" style="color:#fff;font-size:13px">...</strong>
+          <span id="userRole">...</span>
+        </div>
+        <button class="ghost" id="logoutBtn">Đăng xuất</button>
       </div>
     </aside>
 
@@ -38,7 +35,8 @@
           </div>
         </div>
         <div class="top-actions">
-          <a class="mini" href="index.html" style="text-decoration:none">Trang công khai</a>\n          <span class="live-pill"><i></i> LIVE</span>
+          <a class="mini" href="index.html" style="text-decoration:none">Trang công khai</a>
+          <span class="live-pill"><i></i> LIVE</span>
           <button class="btn primary" id="quickTournament">＋ Tạo giải</button>
         </div>
       </header>
@@ -94,7 +92,7 @@
         <button type="button" class="btn dark" id="finishSet">Hoàn tất set</button>
         <button type="button" class="btn primary" id="finishMatch">Kết thúc trận</button>
       </div>
-      <p class="score-note">Mọi thay đổi kết quả được ghi vào nhật ký thao tác demo.</p>
+      <p class="score-note">Mọi thay đổi kết quả được lưu trên server và ghi audit log.</p>
     </form>
   </dialog>
 
@@ -108,6 +106,8 @@
     </form>
   </dialog>
 
-  <script src="assets/app.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="assets/api.js"></script>
+  <script src="assets/admin-app.js"></script>
 </body>
 </html>
