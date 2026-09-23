@@ -61,7 +61,7 @@ async function loadState({publicOnly=false}={}){
     if(sa){sa.pf+=ap;sa.pa+=bp;m.winner_team_id===m.team_a_id?sa.w++:sa.l++}
     if(sb){sb.pf+=bp;sb.pa+=ap;m.winner_team_id===m.team_b_id?sb.w++:sb.l++}
   }
-  const teams=teamRows.map(t=>({id:t.id,name:t.name,club:t.club_name||"Tự do",group:t.group_code||"",seed:t.seed,...stats.get(t.id)}));
+  const teams=teamRows.map(t=>({id:t.id,divisionId:t.division_id,name:t.name,club:t.club_name||"Tự do",group:t.group_code||"",seed:t.seed,...stats.get(t.id)}));
   const courtIndex={};
   const courts=(await pool.query("select * from courts where tournament_id=any($1::uuid[]) order by sort_order",[tournamentIds])).rows;
   courts.forEach((c,i)=>courtIndex[c.id]=c.sort_order||i+1);
@@ -78,7 +78,7 @@ async function loadState({publicOnly=false}={}){
     time:nowTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type
   }));
   for(const t of tournaments)t.teams=teamRows.filter(x=>divisions.some(d=>d.id===x.division_id&&d.tournament_id===t.id)).length;
-  return {tournaments,teams,matches,audit};
+  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count})),teams,matches,audit};
 }
 
 async function audit(c,user,entityType,entityId,action,beforeData,afterData,reason){
