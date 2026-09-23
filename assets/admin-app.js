@@ -130,11 +130,28 @@ async function refereesPage(){
     <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td></tr>`).join("")}</tbody></table></div>
   </div>`;
 }
-function payments(){setHeader("Thanh toán","Đối soát đăng ký và biên lai");return '<div class="panel"><div class="empty">Module thanh toán server đang chờ dữ liệu đăng ký thực tế.</div></div>'}
+async function payments(){
+  setHeader("Thanh toán","Đăng ký giải, phí tham dự và đối soát");
+  if(!canManage())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
+  const rows=await API.registrations().catch(()=>[]);
+  return `<div class="panel">
+    <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div><button class="btn primary" data-action="newRegistration">＋ Tạo đăng ký</button></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Giải</th><th>Nội dung</th><th>Đội</th><th>Số tiền</th><th>Đăng ký</th><th>Thanh toán</th><th>Thao tác</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${r.tournament_name}</td><td>${r.division_name}</td><td><b>${r.team_name||"—"}</b></td><td>${r.amount?Number(r.amount).toLocaleString("vi-VN")+" đ":"—"}</td><td>${r.status}</td><td>${r.payment_status}</td><td><div class="actions">${!r.payment_id?`<button class="mini" data-add-payment="${r.id}">Ghi nhận CK</button>`:""}${r.payment_id&&r.payment_review_status==="pending"?`<button class="mini" data-review-payment="${r.payment_id}" data-status="approved">Duyệt</button><button class="mini" data-review-payment="${r.payment_id}" data-status="rejected">Từ chối</button>`:""}</div></td></tr>`).join("")}
+    </tbody></table></div>
+  </div>`;
+}
 function auditPage(){setHeader("Nhật ký hệ thống","Theo dõi mọi thay đổi điểm và quản trị");return `<div class="panel">${state.audit.map(a=>`<div style="padding:13px 0;border-bottom:1px solid #edf1ef"><b>${a.action}</b><div style="font-size:12px;color:#73847b;margin-top:4px">${a.time} • ${a.user} • ${a.detail}</div></div>`).join("")||'<div class="empty">Chưa có log.</div>'}</div>`}
 function settings(){
   setHeader("Cấu hình","Rule thi đấu theo từng nội dung");
-  return `<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Nội dung</th><th>Loại</th><th>Format</th><th>Best of</th><th>Điểm</th><th>Win by 2</th><th>Đi tiếp</th></tr></thead><tbody>${state.divisions.map(d=>`<tr><td><b>${d.name}</b></td><td>${d.eventType}</td><td>${d.format}</td><td>${d.bestOf}</td><td>${d.pointsToWin}</td><td>${d.winByTwo?"Có":"Không"}</td><td>Top ${d.advanceCount}</td></tr>`).join("")}</tbody></table></div></div>`;
+  return `<div class="page-grid">${state.divisions.map(d=>`<div class="panel"><div class="panel-head"><div><h2>${d.name}</h2><p>${d.eventType} • ${d.format}</p></div></div>
+    <div class="form-grid">
+      <label class="field">Best of<select data-rule-best="${d.id}" ${canManage()?"":"disabled"}><option value="1" ${d.bestOf===1?"selected":""}>1</option><option value="3" ${d.bestOf===3?"selected":""}>3</option><option value="5" ${d.bestOf===5?"selected":""}>5</option></select></label>
+      <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}><option value="11" ${d.pointsToWin===11?"selected":""}>11</option><option value="15" ${d.pointsToWin===15?"selected":""}>15</option><option value="21" ${d.pointsToWin===21?"selected":""}>21</option></select></label>
+      <label class="field">Top đi tiếp<input data-rule-advance="${d.id}" type="number" min="1" max="16" value="${d.advanceCount}" ${canManage()?"":"disabled"}></label>
+      <label class="field" style="align-content:end"><span><input data-rule-win2="${d.id}" type="checkbox" ${d.winByTwo?"checked":""} ${canManage()?"":"disabled"}> Thắng cách 2</span></label>
+      ${canManage()?`<div class="field full"><button class="btn primary" data-save-rules="${d.id}">Lưu cấu hình</button></div>`:""}
+    </div></div>`).join("")}</div>`;
 }
 async function render(){
   renderNav();
@@ -150,6 +167,10 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
+  document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
+  document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
+  document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
+  document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
 }
 function divisionForMatch(m){return state.divisions.find(d=>d.id===m.divisionId)}
 function openScore(id){
@@ -218,6 +239,30 @@ function openTeamModal(){
   </div>`;
   $("#genericDialog").showModal();
   $("#saveTeam").onclick=async()=>{const name=$("#teamName").value.trim();if(!name)return toast("Nhập tên cặp.");try{await API.createTeam($("#teamDivision").value,{name,club:$("#teamClub").value,group:$("#teamGroup").value||"A",seed:Number($("#teamSeed").value)||null});$("#genericDialog").close();await refresh();toast("Đã thêm cặp.")}catch(e){toast("Không thể thêm cặp: "+e.message)}};
+}
+async function saveRules(id){
+  try{
+    await API.updateDivision(id,{
+      bestOf:Number(document.querySelector(`[data-rule-best="${id}"]`).value),
+      pointsToWin:Number(document.querySelector(`[data-rule-points="${id}"]`).value),
+      advanceCount:Number(document.querySelector(`[data-rule-advance="${id}"]`).value),
+      winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked
+    });
+    await refresh();toast("Đã lưu rule thi đấu.");
+  }catch(e){toast("Không thể lưu: "+e.message)}
+}
+function openRegistrationModal(){
+  if(!state.divisions.length||!state.teams.length)return toast("Chưa có nội dung hoặc đội.");
+  $("#genericTitle").textContent="Tạo đăng ký";
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung<select id="regDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label><label class="field full">Đội<select id="regTeam">${state.teams.map(t=>`<option value="${t.id}" data-div="${t.divisionId}">${t.name}</option>`).join("")}</select></label><label class="field full">Lệ phí<input id="regAmount" type="number" min="0" placeholder="VD: 500000"></label><div class="field full"><button type="button" class="btn primary" id="saveRegistration">Tạo đăng ký</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveRegistration").onclick=async()=>{try{await API.createRegistration($("#regDivision").value,{teamId:$("#regTeam").value,amount:Number($("#regAmount").value)||null});$("#genericDialog").close();await render();toast("Đã tạo đăng ký.")}catch(e){toast("Không thể tạo: "+e.message)}};
+}
+function openPaymentModal(registrationId){
+  $("#genericTitle").textContent="Ghi nhận chuyển khoản";
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mã giao dịch / nội dung CK<input id="payRef"></label><label class="field full">Link biên lai (nếu có)<input id="payReceipt" type="url"></label><div class="field full"><button type="button" class="btn primary" id="savePayment">Ghi nhận</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#savePayment").onclick=async()=>{try{await API.addPayment(registrationId,{method:"bank_transfer",referenceCode:$("#payRef").value,receiptUrl:$("#payReceipt").value});$("#genericDialog").close();await render();toast("Đã ghi nhận, chờ duyệt.")}catch(e){toast("Không thể ghi nhận: "+e.message)}};
 }
 function openRefereeModal(){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
