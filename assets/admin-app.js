@@ -14,7 +14,7 @@ const NAV=[
   ["audit","☷","Nhật ký"],
   ["settings","⚙","Cấu hình"]
 ];
-let state={tournaments:[],divisions:[],teams:[],matches:[],audit:[]};
+let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
 let user=null,page="dashboard",activeMatch=null,busy=false;
 
 const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",player:"VĐV"}[r]||r);
@@ -93,7 +93,7 @@ function matchesPage(scoreOnly=false){
   setHeader(scoreOnly?"Nhập điểm":"Lịch & trận đấu",scoreOnly?"Giao diện courtside cho BTC/trọng tài":"Điều phối sân, giờ đấu và trạng thái");
   const arr=scoreOnly?state.matches.filter(m=>m.status!=="done"):state.matches;
   return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${[1,2,3,4,5,6].map(x=>`<option>${x}</option>`).join("")}</select>
-    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select></div>
+    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn primary" data-action="newMatch">＋ Tạo trận</button>':""}</div>
     <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p>${arr.length} trận</p></div></div>
       <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}</div>
     </div>
@@ -168,6 +168,8 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
+  document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
+  document.querySelectorAll("[data-match-detail]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.matchDetail));
   document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
   document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
@@ -213,6 +215,34 @@ async function undoScore(){
   try{await API.undo(activeMatch.id);await refresh({keepDialog:true});toast("Đã Undo và ghi audit log.")}
   catch(e){toast(e.message==="NOTHING_TO_UNDO"?"Không còn thao tác để Undo.":"Không thể Undo: "+e.message)}
   finally{busy=false}
+}
+async function openMatchModal(){
+  if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
+  const refs=canManage()?await API.referees().catch(()=>[]):[];
+  $("#genericTitle").textContent="Tạo trận đấu";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Nội dung<select id="mDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
+    <label class="field full">Đội A<select id="mTeamA"></select></label>
+    <label class="field full">Đội B<select id="mTeamB"></select></label>
+    <label class="field">Vòng / Stage<input id="mStage" value="Vòng bảng"></label>
+    <label class="field">Giờ đấu<input id="mTime" type="datetime-local"></label>
+    <label class="field">Sân<select id="mCourt"><option value="">Chưa gán</option>${state.courts.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label>
+    <label class="field">Trọng tài<select id="mRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}">${r.display_name}</option>`).join("")}</select></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveMatch">Tạo trận</button></div>
+  </div>`;
+  const syncTeams=()=>{const did=$("#mDivision").value,ts=state.teams.filter(t=>t.divisionId===did),opts=ts.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");$("#mTeamA").innerHTML=opts;$("#mTeamB").innerHTML=opts;if(ts.length>1)$("#mTeamB").selectedIndex=1};
+  $("#genericDialog").showModal();syncTeams();$("#mDivision").onchange=syncTeams;
+  $("#saveMatch").onclick=async()=>{try{await API.createMatch($("#mDivision").value,{teamAId:$("#mTeamA").value,teamBId:$("#mTeamB").value,courtId:$("#mCourt").value||null,refereeUserId:$("#mRef").value||null,stage:$("#mStage").value||"Vòng bảng",scheduledAt:$("#mTime").value||null});$("#genericDialog").close();await refresh();toast("Đã tạo trận.")}catch(e){toast("Không thể tạo trận: "+e.message)}};
+}
+async function openMatchDetail(id){
+  const m=state.matches.find(x=>x.id===id);if(!m)return;
+  const refs=canManage()?await API.referees().catch(()=>[]):[];
+  $("#genericTitle").textContent="Chi tiết trận";
+  $("#genericBody").innerHTML=`<div class="panel" style="box-shadow:none;border:0;padding:0"><p><b>${teamName(m.a)}</b> vs <b>${teamName(m.b)}</b></p><p style="color:#708078">${m.stage} • ${m.time} • Sân ${m.court}</p>
+    ${canManage()?`<div class="form-grid"><label class="field">Sân<select id="detailCourt"><option value="">Giữ nguyên</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label><label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label><label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label><div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div></div>`:""}
+  </div>`;
+  $("#genericDialog").showModal();
+  const btn=$("#saveAssignment");if(btn)btn.onclick=async()=>{try{await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,scheduledAt:$("#detailTime").value||null});$("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.")}catch(e){toast("Không thể cập nhật: "+e.message)}};
 }
 function openTournamentModal(){
   $("#genericTitle").textContent="Tạo giải mới";
