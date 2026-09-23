@@ -1,0 +1,22 @@
+version: 1
+observed_at: 2026-09-23
+decision: PASS_VERTICAL_SLICE
+selected_direction: courtside_operator_console
+candidates_considered:
+  - marketing_home_first
+  - calendar_first
+  - bracket_first
+  - club_crm_first
+  - courtside_operator_console
+reason:
+  - fastest access to active matches and score entry
+  - mobile operator workflow is the core user job
+desktop:
+  navigation: persistent left operations rail
+  content: live center plus context panels
+mobile:
+  navigation: collapsible rail
+  scoring: full-width touch console with large score controls
+anti_template:
+  rejected: generic SaaS hero plus feature-card grid
+visual_generation: none_required
