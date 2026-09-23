@@ -69,7 +69,7 @@ async function loadState({publicOnly=false}={}){
   const matches=matchRows.map(m=>({
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
-    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version
+    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null
   }));
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
@@ -261,6 +261,61 @@ app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
     return r;
   });
   io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
+}));
+
+
+app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const bestOf=req.body.bestOf??before.best_of,points=req.body.pointsToWin??before.points_to_win,winByTwo=req.body.winByTwo??before.win_by_two,advance=req.body.advanceCount??before.advance_count;
+  if(![1,3,5].includes(Number(bestOf))||![11,15,21].includes(Number(points)))return res.status(400).json({error:"INVALID_RULES"});
+  const after=(await pool.query("update divisions set best_of=$1,points_to_win=$2,win_by_two=$3,advance_count=$4 where id=$5 returning *",[bestOf,points,Boolean(winByTwo),advance,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_RULES',$3,$4)",[req.user.sub,after.id,before,after]);
+  await emitState();res.json(after);
+}));
+
+app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {teamAId,teamBId,courtId,stage="Vòng bảng",scheduledAt,refereeUserId}=req.body;
+  if(!teamAId||!teamBId||teamAId===teamBId)return res.status(400).json({error:"INVALID_TEAMS"});
+  const row=(await pool.query(`
+    insert into matches(division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status)
+    values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
+  `,[req.params.id,courtId||null,refereeUserId||null,teamAId,teamBId,stage,scheduledAt||null])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'match',$2,'CREATE_MATCH',$3)",[req.user.sub,row.id,row]);
+  await emitState();res.status(201).json(row);
+}));
+
+app.get("/api/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select r.id,r.status,r.payment_status,r.amount,r.created_at,t.name team_name,d.name division_name,tr.name tournament_name,
+      p.id payment_id,p.status payment_review_status,p.method,p.reference_code,p.receipt_url
+    from registrations r
+    join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id
+    left join lateral (select * from payment_records where registration_id=r.id order by created_at desc limit 1) p on true
+    order by r.created_at desc
+  `);res.json(rows);
+}));
+app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
+  const row=(await pool.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'registration',$2,'CREATE_REGISTRATION',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {method,referenceCode,receiptUrl}=req.body;
+  const row=(await pool.query("insert into payment_records(registration_id,method,reference_code,receipt_url,status) values($1,$2,$3,$4,'pending') returning *",[req.params.id,method||"bank_transfer",referenceCode||null,receiptUrl||null])).rows[0];
+  await pool.query("update registrations set payment_status='pending' where id=$1",[req.params.id]);res.status(201).json(row);
+}));
+app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  if(!["approved","rejected","refunded"].includes(req.body.status))return res.status(400).json({error:"INVALID_STATUS"});
+  const row=await tx(async c=>{
+    const p=(await c.query("update payment_records set status=$1,reviewed_by=$2,reviewed_at=now() where id=$3 returning *",[req.body.status,req.user.sub,req.params.id])).rows[0];
+    if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const mapped=req.body.status==="approved"?"paid":req.body.status==="refunded"?"refunded":"unpaid";
+    await c.query("update registrations set payment_status=$1 where id=$2",[mapped,p.registration_id]);
+    await audit(c,req.user,"payment",p.id,"REVIEW_PAYMENT",null,p,req.body.status);return p;
+  });res.json(row);
 }));
 
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
