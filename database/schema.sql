@@ -148,3 +148,55 @@ create index if not exists idx_matches_division_status on matches(division_id,st
 create index if not exists idx_matches_court_time on matches(court_id,scheduled_at);
 create index if not exists idx_teams_division_group on teams(division_id,group_code);
 create index if not exists idx_audit_entity on audit_logs(entity_type,entity_id,created_at desc);
+
+
+-- Production auth/scoring extensions
+alter table app_users add column if not exists password_hash text;
+alter table app_users add column if not exists tournament_id_scope uuid;
+alter table matches add column if not exists current_score_a smallint not null default 0 check (current_score_a >= 0);
+alter table matches add column if not exists current_score_b smallint not null default 0 check (current_score_b >= 0);
+
+create table if not exists score_events (
+  id bigserial primary key,
+  match_id uuid not null references matches(id) on delete cascade,
+  actor_user_id uuid references app_users(id) on delete set null,
+  event_type text not null check (event_type in ('POINT','SET_FINISH','MATCH_FINISH','CORRECTION','UNDO')),
+  payload jsonb not null default '{}'::jsonb,
+  match_version integer not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists sponsors (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references tournaments(id) on delete cascade,
+  name text not null,
+  logo_url text,
+  website_url text,
+  tier text,
+  sort_order integer not null default 0
+);
+
+create table if not exists payment_records (
+  id uuid primary key default gen_random_uuid(),
+  registration_id uuid not null references registrations(id) on delete cascade,
+  method text,
+  reference_code text,
+  receipt_url text,
+  status text not null default 'pending' check (status in ('pending','approved','rejected','refunded')),
+  reviewed_by uuid references app_users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references app_users(id) on delete cascade,
+  type text not null,
+  title text not null,
+  body text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_score_events_match on score_events(match_id, created_at desc);
+create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
