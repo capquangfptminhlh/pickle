@@ -10,7 +10,7 @@ async function seedAdmin(){
   await pool.query(`
     insert into app_users(email,display_name,role,password_hash)
     values($1,'Super Admin','super_admin',$2)
-    on conflict(email) do update set password_hash=excluded.password_hash, active=true
+    on conflict(email) do nothing
   `,[email.toLowerCase(),passwordHash]);
 }
 
