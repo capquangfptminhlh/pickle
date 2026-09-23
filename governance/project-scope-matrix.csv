@@ -1,0 +1,16 @@
+area,priority,launch_decision,owner_url,notes
+Public tournament discovery,P0,BUILD_LAUNCH,/,Upcoming/live/completed tournaments
+Tournament detail,P0,BUILD_LAUNCH,/tournament,Overview teams schedule standings bracket
+Live results,P0,BUILD_LAUNCH,/live,Public court status and results
+Player ranking,P1,BUILD_LAUNCH,/ranking,Search/filter player leaderboard
+Admin dashboard,P0,BUILD_LAUNCH,/admin,Operator KPI and live center
+Tournament admin,P0,BUILD_LAUNCH,/admin/tournaments,Create/edit tournament
+Participants,P0,BUILD_LAUNCH,/admin/players,Teams and player roster
+Scheduling,P0,BUILD_LAUNCH,/admin/matches,Court and time assignment
+Score console,P0,BUILD_LAUNCH,/admin/scores,Mobile score entry and undo
+Standings,P0,BUILD_LAUNCH,/admin/standings,Automatic pool table
+Bracket,P0,BUILD_LAUNCH,/admin/bracket,Knockout progression
+Courts,P1,BUILD_LAUNCH,/admin/courts,Live court monitor
+Referees,P1,BUILD_POST_LAUNCH,/admin/referees,Assignment and account permissions
+Payments,P1,BUILD_POST_LAUNCH,/admin/payments,Registration payment reconciliation
+Club CRM,P2,BUILD_POST_LAUNCH,/admin/clubs,Club roster and activities
