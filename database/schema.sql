@@ -200,3 +200,5 @@ create table if not exists notifications (
 
 create index if not exists idx_score_events_match on score_events(match_id, created_at desc);
 create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
+
+alter table score_events add column if not exists undone_at timestamptz;
