@@ -2,112 +2,67 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b7a4b">
-  <title>Pickle Tour Admin</title>
-  <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">
+  <title>Pickle Tour — Giải đấu, Live Score & Ranking</title>
+  <meta name="description" content="Theo dõi giải pickleball, lịch thi đấu, live score, bảng xếp hạng và bracket.">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">P</div>
-        <div><strong>PICKLE TOUR</strong><span>TOURNAMENT OS</span></div>
-      </div>
-      <nav id="nav"></nav>
-      <div class="side-bottom">
-        <label class="role-label">Vai trò
-          <select id="roleSelect">
-            <option value="super">Super Admin</option>
-            <option value="organizer">BTC giải</option>
-            <option value="referee">Trọng tài</option>
-          </select>
-        </label>
-        <button class="ghost danger" id="resetDemo">Khôi phục dữ liệu demo</button>
-      </div>
-    </aside>
+<body class="public-body">
+  <header class="public-header">
+    <div class="public-container public-nav">
+      <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
+      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="#ranking">Ranking</a><a href="#bracket">Bracket</a></nav>
+      <a class="btn primary" href="admin.html">Quản trị</a>
+    </div>
+  </header>
 
-    <main class="main">
-      <header class="topbar">
-        <div class="top-left">
-          <button class="icon-btn mobile-menu" id="mobileMenu" aria-label="Mở menu">☰</button>
-          <div>
-            <h1 id="pageTitle">Tổng quan</h1>
-            <p id="pageSub">Điều hành giải đấu theo thời gian thực</p>
-          </div>
-        </div>
-        <div class="top-actions">
-          <span class="live-pill"><i></i> LIVE</span>
-          <button class="btn primary" id="quickTournament">＋ Tạo giải</button>
-        </div>
-      </header>
-
-      <section id="content" class="content"></section>
-    </main>
-  </div>
-
-  <dialog id="scoreDialog" class="score-dialog">
-    <form method="dialog" class="score-card" id="scoreForm">
-      <div class="score-head">
+  <main>
+    <section class="public-hero">
+      <div class="public-container public-hero-grid">
         <div>
-          <span id="scoreMeta" class="eyebrow"></span>
-          <h2 id="scoreTitle">Nhập điểm</h2>
+          <span class="eyebrow">PICKLEBALL • LIVE TOURNAMENT</span>
+          <h1>Mọi trận đấu.<br><em>Một nơi theo dõi.</em></h1>
+          <p>Giải đấu, lịch sân, tỷ số trực tiếp, bảng xếp hạng và nhánh loại trực tiếp được cập nhật từ bàn điều hành.</p>
+          <div class="hero-actions"><a class="btn primary" href="#live">Xem trận đang live</a><a class="btn secondary" href="#tournaments">Xem giải đấu</a></div>
         </div>
-        <button class="icon-btn" value="cancel" aria-label="Đóng">✕</button>
-      </div>
-
-      <div id="scoreSets" class="set-history"></div>
-
-      <div class="score-board">
-        <div class="team-row">
-          <div><small>ĐỘI A</small><strong id="teamAName"></strong></div>
-          <div class="score-control">
-            <button type="button" data-score="a" data-delta="-1">−</button>
-            <span id="scoreA">0</span>
-            <button type="button" data-score="a" data-delta="1">＋</button>
-          </div>
-        </div>
-        <div class="team-row">
-          <div><small>ĐỘI B</small><strong id="teamBName"></strong></div>
-          <div class="score-control">
-            <button type="button" data-score="b" data-delta="-1">−</button>
-            <span id="scoreB">0</span>
-            <button type="button" data-score="b" data-delta="1">＋</button>
-          </div>
+        <div class="hero-live-card">
+          <div class="hero-live-top"><span><i></i> LIVE CENTER</span><small id="liveCount">0 trận</small></div>
+          <div id="heroLive"></div>
         </div>
       </div>
+    </section>
 
-      <div class="score-options">
-        <label>Điểm thắng set
-          <select id="targetScore">
-            <option value="11">11 điểm</option>
-            <option value="15">15 điểm</option>
-            <option value="21">21 điểm</option>
-          </select>
-        </label>
-        <label><input id="winByTwo" type="checkbox" checked> Thắng cách 2</label>
+    <section id="tournaments" class="public-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><p>Đang diễn ra, sắp mở và đã kết thúc.</p></div>
+        <div id="publicTours" class="page-grid"></div>
       </div>
+    </section>
 
-      <div class="score-actions">
-        <button type="button" class="btn secondary" id="undoScore">↶ Undo</button>
-        <button type="button" class="btn dark" id="finishSet">Hoàn tất set</button>
-        <button type="button" class="btn primary" id="finishMatch">Kết thúc trận</button>
+    <section id="live" class="public-section soft-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">COURTSIDE</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài trên cùng trình duyệt.</p></div>
+        <div id="publicMatches" class="public-match-grid"></div>
       </div>
-      <p class="score-note">Mọi thay đổi kết quả được ghi vào nhật ký thao tác demo.</p>
-    </form>
-  </dialog>
+    </section>
 
-  <dialog id="genericDialog" class="generic-dialog">
-    <form method="dialog" class="modal-card" id="genericForm">
-      <div class="score-head">
-        <h2 id="genericTitle">Tạo mới</h2>
-        <button class="icon-btn" value="cancel">✕</button>
+    <section id="ranking" class="public-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng vòng bảng</h2></div><p>Xếp theo số trận thắng, hiệu số và điểm ghi.</p></div>
+        <div id="publicStandings" class="grid-2"></div>
       </div>
-      <div id="genericBody"></div>
-    </form>
-  </dialog>
+    </section>
 
-  <script src="assets/app.js"></script>
+    <section id="bracket" class="public-section soft-section">
+      <div class="public-container">
+        <div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div><p>Người thắng bán kết tự động lên trận chung kết.</p></div>
+        <div id="publicBracket"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Demo tournament operations platform • Dữ liệu minh họa</span></div></footer>
+  <script src="assets/public.js"></script>
 </body>
 </html>
