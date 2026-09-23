@@ -40,6 +40,7 @@ async function loadState({publicOnly=false}={}){
   if(!tournamentIds.length)return {tournaments:[],teams:[],matches:[],audit:[]};
 
   const divisions=(await pool.query("select * from divisions where tournament_id=any($1::uuid[])",[tournamentIds])).rows;
+  for(const t of tournaments)t.format=divisions.filter(d=>d.tournament_id===t.id).map(d=>d.name).join(" • ")||"Tournament";
   const divisionIds=divisions.map(d=>d.id);
   const teamRows=divisionIds.length?(await pool.query(`
     select t.*,c.name club_name from teams t left join clubs c on c.id=t.club_id
@@ -150,6 +151,33 @@ app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(a
     return {tournament:t,division:d};
   });
   await emitState();res.status(201).json(data);
+}));
+
+
+app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {name,eventType="doubles",format="pool_to_knockout",bestOf=3,pointsToWin=11,winByTwo=true,advanceCount=2}=req.body;
+  if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
+  if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return res.status(400).json({error:"INVALID_FORMAT"});
+  const row=(await pool.query(`
+    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count)
+    values($1,$2,$3,$4,$5,$6,$7,$8) returning *
+  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'division',$2,'CREATE_DIVISION',$3)",[req.user.sub,row.id,row]);
+  await emitState();res.status(201).json(row);
+}));
+
+app.post("/api/tournaments/:id/courts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const name=String(req.body.name||"").trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const sortOrder=req.body.sortOrder??Number((await pool.query("select coalesce(max(sort_order),0)+1 n from courts where tournament_id=$1",[req.params.id])).rows[0].n);
+  const row=(await pool.query("insert into courts(tournament_id,name,sort_order,active) values($1,$2,$3,true) returning *",[req.params.id,name,sortOrder])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'court',$2,'CREATE_COURT',$3)",[req.user.sub,row.id,row]);
+  await emitState();res.status(201).json(row);
+}));
+
+app.patch("/api/courts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("update courts set name=coalesce($1,name),active=coalesce($2,active),sort_order=coalesce($3,sort_order) where id=$4 returning *",[req.body.name??null,req.body.active??null,req.body.sortOrder??null,req.params.id])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});await emitState();res.json(row);
 }));
 
 app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
