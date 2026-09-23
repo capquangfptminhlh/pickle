@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin.html
-Disallow: /database/
-Disallow: /docs/
-Disallow: /governance/
