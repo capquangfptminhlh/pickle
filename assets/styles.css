@@ -688,3 +688,5 @@ body.app-drawer-open{overflow:hidden}
     min-height:46px;border-radius:14px;background:#f8faf9
   }
 }
+
+.admin-quick-grid button>span svg{width:19px;height:19px;display:block}
