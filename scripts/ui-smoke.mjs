@@ -155,7 +155,7 @@ await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot
 await shot.screenshot({path:"ui-artifacts/mobile-public.png"});
 
 await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
-const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.click();await shot.waitForTimeout(250);
+const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(250);
 await shot.screenshot({path:"ui-artifacts/mobile-admin-home.png",fullPage:true});
 
 const scoreNav=shot.locator('[data-dock-page="scores"]');if(await scoreNav.count())await scoreNav.click();await shot.waitForTimeout(250);
