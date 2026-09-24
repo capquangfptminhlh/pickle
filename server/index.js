@@ -113,7 +113,7 @@ async function loadState({publicOnly=false}={}){
   const matches=matchRows.map(m=>({
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
-    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null
+    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null
   }));
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
@@ -480,6 +480,33 @@ app.post("/api/matches/:id/finish-set",authRequired,wrap(async(req,res)=>{
   io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
 }));
 
+app.post("/api/matches/:id/special-result",authRequired,wrap(async(req,res)=>{
+  const reason=String(req.body.reason||"").trim();
+  const note=String(req.body.note||"").trim();
+  const allowedReasons=["walkover","no_show","retired","injury","disqualified"];
+  if(!allowedReasons.includes(reason))return res.status(400).json({error:"INVALID_RESULT_REASON"});
+  const updated=await tx(async c=>{
+    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
+    if(m.status==="completed")throw Object.assign(new Error("MATCH_COMPLETED"),{status:409});
+    const winner=req.body.winnerTeamId;
+    if(!winner||![m.team_a_id,m.team_b_id].includes(winner))throw Object.assign(new Error("INVALID_WINNER"),{status:400});
+    const loser=winner===m.team_a_id?m.team_b_id:m.team_a_id;
+    const before={status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side,loserNextMatchId:m.loser_next_match_id,loserNextSide:m.loser_next_match_side};
+    const r=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason=$2,result_note=$3,version=version+1 where id=$4 returning *",[winner,reason,note||null,m.id])).rows[0];
+    if(m.next_match_id&&m.next_match_side){
+      const col=m.next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[winner,m.next_match_id]);
+    }
+    if(loser&&m.loser_next_match_id&&m.loser_next_match_side){
+      const col=m.loser_next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[loser,m.loser_next_match_id]);
+    }
+    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,loser,special:true,reason,before},r.version]);
+    await audit(c,req.user,"match",m.id,"SPECIAL_RESULT",m,r,`${reason}: ${winner}`);
+    return r;
+  });
+  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
+}));
+
 app.post("/api/matches/:id/finish",authRequired,wrap(async(req,res)=>{
   const updated=await tx(async c=>{
     const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -489,12 +516,17 @@ app.post("/api/matches/:id/finish",authRequired,wrap(async(req,res)=>{
     const aw=sets.filter(s=>s.score_a>s.score_b).length,bw=sets.filter(s=>s.score_b>s.score_a).length,need=Math.floor(m.best_of/2)+1;
     if(Math.max(aw,bw)<need)throw Object.assign(new Error("NOT_ENOUGH_SET_WINS"),{status:400});
     const winner=aw>bw?m.team_a_id:m.team_b_id;
-    const r=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),version=version+1 where id=$2 returning *",[winner,m.id])).rows[0];
+    const loser=winner===m.team_a_id?m.team_b_id:m.team_a_id;
+    const r=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason=null,result_note=null,version=version+1 where id=$2 returning *",[winner,m.id])).rows[0];
     if(m.next_match_id&&m.next_match_side){
       const col=m.next_match_side==="A"?"team_a_id":"team_b_id";
       await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[winner,m.next_match_id]);
     }
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,before:{status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side}},r.version]);
+    if(loser&&m.loser_next_match_id&&m.loser_next_match_side){
+      const col=m.loser_next_match_side==="A"?"team_a_id":"team_b_id";
+      await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[loser,m.loser_next_match_id]);
+    }
+    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,loser,before:{status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side,loserNextMatchId:m.loser_next_match_id,loserNextSide:m.loser_next_match_side}},r.version]);
     await audit(c,req.user,"match",m.id,"FINISH_MATCH",m,r,`Winner: ${winner}`);
     return r;
   });
@@ -514,11 +546,16 @@ app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
       await c.query("delete from match_sets where match_id=$1 and set_no=$2",[m.id,p.addedSetNo]);
       await c.query("update matches set current_score_a=$1,current_score_b=$2,version=version+1 where id=$3",[p.before.scoreA,p.before.scoreB,m.id]);
     }else if(ev.event_type==="MATCH_FINISH"){
-      await c.query("update matches set winner_team_id=$1,status=$2,completed_at=null,version=version+1 where id=$3",[p.before?.winner||null,p.before?.status||"live",m.id]);
+      await c.query("update matches set winner_team_id=$1,status=$2,completed_at=null,result_reason=null,result_note=null,version=version+1 where id=$3",[p.before?.winner||null,p.before?.status||"live",m.id]);
       if(p.before?.nextMatchId&&p.before?.nextSide){
         const downstream=(await c.query("select status from matches where id=$1 for update",[p.before.nextMatchId])).rows[0];
         if(downstream&&["live","completed"].includes(downstream.status))throw Object.assign(new Error("DOWNSTREAM_MATCH_STARTED"),{status:409});
         const col=p.before.nextSide==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=null,version=version+1 where id=$1`,[p.before.nextMatchId]);
+      }
+      if(p.before?.loserNextMatchId&&p.before?.loserNextSide){
+        const downstream=(await c.query("select status from matches where id=$1 for update",[p.before.loserNextMatchId])).rows[0];
+        if(downstream&&["live","completed"].includes(downstream.status))throw Object.assign(new Error("DOWNSTREAM_MATCH_STARTED"),{status:409});
+        const col=p.before.loserNextSide==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=null,version=version+1 where id=$1`,[p.before.loserNextMatchId]);
       }
     }else throw Object.assign(new Error("UNDO_UNSUPPORTED"),{status:400});
     const r=await getMatch(c,m.id,false);
