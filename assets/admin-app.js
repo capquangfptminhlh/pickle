@@ -111,7 +111,7 @@ async function players(){
   setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
   const roster=canManage()?await API.players().catch(()=>[]):[];
   return `<div class="panel" style="margin-bottom:16px">
-    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newClub">＋ CLB</button><button class="btn primary" data-action="newPlayer">＋ VĐV</button></div>':""}</div>
+    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button><button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
       ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}</td></tr>`).join("")}
     </tbody></table></div>
@@ -220,6 +220,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="autoSeed"]').forEach(b=>b.onclick=openAutoSeedModal);
   document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
+  document.querySelectorAll('[data-action="importCsv"]').forEach(b=>b.onclick=openCsvImportModal);
   document.querySelectorAll('[data-action="newClub"]').forEach(b=>b.onclick=openClubModal);
   document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
   document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
@@ -385,6 +386,28 @@ function openTournamentModal(){
   </div>`;
   $("#genericDialog").showModal();
   $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");try{await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});$("#genericDialog").close();await refresh();toast("Đã tạo giải.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
+}
+function openCsvImportModal(){
+  $("#genericTitle").textContent="Import CSV";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field">Loại dữ liệu<select id="csvType"><option value="players">VĐV</option><option value="teams">Đội / cặp</option></select></label>
+    <label class="field" id="csvDivisionWrap" style="display:none">Nội dung<select id="csvDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
+    <label class="field full">File CSV<input id="csvFile" type="file" accept=".csv,text/csv"></label>
+    <div class="field full csv-help" id="csvHelp"><b>Header VĐV:</b> fullName,nickname,gender,rating,phone,club</div>
+    <div class="field full"><div id="csvPreview" class="csv-preview">Chọn file để xem trước.</div></div>
+    <div class="field full"><button type="button" class="btn primary" id="csvImportBtn" disabled>Import</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  let rows=[];
+  const type=$("#csvType"),file=$("#csvFile"),preview=$("#csvPreview"),btn=$("#csvImportBtn");
+  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2':'<b>Header VĐV:</b> fullName,nickname,gender,rating,phone,club'};
+  type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file để xem trước.";btn.disabled=true};updateHelp();
+  file.onchange=async()=>{
+    const f=file.files?.[0];if(!f)return;rows=window.PickleCSV?.parse(await f.text())||[];
+    if(!rows.length){preview.textContent="CSV không có dữ liệu hợp lệ.";btn.disabled=true;return}
+    const keys=Object.keys(rows[0]);preview.innerHTML='<div class="csv-preview-head">'+keys.map(k=>`<b>${k}</b>`).join("")+'</div>'+rows.slice(0,5).map(r=>'<div class="csv-preview-row">'+keys.map(k=>`<span>${r[k]||""}</span>`).join("")+'</div>').join("")+`<small>${rows.length} dòng dữ liệu</small>`;btn.disabled=false;
+  };
+  btn.onclick=async()=>{if(!rows.length)return;btn.disabled=true;try{const r=type.value==="players"?await API.importPlayers(rows):await API.importTeams($("#csvDivision").value,rows);$("#genericDialog").close();await refresh();toast(`Đã import ${r.created} ${type.value==="players"?"VĐV":"đội"}.`)}catch(e){btn.disabled=false;toast("Import thất bại: "+e.message)}};
 }
 async function openPlayerModal(){
   const clubs=await API.clubs().catch(()=>[]);
