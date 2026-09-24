@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d2118">
+  <title>Check-in | Pickle Tour</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/public.css">
+</head>
+<body class="public-body checkin-body">
+  <main class="checkin-shell">
+    <a class="public-brand checkin-brand" href="/"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>CHECK-IN</small></span></a>
+    <section class="checkin-card">
+      <div id="checkinState" class="checkin-state-icon">…</div>
+      <span class="eyebrow">TOURNAMENT CHECK-IN</span>
+      <h1 id="checkinTeam">Đang kiểm tra...</h1>
+      <p id="checkinMeta">Vui lòng chờ.</p>
+      <div id="checkinStatus"></div>
+      <button id="confirmCheckin" class="btn primary" type="button" hidden>Xác nhận check-in</button>
+      <a class="btn secondary" href="/" style="text-decoration:none">Về trang giải đấu</a>
+      <p id="checkinNote" class="checkin-note">BTC hoặc trọng tài đang đăng nhập có thể xác nhận trực tiếp trên thiết bị này.</p>
+    </section>
+  </main>
+  <script src="/assets/api.js"></script>
+  <script src="/assets/checkin.js"></script>
+  <script src="/assets/pwa.js"></script>
+</body>
+</html>
