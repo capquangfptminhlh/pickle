@@ -1,19 +1,46 @@
 const API=window.PickleAPI;
 const $=s=>document.querySelector(s);
 const NAV=[
-  ["dashboard","▦","Tổng quan"],
-  ["tournaments","🏆","Giải đấu"],
-  ["players","👥","VĐV & cặp đấu"],
-  ["matches","🎾","Lịch & trận đấu"],
-  ["scores","✎","Nhập điểm"],
-  ["standings","≡","Bảng xếp hạng"],
-  ["bracket","⑂","Bracket"],
-  ["courts","▤","Sân thi đấu"],
-  ["referees","⚑","Trọng tài"],
-  ["payments","₫","Thanh toán"],
-  ["audit","☷","Nhật ký"],
-  ["settings","⚙","Cấu hình"]
+  ["dashboard","dashboard","Tổng quan"],
+  ["tournaments","trophy","Giải đấu"],
+  ["registrations","checkin","Đăng ký & Check-in"],
+  ["players","users","VĐV & cặp đấu"],
+  ["clubs","club","CLB"],
+  ["matches","calendar","Lịch & trận đấu"],
+  ["scores","score","Nhập điểm"],
+  ["standings","standings","Bảng xếp hạng"],
+  ["bracket","bracket","Bracket"],
+  ["courts","court","Sân thi đấu"],
+  ["bookings","booking","Booking sân"],
+  ["referees","whistle","Trọng tài"],
+  ["payments","payment","Thanh toán"],
+  ["sponsors","sponsor","Sponsor"],
+  ["content","content","Tin tức & Media"],
+  ["reports","report","Báo cáo"],
+  ["audit","audit","Nhật ký"],
+  ["settings","settings","Cấu hình & Branding"]
 ];
+const ICONS={
+  dashboard:'<path d="M4 4h6v6H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 14h6v6H4z"/>',
+  trophy:'<path d="M8 3h8v3h3v2c0 3-2 5-5 5a6 6 0 0 1-2 2v3h4v2H8v-2h4v-3a6 6 0 0 1-2-2c-3 0-5-2-5-5V6h3V3Zm0 5V6H7v2c0 1 .4 2 1.2 2.6A8 8 0 0 1 8 8Zm8 0c0 .9-.1 1.8-.2 2.6C16.6 10 17 9 17 8V6h-1Z"/>',
+  checkin:'<path d="M4 5h16v14H4zM8 3v4M16 3v4M8 12l2.5 2.5L16 9"/>',
+  users:'<path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Zm12-6c3.4 0 6 1.7 6 5h-4c-.2-2-1-3.6-2.4-4.7Z"/>',
+  club:'<path d="M3 20h18M5 20V8l7-4 7 4v12M9 12h2M13 12h2M9 16h6"/>',
+  calendar:'<path d="M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3"/>',
+  score:'<path d="M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z"/>',
+  standings:'<path d="M5 6h14M5 12h14M5 18h14M8 4v4M12 10v4M16 16v4"/>',
+  bracket:'<path d="M5 4v4h4v4h6v4h4M5 20v-4h4v-4"/>',
+  court:'<path d="M3 5h18v14H3zM12 5v14M3 12h18"/>',
+  booking:'<path d="M5 4h14v16H5zM8 2v4M16 2v4M8 11h8M8 15h5"/>',
+  whistle:'<path d="M5 13a5 5 0 1 0 9.5-2H20V7h-7v3a5 5 0 0 0-8 3Zm5 2a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/>',
+  payment:'<path d="M3 6h18v12H3zM3 9h18M7 14h4"/>',
+  sponsor:'<path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Zm-3 9 2 2 4-4"/>',
+  content:'<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/>',
+  report:'<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>',
+  audit:'<path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/>',
+  settings:'<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5 2 2 3-.5.5 3 2 2-2 2 .5 3-3 .5-2 2-2-2-3 .5-.5-3-2-2 2-2-.5-3 3-.5 2-2Z"/>'
+};
+const iconSvg=name=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.dashboard}</svg>`;
 let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
 let user=null,page="dashboard",activeMatch=null,busy=false;
 
@@ -24,7 +51,7 @@ const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ")
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canReferees=()=>user?.role==="super_admin";
-const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
+const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","registrations","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
 
 async function refresh({keepDialog=false}={}){
   state=await API.adminState();
@@ -35,7 +62,7 @@ async function refresh({keepDialog=false}={}){
   render();
 }
 function renderNav(){
-  $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${ico}</span>${label}</button>`).join("");
+  $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${iconSvg(ico)}</span><span>${label}</span></button>`).join("");
   document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{page=b.dataset.page;$("#sidebar").classList.remove("open");render()});
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
@@ -86,7 +113,7 @@ async function players(){
   return `<div class="panel" style="margin-bottom:16px">
     <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newClub">＋ CLB</button><button class="btn primary" data-action="newPlayer">＋ VĐV</button></div>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr><td><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Điều chỉnh rating</button>`:""}</td></tr>`).join("")}
+      ${roster.map(p=>`<tr><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<button class="btn primary" data-action="newTeam">＋ Thêm cặp</button>':""}</div>
@@ -162,11 +189,27 @@ function settings(){
 }
 async function render(){
   renderNav();
-  const map={dashboard,tournaments,players,matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,referees:refereesPage,payments,audit:auditPage,settings};
+  const ctx={API,state,user,setHeader,toast,refresh,canManage};
+  const map={
+    dashboard,tournaments,
+    registrations:()=>window.AdminModules.registrations(ctx),
+    players,
+    clubs:()=>window.AdminModules.clubs(ctx),
+    matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,
+    bookings:()=>window.AdminModules.bookings(ctx),
+    referees:refereesPage,payments,
+    sponsors:()=>window.AdminModules.sponsors(ctx),
+    content:()=>window.AdminModules.content(ctx),
+    reports:()=>window.AdminModules.reports(ctx),
+    audit:auditPage,
+    settings:()=>window.AdminModules.settings(ctx)
+  };
   const fn=map[page]||dashboard;
-  const html=await fn();
+  const result=await fn();
+  const html=typeof result==="string"?result:result.html;
   $("#content").innerHTML=html;
   bindDynamic();
+  if(result&&typeof result==="object"&&typeof result.bind==="function")result.bind();
 }
 function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
@@ -178,6 +221,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
   document.querySelectorAll('[data-action="newClub"]').forEach(b=>b.onclick=openClubModal);
   document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
+  document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
@@ -329,6 +373,12 @@ function openClubModal(){
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên CLB<input id="clubName"></label><label class="field full">Khu vực / Thành phố<input id="clubCity"></label><div class="field full"><button type="button" class="btn primary" id="saveClub">Thêm CLB</button></div></div>`;
   $("#genericDialog").showModal();
   $("#saveClub").onclick=async()=>{try{await API.createClub({name:$("#clubName").value,city:$("#clubCity").value});$("#genericDialog").close();await render();toast("Đã thêm CLB.")}catch(e){toast("Không thể thêm CLB: "+e.message)}};
+}
+function openAvatarModal(playerId,name){
+  $("#genericTitle").textContent="Cập nhật avatar";
+  $("#genericBody").innerHTML=`<div class="form-grid"><div class="field full"><b>${name}</b><span>JPG, PNG hoặc WebP, tối đa 3MB.</span></div><label class="field full">Chọn ảnh<input id="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="field full"><button type="button" class="btn primary" id="saveAvatar">Tải avatar lên</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveAvatar").onclick=async()=>{const file=$("#avatarFile").files?.[0];if(!file)return toast("Chọn ảnh trước.");if(file.size>3*1024*1024)return toast("Ảnh tối đa 3MB.");try{await API.uploadPlayerAvatar(playerId,file);$("#genericDialog").close();await render();toast("Đã cập nhật avatar.")}catch(e){toast("Không thể tải avatar: "+e.message)}};
 }
 function openRatingModal(playerId,name,current){
   $("#genericTitle").textContent="Điều chỉnh rating";
