@@ -1,4 +1,4 @@
-const VERSION="pickle-preview-v12-native-dark-20260924";
+const VERSION="pickle-preview-v12-clean-native-20260924";
 const CORE=[
   "./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js",
