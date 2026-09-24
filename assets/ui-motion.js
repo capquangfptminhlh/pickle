@@ -12,6 +12,17 @@
     });
   },{threshold:.055,rootMargin:"0px 0px -24px"});
 
+  function decorateTables(){
+    document.querySelectorAll(".table").forEach(table=>{
+      const labels=[...table.querySelectorAll("thead th")].map(th=>th.textContent.trim());
+      table.querySelectorAll("tbody tr").forEach(row=>{
+        [...row.children].forEach((cell,i)=>{
+          if(!cell.dataset.label)cell.dataset.label=labels[i]||"";
+        });
+      });
+    });
+  }
+
   function enhance(){
     const selectors=[
       ".kpi",".panel",".tour-card",".public-match",".public-standings",
@@ -185,7 +196,7 @@
     if(content){
       new MutationObserver(()=>{
         content.classList.remove("page-swap");void content.offsetWidth;content.classList.add("page-swap");
-        enhance();buildAdminDock();buildFab();
+        decorateTables();enhance();buildAdminDock();buildFab();
       }).observe(content,{childList:true,subtree:false});
     }
     const nav=document.querySelector("#nav");
@@ -194,7 +205,7 @@
 
   function init(){
     document.documentElement.classList.add("motion-ready");
-    enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     document.addEventListener("pointerdown",ripple,{passive:true});
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
