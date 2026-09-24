@@ -833,6 +833,7 @@ app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.html")));
 app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
 app.get("/player.html",(req,res)=>res.sendFile(path.join(root,"player.html")));
+app.get("/checkin.html",(req,res)=>res.sendFile(path.join(root,"checkin.html")));
 app.get("/about.html",(req,res)=>res.sendFile(path.join(root,"about.html")));
 app.get("/manifest.webmanifest",(req,res)=>res.type("application/manifest+json").sendFile(path.join(root,"manifest.webmanifest")));
 app.get("/service-worker.js",(req,res)=>{res.set("Cache-Control","no-cache");res.type("application/javascript").sendFile(path.join(root,"service-worker.js"))});
