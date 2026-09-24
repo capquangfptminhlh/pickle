@@ -53,6 +53,10 @@ jobs:
           node --check scripts/ui-smoke.mjs
       - name: Design system guard
         run: |
+          if grep -Fq '$(selectors).forEach' assets/ui-motion.js; then
+            echo "Broken ui-motion selector helper detected"
+            exit 1
+          fi
           if grep -R "mobile-native.css" -- *.html preview/*.html; then
             echo "Obsolete mobile-native.css reference detected"
             exit 1
