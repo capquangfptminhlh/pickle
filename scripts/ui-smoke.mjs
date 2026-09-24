@@ -165,6 +165,20 @@ if(await link.count()){
 }
 await goto(ppage,preview+"/checkin.html","preview checkin");
 await goto(ppage,preview+"/admin.html","preview admin");
+const initialLocalState=await ppage.evaluate(async()=>await window.PickleAPI.adminState());
+if(["tournaments","divisions","courts","clubs","players","teams","matches","registrations","sponsors","posts","bookings"].some(k=>(initialLocalState[k]||[]).length)){
+  failures.push({label:"preview clean start",errors:["Pages app must start without seeded mock data"]});
+}
+// Create temporary browser-local records only for UI smoke coverage. These never ship as app data.
+await ppage.evaluate(async()=>{
+  const created=await window.PickleAPI.createTournament({name:"UI Smoke Tournament",venue:"CI",eventType:"doubles"});
+  const did=created.division.id,tid=created.tournament.id;
+  const court=await window.PickleAPI.createCourt(tid,{name:"UI Court"});
+  const a=await window.PickleAPI.createTeam(did,{name:"UI Team A",group:"A",seed:1});
+  const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2});
+  await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
+});
+await ppage.reload({waitUntil:"domcontentloaded"});await ppage.waitForTimeout(250);
 for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
   const b=ppage.locator('[data-page="'+id+'"]');
   if(await b.count()){
@@ -220,8 +234,7 @@ const scoreNav=shot.locator('[data-dock-page="scores"]');if(await scoreNav.count
 const scoreOpen=shot.locator("[data-score-match]").first();if(await scoreOpen.count()){await scoreOpen.click();await shot.waitForTimeout(220);}
 await shot.screenshot({path:"ui-artifacts/mobile-score.png"});
 
-await shot.goto(preview+"/player.html?id=p1",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
-await shot.screenshot({path:"ui-artifacts/mobile-player.png"});
+// No seeded player is expected on a fresh Pages install.
 
 await browser.close();
 if(failures.length){
