@@ -20,7 +20,7 @@ function renderCore(){
 
   $("#publicTours").innerHTML=state.tournaments.map(t=>
     '<a class="tour-card" href="/tournament.html?id='+encodeURIComponent(t.id)+'" style="text-decoration:none;color:inherit">'+
-      '<div class="tour-cover"><div><small>TOURNAMENT</small><strong>'+esc(t.format||"Tournament")+'</strong></div>'+badge(t.status)+'</div>'+
+      '<div class="tour-media"><img src="/assets/visual-tournament.svg" alt="'+esc(t.name)+'"><div class="tour-media-shade"></div><div class="tour-cover"><div><small>TOURNAMENT</small><strong>'+esc(t.format||"Tournament")+'</strong></div>'+badge(t.status)+'</div></div>'+
       '<div class="tour-body"><h3>'+esc(t.name)+'</h3>'+
       '<div class="tour-meta-grid"><span><small>Ngày</small><b>'+esc(t.date)+'</b></span><span><small>Địa điểm</small><b>'+esc(t.venue)+'</b></span><span><small>Đội</small><b>'+esc(t.teams)+'</b></span></div></div></a>'
   ).join("")||'<div class="empty">Chưa có giải công khai.</div>';
@@ -55,7 +55,7 @@ function renderPosts(){
   const el=$("#publicNews");if(!el)return;
   el.innerHTML=posts.slice(0,6).map(p=>
     '<article class="news-card"><a href="#" aria-label="'+esc(p.title)+'">'+
-    (p.cover_url?'<img src="'+esc(p.cover_url)+'" alt="">':'<div class="news-cover-placeholder"><span>PICKLE TOUR</span></div>')+
+    (p.cover_url?'<img src="'+esc(p.cover_url)+'" alt="'+esc(p.title)+'">':'<img src="/assets/visual-news.svg" alt="'+esc(p.title)+'">')+
     '<div class="news-card-body"><span class="eyebrow">UPDATE</span><h3>'+esc(p.title)+'</h3><p>'+esc(p.excerpt||"")+'</p><small>'+(p.published_at?new Date(p.published_at).toLocaleDateString("vi-VN"):"")+'</small></div></a></article>'
   ).join("")||'<div class="empty">Chưa có tin mới.</div>';
 }
