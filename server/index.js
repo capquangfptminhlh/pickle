@@ -623,39 +623,157 @@ app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_adm
 
 app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const result=await tx(async c=>{
-    const d=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    const d=(await c.query(`
+      select d.*,t.start_at,t.id tournament_id
+      from divisions d join tournaments t on t.id=d.tournament_id
+      where d.id=$1 for update
+    `,[req.params.id])).rows[0];
     if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    const unfinished=Number((await c.query("select count(*)::int n from matches where division_id=$1 and stage like 'Bảng %' and status<>'completed'",[d.id])).rows[0].n);
-    if(unfinished>0)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
-    const existing=Number((await c.query("select count(*)::int n from matches where division_id=$1 and (stage ilike '%Bán kết%' or stage ilike '%Chung kết%')",[d.id])).rows[0].n);
+    if(!d.active)throw Object.assign(new Error("DIVISION_ARCHIVED"),{status:409});
+
+    const existing=Number((await c.query("select count(*)::int n from matches where division_id=$1 and bracket_slot is not null",[d.id])).rows[0].n);
     if(existing>0)throw Object.assign(new Error("BRACKET_ALREADY_EXISTS"),{status:409});
-    const teams=(await c.query("select id,group_code,seed from teams where division_id=$1 and status='active'",[d.id])).rows;
-    const completed=(await c.query("select * from matches where division_id=$1 and stage like 'Bảng %' and status='completed'",[d.id])).rows;
-    const mids=completed.map(m=>m.id);
-    const sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
-    const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push(s)}
-    const stats=new Map(teams.map(t=>[t.id,{w:0,l:0,pf:0,pa:0}]));
-    for(const m of completed){
-      let ap=0,bp=0;for(const s of setMap.get(m.id)||[]){ap+=s.score_a;bp+=s.score_b}
-      const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);
-      if(a){a.pf+=ap;a.pa+=bp;m.winner_team_id===m.team_a_id?a.w++:a.l++}
-      if(b){b.pf+=bp;b.pa+=ap;m.winner_team_id===m.team_b_id?b.w++:b.l++}
-    }
-    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
-    if(groups.length!==2||Number(d.advance_count)!==2)throw Object.assign(new Error("BRACKET_GENERATOR_SUPPORTS_TWO_GROUPS_TOP2"),{status:400});
-    const rank=g=>teams.filter(t=>t.group_code===g).sort((x,y)=>{const a=stats.get(x.id),b=stats.get(y.id);return b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999))});
-    const ga=rank(groups[0]),gb=rank(groups[1]);if(ga.length<2||gb.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
-    const tournamentId=(await c.query("select tournament_id from divisions where id=$1",[d.id])).rows[0].tournament_id;
-    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order limit 2",[tournamentId])).rows;
+
+    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
     if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
-    const start=(await c.query("select coalesce(max(scheduled_at),now()) + interval '45 minutes' t from matches where division_id=$1",[d.id])).rows[0].t;
-    const s1=(await c.query("insert into matches(division_id,court_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,'Bán kết 1',$5,'scheduled') returning id",[d.id,courts[0].id,ga[0].id,gb[1].id,start])).rows[0];
-    const s2=(await c.query("insert into matches(division_id,court_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,'Bán kết 2',$5,'scheduled') returning id",[d.id,(courts[1]||courts[0]).id,gb[0].id,ga[1].id,start])).rows[0];
-    const final=(await c.query("insert into matches(division_id,court_id,stage,scheduled_at,status) values($1,$2,'Chung kết',$3::timestamptz+interval '45 minutes','scheduled') returning id",[d.id,courts[0].id,start])).rows[0];
-    await c.query("update matches set next_match_id=$1,next_match_side='A' where id=$2",[final.id,s1.id]);
-    await c.query("update matches set next_match_id=$1,next_match_side='B' where id=$2",[final.id,s2.id]);
-    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,{semi1:s1.id,semi2:s2.id,final:final.id},"Top 2 each group");
-    return {semi1:s1.id,semi2:s2.id,final:final.id};
+    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by seed nulls last,name",[d.id])).rows;
+    if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_TEAMS"),{status:400});
+    const startAt=(await c.query("select coalesce(max(scheduled_at),$2::timestamptz,now()) + interval '45 minutes' t from matches where division_id=$1",[d.id,d.start_at])).rows[0].t;
+
+    const addMinutes=(base,min)=>new Date(new Date(base).getTime()+min*60000);
+    const courtFor=i=>courts[i%courts.length].id;
+    const create=async({a=null,b=null,stage,slot,minutes=0,index=0})=>{
+      return (await c.query(`
+        insert into matches(division_id,court_id,team_a_id,team_b_id,stage,bracket_slot,scheduled_at,status)
+        values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
+      `,[d.id,courtFor(index),a,b,stage,slot,addMinutes(startAt,minutes)])).rows[0];
+    };
+    const linkWinner=async(from,to,side)=>c.query("update matches set next_match_id=$1,next_match_side=$2 where id=$3",[to,side,from]);
+    const linkLoser=async(from,to,side)=>c.query("update matches set loser_next_match_id=$1,loser_next_match_side=$2 where id=$3",[to,side,from]);
+
+    if(d.format==="double_elimination"){
+      const sorted=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi"));
+      if(![4,8].includes(sorted.length))throw Object.assign(new Error("DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS"),{status:400});
+
+      if(sorted.length===4){
+        const order=[sorted[0],sorted[3],sorted[1],sorted[2]];
+        const w1=await create({a:order[0].id,b:order[1].id,stage:"Nhánh thắng - Vòng 1",slot:"DE-W-R1-M1",minutes:0,index:0});
+        const w2=await create({a:order[2].id,b:order[3].id,stage:"Nhánh thắng - Vòng 1",slot:"DE-W-R1-M2",minutes:0,index:1});
+        const wf=await create({stage:"Nhánh thắng - Chung kết",slot:"DE-W-F",minutes:50,index:0});
+        const l1=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M1",minutes:50,index:1});
+        const lf=await create({stage:"Nhánh thua - Chung kết",slot:"DE-L-F",minutes:100,index:0});
+        const gf=await create({stage:"Chung kết tổng",slot:"DE-GF",minutes:150,index:0});
+        await linkWinner(w1.id,wf.id,"A");await linkWinner(w2.id,wf.id,"B");
+        await linkLoser(w1.id,l1.id,"A");await linkLoser(w2.id,l1.id,"B");
+        await linkWinner(l1.id,lf.id,"A");await linkLoser(wf.id,lf.id,"B");
+        await linkWinner(wf.id,gf.id,"A");await linkWinner(lf.id,gf.id,"B");
+        await audit(c,req.user,"division",d.id,"GENERATE_DOUBLE_ELIM",null,{teams:4,grandFinal:gf.id},"Basic double elimination");
+        return {format:"double_elimination",teams:4,created:6,grandFinal:gf.id};
+      }
+
+      const seedOrder=[1,8,4,5,2,7,3,6].map(n=>sorted[n-1]);
+      const wq=[];
+      for(let i=0;i<4;i++)wq.push(await create({a:seedOrder[i*2].id,b:seedOrder[i*2+1].id,stage:"Nhánh thắng - Tứ kết",slot:`DE-W-QF-M${i+1}`,minutes:0,index:i}));
+      const ws1=await create({stage:"Nhánh thắng - Bán kết 1",slot:"DE-W-SF-M1",minutes:50,index:0});
+      const ws2=await create({stage:"Nhánh thắng - Bán kết 2",slot:"DE-W-SF-M2",minutes:50,index:1});
+      const wf=await create({stage:"Nhánh thắng - Chung kết",slot:"DE-W-F",minutes:100,index:0});
+      const l1=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M1",minutes:50,index:2});
+      const l2=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M2",minutes:50,index:3});
+      const l3=await create({stage:"Nhánh thua - Vòng 2",slot:"DE-L-R2-M1",minutes:100,index:1});
+      const l4=await create({stage:"Nhánh thua - Vòng 2",slot:"DE-L-R2-M2",minutes:100,index:2});
+      const l5=await create({stage:"Nhánh thua - Bán kết",slot:"DE-L-SF",minutes:150,index:0});
+      const lf=await create({stage:"Nhánh thua - Chung kết",slot:"DE-L-F",minutes:200,index:0});
+      const gf=await create({stage:"Chung kết tổng",slot:"DE-GF",minutes:250,index:0});
+
+      await linkWinner(wq[0].id,ws1.id,"A");await linkWinner(wq[1].id,ws1.id,"B");
+      await linkWinner(wq[2].id,ws2.id,"A");await linkWinner(wq[3].id,ws2.id,"B");
+      await linkLoser(wq[0].id,l1.id,"A");await linkLoser(wq[1].id,l1.id,"B");
+      await linkLoser(wq[2].id,l2.id,"A");await linkLoser(wq[3].id,l2.id,"B");
+      await linkWinner(ws1.id,wf.id,"A");await linkWinner(ws2.id,wf.id,"B");
+      await linkWinner(l1.id,l3.id,"A");await linkLoser(ws1.id,l3.id,"B");
+      await linkWinner(l2.id,l4.id,"A");await linkLoser(ws2.id,l4.id,"B");
+      await linkWinner(l3.id,l5.id,"A");await linkWinner(l4.id,l5.id,"B");
+      await linkWinner(l5.id,lf.id,"A");await linkLoser(wf.id,lf.id,"B");
+      await linkWinner(wf.id,gf.id,"A");await linkWinner(lf.id,gf.id,"B");
+      await audit(c,req.user,"division",d.id,"GENERATE_DOUBLE_ELIM",null,{teams:8,grandFinal:gf.id},"Basic double elimination");
+      return {format:"double_elimination",teams:8,created:14,grandFinal:gf.id};
+    }
+
+    if(d.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
+
+    let qualifiers=[];
+    if(d.format==="pool_to_knockout"){
+      const unfinished=Number((await c.query("select count(*)::int n from matches where division_id=$1 and stage like 'Bảng %' and status<>'completed'",[d.id])).rows[0].n);
+      if(unfinished>0)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+      const completed=(await c.query("select * from matches where division_id=$1 and stage like 'Bảng %' and status='completed'",[d.id])).rows;
+      const mids=completed.map(m=>m.id);
+      const sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
+      const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push(s)}
+      const stats=new Map(teams.map(t=>[t.id,{w:0,l:0,pf:0,pa:0}]));
+      for(const m of completed){
+        let ap=0,bp=0;for(const s of setMap.get(m.id)||[]){ap+=s.score_a;bp+=s.score_b}
+        const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);
+        if(a){a.pf+=ap;a.pa+=bp;m.winner_team_id===m.team_a_id?a.w++:a.l++}
+        if(b){b.pf+=bp;b.pa+=ap;m.winner_team_id===m.team_b_id?b.w++:b.l++}
+      }
+      const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
+      if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
+      const rank=g=>teams.filter(t=>t.group_code===g).sort((x,y)=>{
+        const a=stats.get(x.id),b=stats.get(y.id);
+        return b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999));
+      });
+      for(let place=0;place<Number(d.advance_count);place++){
+        for(const g of groups){
+          const t=rank(g)[place];if(t)qualifiers.push({...t,qualifierGroup:g,qualifierPlace:place+1});
+        }
+      }
+    }else{
+      qualifiers=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi")).map(t=>({...t,qualifierGroup:t.group_code||null}));
+    }
+    if(qualifiers.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
+
+    let bracketSize=2;while(bracketSize<qualifiers.length)bracketSize*=2;
+    let order=[1,2];for(let size=4;size<=bracketSize;size*=2){const next=[];for(const seed of order)next.push(seed,size+1-seed);order=next}
+    const slots=order.map(seed=>qualifiers[seed-1]||null);
+    for(let i=0;i<slots.length;i+=2){
+      if(slots[i]&&slots[i+1]&&slots[i].qualifierGroup&&slots[i].qualifierGroup===slots[i+1].qualifierGroup){
+        const j=slots.findIndex((x,idx)=>idx>i+1&&x&&x.qualifierGroup!==slots[i].qualifierGroup);
+        if(j>0)[slots[i+1],slots[j]]=[slots[j],slots[i+1]];
+      }
+    }
+
+    const roundCount=Math.log2(bracketSize);
+    const rounds=[];
+    const stageName=(r,i,count)=>{
+      if(count===1)return "Chung kết";
+      if(count===2)return `Bán kết ${i+1}`;
+      if(count===4)return `Tứ kết ${i+1}`;
+      if(count===8)return `Vòng 1/8 ${i+1}`;
+      return `Knockout R${r+1} - Trận ${i+1}`;
+    };
+    for(let r=0;r<roundCount;r++){
+      const count=bracketSize/(2**(r+1));rounds[r]=[];
+      for(let i=0;i<count;i++){
+        const a=r===0?slots[i*2]?.id||null:null,b=r===0?slots[i*2+1]?.id||null:null;
+        rounds[r].push(await create({a,b,stage:stageName(r,i,count),slot:`SE-R${r+1}-M${i+1}`,minutes:r*55+Math.floor(i/courts.length)*30,index:i}));
+      }
+    }
+    for(let r=0;r<rounds.length-1;r++){
+      for(let i=0;i<rounds[r].length;i++)await linkWinner(rounds[r][i].id,rounds[r+1][Math.floor(i/2)].id,i%2===0?"A":"B");
+    }
+    for(const m of rounds[0]){
+      const only=m.team_a_id&&!m.team_b_id?m.team_a_id:(!m.team_a_id&&m.team_b_id?m.team_b_id:null);
+      if(only){
+        const after=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason='bye',version=version+1 where id=$2 returning *",[only,m.id])).rows[0];
+        if(m.next_match_id&&m.next_match_side){
+          const col=m.next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[only,m.next_match_id]);
+        }
+        await audit(c,req.user,"match",m.id,"AUTO_BYE",m,after,"Automatic bracket bye");
+      }
+    }
+    const final=rounds.at(-1)[0];
+    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,{format:d.format,qualifiers:qualifiers.length,bracketSize,final:final.id},"Generic elimination bracket");
+    return {format:d.format,qualifiers:qualifiers.length,bracketSize,created:rounds.flat().length,final:final.id};
   });
   await emitState();res.json(result);
 }));
