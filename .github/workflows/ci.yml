@@ -53,7 +53,7 @@ jobs:
           node --check scripts/ui-smoke.mjs
       - name: Design system guard
         run: |
-          if grep -Fq '$(selectors).forEach' assets/ui-motion.js; then
+          if grep -Eq '(^|[^$])\$\(selectors\)\.forEach' assets/ui-motion.js; then
             echo "Broken ui-motion selector helper detected"
             exit 1
           fi
