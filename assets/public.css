@@ -63,3 +63,17 @@ linear-gradient(145deg,#0d2118,#173b2b);color:#fff}
 .rating-event,.partner-row,.tournament-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #edf1ef;text-decoration:none}.rating-event:last-child,.partner-row:last-child,.tournament-row:last-child{border-bottom:0}.rating-event small,.partner-row small,.tournament-row small{display:block;color:var(--muted);font-size:10px;margin-top:3px}.rating-up{color:#0b8a54;font-weight:900}.rating-down{color:#c74752;font-weight:900}.partner-row>span:nth-child(2){flex:1}.partner-row>strong{font-size:12px}.mini-avatar{width:38px;height:38px;border-radius:12px;object-fit:cover;background:#eaf1ed;display:grid;place-items:center;font-size:11px;font-weight:900}.avatar-fallback{color:#264c38}
 @media(max-width:900px){.player-stat-grid{grid-template-columns:repeat(3,1fr)}.player-layout{grid-template-columns:1fr}}
 @media(max-width:600px){.player-hero{padding:34px 0 28px}.player-hero-grid{align-items:flex-start;gap:16px}.player-avatar{width:92px;height:92px;border-radius:26px;font-size:30px}.player-online-dot{width:18px;height:18px}.player-main h1{font-size:34px}.player-main p{font-size:12px}.player-stat-grid{grid-template-columns:repeat(2,1fr)}}
+
+
+.checkin-body{min-height:100vh;background:
+radial-gradient(circle at 50% -10%,rgba(223,255,105,.18),transparent 24rem),
+linear-gradient(180deg,#0d2118,#102a1d)}
+.checkin-shell{min-height:100vh;width:min(560px,100%);margin:auto;padding:28px 18px;display:grid;align-content:center;gap:22px}
+.checkin-brand{color:#fff;justify-self:center}.checkin-brand small{color:#96ad9f}
+.checkin-card{background:rgba(255,255,255,.97);border:1px solid rgba(255,255,255,.7);border-radius:28px;padding:28px;display:grid;gap:14px;text-align:center;box-shadow:0 34px 90px rgba(4,19,10,.35)}
+.checkin-card h1{font-size:clamp(28px,7vw,42px);letter-spacing:-.045em;margin:0}.checkin-card>p{margin:0;color:var(--muted);line-height:1.6}
+.checkin-state-icon{width:86px;height:86px;border-radius:28px;display:grid;place-items:center;margin:auto;background:#eef4f0;color:#5c7266;font-size:24px;font-weight:950;box-shadow:inset 0 0 0 1px #dfe9e3}
+.checkin-state-icon.success{background:linear-gradient(145deg,#dfff69,#9ee84b);color:#0d2118;animation:scorePop .35s var(--ease)}
+.checkin-card .btn{width:100%;padding:14px}
+.checkin-note{font-size:10px!important}
+@media(max-width:600px){.checkin-shell{padding:20px 12px}.checkin-card{border-radius:23px;padding:22px 16px}}
