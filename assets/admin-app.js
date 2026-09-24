@@ -86,7 +86,7 @@ async function players(){
   return `<div class="panel" style="margin-bottom:16px">
     <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newClub">＋ CLB</button><button class="btn primary" data-action="newPlayer">＋ VĐV</button></div>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr><td><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Điều chỉnh rating</button>`:""}</td></tr>`).join("")}
+      ${roster.map(p=>`<tr><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<button class="btn primary" data-action="newTeam">＋ Thêm cặp</button>':""}</div>
@@ -178,6 +178,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
   document.querySelectorAll('[data-action="newClub"]').forEach(b=>b.onclick=openClubModal);
   document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
+  document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
@@ -329,6 +330,12 @@ function openClubModal(){
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên CLB<input id="clubName"></label><label class="field full">Khu vực / Thành phố<input id="clubCity"></label><div class="field full"><button type="button" class="btn primary" id="saveClub">Thêm CLB</button></div></div>`;
   $("#genericDialog").showModal();
   $("#saveClub").onclick=async()=>{try{await API.createClub({name:$("#clubName").value,city:$("#clubCity").value});$("#genericDialog").close();await render();toast("Đã thêm CLB.")}catch(e){toast("Không thể thêm CLB: "+e.message)}};
+}
+function openAvatarModal(playerId,name){
+  $("#genericTitle").textContent="Cập nhật avatar";
+  $("#genericBody").innerHTML=`<div class="form-grid"><div class="field full"><b>${name}</b><span>JPG, PNG hoặc WebP, tối đa 3MB.</span></div><label class="field full">Chọn ảnh<input id="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="field full"><button type="button" class="btn primary" id="saveAvatar">Tải avatar lên</button></div></div>`;
+  $("#genericDialog").showModal();
+  $("#saveAvatar").onclick=async()=>{const file=$("#avatarFile").files?.[0];if(!file)return toast("Chọn ảnh trước.");if(file.size>3*1024*1024)return toast("Ảnh tối đa 3MB.");try{await API.uploadPlayerAvatar(playerId,file);$("#genericDialog").close();await render();toast("Đã cập nhật avatar.")}catch(e){toast("Không thể tải avatar: "+e.message)}};
 }
 function openRatingModal(playerId,name,current){
   $("#genericTitle").textContent="Điều chỉnh rating";
