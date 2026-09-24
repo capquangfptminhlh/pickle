@@ -55,7 +55,7 @@ await Promise.all([
 await page.waitForLoadState("networkidle");
 if(!(await page.locator("#nav").isVisible()))failures.push({label:"prod admin",errors:["admin nav not visible"]});
 
-for(const id of ["dashboard","tournaments","players","matches","scores","standings","bracket","courts","referees","payments","audit","settings"]){
+for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
   const b=page.locator('[data-page="'+id+'"]');
   if(await b.count()){
     await b.click();
@@ -90,7 +90,7 @@ if(await link.count()){
 }
 await goto(ppage,preview+"/checkin.html","preview checkin");
 await goto(ppage,preview+"/admin.html","preview admin");
-for(const id of ["dashboard","tournaments","players","matches","scores","standings","bracket","courts","referees","payments","audit","settings"]){
+for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
   const b=ppage.locator('[data-page="'+id+'"]');
   if(await b.count()){
     await b.click();
