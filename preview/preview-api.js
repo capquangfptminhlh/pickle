@@ -130,6 +130,7 @@
     point:async(id,p)=>{const m=state.matches.find(x=>x.id===id),i=p.side==="A"?0:1;m.current[i]=Math.max(0,m.current[i]+Number(p.delta));m.status="live";m.version++;persist();return clone(m)},
     finishSet:async id=>{const m=state.matches.find(x=>x.id===id);m.sets.push([...m.current]);m.current=[0,0];m.version++;persist();return clone(m)},
     finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;if(m.id==="m7")state.matches.find(x=>x.id==="m9").a=m.winner;if(m.id==="m8")state.matches.find(x=>x.id==="m9").b=m.winner;persist();return clone(m)},
+    specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;if(m.id==="m7")state.matches.find(x=>x.id==="m9").a=m.winner;if(m.id==="m8")state.matches.find(x=>x.id==="m9").b=m.winner;persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),createReferee:async p=>{const r={id:uid(),email:p.email,display_name:p.name,active:true};state.referees.push(r);persist();return clone(r)},
     registrations:async()=>clone(state.registrations),
