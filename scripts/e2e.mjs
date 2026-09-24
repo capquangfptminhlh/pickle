@@ -56,6 +56,10 @@ const match=(await raw("/api/divisions/"+did+"/matches",{method:"POST",cookie:ad
 let adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
 let view=adminState.matches.find(x=>x.id===match.id);
 assert(view&&view.version,"match visible");
+await raw("/api/matches/"+match.id+"/assignment",{method:"PATCH",cookie:admin.cookie,body:{courtId:null,refereeUserId:null}});
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+view=adminState.matches.find(x=>x.id===match.id);
+assert(view&&view.courtId===null,"match court can be unassigned");
 
 await raw("/api/matches/"+match.id+"/point",{method:"POST",cookie:admin.cookie,body:{side:"A",delta:1,expectedVersion:view.version}});
 await raw("/api/matches/"+match.id+"/undo",{method:"POST",cookie:admin.cookie,body:{}});
@@ -115,6 +119,8 @@ await raw("/api/posts/"+post.id,{method:"PATCH",cookie:admin.cookie,body:{excerp
 await raw("/api/posts/"+post.id,{method:"DELETE",cookie:admin.cookie});
 
 const start=new Date(Date.now()+2*3600000),end=new Date(start.getTime()+3600000);
+const badBooking=(await raw("/api/bookings",{method:"POST",cookie:admin.cookie,body:{courtId:court.id,title:"CI Bad Booking "+stamp,startAt:end.toISOString(),endAt:start.toISOString()},ok:[400]})).data;
+assert(badBooking.error==="INVALID_BOOKING_TIME","invalid booking time rejected");
 const booking=(await raw("/api/bookings",{method:"POST",cookie:admin.cookie,body:{courtId:court.id,title:"CI Booking "+stamp,startAt:start.toISOString(),endAt:end.toISOString()}})).data;
 await raw("/api/bookings/"+booking.id,{method:"DELETE",cookie:admin.cookie});
 
