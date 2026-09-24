@@ -1,4 +1,4 @@
-const VERSION="pickle-preview-premium-v8-ranking-hard-fix";
+const VERSION="pickle-pages-v9-real-local-data";
 const CORE=[
   "./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js",
