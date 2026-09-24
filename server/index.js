@@ -8,6 +8,7 @@ import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import multer from "multer";
+import QRCode from "qrcode";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword} from "./auth.js";
@@ -20,17 +21,28 @@ const io=new SocketServer(server,{cors:{origin:true,credentials:true}});
 const port=Number(process.env.PORT||8080);
 const uploadRoot=path.join(root,"uploads");
 const avatarDir=path.join(uploadRoot,"avatars");
+const mediaDir=path.join(uploadRoot,"media");
 await fs.mkdir(avatarDir,{recursive:true});
+await fs.mkdir(mediaDir,{recursive:true});
+const imageMimeExt={ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" };
 const avatarUpload=multer({
   storage:multer.diskStorage({
     destination:(req,file,cb)=>cb(null,avatarDir),
     filename:(req,file,cb)=>{
-      const ext=({ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" })[file.mimetype]||".img";
+      const ext=imageMimeExt[file.mimetype]||".img";
       cb(null,`player-${randomUUID()}${ext}`);
     }
   }),
   limits:{fileSize:3*1024*1024},
-  fileFilter:(req,file,cb)=>cb(null,["image/jpeg","image/png","image/webp"].includes(file.mimetype))
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(imageMimeExt,file.mimetype))
+});
+const mediaUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,mediaDir),
+    filename:(req,file,cb)=>cb(null,`media-${randomUUID()}${imageMimeExt[file.mimetype]||".img"}`)
+  }),
+  limits:{fileSize:6*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(imageMimeExt,file.mimetype))
 });
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
@@ -242,6 +254,42 @@ app.get("/api/public/clubs",wrap(async(req,res)=>{
 }));
 
 app.get("/api/public/state",wrap(async(req,res)=>res.json(await loadState({publicOnly:true}))));
+
+app.get("/api/public/posts",wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select id,tournament_id,title,slug,excerpt,body,cover_url,published_at
+    from content_posts where status='published'
+    order by published_at desc nulls last,created_at desc limit 100
+  `);
+  res.json(rows);
+}));
+app.get("/api/public/posts/:slug",wrap(async(req,res)=>{
+  const row=(await pool.query(`
+    select id,tournament_id,title,slug,excerpt,body,cover_url,published_at
+    from content_posts where slug=$1 and status='published'
+  `,[req.params.slug])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+app.get("/api/public/sponsors",wrap(async(req,res)=>{
+  const {rows}=await pool.query("select id,tournament_id,name,logo_url,website_url,tier,sort_order from sponsors order by sort_order,name");
+  res.json(rows);
+}));
+app.get("/api/public/branding",wrap(async(req,res)=>{
+  const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];
+  res.json(row?.value||{});
+}));
+app.get("/api/checkin/:token",wrap(async(req,res)=>{
+  const row=(await pool.query(`
+    select r.id,r.checked_in_at,t.name team_name,d.name division_name,tr.name tournament_name,tr.start_at
+    from registrations r
+    join divisions d on d.id=r.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id
+    where r.checkin_token=$1
+  `,[req.params.token])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+
 app.get("/api/admin/state",authRequired,wrap(async(req,res)=>res.json(await loadState())));
 
 app.get("/api/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
@@ -608,6 +656,151 @@ app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer
     await c.query("update registrations set payment_status=$1 where id=$2",[mapped,p.registration_id]);
     await audit(c,req.user,"payment",p.id,"REVIEW_PAYMENT",null,p,req.body.status);return p;
   });res.json(row);
+}));
+
+
+app.post("/api/uploads/image",authRequired,allow("super_admin","organizer"),mediaUpload.single("image"),wrap(async(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"INVALID_IMAGE"});
+  res.status(201).json({url:`/uploads/media/${req.file.filename}`});
+}));
+
+app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>{
+  const row=await tx(async c=>{
+    const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const after=(await c.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,req.params.id])).rows[0];
+    await audit(c,req.user,"registration",after.id,"CHECK_IN",before,after,"Tournament check-in");
+    return after;
+  });
+  res.json(row);
+}));
+app.post("/api/registrations/:id/undo-checkin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=await tx(async c=>{
+    const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const after=(await c.query("update registrations set checked_in_at=null,checked_in_by=null where id=$1 returning *",[req.params.id])).rows[0];
+    await audit(c,req.user,"registration",after.id,"UNDO_CHECK_IN",before,after,"Undo check-in");
+    return after;
+  });res.json(row);
+}));
+app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("select id,checkin_token from registrations where id=$1",[req.params.id])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+  const url=`${base}/checkin.html?token=${row.checkin_token}`;
+  const dataUrl=await QRCode.toDataURL(url,{margin:1,width:420,color:{dark:"#0d2118",light:"#ffffff"}});
+  res.json({token:row.checkin_token,url,dataUrl});
+}));
+app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>{
+  const row=(await pool.query("select id from registrations where checkin_token=$1",[req.params.token])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  req.params.id=row.id;
+  const updated=(await pool.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,row.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) values($1,'registration',$2,'QR_CHECK_IN',$3,'QR check-in')",[req.user.sub,row.id,updated]);
+  res.json(updated);
+}));
+
+app.get("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from sponsors order by sort_order,name");res.json(rows);
+}));
+app.post("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {tournamentId,name,logoUrl,websiteUrl,tier,sortOrder=0}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const row=(await pool.query("insert into sponsors(tournament_id,name,logo_url,website_url,tier,sort_order) values($1,$2,$3,$4,$5,$6) returning *",[tournamentId||null,name,logoUrl||null,websiteUrl||null,tier||null,sortOrder])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'sponsor',$2,'CREATE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
+}));
+app.patch("/api/sponsors/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from sponsors where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const row=(await pool.query("update sponsors set name=coalesce($1,name),logo_url=coalesce($2,logo_url),website_url=coalesce($3,website_url),tier=coalesce($4,tier),sort_order=coalesce($5,sort_order),tournament_id=coalesce($6,tournament_id) where id=$7 returning *",[req.body.name??null,req.body.logoUrl??null,req.body.websiteUrl??null,req.body.tier??null,req.body.sortOrder??null,req.body.tournamentId??null,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'sponsor',$2,'UPDATE_SPONSOR',$3,$4)",[req.user.sub,row.id,before,row]);res.json(row);
+}));
+app.delete("/api/sponsors/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("delete from sponsors where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'sponsor',$2,'DELETE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.json({ok:true});
+}));
+
+app.get("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from content_posts order by created_at desc");res.json(rows);
+}));
+app.post("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {title,excerpt,body,coverUrl,status="draft",tournamentId}=req.body;if(!title)return res.status(400).json({error:"TITLE_REQUIRED"});
+  let slug=slugify(title);if((await pool.query("select 1 from content_posts where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+  const publishedAt=status==="published"?new Date():null;
+  const row=(await pool.query("insert into content_posts(tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[tournamentId||null,title,slug,excerpt||null,body||null,coverUrl||null,status,publishedAt,req.user.sub])).rows[0];
+  res.status(201).json(row);
+}));
+app.patch("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from content_posts where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const status=req.body.status??before.status;
+  const publishedAt=status==="published"?(before.published_at||new Date()):before.published_at;
+  const row=(await pool.query("update content_posts set title=coalesce($1,title),excerpt=coalesce($2,excerpt),body=coalesce($3,body),cover_url=coalesce($4,cover_url),status=$5,published_at=$6,tournament_id=coalesce($7,tournament_id),updated_at=now() where id=$8 returning *",[req.body.title??null,req.body.excerpt??null,req.body.body??null,req.body.coverUrl??null,status,publishedAt,req.body.tournamentId??null,req.params.id])).rows[0];
+  await audit(pool,req.user,"post",row.id,"UPDATE_POST",before,row,status);res.json(row);
+}));
+app.delete("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("delete from content_posts where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json({ok:true});
+}));
+
+app.get("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];res.json(row?.value||{});
+}));
+app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const value=req.body||{};
+  const row=(await pool.query(`
+    insert into app_settings(key,value,updated_by) values('branding',$1,$2)
+    on conflict(key) do update set value=excluded.value,updated_by=excluded.updated_by,updated_at=now()
+    returning value
+  `,[value,req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'setting','branding','UPDATE_BRANDING',$2)",[req.user.sub,value]);
+  res.json(row.value);
+}));
+
+app.get("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select b.*,c.name court_name,t.name tournament_name from court_bookings b
+    join courts c on c.id=b.court_id join tournaments t on t.id=c.tournament_id
+    order by b.start_at desc limit 500
+  `);res.json(rows);
+}));
+app.post("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {courtId,title,contactName,contactPhone,startAt,endAt,notes}=req.body;
+  if(!courtId||!title||!startAt||!endAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const clash=Number((await pool.query("select count(*)::int n from court_bookings where court_id=$1 and status<>'cancelled' and tstzrange(start_at,end_at,'[)') && tstzrange($2::timestamptz,$3::timestamptz,'[)')",[courtId,startAt,endAt])).rows[0].n);
+  if(clash)return res.status(409).json({error:"BOOKING_CONFLICT"});
+  const row=(await pool.query("insert into court_bookings(court_id,title,contact_name,contact_phone,start_at,end_at,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[courtId,title,contactName||null,contactPhone||null,startAt,endAt,notes||null,req.user.sub])).rows[0];res.status(201).json(row);
+}));
+app.patch("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("update court_bookings set title=coalesce($1,title),contact_name=coalesce($2,contact_name),contact_phone=coalesce($3,contact_phone),status=coalesce($4,status),notes=coalesce($5,notes) where id=$6 returning *",[req.body.title??null,req.body.contactName??null,req.body.contactPhone??null,req.body.status??null,req.body.notes??null,req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+
+app.get("/api/reports/overview",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const tournamentId=req.query.tournamentId||null;
+  const params=tournamentId?[tournamentId]:[];
+  const dWhere=tournamentId?"where d.tournament_id=$1":"";
+  const mWhere=tournamentId?"where d.tournament_id=$1":"";
+  const reg=(await pool.query(`
+    select count(*)::int registrations,
+      count(*) filter(where r.checked_in_at is not null)::int checked_in,
+      count(*) filter(where r.payment_status='paid')::int paid_count,
+      coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
+    from registrations r join divisions d on d.id=r.division_id ${dWhere}
+  `,params)).rows[0];
+  const mat=(await pool.query(`
+    select count(*)::int matches,
+      count(*) filter(where m.status='live')::int live,
+      count(*) filter(where m.status='completed')::int completed
+    from matches m join divisions d on d.id=m.division_id ${mWhere}
+  `,params)).rows[0];
+  const players=Number((await pool.query("select count(*)::int n from players where active=true")).rows[0].n);
+  res.json({...reg,...mat,players});
+}));
+app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const rows=(await pool.query(`
+    select tr.name tournament,d.name division,t.name team,r.status registration_status,r.payment_status,r.amount,r.checked_in_at
+    from registrations r join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id order by tr.start_at desc,t.name
+  `)).rows;
+  const q=v=>'"'+String(v??"").replaceAll('"','""')+'"';
+  const csv=["Tournament,Division,Team,Registration,Payment,Amount,CheckedIn",...rows.map(x=>[x.tournament,x.division,x.team,x.registration_status,x.payment_status,x.amount,x.checked_in_at].map(q).join(","))].join("\n");
+  res.setHeader("Content-Disposition","attachment; filename=pickle-tour-report.csv");res.type("text/csv; charset=utf-8").send("\ufeff"+csv);
 }));
 
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
