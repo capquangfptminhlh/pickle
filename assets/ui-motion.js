@@ -106,15 +106,26 @@
     if(!document.querySelector("#nav"))return;
     let dock=document.querySelector(".mobile-dock");
     if(!dock){dock=document.createElement("div");dock.className="mobile-dock";document.body.appendChild(dock)}
-    const wanted=["dashboard","tournaments","scores","players","bracket"];
-    dock.innerHTML=wanted.map(id=>{
-      const src=document.querySelector('[data-page="'+id+'"]');if(!src)return"";
-      const icon=src.querySelector(".ico")?.innerHTML||"";
-      const label=src.querySelector(":scope > span:last-child")?.textContent?.trim()||src.textContent.trim();
-      return '<button data-dock-page="'+id+'" class="'+(src.classList.contains("active")?"active":"")+'"><span class="ico-clone">'+icon+'</span><small>'+label+'</small></button>';
+    const items=[
+      ["dashboard","Trang chủ","<path d='M4 11 12 4l8 7v9h-6v-6h-4v6H4z'/>"],
+      ["matches","Lịch","<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>"],
+      ["scores","Điểm","<path d='M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z'/>"],
+      ["players","VĐV","<path d='M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Zm12-6c3.4 0 6 1.7 6 5h-4c-.2-2-1-3.6-2.4-4.7Z'/>"],
+      ["more","Khác","<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"]
+    ];
+    const active=document.querySelector("#nav .nav-btn.active")?.dataset.page||"dashboard";
+    dock.innerHTML=items.map(([id,label,path])=>{
+      const isActive=id==="more"?false:active===id;
+      return '<button data-dock-page="'+id+'" class="'+(isActive?"active":"")+'"><span class="ico-clone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+path+'</svg></span><small>'+label+'</small></button>';
     }).join("");
-    $$("[data-dock-page]",dock).forEach(b=>b.onclick=()=>{
+    $$(".mobile-dock [data-dock-page]",dock).forEach(b=>b.onclick=()=>{
       if(navigator.vibrate)navigator.vibrate(6);
+      if(b.dataset.dockPage==="more"){
+        document.querySelector("#sidebar")?.classList.add("open");
+        document.querySelector(".app-backdrop")?.classList.add("show");
+        document.body.classList.add("app-drawer-open");
+        return;
+      }
       document.querySelector('[data-page="'+b.dataset.dockPage+'"]')?.click();
       closeDrawer();
     });
@@ -133,10 +144,11 @@
     dock.className="public-mobile-dock";
     dock.setAttribute("aria-label","Điều hướng nhanh");
     dock.innerHTML=
-      '<a class="'+(homeActive?"active":"")+'" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Trang chủ</span></a>'+
-      '<a href="'+home+'#live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z"/></svg><span>Live</span></a>'+
+      '<a class="'+(homeActive?"active":"")+'" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Home</span></a>'+
+      '<a href="'+home+'#tournaments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4ZM5 5h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8"/></svg><span>Giải</span></a>'+
+      '<a href="'+home+'#live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13"/></svg><span>Live</span></a>'+
       '<a class="'+(rankActive?"active":"")+'" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>Ranking</span></a>'+
-      '<a href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5 2 2 3-.5.5 3 2 2-2 2 .5 3-3 .5-2 2-2-2-3 .5-.5-3-2-2 2-2-.5-3 3-.5z"/></svg><span>Quản trị</span></a>';
+      '<a href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5 2 2 3-.5.5 3 2 2-2 2 .5 3-3 .5-2 2-2-2-3 .5-.5-3-2-2 2-2-.5-3 3-.5z"/></svg><span>Admin</span></a>';
     document.body.appendChild(dock);
   }
 
