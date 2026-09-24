@@ -246,7 +246,7 @@ app.get("/api/admin/state",authRequired,wrap(async(req,res)=>res.json(await load
 
 app.get("/api/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query(`
-    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,c.id club_id,c.name club_name
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
     from players p left join clubs c on c.id=p.club_id order by p.full_name
   `);res.json(rows);
 }));
