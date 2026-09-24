@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v8-admin-fixes-20260924";
+const VERSION="pickle-tour-v9-ranking-mobile-fix-20260924";
 const STATIC=[
   "/offline.html",
   "/assets/styles.css",
