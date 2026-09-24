@@ -146,7 +146,7 @@ function matchesPage(scoreOnly=false){
       <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}<div class="empty" id="matchFilterEmpty" hidden>Không có trận phù hợp bộ lọc.</div></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h2>Tình trạng sân</h2><p>Live court monitor</p></div></div>
-      ${[1,2,3,4,5,6].map(c=>{const m=state.matches.find(x=>String(x.court)===String(c)&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>Sân ${c}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join("")}
+      ${state.courts.length?state.courts.map(c=>{const m=state.matches.find(x=>x.courtId===c.id&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
     </div></div>`;
 }
 function calcGroup(g){return state.teams.filter(t=>t.group===g).sort((a,b)=>b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf)}
