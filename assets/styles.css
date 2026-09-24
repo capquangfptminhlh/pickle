@@ -288,3 +288,20 @@ html[data-network="offline"] .live-pill i{background:#d99a26;animation:none}
 .special-result-box .panel-head{margin-bottom:12px}
 .result-reason{display:flex;gap:10px;align-items:center;margin-bottom:14px;padding:10px 12px;border-radius:12px;background:#fff0f1;color:#a23943}
 .result-reason b{text-transform:uppercase;font-size:10px;letter-spacing:.07em}.result-reason span{font-size:11px;color:#7d5559}
+
+.bracket-match-pro{min-width:220px}
+.bracket-match-meta{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.04em;margin-bottom:5px}
+.bracket-match-pro .mini{width:100%;margin-top:8px}
+.bracket-reason{display:block;margin:6px 6px 0;padding:5px 7px;border-radius:8px;background:#fff0f1;color:#a23d46;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.bracket-section-title{margin:20px 0 9px;padding-top:12px;border-top:1px solid var(--line)}
+.bracket-section-title:first-child{margin-top:0;border-top:0;padding-top:0}
+.bracket-section-title span{font-size:8px;font-weight:950;letter-spacing:.14em;color:var(--brand)}
+.bracket-section-title h3{margin:3px 0 0;font-size:18px;letter-spacing:-.025em}
+.bracket-section-title.losers span{color:#a45f24}
+.bracket-section-title.final span{color:#7455b8}
+.double-bracket-block .bracket{padding-bottom:12px}
+.grand-final-bracket .round{min-width:min(300px,100%)}
+.admin-champion,.public-champion{margin-top:18px;border-radius:18px;padding:18px 20px;background:linear-gradient(135deg,#0d2118,#173b2b);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 18px 42px rgba(10,34,20,.15)}
+.admin-champion span,.public-champion span{font-size:9px;letter-spacing:.15em;color:#91a99c;font-weight:950}
+.admin-champion strong,.public-champion strong{font-size:20px;color:var(--acid);letter-spacing:-.025em}
+@media(max-width:700px){.bracket{gap:14px}.round{min-width:218px}.bracket-match-pro{min-width:0}.admin-champion,.public-champion{align-items:flex-start;flex-direction:column}}
