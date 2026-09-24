@@ -67,7 +67,7 @@ function renderNav(){
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
-  const scoreBtn=m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">✎ Nhập điểm</button>`:"";
+  const scoreBtn=m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">Nhập điểm</button>`:"";
   return `<div class="match-card" data-match-card="${m.id}">
     <div class="match-top"><span>${m.time} • Sân ${m.court} • ${m.stage}</span>${statusBadge(m.status)}</div>
     <div class="versus">
@@ -98,13 +98,13 @@ function dashboard(){
 }
 function tournamentCard(t){
   return `<article class="tour-card" data-tournament-card="${t.id}"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
-    <h3>${t.name}</h3><div class="meta"><span>📅 ${t.date}</span><span>📍 ${t.venue}</span><span>👥 ${t.teams} đội</span></div>
+    <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đội</small><b>${t.teams}</b></span></div>
     <div class="actions"><button class="mini" data-goto="matches">Lịch đấu</button><button class="mini" data-goto="standings">BXH</button><button class="mini" data-goto="bracket">Bracket</button></div>
   </div></article>`;
 }
 function tournaments(){
   setHeader("Giải đấu","Tạo và quản lý giải pickleball");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">＋ Nội dung</button><button class="btn primary" data-action="newTournament">＋ Tạo giải mới</button></div>':""}</div>
+  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
 }
 async function players(){
@@ -126,7 +126,7 @@ function matchesPage(scoreOnly=false){
   setHeader(scoreOnly?"Nhập điểm":"Lịch & trận đấu",scoreOnly?"Giao diện courtside cho BTC/trọng tài":"Điều phối sân, giờ đấu và trạng thái");
   const arr=scoreOnly?state.matches.filter(m=>m.status!=="done"):state.matches;
   return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${[1,2,3,4,5,6].map(x=>`<option>${x}</option>`).join("")}</select>
-    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn secondary" data-action="autoSchedule">Tạo lịch tự động</button><button class="btn primary" data-action="newMatch">＋ Tạo trận</button>':""}</div>
+    <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn secondary" data-action="autoSchedule">Tạo lịch tự động</button><button class="btn primary" data-action="newMatch">Tạo trận</button>':""}</div>
     <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p>${arr.length} trận</p></div></div>
       <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}</div>
     </div>
@@ -153,13 +153,13 @@ function bracket(){
 function courts(){
   setHeader("Sân thi đấu","Theo dõi và cấu hình sân theo giải");
   const cards=state.courts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),next=state.matches.find(m=>m.courtId===c.id&&m.status==="wait");return `<div class="panel" data-court-card="${c.id}"><div class="panel-head"><h2>${c.name}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
-  return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${state.courts.length} sân</p></div>${canManage()?'<button class="btn primary" data-action="newCourt">＋ Thêm sân</button>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
+  return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${state.courts.length} sân</p></div>${canManage()?'<button class="btn primary" data-action="newCourt">Thêm sân</button>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
 }
 async function refereesPage(){
   setHeader("Trọng tài","Tài khoản và phân quyền nhập điểm");
   if(!canReferees())return '<div class="panel empty">Chỉ Super Admin được tạo tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
-  return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản</p></div><button class="btn primary" data-action="newReferee">＋ Tạo trọng tài</button></div>
+  return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td></tr>`).join("")}</tbody></table></div>
   </div>`;
 }
@@ -168,7 +168,7 @@ async function payments(){
   if(!canManage())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
   const rows=await API.registrations().catch(()=>[]);
   return `<div class="panel">
-    <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div><button class="btn primary" data-action="newRegistration">＋ Tạo đăng ký</button></div>
+    <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div><button class="btn primary" data-action="newRegistration">Tạo đăng ký</button></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Giải</th><th>Nội dung</th><th>Đội</th><th>Số tiền</th><th>Đăng ký</th><th>Thanh toán</th><th>Thao tác</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td>${r.tournament_name}</td><td>${r.division_name}</td><td><b>${r.team_name||"—"}</b></td><td>${r.amount?Number(r.amount).toLocaleString("vi-VN")+" đ":"—"}</td><td>${r.status}</td><td>${r.payment_status}</td><td><div class="actions">${!r.payment_id?`<button class="mini" data-add-payment="${r.id}">Ghi nhận CK</button>`:""}${r.payment_id&&r.payment_review_status==="pending"?`<button class="mini" data-review-payment="${r.payment_id}" data-status="approved">Duyệt</button><button class="mini" data-review-payment="${r.payment_id}" data-status="rejected">Từ chối</button>`:""}</div></td></tr>`).join("")}
     </tbody></table></div>
