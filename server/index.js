@@ -953,6 +953,7 @@ app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(
 app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=await getMatch(c,req.params.id,true);if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(before.status==="completed")throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});
     const scoreEvents=Number((await c.query("select count(*)::int n from score_events where match_id=$1",[before.id])).rows[0].n);
     if(before.status!=="scheduled"||scoreEvents>0){
       const after=(await c.query("update matches set status='cancelled',version=version+1 where id=$1 returning *",[before.id])).rows[0];
