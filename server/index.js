@@ -803,6 +803,178 @@ app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer"),
   res.setHeader("Content-Disposition","attachment; filename=pickle-tour-report.csv");res.type("text/csv; charset=utf-8").send("\ufeff"+csv);
 }));
 
+
+app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from tournaments where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=(await c.query(`
+      select
+        (select count(*)::int from registrations r join divisions d on d.id=r.division_id where d.tournament_id=$1) registrations,
+        (select count(*)::int from matches m join divisions d on d.id=m.division_id where d.tournament_id=$1) matches
+    `,[before.id])).rows[0];
+    if(deps.registrations>0||deps.matches>0){
+      const after=(await c.query("update tournaments set status='cancelled',public_visible=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"tournament",before.id,"ARCHIVE_TOURNAMENT",before,after,"Tournament has operational history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from tournaments where id=$1",[before.id]);
+    await audit(c,req.user,"tournament",before.id,"DELETE_TOURNAMENT",before,null,"Unused tournament");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const next={
+    name:req.body.name??before.name,
+    eventType:req.body.eventType??before.event_type,
+    format:req.body.format??before.format,
+    bestOf:Number(req.body.bestOf??before.best_of),
+    pointsToWin:Number(req.body.pointsToWin??before.points_to_win),
+    winByTwo:req.body.winByTwo??before.win_by_two,
+    advanceCount:Number(req.body.advanceCount??before.advance_count),
+    active:req.body.active??before.active
+  };
+  if(!next.name.trim())return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!["singles","doubles","mixed_doubles","team"].includes(next.eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
+  if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(next.format))return res.status(400).json({error:"INVALID_FORMAT"});
+  if(![1,3,5].includes(next.bestOf)||![11,15,21].includes(next.pointsToWin)||next.advanceCount<1)return res.status(400).json({error:"INVALID_RULES"});
+  const after=(await pool.query(`
+    update divisions set name=$1,event_type=$2,format=$3,best_of=$4,points_to_win=$5,win_by_two=$6,advance_count=$7,active=$8,updated_at=now()
+    where id=$9 returning *
+  `,[next.name.trim(),next.eventType,next.format,next.bestOf,next.pointsToWin,Boolean(next.winByTwo),next.advanceCount,Boolean(next.active),req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_DIVISION',$3,$4)",[req.user.sub,after.id,before,after]);
+  await emitState();res.json(after);
+}));
+
+app.delete("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=(await c.query("select (select count(*)::int from matches where division_id=$1) matches,(select count(*)::int from registrations where division_id=$1) registrations",[before.id])).rows[0];
+    if(deps.matches>0||deps.registrations>0){
+      const after=(await c.query("update divisions set active=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"division",before.id,"ARCHIVE_DIVISION",before,after,"Division has history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from divisions where id=$1",[before.id]);
+    await audit(c,req.user,"division",before.id,"DELETE_DIVISION",before,null,"Unused division");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.delete("/api/courts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from courts where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from matches where court_id=$1)+(select count(*) from court_bookings where court_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update courts set active=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"court",before.id,"ARCHIVE_COURT",before,after,"Court has usage history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from courts where id=$1",[before.id]);
+    await audit(c,req.user,"court",before.id,"DELETE_COURT",before,null,"Unused court");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.patch("/api/clubs/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from clubs where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const name=String(req.body.name??before.name).trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const after=(await pool.query("update clubs set name=$1,city=$2,active=$3 where id=$4 returning *",[name,req.body.city??before.city,req.body.active??before.active,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club',$2,'UPDATE_CLUB',$3,$4)",[req.user.sub,after.id,before,after]);res.json(after);
+}));
+app.delete("/api/clubs/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from clubs where id=$1 for update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from players where club_id=$1)+(select count(*) from teams where club_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update clubs set active=false where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"club",before.id,"ARCHIVE_CLUB",before,after,"Club has linked players/teams");return {mode:"archived",entity:after};
+    }
+    await c.query("delete from clubs where id=$1",[before.id]);await audit(c,req.user,"club",before.id,"DELETE_CLUB",before,null,"Unused club");return {mode:"deleted"};
+  });res.json(result);
+}));
+
+app.delete("/api/players/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from players where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const after=(await pool.query("update players set active=false,updated_at=now() where id=$1 returning *",[req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'DEACTIVATE_PLAYER',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"deactivated",entity:after});
+}));
+
+app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from teams where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  let clubId=before.club_id;
+  if(req.body.clubId!==undefined)clubId=req.body.clubId||null;
+  const after=(await pool.query(`
+    update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *
+  `,[String(req.body.name??before.name).trim(),clubId,req.body.group??before.group_code,req.body.seed??before.seed,req.body.status??before.status,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'team',$2,'UPDATE_TEAM',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
+}));
+app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from teams where id=$1 for update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from matches where team_a_id=$1 or team_b_id=$1)+(select count(*) from registrations where team_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update teams set status='withdrawn',updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"team",before.id,"WITHDRAW_TEAM",before,after,"Team has operational history");return {mode:"withdrawn",entity:after};
+    }
+    await c.query("delete from teams where id=$1",[before.id]);await audit(c,req.user,"team",before.id,"DELETE_TEAM",before,null,"Unused team");return {mode:"deleted"};
+  });await emitState();res.json(result);
+}));
+
+app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from matches where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(before.status==="completed"&&req.body.status&&req.body.status!=="completed")return res.status(409).json({error:"COMPLETED_MATCH_LOCKED"});
+  const status=req.body.status??before.status;
+  if(!["scheduled","ready","live","completed","walkover","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  const after=(await pool.query(`
+    update matches set stage=$1,scheduled_at=$2,court_id=$3,referee_user_id=$4,status=$5,version=version+1 where id=$6 returning *
+  `,[req.body.stage??before.stage,req.body.scheduledAt??before.scheduled_at,req.body.courtId??before.court_id,req.body.refereeUserId??before.referee_user_id,status,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'match',$2,'UPDATE_MATCH',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
+}));
+app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const scoreEvents=Number((await c.query("select count(*)::int n from score_events where match_id=$1",[before.id])).rows[0].n);
+    if(before.status!=="scheduled"||scoreEvents>0){
+      const after=(await c.query("update matches set status='cancelled',version=version+1 where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"match",before.id,"CANCEL_MATCH",before,after,"Match has started/history");return {mode:"cancelled",entity:after};
+    }
+    await c.query("delete from matches where id=$1",[before.id]);await audit(c,req.user,"match",before.id,"DELETE_MATCH",before,null,"Unused match");return {mode:"deleted"};
+  });await emitState();res.json(result);
+}));
+
+app.patch("/api/registrations/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const status=req.body.status??before.status,paymentStatus=req.body.paymentStatus??before.payment_status;
+  if(!["pending","approved","waitlist","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  if(!["unpaid","pending","paid","refunded"].includes(paymentStatus))return res.status(400).json({error:"INVALID_PAYMENT_STATUS"});
+  const after=(await pool.query("update registrations set status=$1,payment_status=$2,amount=$3 where id=$4 returning *",[status,paymentStatus,req.body.amount??before.amount,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'registration',$2,'UPDATE_REGISTRATION',$3,$4)",[req.user.sub,after.id,before,after]);res.json(after);
+}));
+app.delete("/api/registrations/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const hasPayment=Number((await pool.query("select count(*)::int n from payment_records where registration_id=$1",[before.id])).rows[0].n);
+  if(hasPayment||before.checked_in_at){
+    const after=(await pool.query("update registrations set status='cancelled' where id=$1 returning *",[before.id])).rows[0];
+    await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'registration',$2,'CANCEL_REGISTRATION',$3,$4)",[req.user.sub,after.id,before,after]);return res.json({mode:"cancelled",entity:after});
+  }
+  await pool.query("delete from registrations where id=$1",[before.id]);await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'registration',$2,'DELETE_REGISTRATION',$3)",[req.user.sub,before.id,before]);res.json({mode:"deleted"});
+}));
+
+app.delete("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from court_bookings where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const after=(await pool.query("update court_bookings set status='cancelled' where id=$1 returning *",[before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'booking',$2,'CANCEL_BOOKING',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"cancelled",entity:after});
+}));
+
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query("select id,email,display_name,active from app_users where role='referee' order by display_name");res.json(rows);
 }));
