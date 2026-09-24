@@ -67,7 +67,7 @@ async function loadState({publicOnly=false}={}){
     status:t.status==="registration"?"open":t.status,publicVisible:t.public_visible,teams:0
   }));
   const tournamentIds=tournaments.map(t=>t.id);
-  if(!tournamentIds.length)return {tournaments:[],teams:[],matches:[],audit:[]};
+  if(!tournamentIds.length)return {tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
 
   const divisions=(await pool.query(
     publicOnly
@@ -261,7 +261,7 @@ app.get("/api/public/players/:id",wrap(async(req,res)=>{
 }));
 
 app.get("/api/public/clubs",wrap(async(req,res)=>{
-  const {rows}=await pool.query("select id,name,slug,city from clubs order by name");res.json(rows);
+  const {rows}=await pool.query("select id,name,slug,city from clubs where active=true order by name");res.json(rows);
 }));
 
 app.get("/api/public/state",wrap(async(req,res)=>res.json(await loadState({publicOnly:true}))));
