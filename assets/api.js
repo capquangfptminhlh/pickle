@@ -25,6 +25,13 @@
     players:()=>request("/api/players"),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
+    uploadImage:async(file)=>{
+      const form=new FormData();form.append("image",file);
+      const res=await fetch("/api/uploads/image",{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
     uploadPlayerAvatar:async(playerId,file)=>{
       const form=new FormData();form.append("avatar",file);
       const res=await fetch(`/api/players/${encodeURIComponent(playerId)}/avatar`,{method:"POST",body:form,credentials:"include"});
@@ -34,6 +41,23 @@
     },
     adjustRating:(playerId,payload)=>request(`/api/players/${playerId}/rating-adjust`,{method:"POST",body:JSON.stringify(payload)}),
     createClub:payload=>request("/api/clubs",{method:"POST",body:JSON.stringify(payload)}),
+    sponsors:()=>request("/api/sponsors"),
+    createSponsor:payload=>request("/api/sponsors",{method:"POST",body:JSON.stringify(payload)}),
+    updateSponsor:(id,payload)=>request(`/api/sponsors/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteSponsor:id=>request(`/api/sponsors/${id}`,{method:"DELETE"}),
+    posts:()=>request("/api/posts"),
+    createPost:payload=>request("/api/posts",{method:"POST",body:JSON.stringify(payload)}),
+    updatePost:(id,payload)=>request(`/api/posts/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deletePost:id=>request(`/api/posts/${id}`,{method:"DELETE"}),
+    branding:()=>request("/api/settings/branding"),
+    saveBranding:payload=>request("/api/settings/branding",{method:"PUT",body:JSON.stringify(payload)}),
+    bookings:()=>request("/api/bookings"),
+    createBooking:payload=>request("/api/bookings",{method:"POST",body:JSON.stringify(payload)}),
+    updateBooking:(id,payload)=>request(`/api/bookings/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    reportOverview:(tournamentId="")=>request("/api/reports/overview"+(tournamentId?`?tournamentId=${encodeURIComponent(tournamentId)}`:"")),
+    checkin:id=>request(`/api/registrations/${id}/checkin`,{method:"POST",body:"{}"}),
+    undoCheckin:id=>request(`/api/registrations/${id}/undo-checkin`,{method:"POST",body:"{}"}),
+    checkinQr:id=>request(`/api/registrations/${id}/checkin-qr`),
     addTeamPlayer:(teamId,playerId)=>request(`/api/teams/${teamId}/players`,{method:"POST",body:JSON.stringify({playerId})}),
     createTournament:payload=>request("/api/tournaments",{method:"POST",body:JSON.stringify(payload)}),
     createDivision:(tournamentId,payload)=>request(`/api/tournaments/${tournamentId}/divisions`,{method:"POST",body:JSON.stringify(payload)}),
