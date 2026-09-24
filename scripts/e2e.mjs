@@ -61,6 +61,16 @@ await raw("/api/matches/"+match.id+"/point",{method:"POST",cookie:admin.cookie,b
 await raw("/api/matches/"+match.id+"/undo",{method:"POST",cookie:admin.cookie,body:{}});
 await raw("/api/matches/"+match.id,{method:"DELETE",cookie:admin.cookie});
 
+// A tied score can never complete a set, even when win-by-two is disabled.
+await raw("/api/divisions/"+did,{method:"PATCH",cookie:admin.cookie,body:{pointsToWin:1,winByTwo:false}});
+const tieMatch=(await raw("/api/divisions/"+did+"/matches",{method:"POST",cookie:admin.cookie,body:{teamAId:teamA.id,teamBId:teamB.id,courtId:court.id,stage:"CI Tie Guard"}})).data;
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+let tieView=adminState.matches.find(x=>x.id===tieMatch.id);
+let tiePoint=(await raw("/api/matches/"+tieMatch.id+"/point",{method:"POST",cookie:admin.cookie,body:{side:"A",delta:1,expectedVersion:tieView.version}})).data;
+tiePoint=(await raw("/api/matches/"+tieMatch.id+"/point",{method:"POST",cookie:admin.cookie,body:{side:"B",delta:1,expectedVersion:tiePoint.version}})).data;
+const tieFinish=(await raw("/api/matches/"+tieMatch.id+"/finish-set",{method:"POST",cookie:admin.cookie,body:{expectedVersion:tiePoint.version},ok:[400]})).data;
+assert(tieFinish.error==="INVALID_SET_SCORE","tied set score rejected");
+await raw("/api/matches/"+tieMatch.id,{method:"DELETE",cookie:admin.cookie});
 
 const single=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cookie:admin.cookie,body:{name:"CI Single Elim",eventType:"doubles",format:"single_elimination",bestOf:3,pointsToWin:11,advanceCount:1}})).data;
 const seTeams=[];
