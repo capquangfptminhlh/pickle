@@ -51,7 +51,7 @@ const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ")
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canReferees=()=>user?.role==="super_admin";
-const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","registrations","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
+const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
 
 async function refresh({keepDialog=false}={}){
   state=await API.adminState();
