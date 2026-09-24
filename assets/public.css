@@ -137,3 +137,83 @@
   .player-stat{min-width:115px;flex:0 0 auto}.player-layout{display:block}
   .ranking-row{grid-template-columns:34px 1fr .7fr;gap:7px}.ranking-club{display:none}
 }
+
+/* === MOBILE SPORTS PUBLIC === */
+@media(max-width:760px){
+  .public-body,.public-section,.soft-section,.mobile-app-dashboard,.player-section-tight{background:var(--bg);color:var(--text)}
+  .public-header{background:rgba(9,13,11,.92);border-bottom:1px solid var(--line);box-shadow:none}
+  .public-brand b{color:#fff}
+  .public-brand small{color:#728078}
+  .public-brand .brand-mark{background:var(--accent);color:#090d0b;transform:none;box-shadow:none}
+
+  .mobile-app-status-card{
+    background:linear-gradient(145deg,#17231b,#0e1511);
+    border:1px solid var(--line);
+    color:#fff;
+    box-shadow:none;
+  }
+  .mobile-app-status-card h2{color:#fff}
+  .mobile-app-status-card p{color:var(--muted)}
+  .status-dot{background:var(--brand);box-shadow:0 0 0 5px rgba(66,223,135,.1)}
+  .mobile-app-badge{background:#0b100d;border-color:var(--line);color:var(--accent)}
+
+  .mobile-app-actions a{
+    background:var(--surface);
+    border-color:var(--line);
+    color:#fff;
+    box-shadow:none;
+  }
+  .mobile-app-actions span{background:#1a241d;color:var(--accent)}
+  .mobile-app-actions span svg{width:19px;height:19px}
+  .mobile-app-actions b{color:#fff}
+
+  .public-hero{background:var(--bg)}
+  .hero-media-stage{border:1px solid var(--line);box-shadow:none}
+  .hero-live-card{background:rgba(9,13,11,.93);border-color:var(--line);box-shadow:none}
+  .hero-live-top{color:#a8b5ad}
+  .hero-score{background:var(--surface-2);border-color:var(--line)}
+  .hero-score strong,.hero-score .points{color:#fff}
+
+  .section-title h2{color:#fff}
+  .section-title .eyebrow{color:var(--brand)}
+  .section-link{color:var(--accent)}
+  .tour-card,.public-match,.public-standings,.public-bracket-card,.news-card,.top-player-card{
+    background:var(--surface);
+    border-color:var(--line);
+    color:#fff;
+    box-shadow:none;
+  }
+  .tour-cover{background:linear-gradient(145deg,#1b2a20,#111913)}
+  .tour-body h3,.public-team-row,.news-card h3,.top-player-card strong{color:#fff}
+  .tour-body .meta,.public-match-top,.news-card p,.top-player-card small{color:var(--muted)}
+  .public-team-row,.public-bracket-row,.rating-row{border-color:rgba(255,255,255,.06)}
+  .public-bracket-card{box-shadow:none}
+  .public-bracket-row.win{background:rgba(66,223,135,.11);color:#71eda8}
+  .public-standings .standing-row{border-color:rgba(255,255,255,.06)}
+  .public-standings .standing-row.head{color:var(--muted)}
+
+  .public-mobile-dock{
+    background:rgba(15,21,17,.96);
+    border:1px solid var(--line);
+    box-shadow:0 18px 48px rgba(0,0,0,.38);
+  }
+  .public-mobile-dock a{color:#77837b}
+  .public-mobile-dock a.active{background:#1b241e;color:#fff}
+  .public-mobile-dock a.active svg{color:var(--accent)}
+  .public-footer{display:none}
+
+  .player-hero{background:linear-gradient(180deg,#111914,#0b100d);border-bottom:1px solid var(--line)}
+  .player-avatar{border-color:#202c24;box-shadow:none}
+  .player-main h1{color:#fff}
+  .player-main p{color:var(--muted)}
+  .player-rating{background:var(--surface-2);border-color:var(--line)}
+  .player-rating strong{color:var(--accent)}
+  .player-stat,.player-match{background:var(--surface);border-color:var(--line);box-shadow:none}
+  .player-stat span{color:var(--muted)}
+  .player-stat strong{color:#fff}
+  .player-score-line,.rating-event,.partner-row,.tournament-row{border-color:rgba(255,255,255,.06);color:#fff}
+  .rating-event small,.partner-row small,.tournament-row small{color:var(--muted)}
+
+  .ranking-hero,.tournament-hero{background:linear-gradient(145deg,#17231b,#0e1511);color:#fff}
+  .ranking-card,.tournament-card{background:var(--surface);border-color:var(--line);color:#fff}
+}
