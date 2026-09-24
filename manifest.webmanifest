@@ -8,18 +8,63 @@
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay","standalone","minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#0d2118",
   "theme_color": "#0d2118",
-  "categories": ["sports","productivity"],
+  "categories": [
+    "sports",
+    "productivity"
+  ],
   "icons": [
-    {"src":"/assets/app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ],
   "shortcuts": [
-    {"name":"Live Score","short_name":"Live","url":"/#live","icons":[{"src":"/assets/app-icon.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"Player App","short_name":"Player","url":"/me","icons":[{"src":"/assets/app-icon.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"Quản trị","short_name":"Admin","url":"/admin","icons":[{"src":"/assets/app-icon.svg","sizes":"any","type":"image/svg+xml"}]}
+    {
+      "name": "Live Score",
+      "short_name": "Live",
+      "url": "/#live",
+      "icons": [
+        {
+          "src": "/assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Xếp hạng VĐV",
+      "short_name": "VĐV",
+      "url": "/ranking.html",
+      "icons": [
+        {
+          "src": "/assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Quản trị",
+      "short_name": "Admin",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ],
   "prefer_related_applications": false
 }
