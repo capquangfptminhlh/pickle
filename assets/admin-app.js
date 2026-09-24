@@ -360,7 +360,7 @@ async function openMatchDetail(id){
   const refs=canManage()?await API.referees().catch(()=>[]):[];
   $("#genericTitle").textContent="Chi tiết trận";
   const assignment=canManage()?`<div class="form-grid">
-    <label class="field">Sân<select id="detailCourt"><option value="">Giữ nguyên</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
+    <label class="field">Sân<select id="detailCourt"><option value="">Chưa gán</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
     <label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label>
     <label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label>
     <div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div>
