@@ -59,6 +59,7 @@ button{cursor:pointer}
 .btn,.mini,.icon-btn,.score-control button{border:0;transition:.16s var(--ease)}
 .btn{min-height:42px;padding:0 15px;border-radius:13px;font-size:12px;font-weight:850}
 .btn:active,.mini:active,.icon-btn:active,.score-control button:active{transform:scale(.97)}
+.btn:disabled,.mini:disabled,.icon-btn:disabled,.score-control button:disabled{cursor:not-allowed;opacity:.42;transform:none!important;filter:saturate(.65)}
 .btn.primary{background:var(--dark);color:#fff}
 .btn.secondary{background:#ebefed;color:#24312a}
 .btn.dark{background:#17201b;color:#fff}
@@ -197,7 +198,8 @@ button{cursor:pointer}
 @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(25,191,120,0)}}
 @media(max-width:1100px){.grid-2{grid-template-columns:1fr}.kpis,.module-metrics{grid-template-columns:repeat(2,1fr)}.page-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){
-  body{padding-bottom:calc(86px + var(--safe-bottom));background:#f6f7f7}
+  body{padding-bottom:calc(96px + var(--safe-bottom));background:#f6f7f7}
+  body.app-drawer-open{overflow:hidden;touch-action:none}
   .app-shell{display:block}
   .main{min-height:100dvh}
   .sidebar{position:fixed;left:-86vw;top:0;width:min(84vw,328px);height:100dvh;padding:calc(14px + var(--safe-top)) 12px calc(14px + var(--safe-bottom));border-radius:0 26px 26px 0;transition:.22s var(--ease);box-shadow:26px 0 70px rgba(5,15,9,.28)}
@@ -258,8 +260,10 @@ button{cursor:pointer}
   .score-dialog .score-control span{grid-column:1/-1;grid-row:1;margin:6px 0;font-size:66px;line-height:1}
   .score-dialog .score-control button{width:100%;height:52px;border-radius:16px}
   .score-dialog .score-options{padding:10px;border:1px solid var(--line);border-radius:17px;background:#fff}
-  .score-dialog .score-actions{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1fr;padding-top:8px;background:#f6f7f7}
-  .score-dialog .score-actions #finishMatch{grid-column:1/-1;order:-1}
+  .score-dialog .score-actions{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px;background:#f6f7f7}
+  .score-dialog .score-actions #undoScore{order:1}
+  .score-dialog .score-actions #finishSet{order:1}
+  .score-dialog .score-actions #finishMatch{grid-column:1/-1;order:2}
   .score-dialog .score-actions .btn{width:100%}
   .score-dialog .score-note{display:none}
   .generic-dialog[open]{display:flex;align-items:flex-end;justify-content:center;width:100vw;max-width:none;margin:0;inset:auto 0 0}
@@ -366,7 +370,9 @@ button{cursor:pointer}
   .score-dialog .score-options select{background:#f5f7f6;color:#233129;border:1px solid #e3e9e5;border-radius:9px}
   .score-dialog .score-actions{background:#f4f7f5}
   .score-dialog .score-actions #finishMatch{background:#0c7f52;color:#fff}
+  .score-dialog .score-actions #finishMatch:disabled{background:#dce7e1;color:#829089}
   .score-dialog .score-actions #finishSet{background:#173c2c;color:#fff}
+  .score-dialog .score-actions #finishSet:disabled{background:#dfe7e3;color:#829089}
   .score-dialog .score-actions #undoScore{background:#e9efeb;color:#33443a}
 
   .generic-dialog .modal-card{background:#fff}
