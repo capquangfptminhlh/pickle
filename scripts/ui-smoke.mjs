@@ -201,6 +201,16 @@ await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot
 if(!(await shot.locator(".public-mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["public mobile dock missing"]});
 await shot.screenshot({path:"ui-artifacts/mobile-public.png"});
 
+await shot.goto(preview+"/ranking.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
+const rankHeroImg=shot.locator(".ranking-hero-grid>img");
+if(await rankHeroImg.count()){
+  const box=await rankHeroImg.boundingBox();
+  if(!box||box.width>370||box.height>180)failures.push({label:"preview mobile ranking",errors:["ranking hero image overflows mobile layout"]});
+}
+const rankingOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+if(rankingOverflow)failures.push({label:"preview mobile ranking",errors:["ranking page has horizontal overflow"]});
+await shot.screenshot({path:"ui-artifacts/mobile-ranking.png",fullPage:true});
+
 await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(250);
 if(!(await shot.locator(".mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["admin mobile dock missing"]});
