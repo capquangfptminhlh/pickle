@@ -63,22 +63,28 @@ async function loadState({publicOnly=false}={}){
     :"select * from tournaments order by start_at desc";
   const tournaments=(await pool.query(tSql)).rows.map(t=>({
     id:t.id,name:t.name,date:t.start_at?new Date(t.start_at).toLocaleDateString("vi-VN"):"Chưa chốt",
-    venue:t.venue_name||"Chưa chốt",format:"Tournament",status:t.status==="registration"?"open":t.status,teams:0
+    startAt:t.start_at,endAt:t.end_at,venue:t.venue_name||"Chưa chốt",format:"Tournament",
+    status:t.status==="registration"?"open":t.status,publicVisible:t.public_visible,teams:0
   }));
   const tournamentIds=tournaments.map(t=>t.id);
   if(!tournamentIds.length)return {tournaments:[],teams:[],matches:[],audit:[]};
 
-  const divisions=(await pool.query("select * from divisions where tournament_id=any($1::uuid[])",[tournamentIds])).rows;
+  const divisions=(await pool.query(
+    publicOnly
+      ?"select * from divisions where tournament_id=any($1::uuid[]) and active=true"
+      :"select * from divisions where tournament_id=any($1::uuid[])",
+    [tournamentIds]
+  )).rows;
   for(const t of tournaments)t.format=divisions.filter(d=>d.tournament_id===t.id).map(d=>d.name).join(" • ")||"Tournament";
   const divisionIds=divisions.map(d=>d.id);
   const teamRows=divisionIds.length?(await pool.query(`
     select t.*,c.name club_name from teams t left join clubs c on c.id=t.club_id
-    where t.division_id=any($1::uuid[]) order by t.group_code,t.seed,t.name
+    where t.division_id=any($1::uuid[]) ${publicOnly?"and t.status='active'":""} order by t.group_code,t.seed,t.name
   `,[divisionIds])).rows:[];
   const matchRows=divisionIds.length?(await pool.query(`
     select m.*, c.name court_name
     from matches m left join courts c on c.id=m.court_id
-    where m.division_id=any($1::uuid[])
+    where m.division_id=any($1::uuid[]) ${publicOnly?"and m.status<>'cancelled'":""}
     order by m.scheduled_at,m.created_at
   `,[divisionIds])).rows:[];
 
@@ -94,9 +100,14 @@ async function loadState({publicOnly=false}={}){
     if(sa){sa.pf+=ap;sa.pa+=bp;m.winner_team_id===m.team_a_id?sa.w++:sa.l++}
     if(sb){sb.pf+=bp;sb.pa+=ap;m.winner_team_id===m.team_b_id?sb.w++:sb.l++}
   }
-  const teams=teamRows.map(t=>({id:t.id,divisionId:t.division_id,name:t.name,club:t.club_name||"Tự do",group:t.group_code||"",seed:t.seed,...stats.get(t.id)}));
+  const teams=teamRows.map(t=>({id:t.id,divisionId:t.division_id,name:t.name,club:t.club_name||"Tự do",clubId:t.club_id||null,group:t.group_code||"",seed:t.seed,status:t.status,...stats.get(t.id)}));
   const courtIndex={};
-  const courts=(await pool.query("select * from courts where tournament_id=any($1::uuid[]) order by sort_order",[tournamentIds])).rows;
+  const courts=(await pool.query(
+    publicOnly
+      ?"select * from courts where tournament_id=any($1::uuid[]) and active=true order by sort_order"
+      :"select * from courts where tournament_id=any($1::uuid[]) order by sort_order",
+    [tournamentIds]
+  )).rows;
   courts.forEach((c,i)=>courtIndex[c.id]=c.sort_order||i+1);
 
   const matches=matchRows.map(m=>({
@@ -111,7 +122,7 @@ async function loadState({publicOnly=false}={}){
     time:nowTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type
   }));
   for(const t of tournaments)t.teams=teamRows.filter(x=>divisions.some(d=>d.id===x.division_id&&d.tournament_id===t.id)).length;
-  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,matches,audit};
+  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,matches,audit};
 }
 
 async function audit(c,user,entityType,entityId,action,beforeData,afterData,reason){
