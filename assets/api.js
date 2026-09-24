@@ -17,17 +17,80 @@
     logout:()=>request("/api/auth/logout",{method:"POST"}),
     changePassword:(currentPassword,newPassword)=>request("/api/auth/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})}),
     me:()=>request("/api/auth/me"),
+    session:()=>request("/api/auth/session"),
     publicState:()=>request("/api/public/state"),
     publicPlayers:()=>request("/api/public/players"),
+    publicPlayer:(id)=>request(`/api/public/players/${encodeURIComponent(id)}`),
     publicClubs:()=>request("/api/public/clubs"),
+    publicPosts:()=>request("/api/public/posts"),
+    publicSponsors:()=>request("/api/public/sponsors"),
+    publicBranding:()=>request("/api/public/branding"),
+    publicCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}`),
+    confirmCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}/confirm`,{method:"POST",body:"{}"}),
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
+    importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
+    importTeams:(divisionId,rows)=>request(`/api/divisions/${divisionId}/import-teams`,{method:"POST",body:JSON.stringify({rows})}),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
+    uploadReceipt:async(file)=>{
+      const form=new FormData();form.append("receipt",file);
+      const res=await fetch("/api/uploads/receipt",{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
+    uploadImage:async(file)=>{
+      const form=new FormData();form.append("image",file);
+      const res=await fetch("/api/uploads/image",{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
+    uploadPlayerAvatar:async(playerId,file)=>{
+      const form=new FormData();form.append("avatar",file);
+      const res=await fetch(`/api/players/${encodeURIComponent(playerId)}/avatar`,{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
     adjustRating:(playerId,payload)=>request(`/api/players/${playerId}/rating-adjust`,{method:"POST",body:JSON.stringify(payload)}),
     createClub:payload=>request("/api/clubs",{method:"POST",body:JSON.stringify(payload)}),
+    sponsors:()=>request("/api/sponsors"),
+    createSponsor:payload=>request("/api/sponsors",{method:"POST",body:JSON.stringify(payload)}),
+    updateSponsor:(id,payload)=>request(`/api/sponsors/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteSponsor:id=>request(`/api/sponsors/${id}`,{method:"DELETE"}),
+    posts:()=>request("/api/posts"),
+    createPost:payload=>request("/api/posts",{method:"POST",body:JSON.stringify(payload)}),
+    updatePost:(id,payload)=>request(`/api/posts/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deletePost:id=>request(`/api/posts/${id}`,{method:"DELETE"}),
+    branding:()=>request("/api/settings/branding"),
+    saveBranding:payload=>request("/api/settings/branding",{method:"PUT",body:JSON.stringify(payload)}),
+    bookings:()=>request("/api/bookings"),
+    createBooking:payload=>request("/api/bookings",{method:"POST",body:JSON.stringify(payload)}),
+    updateBooking:(id,payload)=>request(`/api/bookings/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    reportOverview:(tournamentId="")=>request("/api/reports/overview"+(tournamentId?`?tournamentId=${encodeURIComponent(tournamentId)}`:"")),
+    checkin:id=>request(`/api/registrations/${id}/checkin`,{method:"POST",body:"{}"}),
+    undoCheckin:id=>request(`/api/registrations/${id}/undo-checkin`,{method:"POST",body:"{}"}),
+    checkinQr:id=>request(`/api/registrations/${id}/checkin-qr`),
     addTeamPlayer:(teamId,playerId)=>request(`/api/teams/${teamId}/players`,{method:"POST",body:JSON.stringify({playerId})}),
     createTournament:payload=>request("/api/tournaments",{method:"POST",body:JSON.stringify(payload)}),
+    updateTournament:(id,payload)=>request(`/api/tournaments/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteTournament:id=>request(`/api/tournaments/${id}`,{method:"DELETE"}),
+    updateDivisionFull:(id,payload)=>request(`/api/divisions/${id}/full`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteDivision:id=>request(`/api/divisions/${id}`,{method:"DELETE"}),
+    deleteCourt:id=>request(`/api/courts/${id}`,{method:"DELETE"}),
+    updatePlayer:(id,payload)=>request(`/api/players/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deactivatePlayer:id=>request(`/api/players/${id}`,{method:"DELETE"}),
+    updateClub:(id,payload)=>request(`/api/clubs/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteClub:id=>request(`/api/clubs/${id}`,{method:"DELETE"}),
+    updateTeam:(id,payload)=>request(`/api/teams/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteTeam:id=>request(`/api/teams/${id}`,{method:"DELETE"}),
+    updateMatch:(id,payload)=>request(`/api/matches/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteMatch:id=>request(`/api/matches/${id}`,{method:"DELETE"}),
+    updateRegistration:(id,payload)=>request(`/api/registrations/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteRegistration:id=>request(`/api/registrations/${id}`,{method:"DELETE"}),
+    deleteBooking:id=>request(`/api/bookings/${id}`,{method:"DELETE"}),
     createDivision:(tournamentId,payload)=>request(`/api/tournaments/${tournamentId}/divisions`,{method:"POST",body:JSON.stringify(payload)}),
     createCourt:(tournamentId,payload)=>request(`/api/tournaments/${tournamentId}/courts`,{method:"POST",body:JSON.stringify(payload)}),
     updateCourt:(courtId,payload)=>request(`/api/courts/${courtId}`,{method:"PATCH",body:JSON.stringify(payload)}),
@@ -35,14 +98,17 @@
     updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
     generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
+    autoSeedGroups:(divisionId,groupCount)=>request(`/api/divisions/${divisionId}/auto-seed-groups`,{method:"POST",body:JSON.stringify({groupCount})}),
     generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     finishSet:(id,payload)=>request(`/api/matches/${id}/finish-set`,{method:"POST",body:JSON.stringify(payload)}),
     finishMatch:(id,payload)=>request(`/api/matches/${id}/finish`,{method:"POST",body:JSON.stringify(payload)}),
+    specialResult:(id,payload)=>request(`/api/matches/${id}/special-result`,{method:"POST",body:JSON.stringify(payload)}),
     undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
     referees:()=>request("/api/users/referees"),
     createReferee:payload=>request("/api/users/referees",{method:"POST",body:JSON.stringify(payload)}),
+    updateReferee:(id,payload)=>request(`/api/users/referees/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
     registrations:()=>request("/api/registrations"),
     createRegistration:(divisionId,payload)=>request(`/api/divisions/${divisionId}/registrations`,{method:"POST",body:JSON.stringify(payload)}),
     addPayment:(registrationId,payload)=>request(`/api/registrations/${registrationId}/payment`,{method:"POST",body:JSON.stringify(payload)}),

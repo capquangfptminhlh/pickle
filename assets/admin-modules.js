@@ -43,8 +43,18 @@
       const add=document.querySelector('[data-module-action="new-registration"]');
       if(add)add.onclick=()=>{
         if(!ctx.state.divisions.length||!ctx.state.teams.length)return ctx.toast("Cần có nội dung và đội trước.");
-        modal("Thêm đăng ký",'<div class="form-grid"><label class="field full">Nội dung<select id="modRegDivision">'+ctx.state.divisions.map(d=>'<option value="'+d.id+'">'+d.name+'</option>').join("")+'</select></label><label class="field full">Đội<select id="modRegTeam">'+ctx.state.teams.map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join("")+'</select></label><label class="field full">Lệ phí<input id="modRegAmount" type="number" min="0"></label><div class="field full"><button class="btn primary" type="button" id="modSaveReg">Tạo đăng ký</button></div></div>');
-        document.querySelector("#modSaveReg").onclick=async()=>{try{await API.createRegistration(document.querySelector("#modRegDivision").value,{teamId:document.querySelector("#modRegTeam").value,amount:Number(document.querySelector("#modRegAmount").value)||null});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã thêm đăng ký.")}catch(e){ctx.toast("Không thể tạo: "+e.message)}};
+        modal("Thêm đăng ký",'<div class="form-grid"><label class="field full">Nội dung<select id="modRegDivision">'+ctx.state.divisions.map(d=>'<option value="'+d.id+'">'+d.name+'</option>').join("")+'</select></label><label class="field full">Đội<select id="modRegTeam"></select></label><label class="field full">Lệ phí<input id="modRegAmount" type="number" min="0"></label><div class="field full"><button class="btn primary" type="button" id="modSaveReg">Tạo đăng ký</button></div></div>');
+        const div=document.querySelector("#modRegDivision"),team=document.querySelector("#modRegTeam"),save=document.querySelector("#modSaveReg");
+        const syncTeams=()=>{
+          const teams=ctx.state.teams.filter(t=>t.divisionId===div.value);
+          team.innerHTML=teams.map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join("");
+          save.disabled=!teams.length;
+        };
+        div.onchange=syncTeams;syncTeams();
+        save.onclick=async()=>{
+          if(!team.value)return ctx.toast("Nội dung này chưa có đội để đăng ký.");
+          try{await API.createRegistration(div.value,{teamId:team.value,amount:Number(document.querySelector("#modRegAmount").value)||null});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã thêm đăng ký.")}catch(e){ctx.toast("Không thể tạo: "+e.message)}
+        };
       };
     }};
   }
@@ -82,7 +92,13 @@
       document.querySelector('[data-module-action="new-booking"]')?.addEventListener("click",()=>{
         if(!ctx.state.courts.length)return ctx.toast("Chưa có sân.");
         modal("Tạo booking",'<div class="form-grid"><label class="field full">Sân<select id="modBookCourt">'+ctx.state.courts.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join("")+'</select></label><label class="field full">Tên booking<input id="modBookTitle" placeholder="VD: Social tối thứ 6"></label><label class="field">Bắt đầu<input id="modBookStart" type="datetime-local"></label><label class="field">Kết thúc<input id="modBookEnd" type="datetime-local"></label><label class="field">Người liên hệ<input id="modBookName"></label><label class="field">Điện thoại<input id="modBookPhone"></label><label class="field full">Ghi chú<textarea id="modBookNotes" rows="3"></textarea></label><div class="field full"><button class="btn primary" type="button" id="modSaveBooking">Lưu booking</button></div></div>');
-        document.querySelector("#modSaveBooking").onclick=async()=>{try{await API.createBooking({courtId:document.querySelector("#modBookCourt").value,title:document.querySelector("#modBookTitle").value,startAt:document.querySelector("#modBookStart").value,endAt:document.querySelector("#modBookEnd").value,contactName:document.querySelector("#modBookName").value,contactPhone:document.querySelector("#modBookPhone").value,notes:document.querySelector("#modBookNotes").value});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo booking.")}catch(e){ctx.toast(e.message==="BOOKING_CONFLICT"?"Khung giờ này bị trùng booking.":"Không thể tạo booking: "+e.message)}};
+        document.querySelector("#modSaveBooking").onclick=async()=>{
+          const startAt=document.querySelector("#modBookStart").value,endAt=document.querySelector("#modBookEnd").value,title=document.querySelector("#modBookTitle").value.trim();
+          if(!title)return ctx.toast("Nhập tên booking.");
+          if(!startAt||!endAt)return ctx.toast("Chọn đủ giờ bắt đầu và kết thúc.");
+          if(Date.parse(endAt)<=Date.parse(startAt))return ctx.toast("Giờ kết thúc phải sau giờ bắt đầu.");
+          try{await API.createBooking({courtId:document.querySelector("#modBookCourt").value,title,startAt,endAt,contactName:document.querySelector("#modBookName").value,contactPhone:document.querySelector("#modBookPhone").value,notes:document.querySelector("#modBookNotes").value});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo booking.")}catch(e){ctx.toast(e.message==="BOOKING_CONFLICT"?"Khung giờ này bị trùng booking.":e.message==="INVALID_BOOKING_TIME"?"Giờ booking không hợp lệ.":"Không thể tạo booking: "+e.message)}
+        };
       });
     }};
   }

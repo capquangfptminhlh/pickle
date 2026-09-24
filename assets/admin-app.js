@@ -67,8 +67,8 @@ function renderNav(){
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
-  const scoreBtn=m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">Nhập điểm</button>`:"";
-  return `<div class="match-card" data-match-card="${m.id}">
+  const scoreBtn=m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">Nhập điểm</button>`:"";
+  return `<div class="match-card" data-match-card="${m.id}" data-match-court="${m.courtId||""}" data-match-status="${m.status}">
     <div class="match-top"><span>${m.time} • Sân ${m.court} • ${m.stage}</span>${statusBadge(m.status)}</div>
     <div class="versus">
       <div class="team"><strong>${teamName(m.a)}</strong><small>${state.teams.find(t=>t.id===m.a)?.club||""}</small></div>
@@ -140,13 +140,13 @@ async function players(){
 function matchesPage(scoreOnly=false){
   setHeader(scoreOnly?"Nhập điểm":"Lịch & trận đấu",scoreOnly?"Giao diện courtside cho BTC/trọng tài":"Điều phối sân, giờ đấu và trạng thái");
   const arr=scoreOnly?state.matches.filter(m=>m.status!=="done"):state.matches;
-  return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${[1,2,3,4,5,6].map(x=>`<option>${x}</option>`).join("")}</select>
+  return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${state.courts.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select>
     <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn secondary" data-action="autoSchedule">Tạo lịch tự động</button><button class="btn primary" data-action="newMatch">Tạo trận</button>':""}</div>
-    <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p>${arr.length} trận</p></div></div>
-      <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}</div>
+    <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p id="matchCount">${arr.length} trận</p></div></div>
+      <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}<div class="empty" id="matchFilterEmpty" hidden>Không có trận phù hợp bộ lọc.</div></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h2>Tình trạng sân</h2><p>Live court monitor</p></div></div>
-      ${[1,2,3,4,5,6].map(c=>{const m=state.matches.find(x=>String(x.court)===String(c)&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>Sân ${c}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join("")}
+      ${state.courts.length?state.courts.map(c=>{const m=state.matches.find(x=>x.courtId===c.id&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
     </div></div>`;
 }
 function calcGroup(g){return state.teams.filter(t=>t.group===g).sort((a,b)=>b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf)}
@@ -226,6 +226,18 @@ async function render(){
   if(result&&typeof result==="object"&&typeof result.bind==="function")result.bind();
   await window.AdminCrud?.decorate({page,state,user,refresh,toast});
 }
+function applyMatchFilters(){
+  const court=$("#courtFilter")?.value||"",status=$("#statusFilter")?.value||"";
+  const cards=[...document.querySelectorAll("[data-match-card]")];
+  let visible=0;
+  cards.forEach(card=>{
+    const show=(!court||card.dataset.matchCourt===court)&&(!status||card.dataset.matchStatus===status);
+    card.hidden=!show;
+    if(show)visible++;
+  });
+  const count=$("#matchCount");if(count)count.textContent=`${visible} trận`;
+  const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
+}
 function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
@@ -250,6 +262,8 @@ function bindDynamic(){
   document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
   document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
+  ["#courtFilter","#statusFilter"].forEach(s=>{const el=$(s);if(el)el.onchange=applyMatchFilters});
+  applyMatchFilters();
 }
 function divisionForMatch(m){return state.divisions.find(d=>d.id===m.divisionId)}
 function openScore(id){
@@ -259,13 +273,24 @@ function openScore(id){
   $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time}`;
   $("#scoreTitle").textContent=`Nhập điểm trận`;
   $("#teamAName").textContent=teamName(activeMatch.a);$("#teamBName").textContent=teamName(activeMatch.b);
-  if(d){$("#targetScore").value=String(d.pointsToWin);$("#targetScore").disabled=true;$("#winByTwo").checked=d.winByTwo;$("#winByTwo").disabled=true}
+  $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
+  $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
   syncScoreDialog();$("#scoreDialog").showModal();
 }
 function syncScoreDialog(){
   if(!activeMatch)return;
-  $("#scoreA").textContent=activeMatch.current?.[0]||0;$("#scoreB").textContent=activeMatch.current?.[1]||0;
+  const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  $("#scoreA").textContent=a;$("#scoreB").textContent=b;
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
+  const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
+  $("#finishSet").disabled=!(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
+  const need=Math.ceil(Number(d?.bestOf||3)/2);
+  const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
+  const winsB=(activeMatch.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length;
+  $("#finishMatch").disabled=!(winsA>=need||winsB>=need);
+  document.querySelectorAll('[data-score][data-delta="-1"]').forEach(btn=>{
+    btn.disabled=(btn.dataset.score==="a"?a:b)<=0;
+  });
 }
 async function scorePoint(side,delta){
   if(busy||!activeMatch)return;busy=true;
@@ -323,14 +348,19 @@ async function openMatchModal(){
   </div>`;
   const syncTeams=()=>{const did=$("#mDivision").value,ts=state.teams.filter(t=>t.divisionId===did),opts=ts.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");$("#mTeamA").innerHTML=opts;$("#mTeamB").innerHTML=opts;if(ts.length>1)$("#mTeamB").selectedIndex=1};
   $("#genericDialog").showModal();syncTeams();$("#mDivision").onchange=syncTeams;
-  $("#saveMatch").onclick=async()=>{try{await API.createMatch($("#mDivision").value,{teamAId:$("#mTeamA").value,teamBId:$("#mTeamB").value,courtId:$("#mCourt").value||null,refereeUserId:$("#mRef").value||null,stage:$("#mStage").value||"Vòng bảng",scheduledAt:$("#mTime").value||null});$("#genericDialog").close();await refresh();toast("Đã tạo trận.")}catch(e){toast("Không thể tạo trận: "+e.message)}};
+  $("#saveMatch").onclick=async()=>{
+    const teamAId=$("#mTeamA").value,teamBId=$("#mTeamB").value;
+    if(!teamAId||!teamBId)return toast("Cần chọn đủ hai đội.");
+    if(teamAId===teamBId)return toast("Hai bên thi đấu phải là hai đội khác nhau.");
+    try{await API.createMatch($("#mDivision").value,{teamAId,teamBId,courtId:$("#mCourt").value||null,refereeUserId:$("#mRef").value||null,stage:$("#mStage").value||"Vòng bảng",scheduledAt:$("#mTime").value||null});$("#genericDialog").close();await refresh();toast("Đã tạo trận.")}catch(e){toast("Không thể tạo trận: "+e.message)}
+  };
 }
 async function openMatchDetail(id){
   const m=state.matches.find(x=>x.id===id);if(!m)return;
   const refs=canManage()?await API.referees().catch(()=>[]):[];
   $("#genericTitle").textContent="Chi tiết trận";
   const assignment=canManage()?`<div class="form-grid">
-    <label class="field">Sân<select id="detailCourt"><option value="">Giữ nguyên</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
+    <label class="field">Sân<select id="detailCourt"><option value="">Chưa gán</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
     <label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label>
     <label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label>
     <div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div>
@@ -524,9 +554,18 @@ async function saveRules(id){
 function openRegistrationModal(){
   if(!state.divisions.length||!state.teams.length)return toast("Chưa có nội dung hoặc đội.");
   $("#genericTitle").textContent="Tạo đăng ký";
-  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung<select id="regDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label><label class="field full">Đội<select id="regTeam">${state.teams.map(t=>`<option value="${t.id}" data-div="${t.divisionId}">${t.name}</option>`).join("")}</select></label><label class="field full">Lệ phí<input id="regAmount" type="number" min="0" placeholder="VD: 500000"></label><div class="field full"><button type="button" class="btn primary" id="saveRegistration">Tạo đăng ký</button></div></div>`;
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung<select id="regDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label><label class="field full">Đội<select id="regTeam"></select></label><label class="field full">Lệ phí<input id="regAmount" type="number" min="0" placeholder="VD: 500000"></label><div class="field full"><button type="button" class="btn primary" id="saveRegistration">Tạo đăng ký</button></div></div>`;
   $("#genericDialog").showModal();
-  $("#saveRegistration").onclick=async()=>{try{await API.createRegistration($("#regDivision").value,{teamId:$("#regTeam").value,amount:Number($("#regAmount").value)||null});$("#genericDialog").close();await render();toast("Đã tạo đăng ký.")}catch(e){toast("Không thể tạo: "+e.message)}};
+  const syncRegistrationTeams=()=>{
+    const did=$("#regDivision").value,teams=state.teams.filter(t=>t.divisionId===did);
+    $("#regTeam").innerHTML=teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+    $("#saveRegistration").disabled=!teams.length;
+  };
+  $("#regDivision").onchange=syncRegistrationTeams;syncRegistrationTeams();
+  $("#saveRegistration").onclick=async()=>{
+    const teamId=$("#regTeam").value;if(!teamId)return toast("Nội dung này chưa có đội để đăng ký.");
+    try{await API.createRegistration($("#regDivision").value,{teamId,amount:Number($("#regAmount").value)||null});$("#genericDialog").close();await render();toast("Đã tạo đăng ký.")}catch(e){toast("Không thể tạo: "+e.message)}
+  };
 }
 function openPaymentModal(registrationId){
   $("#genericTitle").textContent="Ghi nhận chuyển khoản";

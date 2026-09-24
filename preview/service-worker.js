@@ -1,4 +1,4 @@
-const VERSION="pickle-preview-premium-v5-shell-literal";
+const VERSION="pickle-preview-premium-v7-ranking-mobile-fix";
 const CORE=[
   "./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js",

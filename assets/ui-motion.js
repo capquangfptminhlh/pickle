@@ -103,7 +103,10 @@
       courts:["Thêm sân",()=>document.querySelector('[data-action="newCourt"]')?.click()],
       referees:["Thêm trọng tài",()=>document.querySelector('[data-action="newReferee"]')?.click()]
     };
-    const action=map[current]||map.dashboard;
+    const action=map[current]||null;
+    const show=!!action&&current!=="dashboard"&&current!=="scores";
+    fab.hidden=!show;label.hidden=!show;
+    if(!action)return;
     label.textContent=action[0];
     fab.onclick=()=>{if(navigator.vibrate)navigator.vibrate(8);action[1]()};
   }
@@ -120,8 +123,9 @@
       ["more","Khác","<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"]
     ];
     const active=document.querySelector("#nav .nav-btn.active")?.dataset.page||"dashboard";
+    const primaryIds=new Set(items.filter(x=>x[0]!=="more").map(x=>x[0]));
     dock.innerHTML=items.map(([id,label,path])=>{
-      const isActive=id==="more"?false:active===id;
+      const isActive=id==="more"?!primaryIds.has(active):active===id;
       return '<button data-dock-page="'+id+'" class="'+(isActive?"active":"")+'"><span class="ico-clone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+path+'</svg></span><small>'+label+'</small></button>';
     }).join("");
     $$(".mobile-dock [data-dock-page]",dock).forEach(b=>b.onclick=()=>{
@@ -156,6 +160,18 @@
       '<a class="'+(rankActive?"active":"")+'" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>Ranking</span></a>'+
       '<a href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5 2 2 3-.5.5 3 2 2-2 2 .5 3-3 .5-2 2-2-2-3 .5-.5-3-2-2 2-2-.5-3 3-.5z"/></svg><span>Admin</span></a>';
     document.body.appendChild(dock);
+    const syncPublicDock=()=>{
+      const hash=location.hash;
+      const path=location.pathname;
+      $$(".public-mobile-dock a",dock).forEach(a=>a.classList.remove("active"));
+      if(path.includes("ranking"))dock.querySelector('a[href*="ranking"]')?.classList.add("active");
+      else if(hash==="#live")dock.querySelector('a[href$="#live"]')?.classList.add("active");
+      else if(hash==="#tournaments")dock.querySelector('a[href$="#tournaments"]')?.classList.add("active");
+      else dock.querySelector("a")?.classList.add("active");
+    };
+    dock.addEventListener("click",e=>{if(e.target.closest("a"))setTimeout(syncPublicDock,0)});
+    addEventListener("hashchange",syncPublicDock);
+    syncPublicDock();
   }
 
   function buildProgress(){
