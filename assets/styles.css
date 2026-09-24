@@ -278,3 +278,13 @@ html[data-network="offline"] .live-pill i{background:#d99a26;animation:none}
   .report-visual{align-items:flex-start;flex-direction:column}
   .module-metrics,.module-metrics.reports{grid-template-columns:1fr 1fr}
 }
+
+.match-detail-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:4px 0 16px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.match-detail-summary small{display:block;color:var(--muted);font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}
+.match-detail-summary h3{margin:5px 0 4px;font-size:20px;letter-spacing:-.03em}
+.match-detail-summary h3 span{color:#97a79e;font-size:11px;font-weight:800;margin:0 5px}
+.match-detail-summary p{margin:0;color:var(--muted);font-size:11px}
+.special-result-box{margin-top:18px;padding:16px;border:1px solid #f0d5d8;background:linear-gradient(180deg,#fffafa,#fff5f6);border-radius:16px}
+.special-result-box .panel-head{margin-bottom:12px}
+.result-reason{display:flex;gap:10px;align-items:center;margin-bottom:14px;padding:10px 12px;border-radius:12px;background:#fff0f1;color:#a23943}
+.result-reason b{text-transform:uppercase;font-size:10px;letter-spacing:.07em}.result-reason span{font-size:11px;color:#7d5559}
