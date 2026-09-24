@@ -156,11 +156,11 @@ function courts(){
   return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${state.courts.length} sân</p></div>${canManage()?'<button class="btn primary" data-action="newCourt">Thêm sân</button>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
 }
 async function refereesPage(){
-  setHeader("Trọng tài","Tài khoản và phân quyền nhập điểm");
-  if(!canReferees())return '<div class="panel empty">Chỉ Super Admin được tạo tài khoản trọng tài.</div>';
+  setHeader("Trọng tài","Tài khoản, trạng thái và phân quyền nhập điểm");
+  if(!canReferees())return '<div class="panel empty">Chỉ Super Admin được quản lý tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
   return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td></tr>`).join("")}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")}</tbody></table></div>
   </div>`;
 }
 async function payments(){
@@ -225,6 +225,7 @@ function bindDynamic(){
   document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
   document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
+  document.querySelectorAll("[data-edit-referee]").forEach(b=>b.onclick=()=>openEditRefereeModal(b.dataset.editReferee));
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
   document.querySelectorAll('[data-action="changePassword"]').forEach(b=>b.onclick=openPasswordModal);
@@ -514,9 +515,39 @@ function openRegistrationModal(){
 }
 function openPaymentModal(registrationId){
   $("#genericTitle").textContent="Ghi nhận chuyển khoản";
-  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mã giao dịch / nội dung CK<input id="payRef"></label><label class="field full">Link biên lai (nếu có)<input id="payReceipt" type="url"></label><div class="field full"><button type="button" class="btn primary" id="savePayment">Ghi nhận</button></div></div>`;
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Mã giao dịch / nội dung CK<input id="payRef"></label>
+    <label class="field full">Biên lai ảnh/PDF<input id="payReceiptFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+    <label class="field full">Hoặc link biên lai<input id="payReceipt" type="url"></label>
+    <div class="field full"><button type="button" class="btn primary" id="savePayment">Ghi nhận</button></div>
+  </div>`;
   $("#genericDialog").showModal();
-  $("#savePayment").onclick=async()=>{try{await API.addPayment(registrationId,{method:"bank_transfer",referenceCode:$("#payRef").value,receiptUrl:$("#payReceipt").value});$("#genericDialog").close();await render();toast("Đã ghi nhận, chờ duyệt.")}catch(e){toast("Không thể ghi nhận: "+e.message)}};
+  $("#savePayment").onclick=async()=>{
+    const btn=$("#savePayment");btn.disabled=true;
+    try{
+      let receiptUrl=$("#payReceipt").value.trim();const file=$("#payReceiptFile").files?.[0];
+      if(file)receiptUrl=(await API.uploadReceipt(file)).url;
+      await API.addPayment(registrationId,{method:"bank_transfer",referenceCode:$("#payRef").value,receiptUrl});
+      $("#genericDialog").close();await render();toast("Đã ghi nhận, chờ duyệt.");
+    }catch(e){btn.disabled=false;toast("Không thể ghi nhận: "+e.message)}
+  };
+}
+async function openEditRefereeModal(id){
+  const refs=await API.referees().catch(()=>[]),r=refs.find(x=>x.id===id);if(!r)return;
+  $("#genericTitle").textContent="Quản lý trọng tài";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Tên<input id="erName" value="${r.display_name||""}"></label>
+    <label class="field full">Email<input id="erEmail" type="email" value="${r.email||""}"></label>
+    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="8"></label>
+    <label class="field full"><span><input id="erActive" type="checkbox" ${r.active?"checked":""}> Tài khoản hoạt động</span></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveRefereeEdit">Lưu</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveRefereeEdit").onclick=async()=>{try{
+    const password=$("#erPassword").value;
+    await API.updateReferee(id,{name:$("#erName").value.trim(),email:$("#erEmail").value.trim(),active:$("#erActive").checked,...(password?{password}:{})});
+    $("#genericDialog").close();await render();toast(password?"Đã cập nhật và reset mật khẩu.":"Đã cập nhật trọng tài.");
+  }catch(e){toast("Không thể cập nhật: "+e.message)}};
 }
 function openRefereeModal(){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
