@@ -292,3 +292,5 @@ linear-gradient(180deg,#0d2118,#102a1d)}
   .public-bracket{margin:0 -12px;padding:0 12px 8px;scroll-snap-type:x mandatory}
   .public-round{min-width:220px;scroll-snap-align:start}
 }
+
+.mobile-app-actions span svg{width:18px;height:18px;display:block}
