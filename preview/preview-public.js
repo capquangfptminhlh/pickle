@@ -20,7 +20,7 @@ function renderCore(){
 
   $("#publicTours").innerHTML=state.tournaments.map(t=>
     '<a class="tour-card" href="tournament.html?id='+encodeURIComponent(t.id)+'" style="text-decoration:none;color:inherit">'+
-      '<div class="tour-cover"><div><small>TOURNAMENT</small><strong>'+esc(t.format||"Tournament")+'</strong></div>'+badge(t.status)+'</div>'+
+      '<div class="tour-media"><img src="../assets/visual-tournament.svg" alt="'+esc(t.name)+'"><div class="tour-media-shade"></div><div class="tour-cover"><div><small>TOURNAMENT</small><strong>'+esc(t.format||"Tournament")+'</strong></div>'+badge(t.status)+'</div></div>'+
       '<div class="tour-body"><h3>'+esc(t.name)+'</h3>'+
       '<div class="tour-meta-grid"><span><small>Ngày</small><b>'+esc(t.date)+'</b></span><span><small>Địa điểm</small><b>'+esc(t.venue)+'</b></span><span><small>Đội</small><b>'+esc(t.teams)+'</b></span></div></div></a>'
   ).join("")||'<div class="empty">Chưa có giải công khai.</div>';
@@ -39,10 +39,9 @@ function renderCore(){
       rows.map((t,i)=>'<div class="standing-row"><b>'+(i+1)+'</b><span><b>'+esc(t.name)+'</b><small class="muted-block">'+esc(t.club)+'</small></span><span>'+t.w+'</span><span>'+t.l+'</span><span>'+t.pf+'</span><span>'+t.pa+'</span><b>'+((t.pf-t.pa)>0?"+":"")+(t.pf-t.pa)+'</b></div>').join("")+'</div>';
   }).join("")||'<div class="empty">Chưa có bảng xếp hạng.</div>';
 
-  const semis=state.matches.filter(m=>m.stage.toLowerCase().includes("bán kết"));
-  const final=state.matches.find(m=>m.stage.toLowerCase().includes("chung kết"));
-  const bm=m=>'<div class="public-bracket-card"><div class="public-bracket-row '+(m.winner===m.a?"win":"")+'"><span>'+esc(team(m.a))+'</span><b>'+(m.sets?.filter(s=>s[0]>s[1]).length||"")+'</b></div><div class="public-bracket-row '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.sets?.filter(s=>s[1]>s[0]).length||"")+'</b></div></div>';
-  $("#publicBracket").innerHTML='<div class="public-bracket"><div class="public-round"><small>BÁN KẾT</small>'+semis.map(bm).join("")+'</div><div class="public-round"><small>CHUNG KẾT</small>'+(final?bm(final):"")+'</div><div class="public-round"><small>VÔ ĐỊCH</small><div class="public-bracket-card champion-card"><div class="champion-mark">01</div><b>'+(final?.winner?esc(team(final.winner)):"Chưa xác định")+'</b></div></div></div>';
+  const bracketHtml=window.PickleBracket?.render(state.matches,team,{admin:false})||'<div class="empty">Chưa có bracket.</div>';
+  const champ=window.PickleBracket?.champion(state.matches,team)||"Chưa xác định";
+  $("#publicBracket").innerHTML=bracketHtml+'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>';
 }
 function renderPlayers(){
   const el=$("#publicTopPlayers");if(!el)return;
@@ -56,7 +55,7 @@ function renderPosts(){
   const el=$("#publicNews");if(!el)return;
   el.innerHTML=posts.slice(0,6).map(p=>
     '<article class="news-card"><a href="#" aria-label="'+esc(p.title)+'">'+
-    (p.cover_url?'<img src="'+esc(p.cover_url)+'" alt="">':'<div class="news-cover-placeholder"><span>PICKLE TOUR</span></div>')+
+    (p.cover_url?'<img src="'+esc(p.cover_url)+'" alt="'+esc(p.title)+'">':'<img src="../assets/visual-news.svg" alt="'+esc(p.title)+'">')+
     '<div class="news-card-body"><span class="eyebrow">UPDATE</span><h3>'+esc(p.title)+'</h3><p>'+esc(p.excerpt||"")+'</p><small>'+(p.published_at?new Date(p.published_at).toLocaleDateString("vi-VN"):"")+'</small></div></a></article>'
   ).join("")||'<div class="empty">Chưa có tin mới.</div>';
 }
