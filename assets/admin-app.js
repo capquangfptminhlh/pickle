@@ -189,11 +189,27 @@ function settings(){
 }
 async function render(){
   renderNav();
-  const map={dashboard,tournaments,players,matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,referees:refereesPage,payments,audit:auditPage,settings};
+  const ctx={API,state,user,setHeader,toast,refresh,canManage};
+  const map={
+    dashboard,tournaments,
+    registrations:()=>window.AdminModules.registrations(ctx),
+    players,
+    clubs:()=>window.AdminModules.clubs(ctx),
+    matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,
+    bookings:()=>window.AdminModules.bookings(ctx),
+    referees:refereesPage,payments,
+    sponsors:()=>window.AdminModules.sponsors(ctx),
+    content:()=>window.AdminModules.content(ctx),
+    reports:()=>window.AdminModules.reports(ctx),
+    audit:auditPage,
+    settings:()=>window.AdminModules.settings(ctx)
+  };
   const fn=map[page]||dashboard;
-  const html=await fn();
+  const result=await fn();
+  const html=typeof result==="string"?result:result.html;
   $("#content").innerHTML=html;
   bindDynamic();
+  if(result&&typeof result==="object"&&typeof result.bind==="function")result.bind();
 }
 function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
