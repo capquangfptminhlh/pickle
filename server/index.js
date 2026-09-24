@@ -361,6 +361,68 @@ app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),
   await pool.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[req.params.id,playerId]);res.status(201).json({ok:true});
 }));
 
+app.post("/api/import/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const rows=Array.isArray(req.body.rows)?req.body.rows:[];
+  if(!rows.length||rows.length>1000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
+  const result=await tx(async c=>{
+    let created=0;
+    const ids=[];
+    for(const raw of rows){
+      const fullName=String(raw.fullName||raw.name||"").trim();if(!fullName)continue;
+      let clubId=null;
+      const clubName=String(raw.club||raw.clubName||"").trim();
+      if(clubName){
+        let club=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[clubName])).rows[0];
+        if(!club){
+          let slug=slugify(clubName);if((await c.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+          club=(await c.query("insert into clubs(name,slug,active) values($1,$2,true) returning id",[clubName,slug])).rows[0];
+        }
+        clubId=club.id;
+      }
+      const gender=["male","female","other"].includes(raw.gender)?raw.gender:null;
+      const rating=Number.isFinite(Number(raw.rating))?Number(raw.rating):3;
+      const p=(await c.query("insert into players(full_name,nickname,gender,rating,phone,club_id,active) values($1,$2,$3,$4,$5,$6,true) returning id",[fullName,String(raw.nickname||"").trim()||null,gender,rating,String(raw.phone||"").trim()||null,clubId])).rows[0];
+      ids.push(p.id);created++;
+    }
+    await audit(c,req.user,"player_import","batch","IMPORT_PLAYERS",null,{created,ids},`${created} players`);
+    return {created,ids};
+  });
+  res.status(201).json(result);
+}));
+
+app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const rows=Array.isArray(req.body.rows)?req.body.rows:[];
+  if(!rows.length||rows.length>1000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
+  const result=await tx(async c=>{
+    const d=(await c.query("select id from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    let created=0,linkedPlayers=0;
+    const ids=[];
+    for(const raw of rows){
+      const name=String(raw.name||"").trim();if(!name)continue;
+      let clubId=null;
+      const clubName=String(raw.club||raw.clubName||"").trim();
+      if(clubName){
+        let club=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[clubName])).rows[0];
+        if(!club){
+          let slug=slugify(clubName);if((await c.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+          club=(await c.query("insert into clubs(name,slug,active) values($1,$2,true) returning id",[clubName,slug])).rows[0];
+        }
+        clubId=club.id;
+      }
+      const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed,status) values($1,$2,$3,$4,$5,'active') returning id",[d.id,name,clubId,String(raw.group||"A").trim()||"A",Number(raw.seed)||null])).rows[0];
+      ids.push(t.id);created++;
+      for(const person of [raw.player1,raw.player2,raw.player3,raw.player4].map(x=>String(x||"").trim()).filter(Boolean)){
+        let p=(await c.query("select id from players where lower(full_name)=lower($1) and active=true order by created_at limit 1",[person])).rows[0];
+        if(!p)p=(await c.query("insert into players(full_name,rating,club_id,active) values($1,3,$2,true) returning id",[person,clubId])).rows[0];
+        await c.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[t.id,p.id]);linkedPlayers++;
+      }
+    }
+    await audit(c,req.user,"team_import",d.id,"IMPORT_TEAMS",null,{created,linkedPlayers,ids},`${created} teams`);
+    return {created,linkedPlayers,ids};
+  });
+  await emitState();res.status(201).json(result);
+}));
+
 app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {name,venue,startAt,eventType="doubles",format="pool_to_knockout"}=req.body;
   if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
