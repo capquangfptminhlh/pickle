@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#10281d">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
   <title>Đăng nhập | Pickle Tour</title>
   <link rel="stylesheet" href="assets/styles.css">
   <style>
@@ -38,5 +40,6 @@
       catch(err){error.textContent=err.status===401?"Email hoặc mật khẩu không đúng.":"Không thể đăng nhập. Vui lòng thử lại."}
     });
   </script>
+  <script src="/assets/pwa.js"></script>
 </body>
 </html>
