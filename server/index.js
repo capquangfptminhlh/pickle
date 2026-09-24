@@ -171,6 +171,12 @@ app.post("/api/auth/login",wrap(async(req,res)=>{
   res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
 }));
 app.post("/api/auth/logout",(req,res)=>{res.clearCookie("pickle_token");res.json({ok:true})});
+app.get("/api/auth/session",(req,res)=>{
+  const token=req.cookies?.pickle_token||req.headers.authorization?.replace(/^Bearer\s+/i,"");
+  if(!token)return res.json({user:null});
+  try{return res.json({user:jwt.verify(token,process.env.JWT_SECRET)})}
+  catch{return res.json({user:null})}
+});
 app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
   const current=String(req.body.currentPassword||""),next=String(req.body.newPassword||"");
   if(next.length<10)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
