@@ -31,7 +31,7 @@
       ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap"
     ].join(",");
     const mobile=matchMedia("(max-width:760px)").matches;
-    $(selectors).forEach((el,i)=>{
+    $$(selectors).forEach((el,i)=>{
       if(el.dataset.motionReady)return;
       el.dataset.motionReady="1";
       if(mobile){
