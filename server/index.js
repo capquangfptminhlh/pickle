@@ -761,12 +761,14 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
     for(let r=0;r<rounds.length-1;r++){
       for(let i=0;i<rounds[r].length;i++)await linkWinner(rounds[r][i].id,rounds[r+1][Math.floor(i/2)].id,i%2===0?"A":"B");
     }
-    for(const m of rounds[0]){
+    for(let i=0;i<rounds[0].length;i++){
+      const m=rounds[0][i];
       const only=m.team_a_id&&!m.team_b_id?m.team_a_id:(!m.team_a_id&&m.team_b_id?m.team_b_id:null);
       if(only){
         const after=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason='bye',version=version+1 where id=$2 returning *",[only,m.id])).rows[0];
-        if(m.next_match_id&&m.next_match_side){
-          const col=m.next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[only,m.next_match_id]);
+        if(rounds.length>1){
+          const target=rounds[1][Math.floor(i/2)],side=i%2===0?"A":"B",col=side==="A"?"team_a_id":"team_b_id";
+          await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[only,target.id]);
         }
         await audit(c,req.user,"match",m.id,"AUTO_BYE",m,after,"Automatic bracket bye");
       }
