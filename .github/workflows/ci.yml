@@ -65,6 +65,14 @@ jobs:
             echo "Obsolete native-dark theme block detected"
             exit 1
           fi
+          if grep -q "MOBILE SPORTS APP" assets/styles.css; then
+            echo "Conflicting dark sports app override detected"
+            exit 1
+          fi
+          if grep -q "MOBILE SPORTS PUBLIC" assets/public.css; then
+            echo "Conflicting dark public override detected"
+            exit 1
+          fi
       - name: Migrate and seed
         run: |
           npm run migrate
