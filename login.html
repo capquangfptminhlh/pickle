@@ -33,7 +33,7 @@
   </main>
   <script src="assets/api.js"></script>
   <script>
-    PickleAPI.me().then(()=>location.href="/admin").catch(()=>{});
+    PickleAPI.session().then(s=>{if(s?.user)location.href="/admin"}).catch(()=>{});
     loginForm.addEventListener("submit",async e=>{
       e.preventDefault();error.textContent="";
       try{await PickleAPI.login(email.value,password.value);location.href="/admin"}
