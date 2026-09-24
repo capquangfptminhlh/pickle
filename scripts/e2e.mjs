@@ -61,6 +61,30 @@ await raw("/api/matches/"+match.id+"/point",{method:"POST",cookie:admin.cookie,b
 await raw("/api/matches/"+match.id+"/undo",{method:"POST",cookie:admin.cookie,body:{}});
 await raw("/api/matches/"+match.id,{method:"DELETE",cookie:admin.cookie});
 
+
+const single=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cookie:admin.cookie,body:{name:"CI Single Elim",eventType:"doubles",format:"single_elimination",bestOf:3,pointsToWin:11,advanceCount:1}})).data;
+const seTeams=[];
+for(let i=1;i<=5;i++)seTeams.push((await raw("/api/divisions/"+single.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI SE "+i+" "+stamp,seed:i}})).data);
+const seBracket=(await raw("/api/divisions/"+single.id+"/generate-bracket",{method:"POST",cookie:admin.cookie,body:{}})).data;
+assert(seBracket.bracketSize===8&&seBracket.created===7,"single elimination bracket with byes");
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+assert(adminState.matches.some(m=>m.divisionId===single.id&&m.resultReason==="bye"),"bye auto advancement");
+
+const de=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cookie:admin.cookie,body:{name:"CI Double Elim",eventType:"doubles",format:"double_elimination",bestOf:3,pointsToWin:11,advanceCount:1}})).data;
+const deTeams=[];
+for(let i=1;i<=4;i++)deTeams.push((await raw("/api/divisions/"+de.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI DE "+i+" "+stamp,seed:i}})).data);
+const deBracket=(await raw("/api/divisions/"+de.id+"/generate-bracket",{method:"POST",cookie:admin.cookie,body:{}})).data;
+assert(deBracket.created===6,"double elimination 4-team bracket");
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+const deFirst=adminState.matches.find(m=>m.divisionId===de.id&&m.bracketSlot==="DE-W-R1-M1");
+assert(deFirst,"double elimination first match");
+await raw("/api/matches/"+deFirst.id+"/special-result",{method:"POST",cookie:admin.cookie,body:{winnerTeamId:deFirst.a,reason:"walkover",note:"CI routing"}}); 
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+const deWFinal=adminState.matches.find(m=>m.divisionId===de.id&&m.bracketSlot==="DE-W-F");
+const deLoserR1=adminState.matches.find(m=>m.divisionId===de.id&&m.bracketSlot==="DE-L-R1-M1");
+assert([deWFinal.a,deWFinal.b].includes(deFirst.a),"winner routed to winners bracket");
+assert([deLoserR1.a,deLoserR1.b].includes(deFirst.b),"loser routed to losers bracket");
+
 const reg=(await raw("/api/divisions/"+did+"/registrations",{method:"POST",cookie:admin.cookie,body:{teamId:teamA.id,amount:500000}})).data;
 await raw("/api/registrations/"+reg.id+"/checkin",{method:"POST",cookie:admin.cookie,body:{}});
 const qr=(await raw("/api/registrations/"+reg.id+"/checkin-qr",{cookie:admin.cookie})).data;
