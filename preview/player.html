@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d2118">
+  <title>Hồ sơ VĐV | Pickle Tour</title>
+  <meta name="description" content="Hồ sơ VĐV pickleball: avatar, rating, bảng điểm cá nhân, lịch sử trận và thành tích.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/public.css">
+</head>
+<body class="public-body">
+<header class="public-header">
+  <div class="public-container public-nav">
+    <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>PLAYER PROFILE</small></span></a>
+    <nav><a href="index.html">Giải đấu</a><a href="ranking.html">Ranking</a><a href="about.html">Giới thiệu</a></nav>
+    <a class="btn primary" href="ranking.html">← Ranking</a>
+  </div>
+</header>
+<main id="playerRoot">
+  <section class="player-hero">
+    <div class="public-container player-hero-grid">
+      <div class="player-avatar-wrap"><div id="playerAvatar" class="player-avatar">P</div><span class="player-online-dot"></span></div>
+      <div class="player-main">
+        <span class="eyebrow">PLAYER PROFILE</span>
+        <h1 id="playerName">Đang tải...</h1>
+        <p id="playerMeta">—</p>
+        <div class="player-rating-row"><div class="player-rating"><span>RATING</span><strong id="playerRating">0.000</strong></div><div id="playerTags" class="player-tags"></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="public-section player-section-tight">
+    <div class="public-container">
+      <div id="playerStats" class="player-stat-grid"></div>
+      <div class="player-layout">
+        <div>
+          <section class="panel player-panel"><div class="panel-head"><div><h2>Bảng điểm cá nhân</h2><p>Lịch sử từng trận và từng set</p></div></div><div id="matchHistory"></div></section>
+          <section class="panel player-panel"><div class="panel-head"><div><h2>Lịch sử rating</h2><p>Các lần điều chỉnh được ghi nhận</p></div></div><div id="ratingHistory"></div></section>
+        </div>
+        <aside>
+          <section class="panel player-panel"><div class="panel-head"><div><h2>Partner</h2><p>Những người từng đánh cùng</p></div></div><div id="partners"></div></section>
+          <section class="panel player-panel"><div class="panel-head"><div><h2>Giải đã tham gia</h2><p>Lịch sử đội và nội dung</p></div></div><div id="tournaments"></div></section>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Hồ sơ VĐV được quản lý bởi BTC</span></div></footer>
+
+<script src="preview-api.js"></script>
+<script src="../assets/player.js"></script>
+<script src="../assets/ui-motion.js"></script>
+<script src="preview-pwa.js"></script>
+</body>
+</html>
