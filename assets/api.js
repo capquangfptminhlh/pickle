@@ -28,6 +28,8 @@
     confirmCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}/confirm`,{method:"POST",body:"{}"}),
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
+    importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
+    importTeams:(divisionId,rows)=>request(`/api/divisions/${divisionId}/import-teams`,{method:"POST",body:JSON.stringify({rows})}),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
     uploadImage:async(file)=>{
