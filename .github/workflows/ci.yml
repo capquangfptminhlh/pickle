@@ -103,6 +103,13 @@ jobs:
           name: mobile-ui-screenshots
           path: ui-artifacts
           if-no-files-found: ignore
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: screenshots
+          if-no-files-found: ignore
       - name: Show server log on failure
         if: failure()
         run: cat app.log || true
