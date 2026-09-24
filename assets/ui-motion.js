@@ -30,9 +30,15 @@
       ".sponsor-card",".club-card",".booking-card",".metric-card",
       ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap"
     ].join(",");
-    $$(selectors).forEach((el,i)=>{
+    const mobile=matchMedia("(max-width:760px)").matches;
+    $(selectors).forEach((el,i)=>{
       if(el.dataset.motionReady)return;
       el.dataset.motionReady="1";
+      if(mobile){
+        el.style.opacity="1";
+        el.style.transform="none";
+        return;
+      }
       el.classList.add("reveal-target");
       el.style.animationDelay=Math.min(i*24,180)+"ms";
       observer.observe(el);
