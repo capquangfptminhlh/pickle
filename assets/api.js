@@ -17,6 +17,7 @@
     logout:()=>request("/api/auth/logout",{method:"POST"}),
     changePassword:(currentPassword,newPassword)=>request("/api/auth/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})}),
     me:()=>request("/api/auth/me"),
+    session:()=>request("/api/auth/session"),
     publicState:()=>request("/api/public/state"),
     publicPlayers:()=>request("/api/public/players"),
     publicPlayer:(id)=>request(`/api/public/players/${encodeURIComponent(id)}`),
