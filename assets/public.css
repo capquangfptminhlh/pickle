@@ -84,8 +84,9 @@
 .rating-event:last-child,.partner-row:last-child,.tournament-row:last-child{border-bottom:0}
 .rating-event small,.partner-row small,.tournament-row small{display:block;margin-top:2px;color:var(--muted);font-size:8px}
 .mini-avatar{width:36px;height:36px;border-radius:12px;object-fit:cover;background:#eef1f0;display:grid;place-items:center;font-size:10px;font-weight:900}
-.ranking-hero-grid,.tournament-visual-hero{display:grid;grid-template-columns:1fr .8fr;gap:18px;align-items:center}
-.ranking-visual-hero,.tournament-visual-hero{padding:26px;border-radius:24px;background:#101513;color:#fff}
+.ranking-hero-grid,.tournament-visual-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:18px;align-items:center}
+.ranking-visual-hero,.tournament-visual-hero{padding:26px;border-radius:24px;background:#101513;color:#fff;overflow:hidden}
+.ranking-hero-grid>img,.tournament-visual-hero>img{display:block;width:100%;max-width:100%;height:260px;min-width:0;object-fit:cover;border-radius:18px}
 .ranking-player-link{display:flex;align-items:center;gap:10px;text-decoration:none}
 .ranking-avatar,.ranking-avatar-fallback{width:42px;height:42px;border-radius:13px;object-fit:cover}
 .ranking-avatar-fallback{display:grid;place-items:center;background:#eef1f0;font-size:10px;font-weight:900}
@@ -135,7 +136,13 @@
   .player-main h1{font-size:29px}.player-main p{font-size:9px}
   .player-stat-grid{display:flex;overflow:auto;gap:7px;margin:0 -12px 12px;padding:0 12px 6px;scrollbar-width:none}.player-stat-grid::-webkit-scrollbar{display:none}
   .player-stat{min-width:115px;flex:0 0 auto}.player-layout{display:block}
-  .ranking-row{grid-template-columns:34px 1fr .7fr;gap:7px}.ranking-club{display:none}
+  .ranking-visual-hero{margin:0 12px;padding:18px;border-radius:22px}
+  .ranking-hero-grid{display:block;width:100%}
+  .ranking-hero-grid>div{padding:2px 0 12px}
+  .ranking-hero-grid h1{margin:4px 0 6px;font-size:30px;letter-spacing:-.04em}
+  .ranking-hero-grid p{margin:0;color:#b8c4bd;font-size:10px;line-height:1.55}
+  .ranking-hero-grid>img{width:100%;height:150px;max-height:150px;object-fit:cover;border-radius:16px}
+  .ranking-row{grid-template-columns:34px minmax(0,1fr) .7fr;gap:7px}.ranking-club{display:none}
 }
 
 /* PREMIUM MOBILE SPORTS APP V2 */
