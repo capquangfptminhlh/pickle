@@ -1,4 +1,5 @@
 import {chromium} from "playwright";
+import {mkdir} from "node:fs/promises";
 
 const prod=process.env.UI_BASE_URL||"http://127.0.0.1:8080";
 const preview=process.env.PREVIEW_BASE_URL||"http://127.0.0.1:8090/preview";
@@ -146,6 +147,23 @@ if(await pscore.count()){
   await ppage.waitForTimeout(100);
   if(!(await ppage.locator("#scoreDialog").evaluate(el=>el.open)))failures.push({label:"preview scoring",errors:["score dialog did not open"]});
 }
+
+// UI VISUAL QA — real mobile screenshots used for design review.
+await mkdir("ui-artifacts",{recursive:true});
+const shot=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
+await shot.screenshot({path:"ui-artifacts/mobile-public.png",fullPage:true});
+
+await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
+const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.click();await shot.waitForTimeout(250);
+await shot.screenshot({path:"ui-artifacts/mobile-admin-home.png",fullPage:true});
+
+const scoreNav=shot.locator('[data-page="scores"]');if(await scoreNav.count())await scoreNav.click();await shot.waitForTimeout(250);
+const scoreOpen=shot.locator("[data-score-match]").first();if(await scoreOpen.count()){await scoreOpen.click();await shot.waitForTimeout(220);}
+await shot.screenshot({path:"ui-artifacts/mobile-score.png",fullPage:true});
+
+await shot.goto(preview+"/player.html?id=p1",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
+await shot.screenshot({path:"ui-artifacts/mobile-player.png",fullPage:true});
 
 await browser.close();
 if(failures.length){
