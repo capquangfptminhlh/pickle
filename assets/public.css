@@ -113,3 +113,12 @@ linear-gradient(180deg,#0d2118,#102a1d)}
 
 @media(max-width:950px){.top-player-grid{grid-template-columns:repeat(2,1fr)}.news-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.top-player-grid,.news-grid{grid-template-columns:1fr}.tour-meta-grid{grid-template-columns:1fr 1fr}.tour-meta-grid span:nth-child(2){grid-column:1/-1}.section-link{display:inline-block;margin-top:10px}.top-player-card{grid-template-columns:30px 48px 1fr auto}.top-player-avatar{width:48px;height:48px}}
+
+.ranking-row{grid-template-columns:58px minmax(240px,1.8fr) minmax(130px,1fr) 110px!important;min-height:72px}
+.ranking-number{font-size:15px;color:#71837a}
+.ranking-player-link{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:inherit}
+.ranking-avatar{width:48px;height:48px;border-radius:15px;object-fit:cover;flex:0 0 48px;border:2px solid #fff;box-shadow:0 5px 16px rgba(12,40,23,.12);background:#e9f1ec}
+.ranking-avatar-fallback{display:grid;place-items:center;background:linear-gradient(145deg,#0d2118,#1e4a35);color:var(--acid);font-size:13px;font-weight:950}
+.ranking-player-copy{min-width:0}.ranking-player-copy>b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ranking-player-copy>small{display:block;color:var(--muted);font-size:9px;margin-top:4px}
+.ranking-rating{font-size:16px;color:var(--brand)}
+@media(max-width:650px){.ranking-row{grid-template-columns:34px minmax(190px,1fr) 78px!important}.ranking-club{display:none}.ranking-avatar{width:44px;height:44px;flex-basis:44px;border-radius:14px}}
