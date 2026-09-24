@@ -2,9 +2,12 @@ import "dotenv/config";
 import http from "node:http";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import fs from "node:fs/promises";
+import {randomUUID} from "node:crypto";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import multer from "multer";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword} from "./auth.js";
@@ -15,6 +18,20 @@ const app=express();
 const server=http.createServer(app);
 const io=new SocketServer(server,{cors:{origin:true,credentials:true}});
 const port=Number(process.env.PORT||8080);
+const uploadRoot=path.join(root,"uploads");
+const avatarDir=path.join(uploadRoot,"avatars");
+await fs.mkdir(avatarDir,{recursive:true});
+const avatarUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,avatarDir),
+    filename:(req,file,cb)=>{
+      const ext=({ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" })[file.mimetype]||".img";
+      cb(null,`player-${randomUUID()}${ext}`);
+    }
+  }),
+  limits:{fileSize:3*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,["image/jpeg","image/png","image/webp"].includes(file.mimetype))
+});
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
 
@@ -139,6 +156,87 @@ app.get("/api/public/players",wrap(async(req,res)=>{
   `);
   res.json(rows);
 }));
+app.get("/api/public/players/:id",wrap(async(req,res)=>{
+  const p=(await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,
+      c.id club_id,c.name club_name,c.city club_city
+    from players p left join clubs c on c.id=p.club_id
+    where p.id=$1 and p.active=true
+  `,[req.params.id])).rows[0];
+  if(!p)return res.status(404).json({error:"NOT_FOUND"});
+
+  const teamRows=(await pool.query(`
+    select t.id,t.name,t.division_id,d.name division_name,tr.id tournament_id,tr.name tournament_name,tr.start_at,tr.status tournament_status
+    from team_players tp
+    join teams t on t.id=tp.team_id
+    join divisions d on d.id=t.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    where tp.player_id=$1
+    order by tr.start_at desc nulls last
+  `,[p.id])).rows;
+  const teamIds=teamRows.map(t=>t.id);
+
+  const partnerRows=teamIds.length?(await pool.query(`
+    select distinct p2.id,p2.full_name,p2.nickname,p2.avatar_url,p2.rating,c.name club_name
+    from team_players mine
+    join team_players other on other.team_id=mine.team_id and other.player_id<>mine.player_id
+    join players p2 on p2.id=other.player_id
+    left join clubs c on c.id=p2.club_id
+    where mine.player_id=$1
+    order by p2.full_name
+  `,[p.id])).rows:[];
+
+  const matchRows=teamIds.length?(await pool.query(`
+    select m.*,d.name division_name,tr.id tournament_id,tr.name tournament_name,tr.start_at tournament_start,
+      ta.name team_a_name,tb.name team_b_name
+    from matches m
+    join divisions d on d.id=m.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    left join teams ta on ta.id=m.team_a_id
+    left join teams tb on tb.id=m.team_b_id
+    where m.team_a_id=any($1::uuid[]) or m.team_b_id=any($1::uuid[])
+    order by coalesce(m.completed_at,m.scheduled_at,m.created_at) desc
+    limit 100
+  `,[teamIds])).rows:[];
+  const matchIds=matchRows.map(m=>m.id);
+  const sets=matchIds.length?(await pool.query("select * from match_sets where match_id=any($1::uuid[]) order by match_id,set_no",[matchIds])).rows:[];
+  const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push([s.score_a,s.score_b])}
+
+  let wins=0,losses=0,pf=0,pa=0;
+  const matches=matchRows.map(m=>{
+    const myTeam=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
+    const side=myTeam===m.team_a_id?"A":"B";
+    const ms=setMap.get(m.id)||[];
+    let myPoints=0,oppPoints=0;
+    for(const s of ms){if(side==="A"){myPoints+=s[0];oppPoints+=s[1]}else{myPoints+=s[1];oppPoints+=s[0]}}
+    pf+=myPoints;pa+=oppPoints;
+    const won=m.status==="completed"&&m.winner_team_id===myTeam;
+    const lost=m.status==="completed"&&m.winner_team_id&&m.winner_team_id!==myTeam;
+    if(won)wins++;if(lost)losses++;
+    return {
+      id:m.id,tournamentId:m.tournament_id,tournamentName:m.tournament_name,divisionName:m.division_name,
+      stage:m.stage,status:publicStatus(m.status),scheduledAt:m.scheduled_at,completedAt:m.completed_at,
+      teamAId:m.team_a_id,teamBId:m.team_b_id,teamAName:m.team_a_name||"TBD",teamBName:m.team_b_name||"TBD",
+      myTeamId:myTeam,mySide:side,winnerTeamId:m.winner_team_id,won,lost,sets:ms,myPoints,oppPoints
+    };
+  });
+
+  const ratingHistory=(await pool.query(`
+    select before_rating,delta,after_rating,reason,created_at
+    from rating_history where player_id=$1 order by created_at desc limit 100
+  `,[p.id])).rows;
+
+  res.json({
+    profile:{
+      id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:Number(p.rating||0),
+      avatarUrl:p.avatar_url,bio:p.bio,dominantHand:p.dominant_hand,birthYear:p.birth_year,
+      clubId:p.club_id,clubName:p.club_name,clubCity:p.club_city
+    },
+    stats:{wins,losses,matches:wins+losses,winRate:(wins+losses)?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},
+    teams:teamRows,partners:partnerRows,matches,ratingHistory
+  });
+}));
+
 app.get("/api/public/clubs",wrap(async(req,res)=>{
   const {rows}=await pool.query("select id,name,slug,city from clubs order by name");res.json(rows);
 }));
@@ -165,6 +263,19 @@ app.patch("/api/players/:id",authRequired,allow("super_admin","organizer"),wrap(
   `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,req.body.phone??null,req.body.clubId??null,req.body.active??null,req.params.id])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
 }));
+app.post("/api/players/:id/avatar",authRequired,allow("super_admin","organizer"),avatarUpload.single("avatar"),wrap(async(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"INVALID_AVATAR"});
+  const p=(await pool.query("select id,avatar_url from players where id=$1",[req.params.id])).rows[0];
+  if(!p){await fs.unlink(req.file.path).catch(()=>{});return res.status(404).json({error:"NOT_FOUND"})}
+  const avatarUrl=`/uploads/avatars/${req.file.filename}`;
+  await pool.query("update players set avatar_url=$1 where id=$2",[avatarUrl,p.id]);
+  if(p.avatar_url?.startsWith("/uploads/avatars/")){
+    const old=path.join(root,p.avatar_url.replace(/^\//,""));await fs.unlink(old).catch(()=>{});
+  }
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'UPDATE_AVATAR',$3)",[req.user.sub,p.id,{avatarUrl}]);
+  res.json({avatarUrl});
+}));
+
 app.post("/api/players/:id/rating-adjust",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const delta=Number(req.body.delta),reason=String(req.body.reason||"").trim();
   if(!Number.isFinite(delta)||Math.abs(delta)>1||!reason)return res.status(400).json({error:"DELTA_AND_REASON_REQUIRED"});
@@ -519,6 +630,7 @@ app.get("/api/health",wrap(async(req,res)=>{
 io.on("connection",socket=>{socket.emit("connected",{ok:true})});
 
 app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:process.env.NODE_ENV==="production"?"1h":0}));
+app.use("/uploads",express.static(uploadRoot,{fallthrough:false,maxAge:process.env.NODE_ENV==="production"?"7d":0}));
 app.get("/",(req,res)=>res.sendFile(path.join(root,"index.html")));
 app.get("/index.html",(req,res)=>res.sendFile(path.join(root,"index.html")));
 app.get("/admin",(req,res)=>res.sendFile(path.join(root,"admin.html")));
@@ -527,6 +639,7 @@ app.get("/login",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.html")));
 app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
+app.get("/player.html",(req,res)=>res.sendFile(path.join(root,"player.html")));
 app.get("/about.html",(req,res)=>res.sendFile(path.join(root,"about.html")));
 app.get("/robots.txt",(req,res)=>{
   const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
