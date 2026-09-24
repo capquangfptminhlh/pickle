@@ -39,10 +39,9 @@ function renderCore(){
       rows.map((t,i)=>'<div class="standing-row"><b>'+(i+1)+'</b><span><b>'+esc(t.name)+'</b><small class="muted-block">'+esc(t.club)+'</small></span><span>'+t.w+'</span><span>'+t.l+'</span><span>'+t.pf+'</span><span>'+t.pa+'</span><b>'+((t.pf-t.pa)>0?"+":"")+(t.pf-t.pa)+'</b></div>').join("")+'</div>';
   }).join("")||'<div class="empty">Chưa có bảng xếp hạng.</div>';
 
-  const semis=state.matches.filter(m=>m.stage.toLowerCase().includes("bán kết"));
-  const final=state.matches.find(m=>m.stage.toLowerCase().includes("chung kết"));
-  const bm=m=>'<div class="public-bracket-card"><div class="public-bracket-row '+(m.winner===m.a?"win":"")+'"><span>'+esc(team(m.a))+'</span><b>'+(m.sets?.filter(s=>s[0]>s[1]).length||"")+'</b></div><div class="public-bracket-row '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.sets?.filter(s=>s[1]>s[0]).length||"")+'</b></div></div>';
-  $("#publicBracket").innerHTML='<div class="public-bracket"><div class="public-round"><small>BÁN KẾT</small>'+semis.map(bm).join("")+'</div><div class="public-round"><small>CHUNG KẾT</small>'+(final?bm(final):"")+'</div><div class="public-round"><small>VÔ ĐỊCH</small><div class="public-bracket-card champion-card"><div class="champion-mark">01</div><b>'+(final?.winner?esc(team(final.winner)):"Chưa xác định")+'</b></div></div></div>';
+  const bracketHtml=window.PickleBracket?.render(state.matches,team,{admin:false})||'<div class="empty">Chưa có bracket.</div>';
+  const champ=window.PickleBracket?.champion(state.matches,team)||"Chưa xác định";
+  $("#publicBracket").innerHTML=bracketHtml+'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>';
 }
 function renderPlayers(){
   const el=$("#publicTopPlayers");if(!el)return;
