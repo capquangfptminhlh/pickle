@@ -93,6 +93,7 @@
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     finishSet:(id,payload)=>request(`/api/matches/${id}/finish-set`,{method:"POST",body:JSON.stringify(payload)}),
     finishMatch:(id,payload)=>request(`/api/matches/${id}/finish`,{method:"POST",body:JSON.stringify(payload)}),
+    specialResult:(id,payload)=>request(`/api/matches/${id}/special-result`,{method:"POST",body:JSON.stringify(payload)}),
     undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
     referees:()=>request("/api/users/referees"),
     createReferee:payload=>request("/api/users/referees",{method:"POST",body:JSON.stringify(payload)}),
