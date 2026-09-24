@@ -1,8 +1,8 @@
-const VERSION="pickle-preview-v12-native-dark-20260924";
+const VERSION="pickle-preview-v13-clean-native-20260924";
 const CORE=[
   "./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js",
-  "../assets/styles.css","../assets/public.css","../assets/mobile-native.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
+  "../assets/styles.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
   "../assets/tournament.js","../assets/checkin.js","../assets/app-icon.svg"
 ];
