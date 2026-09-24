@@ -22,8 +22,10 @@ const port=Number(process.env.PORT||8080);
 const uploadRoot=path.join(root,"uploads");
 const avatarDir=path.join(uploadRoot,"avatars");
 const mediaDir=path.join(uploadRoot,"media");
+const receiptDir=path.join(uploadRoot,"receipts");
 await fs.mkdir(avatarDir,{recursive:true});
 await fs.mkdir(mediaDir,{recursive:true});
+await fs.mkdir(receiptDir,{recursive:true});
 const imageMimeExt={ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" };
 const avatarUpload=multer({
   storage:multer.diskStorage({
@@ -43,6 +45,15 @@ const mediaUpload=multer({
   }),
   limits:{fileSize:6*1024*1024},
   fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(imageMimeExt,file.mimetype))
+});
+const receiptMimeExt={...imageMimeExt,"application/pdf":".pdf"};
+const receiptUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,receiptDir),
+    filename:(req,file,cb)=>cb(null,`receipt-${randomUUID()}${receiptMimeExt[file.mimetype]||".bin"}`)
+  }),
+  limits:{fileSize:8*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(receiptMimeExt,file.mimetype))
 });
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
@@ -935,6 +946,10 @@ app.post("/api/uploads/image",authRequired,allow("super_admin","organizer"),medi
   if(!req.file)return res.status(400).json({error:"INVALID_IMAGE"});
   res.status(201).json({url:`/uploads/media/${req.file.filename}`});
 }));
+app.post("/api/uploads/receipt",authRequired,allow("super_admin","organizer"),receiptUpload.single("receipt"),wrap(async(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"INVALID_RECEIPT"});
+  res.status(201).json({url:`/uploads/receipts/${req.file.filename}`,mime:req.file.mimetype,size:req.file.size});
+}));
 
 app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>{
   const row=await tx(async c=>{
@@ -1256,6 +1271,23 @@ app.post("/api/users/referees",authRequired,allow("super_admin"),wrap(async(req,
   const {hashPassword}=await import("./auth.js");const h=await hashPassword(password);
   const r=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,'referee',$3) returning id,email,display_name,role",[email.toLowerCase(),name,h])).rows[0];res.status(201).json(r);
 }));
+app.patch("/api/users/referees/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const before=(await pool.query("select id,email,display_name,role,active from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  let passwordHash=null;
+  if(req.body.password!==undefined){
+    if(String(req.body.password).length<8)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+    const {hashPassword}=await import("./auth.js");passwordHash=await hashPassword(String(req.body.password));
+  }
+  const after=(await pool.query(`
+    update app_users set display_name=coalesce($1,display_name),email=coalesce($2,email),active=coalesce($3,active),
+      password_hash=coalesce($4,password_hash)
+    where id=$5 and role='referee' returning id,email,display_name,role,active
+  `,[req.body.name??null,req.body.email?String(req.body.email).toLowerCase():null,req.body.active??null,passwordHash,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_REFEREE',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
+  res.json(after);
+}));
+
 app.get("/api/audit",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query("select * from audit_logs order by created_at desc limit 500");res.json(rows);
 }));
