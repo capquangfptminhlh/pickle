@@ -32,6 +32,13 @@
     importTeams:(divisionId,rows)=>request(`/api/divisions/${divisionId}/import-teams`,{method:"POST",body:JSON.stringify({rows})}),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
+    uploadReceipt:async(file)=>{
+      const form=new FormData();form.append("receipt",file);
+      const res=await fetch("/api/uploads/receipt",{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
     uploadImage:async(file)=>{
       const form=new FormData();form.append("image",file);
       const res=await fetch("/api/uploads/image",{method:"POST",body:form,credentials:"include"});
@@ -100,6 +107,7 @@
     undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
     referees:()=>request("/api/users/referees"),
     createReferee:payload=>request("/api/users/referees",{method:"POST",body:JSON.stringify(payload)}),
+    updateReferee:(id,payload)=>request(`/api/users/referees/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
     registrations:()=>request("/api/registrations"),
     createRegistration:(divisionId,payload)=>request(`/api/divisions/${divisionId}/registrations`,{method:"POST",body:JSON.stringify(payload)}),
     addPayment:(registrationId,payload)=>request(`/api/registrations/${registrationId}/payment`,{method:"POST",body:JSON.stringify(payload)}),
