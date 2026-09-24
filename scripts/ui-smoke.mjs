@@ -65,6 +65,34 @@ for(const id of ["dashboard","tournaments","registrations","players","clubs","ma
   }
 }
 
+
+async function modalSmoke(page,pageId,selector,label){
+  const nav=page.locator('[data-page="'+pageId+'"]');
+  if(!(await nav.count()))return;
+  await nav.click();await page.waitForTimeout(120);
+  const trigger=page.locator(selector).first();
+  if(!(await trigger.count())){failures.push({label,errors:["trigger missing: "+selector]});return}
+  await trigger.click();await page.waitForTimeout(80);
+  const dialog=page.locator("#genericDialog");
+  if(!(await dialog.evaluate(el=>el.open))){failures.push({label,errors:["dialog did not open"]});return}
+  const close=dialog.locator(".icon-btn").first();
+  if(await close.count())await close.click();else await dialog.evaluate(el=>el.close());
+  await page.waitForTimeout(40);
+}
+
+for(const [pid,selector,label] of [
+  ["tournaments",'[data-action="newTournament"]',"prod create tournament"],
+  ["players",'[data-action="newPlayer"]',"prod create player"],
+  ["matches",'[data-action="newMatch"]',"prod create match"],
+  ["courts",'[data-action="newCourt"]',"prod create court"],
+  ["referees",'[data-action="newReferee"]',"prod create referee"],
+  ["registrations",'[data-module-action="new-registration"]',"prod create registration"],
+  ["clubs",'[data-module-action="new-club"]',"prod create club"],
+  ["bookings",'[data-module-action="new-booking"]',"prod create booking"],
+  ["sponsors",'[data-module-action="new-sponsor"]',"prod create sponsor"],
+  ["content",'[data-module-action="new-post"]',"prod create post"]
+])await modalSmoke(page,pid,selector,label);
+
 const scoreBtn=page.locator("[data-score-match]").first();
 if(await scoreBtn.count()){
   await scoreBtn.click();
@@ -99,6 +127,19 @@ for(const id of ["dashboard","tournaments","registrations","players","clubs","ma
     if(!text)failures.push({label:"preview admin "+id,errors:["empty content"]});
   }
 }
+for(const [pid,selector,label] of [
+  ["tournaments",'[data-action="newTournament"]',"preview create tournament"],
+  ["players",'[data-action="newPlayer"]',"preview create player"],
+  ["matches",'[data-action="newMatch"]',"preview create match"],
+  ["courts",'[data-action="newCourt"]',"preview create court"],
+  ["referees",'[data-action="newReferee"]',"preview create referee"],
+  ["registrations",'[data-module-action="new-registration"]',"preview create registration"],
+  ["clubs",'[data-module-action="new-club"]',"preview create club"],
+  ["bookings",'[data-module-action="new-booking"]',"preview create booking"],
+  ["sponsors",'[data-module-action="new-sponsor"]',"preview create sponsor"],
+  ["content",'[data-module-action="new-post"]',"preview create post"]
+])await modalSmoke(ppage,pid,selector,label);
+
 const pscore=ppage.locator("[data-score-match]").first();
 if(await pscore.count()){
   await pscore.click();
