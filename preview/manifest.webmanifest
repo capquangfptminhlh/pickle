@@ -1,8 +1,8 @@
 {
   "id":"./",
-  "name":"Pickle Tour Preview",
+  "name":"Pickle Tour",
   "short_name":"Pickle Tour",
-  "description":"Preview PWA for Pickle Tour tournament operations.",
+  "description":"Pickle Tour tournament operations.",
   "lang":"vi",
   "start_url":"./index.html?source=pwa",
   "scope":"./",
