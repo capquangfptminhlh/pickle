@@ -203,8 +203,8 @@
   .tour-cover{
     position:absolute;inset:0;height:auto;padding:14px;background:transparent;color:#fff
   }
-  .tour-cover small{color:#bfe7d1}
-  .tour-cover strong{font-size:15px}
+  .tour-cover small{display:block;color:#bfe7d1;margin-bottom:4px}
+  .tour-cover strong{display:block;font-size:15px}
   .tour-body{padding:14px}
   .tour-body h3{color:#132019;font-size:16px;margin-bottom:12px}
   .tour-meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
