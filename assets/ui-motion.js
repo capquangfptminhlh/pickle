@@ -163,7 +163,7 @@
     const syncPublicDock=()=>{
       const hash=location.hash;
       const path=location.pathname;
-      $(".public-mobile-dock a",dock).forEach(a=>a.classList.remove("active"));
+      $$(".public-mobile-dock a",dock).forEach(a=>a.classList.remove("active"));
       if(path.includes("ranking"))dock.querySelector('a[href*="ranking"]')?.classList.add("active");
       else if(hash==="#live")dock.querySelector('a[href$="#live"]')?.classList.add("active");
       else if(hash==="#tournaments")dock.querySelector('a[href$="#tournaments"]')?.classList.add("active");
