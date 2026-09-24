@@ -39,11 +39,63 @@
     setTimeout(()=>s.remove(),650);
   }
 
+  function buildBackdrop(){
+    if(!document.querySelector("#sidebar"))return;
+    let backdrop=document.querySelector(".app-backdrop");
+    if(!backdrop){
+      backdrop=document.createElement("div");
+      backdrop.className="app-backdrop";
+      document.body.appendChild(backdrop);
+      backdrop.onclick=()=>closeDrawer();
+    }
+    const sidebar=document.querySelector("#sidebar");
+    const sync=()=>{
+      const open=sidebar?.classList.contains("open");
+      backdrop.classList.toggle("show",!!open);
+      document.body.classList.toggle("app-drawer-open",!!open);
+    };
+    new MutationObserver(sync).observe(sidebar,{attributes:true,attributeFilter:["class"]});
+    sync();
+  }
+
+  function closeDrawer(){
+    document.querySelector("#sidebar")?.classList.remove("open");
+    document.querySelector(".app-backdrop")?.classList.remove("show");
+    document.body.classList.remove("app-drawer-open");
+  }
+
+  function buildFab(){
+    if(!document.querySelector("#nav"))return;
+    let fab=document.querySelector(".app-fab");
+    let label=document.querySelector(".app-fab-label");
+    if(!fab){
+      fab=document.createElement("button");
+      fab.type="button";fab.className="app-fab";fab.setAttribute("aria-label","Tạo nhanh");fab.textContent="+";
+      document.body.appendChild(fab);
+    }
+    if(!label){
+      label=document.createElement("div");label.className="app-fab-label";label.textContent="Tạo nhanh";document.body.appendChild(label);
+    }
+    const current=document.querySelector("#nav .nav-btn.active")?.dataset.page||"dashboard";
+    const map={
+      dashboard:["Tạo giải",()=>document.querySelector("#quickTournament")?.click()],
+      tournaments:["Tạo giải",()=>document.querySelector('[data-action="newTournament"]')?.click()],
+      players:["Thêm VĐV",()=>document.querySelector('[data-action="newPlayer"]')?.click()],
+      matches:["Tạo trận",()=>document.querySelector('[data-action="newMatch"]')?.click()],
+      scores:["Nhập điểm",()=>document.querySelector("[data-score-match]")?.click()],
+      courts:["Thêm sân",()=>document.querySelector('[data-action="newCourt"]')?.click()],
+      referees:["Thêm trọng tài",()=>document.querySelector('[data-action="newReferee"]')?.click()]
+    };
+    const action=map[current]||map.dashboard;
+    label.textContent=action[0];
+    fab.onclick=()=>{if(navigator.vibrate)navigator.vibrate(8);action[1]()};
+  }
+
   function buildAdminDock(){
     if(!document.querySelector("#nav"))return;
     let dock=document.querySelector(".mobile-dock");
     if(!dock){dock=document.createElement("div");dock.className="mobile-dock";document.body.appendChild(dock)}
-    const wanted=["dashboard","matches","scores","bracket"];
+    const wanted=["dashboard","tournaments","scores","players","bracket"];
     dock.innerHTML=wanted.map(id=>{
       const src=document.querySelector('[data-page="'+id+'"]');if(!src)return"";
       const icon=src.querySelector(".ico")?.innerHTML||"";
@@ -51,8 +103,9 @@
       return '<button data-dock-page="'+id+'" class="'+(src.classList.contains("active")?"active":"")+'"><span class="ico-clone">'+icon+'</span><small>'+label+'</small></button>';
     }).join("");
     $$("[data-dock-page]",dock).forEach(b=>b.onclick=()=>{
+      if(navigator.vibrate)navigator.vibrate(6);
       document.querySelector('[data-page="'+b.dataset.dockPage+'"]')?.click();
-      document.querySelector("#sidebar")?.classList.remove("open");
+      closeDrawer();
     });
   }
 
@@ -132,18 +185,23 @@
     if(content){
       new MutationObserver(()=>{
         content.classList.remove("page-swap");void content.offsetWidth;content.classList.add("page-swap");
-        enhance();buildAdminDock();
+        enhance();buildAdminDock();buildFab();
       }).observe(content,{childList:true,subtree:false});
     }
     const nav=document.querySelector("#nav");
-    if(nav)new MutationObserver(()=>buildAdminDock()).observe(nav,{childList:true,subtree:true});
+    if(nav)new MutationObserver(()=>{buildAdminDock();buildFab()}).observe(nav,{childList:true,subtree:true});
   }
 
   function init(){
     document.documentElement.classList.add("motion-ready");
-    enhance();buildAdminDock();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     document.addEventListener("pointerdown",ripple,{passive:true});
-    document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>document.querySelector("#sidebar")?.classList.remove("open")));
+    document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
+    document.addEventListener("click",e=>{
+      const score=e.target.closest("[data-score]");
+      if(score&&navigator.vibrate)navigator.vibrate(score.dataset.delta==="1"?7:4);
+    });
   }
 
   document.readyState==="loading"?document.addEventListener("DOMContentLoaded",init):init();
