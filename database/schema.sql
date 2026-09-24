@@ -211,3 +211,61 @@ alter table players add column if not exists bio text;
 alter table players add column if not exists dominant_hand text check (dominant_hand in ('left','right'));
 alter table players add column if not exists birth_year smallint check (birth_year between 1900 and 2100);
 create unique index if not exists idx_players_user_unique on players(user_id) where user_id is not null;
+
+
+-- Full tournament operations modules
+alter table registrations add column if not exists checkin_token uuid default gen_random_uuid();
+alter table registrations add column if not exists checked_in_at timestamptz;
+alter table registrations add column if not exists checked_in_by uuid references app_users(id) on delete set null;
+
+create table if not exists content_posts (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid references tournaments(id) on delete cascade,
+  title text not null,
+  slug text unique not null,
+  excerpt text,
+  body text,
+  cover_url text,
+  status text not null default 'draft' check (status in ('draft','published','archived')),
+  published_at timestamptz,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists media_assets (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid references tournaments(id) on delete cascade,
+  type text not null check (type in ('image','video','document')),
+  title text,
+  url text not null,
+  sort_order integer not null default 0,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists app_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_by uuid references app_users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists court_bookings (
+  id uuid primary key default gen_random_uuid(),
+  court_id uuid not null references courts(id) on delete cascade,
+  title text not null,
+  contact_name text,
+  contact_phone text,
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  status text not null default 'confirmed' check (status in ('pending','confirmed','cancelled','completed')),
+  notes text,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_registrations_checkin on registrations(checked_in_at);
+create index if not exists idx_posts_status on content_posts(status,published_at desc);
+create index if not exists idx_media_tournament on media_assets(tournament_id,sort_order);
+create index if not exists idx_bookings_court_time on court_bookings(court_id,start_at,end_at);
