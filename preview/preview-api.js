@@ -74,6 +74,11 @@
     ]
   });
   let state=JSON.parse(localStorage.getItem(KEY)||"null")||seed();
+  const avatarMigration=state.players?.some(p=>!p.avatar_url);
+  if(avatarMigration){
+    state.players.forEach(p=>{if(!p.avatar_url)p.avatar_url=svgAvatar(p.full_name||"Player")});
+    localStorage.setItem(KEY,JSON.stringify(state));
+  }
   const persist=()=>{localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
   const api={
     me:async()=>({user:{id:"preview-admin",email:"preview@local",name:"Preview Admin",role:"super_admin"}}),
