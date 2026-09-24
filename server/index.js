@@ -579,6 +579,48 @@ app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wra
 }));
 
 
+app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const groupCount=Number(req.body.groupCount||2);
+  if(!Number.isInteger(groupCount)||groupCount<2||groupCount>26)return res.status(400).json({error:"INVALID_GROUP_COUNT"});
+  const result=await tx(async c=>{
+    const d=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const teams=(await c.query(`
+      select t.id,t.name,t.club_id,t.seed,
+        coalesce(avg(p.rating),0)::numeric avg_rating
+      from teams t
+      left join team_players tp on tp.team_id=t.id
+      left join players p on p.id=tp.player_id and p.active=true
+      where t.division_id=$1 and t.status='active'
+      group by t.id
+      order by coalesce(avg(p.rating),0) desc,t.seed nulls last,t.name
+    `,[d.id])).rows;
+    if(teams.length<groupCount)throw Object.assign(new Error("MORE_GROUPS_THAN_TEAMS"),{status:400});
+    const labels=Array.from({length:groupCount},(_,i)=>String.fromCharCode(65+i));
+    const groups=labels.map(label=>({label,teams:[]}));
+    const maxSize=Math.ceil(teams.length/groupCount);
+    for(let i=0;i<teams.length;i++){
+      const t=teams[i];
+      const cycle=Math.floor(i/groupCount),pos=i%groupCount;
+      const preferred=cycle%2===0?pos:groupCount-1-pos;
+      const candidates=[preferred,...groups.map((_,idx)=>idx).filter(idx=>idx!==preferred)]
+        .filter(idx=>groups[idx].teams.length<maxSize)
+        .sort((a,b)=>{
+          const aSame=t.club_id&&groups[a].teams.some(x=>x.club_id===t.club_id)?1:0;
+          const bSame=t.club_id&&groups[b].teams.some(x=>x.club_id===t.club_id)?1:0;
+          return aSame-bSame||groups[a].teams.length-groups[b].teams.length;
+        });
+      const idx=candidates[0]??preferred;
+      groups[idx].teams.push(t);
+      await c.query("update teams set group_code=$1,seed=$2,updated_at=now() where id=$3",[groups[idx].label,i+1,t.id]);
+    }
+    const assignments=groups.map(g=>({group:g.label,teams:g.teams.map(t=>({id:t.id,name:t.name,avgRating:Number(t.avg_rating||0),clubId:t.club_id}))}));
+    await audit(c,req.user,"division",d.id,"AUTO_SEED_GROUPS",null,{groupCount,assignments},"Rating-balanced snake seeding");
+    return {groupCount,assignments};
+  });
+  await emitState();res.json(result);
+}));
+
 app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
