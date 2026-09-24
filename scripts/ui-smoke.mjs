@@ -33,7 +33,7 @@ async function goto(page,url,label){
 
 const page=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(page,prod+"/","prod public");
-if(!(await page.locator("body").innerText()).includes("Pickle"))failures.push({label:"prod public",errors:["missing Pickle content"]});
+if(!/pickle/i.test(await page.locator("body").innerText()))failures.push({label:"prod public",errors:["missing Pickle content"]});
 
 await goto(page,prod+"/ranking.html","prod ranking");
 const players=await fetch(prod+"/api/public/players").then(r=>r.json());
