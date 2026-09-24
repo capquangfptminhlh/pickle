@@ -927,6 +927,8 @@ app.get("/api/registrations",authRequired,allow("super_admin","organizer"),wrap(
 }));
 app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
+  const teamCheck=await pool.query("select id from teams where id=$1 and division_id=$2",[teamId,req.params.id]);
+  if(!teamCheck.rowCount)return res.status(400).json({error:"TEAM_DIVISION_MISMATCH"});
   const row=(await pool.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'registration',$2,'CREATE_REGISTRATION',$3)",[req.user.sub,row.id,row]);
   res.status(201).json(row);
