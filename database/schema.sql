@@ -205,3 +205,9 @@ alter table score_events add column if not exists undone_at timestamptz;
 
 alter table players alter column rating set default 3.000;
 create index if not exists idx_players_rating on players(rating desc, full_name);
+
+alter table players add column if not exists avatar_url text;
+alter table players add column if not exists bio text;
+alter table players add column if not exists dominant_hand text check (dominant_hand in ('left','right'));
+alter table players add column if not exists birth_year smallint check (birth_year between 1900 and 2100);
+create unique index if not exists idx_players_user_unique on players(user_id) where user_id is not null;
