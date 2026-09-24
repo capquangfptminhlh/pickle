@@ -51,6 +51,20 @@ jobs:
           node --check assets/api.js
           node --check scripts/e2e.mjs
           node --check scripts/ui-smoke.mjs
+      - name: Design system guard
+        run: |
+          if grep -R "mobile-native.css" -- *.html preview/*.html; then
+            echo "Obsolete mobile-native.css reference detected"
+            exit 1
+          fi
+          if grep -q -- "--n-bg:" assets/styles.css assets/public.css; then
+            echo "Obsolete native-dark tokens detected in core styles"
+            exit 1
+          fi
+          if grep -q "Native Mobile UI" assets/styles.css assets/public.css; then
+            echo "Obsolete native-dark theme block detected"
+            exit 1
+          fi
       - name: Migrate and seed
         run: |
           npm run migrate
