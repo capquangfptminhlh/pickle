@@ -4,7 +4,7 @@ A feature is not "done" until UI, API, persistence, authorization, mobile behavi
 
 ## Applications
 - Public Web: tournaments, live scores, standings, bracket, player ranking/profile.
-- Player PWA: personal profile/avatar, current rating, rating history, personal scorecard, match history, tournaments, partner history, registrations/payments, notifications.
+- Player Profile: public player profile/avatar, current rating, rating history, personal scorecard, match history, tournaments and partner history. No player login is required.
 - Referee PWA: assigned matches, courtside scoring, undo/correction rules, offline-safe shell, realtime conflict handling.
 - Organizer/Admin PWA: tournaments, divisions, courts, clubs, players, teams, scheduling, referees, payments, sponsors, media, reports, audit, system settings.
 
@@ -27,15 +27,14 @@ A feature is not "done" until UI, API, persistence, authorization, mobile behavi
 - Offline/online status UI.
 - GitHub Pages preview has its own scoped manifest/service worker.
 
-## Player account acceptance criteria
-- One app_user can link to one player profile.
-- Player can edit only own editable profile fields.
-- Player avatar upload with file validation.
+## Player profile acceptance criteria
+- No player account/login is required.
+- Organizer/Admin manages player profile fields.
+- Player avatar upload with file validation is performed by Organizer/Admin.
 - Personal dashboard shows rating, W/L, points for/against, recent form.
 - Match history includes tournament, round, partner/opponents, per-set score and result.
 - Rating history with reason and timestamp.
-- Tournament history and current registrations/payment status.
-- Notifications inbox/read state.
+- Tournament history is public; registration/payment data remains admin-only.
 - Public player profile excludes private phone/email fields.
 
 ## Scoring acceptance criteria
