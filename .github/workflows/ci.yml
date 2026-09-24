@@ -40,8 +40,14 @@ jobs:
           node --check server/index.js
           node --check server/seed.js
           node --check assets/admin-app.js
+          node --check assets/admin-modules.js
+          node --check assets/admin-crud.js
           node --check assets/public.js
+          node --check assets/player.js
+          node --check assets/checkin.js
+          node --check assets/pwa.js
           node --check assets/api.js
+          node --check scripts/e2e.mjs
       - name: Migrate and seed
         run: |
           npm run migrate
@@ -57,8 +63,12 @@ jobs:
           curl -fsS http://127.0.0.1:8080/api/public/state
       - name: Login and admin smoke test
         run: |
-          curl -fsS -c cookies.txt -H 'Content-Type: application/json'             -d '{"email":"admin@pickle.test","password":"ci-password-123"}'             http://127.0.0.1:8080/api/auth/login
+          curl -fsS -c cookies.txt -H 'Content-Type: application/json' \
+            -d '{"email":"admin@pickle.test","password":"ci-password-123"}' \
+            http://127.0.0.1:8080/api/auth/login
           curl -fsS -b cookies.txt http://127.0.0.1:8080/api/admin/state
+      - name: End-to-end operations test
+        run: node scripts/e2e.mjs
       - name: Show server log on failure
         if: failure()
         run: cat app.log || true
