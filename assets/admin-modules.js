@@ -92,7 +92,13 @@
       document.querySelector('[data-module-action="new-booking"]')?.addEventListener("click",()=>{
         if(!ctx.state.courts.length)return ctx.toast("Chưa có sân.");
         modal("Tạo booking",'<div class="form-grid"><label class="field full">Sân<select id="modBookCourt">'+ctx.state.courts.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join("")+'</select></label><label class="field full">Tên booking<input id="modBookTitle" placeholder="VD: Social tối thứ 6"></label><label class="field">Bắt đầu<input id="modBookStart" type="datetime-local"></label><label class="field">Kết thúc<input id="modBookEnd" type="datetime-local"></label><label class="field">Người liên hệ<input id="modBookName"></label><label class="field">Điện thoại<input id="modBookPhone"></label><label class="field full">Ghi chú<textarea id="modBookNotes" rows="3"></textarea></label><div class="field full"><button class="btn primary" type="button" id="modSaveBooking">Lưu booking</button></div></div>');
-        document.querySelector("#modSaveBooking").onclick=async()=>{try{await API.createBooking({courtId:document.querySelector("#modBookCourt").value,title:document.querySelector("#modBookTitle").value,startAt:document.querySelector("#modBookStart").value,endAt:document.querySelector("#modBookEnd").value,contactName:document.querySelector("#modBookName").value,contactPhone:document.querySelector("#modBookPhone").value,notes:document.querySelector("#modBookNotes").value});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo booking.")}catch(e){ctx.toast(e.message==="BOOKING_CONFLICT"?"Khung giờ này bị trùng booking.":"Không thể tạo booking: "+e.message)}};
+        document.querySelector("#modSaveBooking").onclick=async()=>{
+          const startAt=document.querySelector("#modBookStart").value,endAt=document.querySelector("#modBookEnd").value,title=document.querySelector("#modBookTitle").value.trim();
+          if(!title)return ctx.toast("Nhập tên booking.");
+          if(!startAt||!endAt)return ctx.toast("Chọn đủ giờ bắt đầu và kết thúc.");
+          if(Date.parse(endAt)<=Date.parse(startAt))return ctx.toast("Giờ kết thúc phải sau giờ bắt đầu.");
+          try{await API.createBooking({courtId:document.querySelector("#modBookCourt").value,title,startAt,endAt,contactName:document.querySelector("#modBookName").value,contactPhone:document.querySelector("#modBookPhone").value,notes:document.querySelector("#modBookNotes").value});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo booking.")}catch(e){ctx.toast(e.message==="BOOKING_CONFLICT"?"Khung giờ này bị trùng booking.":e.message==="INVALID_BOOKING_TIME"?"Giờ booking không hợp lệ.":"Không thể tạo booking: "+e.message)}
+        };
       });
     }};
   }
