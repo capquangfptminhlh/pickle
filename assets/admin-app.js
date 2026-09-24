@@ -145,11 +145,10 @@ function standings(){
 }
 function bracketMatch(m){if(!m)return"";return `<div class="bracket-match"><div class="bracket-team ${m.winner===m.a?"win":""}"><span>${teamName(m.a)}</span><b>${m.sets?.filter(s=>s[0]>s[1]).length||""}</b></div><div class="bracket-team ${m.winner===m.b?"win":""}"><span>${teamName(m.b)}</span><b>${m.sets?.filter(s=>s[1]>s[0]).length||""}</b></div>${m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" style="margin-top:7px" data-score-match="${m.id}">Nhập điểm</button>`:""}</div>`}
 function bracket(){
-  setHeader("Bracket","Nhánh loại trực tiếp tự đẩy đội thắng");
-  const semis=state.matches.filter(m=>m.stage.toLowerCase().includes("bán kết"));
-  const finals=state.matches.filter(m=>m.stage.toLowerCase().includes("chung kết"));
-  const final=finals[0];
-  return `<div class="panel"><div class="panel-head"><div><h2>Knock-out</h2><p>Top 2 mỗi bảng → bán kết → chung kết</p></div>${canManage()?'<button class="btn primary" data-action="autoBracket">Tạo bracket từ BXH</button>':""}</div><div class="bracket"><div class="round"><h3>BÁN KẾT</h3>${semis.map(bracketMatch).join("")||'<div class="empty">Chưa tạo bán kết</div>'}</div><div class="round"><h3>CHUNG KẾT</h3><div style="margin-top:55px">${bracketMatch(final)}</div></div><div class="round"><h3>VÔ ĐỊCH</h3><div class="bracket-match" style="margin-top:110px;text-align:center;padding:22px"><div style="font-size:34px">🏆</div><strong>${final?.winner?teamName(final.winner):"Chưa xác định"}</strong></div></div></div></div>`;
+  setHeader("Bracket","Single elimination, double elimination và tự routing nhánh");
+  const html=window.PickleBracket?.render(state.matches,teamName,{admin:true})||'<div class="empty">Bracket renderer chưa tải.</div>';
+  const champ=window.PickleBracket?.champion(state.matches,teamName)||"Chưa xác định";
+  return `<div class="panel"><div class="panel-head"><div><h2>Bracket thi đấu</h2><p>Tự tạo từ BXH hoặc seed, hỗ trợ BYE và nhánh thua</p></div>${canManage()?'<button class="btn primary" data-action="autoBracket">Tạo / sinh bracket</button>':""}</div>${html}<div class="admin-champion"><span>CHAMPION</span><strong>${champ}</strong></div></div>`;
 }
 function courts(){
   setHeader("Sân thi đấu","Theo dõi và cấu hình sân theo giải");
@@ -289,7 +288,7 @@ function selectDivisionDialog(title,buttonText,onSubmit){
   $("#genericDialog").showModal();$("#autoSubmit").onclick=()=>onSubmit($("#autoDivision").value);
 }
 function openAutoScheduleModal(){selectDivisionDialog("Tạo lịch vòng bảng","Tạo lịch",async id=>{try{const r=await API.generateRoundRobin(id);$("#genericDialog").close();await refresh();toast(`Đã tạo ${r.created} trận vòng bảng.`)}catch(e){toast("Không thể tạo lịch: "+e.message)}})}
-function openAutoBracketModal(){selectDivisionDialog("Tạo bracket","Tạo từ BXH",async id=>{try{await API.generateBracket(id);$("#genericDialog").close();await refresh();toast("Đã tạo bán kết và chung kết.")}catch(e){const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa kết thúc.",BRACKET_ALREADY_EXISTS:"Bracket đã tồn tại.",BRACKET_GENERATOR_SUPPORTS_TWO_GROUPS_TOP2:"Auto bracket hiện áp dụng cấu hình 2 bảng, Top 2."}[e.message]||e.message;toast(m)}})}
+function openAutoBracketModal(){selectDivisionDialog("Tạo bracket","Tạo từ BXH",async id=>{try{await API.generateBracket(id);$("#genericDialog").close();await refresh();toast("Đã tạo bán kết và chung kết.")}catch(e){const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa kết thúc.",BRACKET_ALREADY_EXISTS:"Bracket đã tồn tại.",DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS:"Double elimination hiện hỗ trợ 4 hoặc 8 đội.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung Round Robin không cần bracket.",NOT_ENOUGH_QUALIFIERS:"Không đủ đội vào vòng loại trực tiếp.",NO_ACTIVE_COURTS:"Chưa có sân hoạt động."}[e.message]||e.message;toast(m)}})}
 async function openMatchModal(){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
   const refs=canManage()?await API.referees().catch(()=>[]):[];
