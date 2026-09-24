@@ -210,6 +210,7 @@ async function render(){
   $("#content").innerHTML=html;
   bindDynamic();
   if(result&&typeof result==="object"&&typeof result.bind==="function")result.bind();
+  await window.AdminCrud?.decorate({page,state,user,refresh,toast});
 }
 function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
