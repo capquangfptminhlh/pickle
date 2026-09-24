@@ -1,5 +1,5 @@
-const V="pickle-preview-v6";
-const CORE=["./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html","./preview-api.js","./preview-public.js","./preview-pwa.js","../assets/styles.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js","../assets/tournament.js","../assets/checkin.js","../assets/app-icon.svg"];
+const V="pickle-preview-v7";
+const CORE=["./index.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html","./preview-api.js","./preview-public.js","./preview-pwa.js","../assets/styles.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js","../assets/tournament.js","../assets/checkin.js","../assets/app-icon.svg","../assets/visual-hero-pickle.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",e=>{
