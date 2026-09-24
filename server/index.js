@@ -150,7 +150,7 @@ app.get("/api/auth/me",authRequired,(req,res)=>res.json({user:req.user}));
 
 app.get("/api/public/players",wrap(async(req,res)=>{
   const {rows}=await pool.query(`
-    select p.id,p.full_name,p.nickname,p.gender,p.rating,c.name club_name
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,c.name club_name
     from players p left join clubs c on c.id=p.club_id
     where p.active=true order by p.rating desc nulls last,p.full_name
   `);
@@ -641,6 +641,9 @@ app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.ht
 app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
 app.get("/player.html",(req,res)=>res.sendFile(path.join(root,"player.html")));
 app.get("/about.html",(req,res)=>res.sendFile(path.join(root,"about.html")));
+app.get("/manifest.webmanifest",(req,res)=>res.type("application/manifest+json").sendFile(path.join(root,"manifest.webmanifest")));
+app.get("/service-worker.js",(req,res)=>{res.set("Cache-Control","no-cache");res.type("application/javascript").sendFile(path.join(root,"service-worker.js"))});
+app.get("/offline.html",(req,res)=>res.sendFile(path.join(root,"offline.html")));
 app.get("/robots.txt",(req,res)=>{
   const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
   res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nSitemap: ${base}/sitemap.xml\n`);
