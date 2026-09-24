@@ -91,10 +91,10 @@ function dashboard(){
     <div class="admin-app-live-orb"><span>${live}</span><small>LIVE</small></div>
   </section>
   <div class="admin-quick-grid">
-    <button data-goto="scores"><span>◉</span><b>Nhập điểm</b><small>Score console</small></button>
-    <button data-goto="matches"><span>⌁</span><b>Lịch đấu</b><small>Điều phối sân</small></button>
-    <button data-goto="players"><span>◎</span><b>VĐV</b><small>Hồ sơ & rating</small></button>
-    <button data-goto="tournaments"><span>✦</span><b>Giải đấu</b><small>Quản lý giải</small></button>
+    <button data-goto="scores"><span>${iconSvg("score")}</span><b>Nhập điểm</b><small>Score console</small></button>
+    <button data-goto="matches"><span>${iconSvg("calendar")}</span><b>Lịch đấu</b><small>Điều phối sân</small></button>
+    <button data-goto="players"><span>${iconSvg("users")}</span><b>VĐV</b><small>Hồ sơ & rating</small></button>
+    <button data-goto="tournaments"><span>${iconSvg("trophy")}</span><b>Giải đấu</b><small>Quản lý giải</small></button>
   </div>
   <div class="kpis">
     <div class="kpi"><span class="label">GIẢI</span><strong>${state.tournaments.length}</strong><small>${state.tournaments.filter(t=>t.status==="live").length} đang live</small></div>
