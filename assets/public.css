@@ -232,3 +232,63 @@ linear-gradient(180deg,#0d2118,#102a1d)}
 .about-capabilities span{display:grid;gap:4px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;color:var(--muted);font-size:9px;box-shadow:var(--shadow-sm)}
 .about-capabilities b{color:var(--text);font-size:11px}
 @media(max-width:800px){.about-visual-stack>img{height:260px;border-radius:21px}.about-capabilities{grid-template-columns:1fr}.about-capabilities span{font-size:10px}}
+
+/* === MOBILE APP HOME V3 === */
+.mobile-app-dashboard{display:none}
+@media(max-width:760px){
+  .mobile-app-dashboard{display:block;padding:16px 0 8px;background:#f5f8f6}
+  .mobile-app-status-card{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:18px;border-radius:24px;background:
+      radial-gradient(circle at 84% 16%,rgba(223,255,105,.25),transparent 25%),
+      linear-gradient(145deg,#0e2a1c,#143d2a);color:#fff;box-shadow:0 18px 42px rgba(9,39,23,.2)
+  }
+  .mobile-app-status-card h2{margin:4px 0 6px;font-size:24px;letter-spacing:-.04em}
+  .mobile-app-status-card p{margin:0;color:#b2c6b9;font-size:11px;display:flex;align-items:center;gap:6px}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:#32d782;box-shadow:0 0 0 5px rgba(50,215,130,.12)}
+  .mobile-app-badge{
+    width:66px;height:66px;border-radius:21px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
+    display:grid;place-items:center;font-size:22px;font-weight:950;color:var(--acid);flex:0 0 auto
+  }
+  .mobile-app-actions{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px
+  }
+  .mobile-app-actions a{
+    display:grid;place-items:center;gap:6px;text-decoration:none;background:#fff;border:1px solid var(--line);
+    border-radius:19px;padding:11px 5px;box-shadow:0 8px 22px rgba(13,37,23,.05)
+  }
+  .mobile-app-actions span{
+    width:36px;height:36px;border-radius:12px;background:#ebf7ef;color:var(--brand);
+    display:grid;place-items:center;font-size:16px;font-weight:950
+  }
+  .mobile-app-actions b{font-size:10px}
+
+  .public-hero{padding:12px 0 20px;background:#f5f8f6}
+  .public-hero-grid{display:block}
+  .public-hero-grid>div:first-child{display:none}
+  .hero-media-stage{margin:0;border-radius:26px;min-height:250px;box-shadow:0 16px 38px rgba(13,37,23,.12)}
+  .hero-sport-visual{min-height:250px;height:250px;object-fit:cover}
+  .hero-live-card{
+    position:absolute;left:10px;right:10px;bottom:10px;transform:none!important;
+    border-radius:21px;padding:12px;background:rgba(9,27,17,.88);backdrop-filter:blur(16px)
+  }
+  .hero-float-stat{display:none}
+  .hero-media-glow{display:none}
+
+  .public-section{padding:28px 0}
+  .section-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .section-title h2{font-size:23px}
+  .section-title p{display:none}
+  .section-title .eyebrow{font-size:8px}
+  .section-link{font-size:10px}
+  .public-match-grid,.page-grid,.news-grid,.top-player-grid{gap:10px}
+  .tour-card,.public-match,.news-card,.top-player-card,.public-standings{
+    border:0;box-shadow:0 9px 26px rgba(13,37,23,.055)
+  }
+  .tour-cover{height:90px;border-radius:20px 20px 0 0}
+  .tour-body{padding:14px}
+  .public-match{padding:14px}
+  .public-team-row{padding:9px 0}
+  .public-bracket{margin:0 -12px;padding:0 12px 8px;scroll-snap-type:x mandatory}
+  .public-round{min-width:220px;scroll-snap-align:start}
+}
