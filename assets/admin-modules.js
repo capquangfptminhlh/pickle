@@ -29,7 +29,7 @@
       '</div><div class="table-wrap"><table class="table pro-table"><thead><tr><th>Đội</th><th>Giải / Nội dung</th><th>Thanh toán</th><th>Check-in</th><th>Thao tác</th></tr></thead><tbody>'+
       rows.map(r=>'<tr><td><b>'+ (r.team_name||"—") +'</b><small class="muted-block">'+money(r.amount)+'</small></td><td>'+r.tournament_name+'<small class="muted-block">'+r.division_name+'</small></td><td>'+badge(r.payment_status==="paid"?"Đã thanh toán":r.payment_status==="pending"?"Chờ duyệt":"Chưa thanh toán",r.payment_status==="paid"?"success":r.payment_status==="pending"?"warning":"neutral")+'</td><td>'+ (r.checked_in_at?badge("Đã check-in","success")+"<small class='muted-block'>"+date(r.checked_in_at)+"</small>":badge("Chưa check-in","warning")) +'</td><td><div class="actions">'+
         (r.checked_in_at?'<button class="mini" data-undo-checkin="'+r.id+'">Hoàn tác</button>':'<button class="mini primary-mini" data-checkin="'+r.id+'">Check-in</button>')+
-        '<button class="mini" data-qr="'+r.id+'">QR</button></div></td></tr>').join("")+
+        '<button class="mini" data-qr="'+r.id+'">QR</button><button class="mini danger-mini" data-cancel-registration="'+r.id+'">Hủy</button></div></td></tr>').join("")+
       '</tbody></table></div></div>';
 
     return {html,bind(){
@@ -39,6 +39,7 @@
         const q=await API.checkinQr(b.dataset.qr);
         modal("QR Check-in",'<div class="qr-card"><img src="'+q.dataUrl+'" alt="QR check-in"><b>Quét mã tại quầy</b><small>'+q.url+'</small></div>');
       }catch(e){ctx.toast("Không tạo được QR: "+e.message)}});
+      document.querySelectorAll("[data-cancel-registration]").forEach(b=>b.onclick=async()=>{if(!confirm("Hủy đăng ký này?"))return;try{await API.deleteRegistration(b.dataset.cancelRegistration);await ctx.refresh();ctx.toast("Đã hủy đăng ký.")}catch(e){ctx.toast("Không thể hủy: "+e.message)}});
       const add=document.querySelector('[data-module-action="new-registration"]');
       if(add)add.onclick=()=>{
         if(!ctx.state.divisions.length||!ctx.state.teams.length)return ctx.toast("Cần có nội dung và đội trước.");
@@ -55,9 +56,15 @@
     const html='<div class="module-toolbar standalone"><div><h2>Danh sách CLB</h2><p>'+rows.length+' CLB trong hệ thống</p></div><button class="btn primary" data-module-action="new-club">Thêm CLB</button></div>'+
       '<div class="club-grid">'+(rows.map(c=>{
         const n=players.filter(p=>p.club_id===c.id).length;
-        return '<article class="club-card"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
+        return '<article class="club-card" data-club-id="'+c.id+'"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p><div class="actions" style="margin-top:8px"><button class="mini" data-edit-club="'+c.id+'">Sửa</button><button class="mini danger-mini" data-delete-club="'+c.id+'">Khóa/Xóa</button></div></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
       }).join("")||empty("Chưa có CLB"))+'</div>';
     return {html,bind(){
+      document.querySelectorAll("[data-edit-club]").forEach(b=>b.onclick=()=>{
+        const row=rows.find(x=>x.id===b.dataset.editClub);if(!row)return;
+        modal("Sửa CLB",'<div class="form-grid"><label class="field full">Tên CLB<input id="modEditClubName" value="'+row.name+'"></label><label class="field full">Khu vực / Thành phố<input id="modEditClubCity" value="'+(row.city||"")+'"></label><label class="field full"><span><input id="modEditClubActive" type="checkbox" '+(row.active!==false?"checked":"")+'> Hoạt động</span></label><div class="field full"><button class="btn primary" type="button" id="modUpdateClub">Lưu CLB</button></div></div>');
+        document.querySelector("#modUpdateClub").onclick=async()=>{try{await API.updateClub(row.id,{name:document.querySelector("#modEditClubName").value,city:document.querySelector("#modEditClubCity").value,active:document.querySelector("#modEditClubActive").checked});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã cập nhật CLB.")}catch(e){ctx.toast("Không thể cập nhật: "+e.message)}};
+      });
+      document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=async()=>{if(!confirm("Khóa/xóa CLB này?"))return;try{await API.deleteClub(b.dataset.deleteClub);await ctx.refresh();ctx.toast("Đã xử lý CLB.")}catch(e){ctx.toast("Không thể xử lý: "+e.message)}});
       document.querySelector('[data-module-action="new-club"]')?.addEventListener("click",()=>{
         modal("Thêm CLB",'<div class="form-grid"><label class="field full">Tên CLB<input id="modClubName"></label><label class="field full">Khu vực / Thành phố<input id="modClubCity"></label><div class="field full"><button class="btn primary" type="button" id="modSaveClub">Tạo CLB</button></div></div>');
         document.querySelector("#modSaveClub").onclick=async()=>{try{await API.createClub({name:document.querySelector("#modClubName").value,city:document.querySelector("#modClubCity").value});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo CLB.")}catch(e){ctx.toast("Không thể tạo CLB: "+e.message)}};
@@ -69,8 +76,9 @@
     ctx.setHeader("Booking sân","Lịch đặt sân, xung đột giờ và trạng thái booking");
     const rows=await API.bookings().catch(()=>[]);
     const html='<div class="module-toolbar standalone"><div><h2>Booking</h2><p>'+rows.length+' lịch đặt</p></div><button class="btn primary" data-module-action="new-booking">Tạo booking</button></div>'+
-      '<div class="booking-list">'+(rows.map(r=>'<article class="booking-card"><div class="booking-time"><strong>'+new Date(r.start_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})+'</strong><span>'+new Date(r.start_at).toLocaleDateString("vi-VN")+'</span></div><div class="booking-main"><h3>'+r.title+'</h3><p>'+r.court_name+' • '+r.tournament_name+'</p><small>'+(r.contact_name||"Không ghi người liên hệ")+(r.contact_phone?" • "+r.contact_phone:"")+'</small></div>'+badge(r.status==="confirmed"?"Đã xác nhận":r.status,r.status==="confirmed"?"success":"neutral")+'</article>').join("")||empty("Chưa có booking"))+'</div>';
+      '<div class="booking-list">'+(rows.map(r=>'<article class="booking-card"><div class="booking-time"><strong>'+new Date(r.start_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})+'</strong><span>'+new Date(r.start_at).toLocaleDateString("vi-VN")+'</span></div><div class="booking-main"><h3>'+r.title+'</h3><p>'+r.court_name+' • '+r.tournament_name+'</p><small>'+(r.contact_name||"Không ghi người liên hệ")+(r.contact_phone?" • "+r.contact_phone:"")+'</small></div>'+badge(r.status==="confirmed"?"Đã xác nhận":r.status,r.status==="confirmed"?"success":"neutral")+'<button class="mini danger-mini" data-cancel-booking="'+r.id+'">Hủy</button></article>').join("")||empty("Chưa có booking"))+'</div>';
     return {html,bind(){
+      document.querySelectorAll("[data-cancel-booking]").forEach(b=>b.onclick=async()=>{if(!confirm("Hủy booking này?"))return;try{await API.deleteBooking(b.dataset.cancelBooking);await ctx.refresh();ctx.toast("Đã hủy booking.")}catch(e){ctx.toast("Không thể hủy: "+e.message)}});
       document.querySelector('[data-module-action="new-booking"]')?.addEventListener("click",()=>{
         if(!ctx.state.courts.length)return ctx.toast("Chưa có sân.");
         modal("Tạo booking",'<div class="form-grid"><label class="field full">Sân<select id="modBookCourt">'+ctx.state.courts.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join("")+'</select></label><label class="field full">Tên booking<input id="modBookTitle" placeholder="VD: Social tối thứ 6"></label><label class="field">Bắt đầu<input id="modBookStart" type="datetime-local"></label><label class="field">Kết thúc<input id="modBookEnd" type="datetime-local"></label><label class="field">Người liên hệ<input id="modBookName"></label><label class="field">Điện thoại<input id="modBookPhone"></label><label class="field full">Ghi chú<textarea id="modBookNotes" rows="3"></textarea></label><div class="field full"><button class="btn primary" type="button" id="modSaveBooking">Lưu booking</button></div></div>');
