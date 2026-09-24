@@ -269,3 +269,5 @@ create index if not exists idx_registrations_checkin on registrations(checked_in
 create index if not exists idx_posts_status on content_posts(status,published_at desc);
 create index if not exists idx_media_tournament on media_assets(tournament_id,sort_order);
 create index if not exists idx_bookings_court_time on court_bookings(court_id,start_at,end_at);
+
+alter table sponsors alter column tournament_id drop not null;
