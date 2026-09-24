@@ -627,7 +627,7 @@ app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organize
 
 app.get("/api/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query(`
-    select r.id,r.status,r.payment_status,r.amount,r.created_at,t.name team_name,d.name division_name,tr.name tournament_name,
+    select r.id,r.status,r.payment_status,r.amount,r.created_at,r.checked_in_at,r.checkin_token,t.name team_name,d.name division_name,tr.name tournament_name,
       p.id payment_id,p.status payment_review_status,p.method,p.reference_code,p.receipt_url
     from registrations r
     join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
