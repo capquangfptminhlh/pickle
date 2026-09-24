@@ -279,3 +279,8 @@ alter table players add column if not exists updated_at timestamptz not null def
 alter table tournaments add column if not exists updated_at timestamptz not null default now();
 alter table divisions add column if not exists updated_at timestamptz not null default now();
 alter table courts add column if not exists updated_at timestamptz not null default now();
+
+alter table matches add column if not exists result_reason text;
+alter table matches add column if not exists result_note text;
+alter table matches add column if not exists loser_next_match_id uuid references matches(id) on delete set null;
+alter table matches add column if not exists loser_next_match_side text check (loser_next_match_side in ('A','B'));
