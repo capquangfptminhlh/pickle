@@ -152,18 +152,18 @@ if(await pscore.count()){
 await mkdir("ui-artifacts",{recursive:true});
 const shot=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
 await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
-await shot.screenshot({path:"ui-artifacts/mobile-public.png",fullPage:true});
+await shot.screenshot({path:"ui-artifacts/mobile-public.png"});
 
 await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.click();await shot.waitForTimeout(250);
 await shot.screenshot({path:"ui-artifacts/mobile-admin-home.png",fullPage:true});
 
-const scoreNav=shot.locator('[data-page="scores"]');if(await scoreNav.count())await scoreNav.click();await shot.waitForTimeout(250);
+const scoreNav=shot.locator('[data-dock-page="scores"]');if(await scoreNav.count())await scoreNav.click();await shot.waitForTimeout(250);
 const scoreOpen=shot.locator("[data-score-match]").first();if(await scoreOpen.count()){await scoreOpen.click();await shot.waitForTimeout(220);}
-await shot.screenshot({path:"ui-artifacts/mobile-score.png",fullPage:true});
+await shot.screenshot({path:"ui-artifacts/mobile-score.png"});
 
 await shot.goto(preview+"/player.html?id=p1",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
-await shot.screenshot({path:"ui-artifacts/mobile-player.png",fullPage:true});
+await shot.screenshot({path:"ui-artifacts/mobile-player.png"});
 
 await browser.close();
 if(failures.length){
