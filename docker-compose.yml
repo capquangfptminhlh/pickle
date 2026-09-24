@@ -30,6 +30,8 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - pickle_uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8080/api/health >/dev/null || exit 1"]
       interval: 10s
@@ -38,3 +40,4 @@ services:
 
 volumes:
   pickle_pg:
+  pickle_uploads:
