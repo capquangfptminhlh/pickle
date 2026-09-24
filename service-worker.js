@@ -1,11 +1,15 @@
-const VERSION="pickle-tour-v1";
+const VERSION="pickle-tour-v2";
 const STATIC=[
   "/offline.html",
   "/assets/styles.css",
   "/assets/public.css",
   "/assets/ui-motion.js",
   "/assets/pwa.js",
-  "/assets/app-icon.svg"
+  "/assets/app-icon.svg",
+  "/assets/visual-hero-pickle.svg",
+  "/assets/visual-court-night.svg",
+  "/assets/visual-tournament.svg",
+  "/assets/visual-news.svg"
 ];
 
 self.addEventListener("install",event=>{
