@@ -173,3 +173,19 @@ dialog[open] .score-card,dialog[open] .modal-card{animation:modalIn .28s var(--e
   .mobile-dock button{flex:1;border:0;background:transparent;color:#a9bcb1;border-radius:12px;font-size:9px;font-weight:800;display:grid;place-items:center;gap:1px;padding:4px}
   .mobile-dock button span{font-size:16px}.mobile-dock button.active{background:rgba(223,255,105,.12);color:#fff}.mobile-dock button.active span{color:var(--acid)}
 }
+
+.pwa-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:120;background:#0d2118;color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 50px rgba(8,28,16,.28);padding:11px 12px 11px 14px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:12px;animation:modalIn .25s var(--ease)}
+.pwa-toast button{border:0;background:var(--acid);color:var(--dark);font-weight:900;border-radius:9px;padding:7px 10px;cursor:pointer}
+.pwa-install[hidden]{display:none!important}
+html[data-network="offline"] .live-pill{background:#fff0d9;color:#9b6700}
+html[data-network="offline"] .live-pill i{background:#d99a26;animation:none}
+@media(display-mode:standalone){
+  .public-header,.topbar{padding-top:max(0px,env(safe-area-inset-top))}
+  body{overscroll-behavior-y:none}
+  .pwa-install{display:none!important}
+}
+@media(max-width:760px){
+  .mobile-dock{bottom:max(8px,env(safe-area-inset-bottom))}
+  body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+  .pwa-toast{width:calc(100% - 24px);justify-content:space-between}
+}
