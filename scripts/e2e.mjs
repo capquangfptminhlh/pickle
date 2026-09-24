@@ -76,6 +76,8 @@ assert(tieFinish.error==="INVALID_SET_SCORE","tied set score rejected");
 await raw("/api/matches/"+tieMatch.id,{method:"DELETE",cookie:admin.cookie});
 
 const single=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cookie:admin.cookie,body:{name:"CI Single Elim",eventType:"doubles",format:"single_elimination",bestOf:3,pointsToWin:11,advanceCount:1}})).data;
+const wrongDivisionRegistration=(await raw("/api/divisions/"+single.id+"/registrations",{method:"POST",cookie:admin.cookie,body:{teamId:teamA.id,amount:1000},ok:[400]})).data;
+assert(wrongDivisionRegistration.error==="TEAM_DIVISION_MISMATCH","registration rejects team from another division");
 const seTeams=[];
 for(let i=1;i<=5;i++)seTeams.push((await raw("/api/divisions/"+single.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI SE "+i+" "+stamp,seed:i}})).data);
 const seBracket=(await raw("/api/divisions/"+single.id+"/generate-bracket",{method:"POST",cookie:admin.cookie,body:{}})).data;
