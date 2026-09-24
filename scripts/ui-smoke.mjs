@@ -81,6 +81,52 @@ async function modalSmoke(page,pageId,selector,label){
   await page.waitForTimeout(40);
 }
 
+// Regression checks for match operations.
+const matchesNav=page.locator('[data-page="matches"]');
+if(await matchesNav.count()){
+  await matchesNav.click();await page.waitForTimeout(120);
+  const doneCards=page.locator('[data-match-card][data-match-status="done"]');
+  if(await doneCards.count()&&await doneCards.first().locator("[data-score-match]").count()){
+    failures.push({label:"prod completed match",errors:["completed match still exposes score action"]});
+  }
+  const statusFilter=page.locator("#statusFilter");
+  if(await statusFilter.count()){
+    await statusFilter.selectOption("live");await page.waitForTimeout(50);
+    if(await page.locator('[data-match-card]:visible:not([data-match-status="live"])').count()){
+      failures.push({label:"prod match filters",errors:["status filter leaves non-live cards visible"]});
+    }
+    await statusFilter.selectOption("");
+  }
+  const courtFilter=page.locator("#courtFilter");
+  if(await courtFilter.count()){
+    const values=await courtFilter.locator("option").evaluateAll(opts=>opts.map(o=>o.value).filter(Boolean));
+    if(values.length){
+      await courtFilter.selectOption(values[0]);await page.waitForTimeout(50);
+      if(await page.locator('[data-match-card]:visible:not([data-match-court="'+values[0]+'"])').count()){
+        failures.push({label:"prod match filters",errors:["court filter leaves cards from other courts visible"]});
+      }
+      await courtFilter.selectOption("");
+    }
+  }
+}
+const scoresNav=page.locator('[data-page="scores"]');
+if(await scoresNav.count()){
+  await scoresNav.click();await page.waitForTimeout(120);
+  const scoreTrigger=page.locator("[data-score-match]").first();
+  if(await scoreTrigger.count()){
+    await scoreTrigger.click();await page.waitForTimeout(80);
+    if(!(await page.locator("#finishMatch").isDisabled())){
+      failures.push({label:"prod score guard",errors:["finish match enabled before required set wins"]});
+    }
+    const currentA=Number(await page.locator("#scoreA").innerText()),currentB=Number(await page.locator("#scoreB").innerText());
+    const target=Number(await page.locator("#targetScore").inputValue());
+    if(Math.max(currentA,currentB)<target&&!(await page.locator("#finishSet").isDisabled())){
+      failures.push({label:"prod score guard",errors:["finish set enabled below target score"]});
+    }
+    await page.locator("#scoreDialog .icon-btn").click();
+  }
+}
+
 for(const [pid,selector,label] of [
   ["tournaments",'[data-action="newTournament"]',"prod create tournament"],
   ["players",'[data-action="newPlayer"]',"prod create player"],
