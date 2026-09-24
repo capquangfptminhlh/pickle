@@ -19,11 +19,19 @@
     me:()=>request("/api/auth/me"),
     publicState:()=>request("/api/public/state"),
     publicPlayers:()=>request("/api/public/players"),
+    publicPlayer:(id)=>request(`/api/public/players/${encodeURIComponent(id)}`),
     publicClubs:()=>request("/api/public/clubs"),
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
+    uploadPlayerAvatar:async(playerId,file)=>{
+      const form=new FormData();form.append("avatar",file);
+      const res=await fetch(`/api/players/${encodeURIComponent(playerId)}/avatar`,{method:"POST",body:form,credentials:"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
+      return data;
+    },
     adjustRating:(playerId,payload)=>request(`/api/players/${playerId}/rating-adjust`,{method:"POST",body:JSON.stringify(payload)}),
     createClub:payload=>request("/api/clubs",{method:"POST",body:JSON.stringify(payload)}),
     addTeamPlayer:(teamId,playerId)=>request(`/api/teams/${teamId}/players`,{method:"POST",body:JSON.stringify({playerId})}),
