@@ -312,11 +312,43 @@ async function openMatchDetail(id){
   const m=state.matches.find(x=>x.id===id);if(!m)return;
   const refs=canManage()?await API.referees().catch(()=>[]):[];
   $("#genericTitle").textContent="Chi tiết trận";
-  $("#genericBody").innerHTML=`<div class="panel" style="box-shadow:none;border:0;padding:0"><p><b>${teamName(m.a)}</b> vs <b>${teamName(m.b)}</b></p><p style="color:#708078">${m.stage} • ${m.time} • Sân ${m.court}</p>
-    ${canManage()?`<div class="form-grid"><label class="field">Sân<select id="detailCourt"><option value="">Giữ nguyên</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label><label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label><label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label><div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div></div>`:""}
+  const assignment=canManage()?`<div class="form-grid">
+    <label class="field">Sân<select id="detailCourt"><option value="">Giữ nguyên</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
+    <label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label>
+    <label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div>
+  </div>`:"";
+  const special=m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<div class="special-result-box">
+    <div class="panel-head"><div><h2>Kết quả đặc biệt</h2><p>Walkover / No-show / Retired / DQ, không cần nhập điểm giả</p></div></div>
+    <div class="form-grid">
+      <label class="field full">Đội thắng<select id="specialWinner"><option value="${m.a}">${teamName(m.a)}</option><option value="${m.b}">${teamName(m.b)}</option></select></label>
+      <label class="field">Lý do<select id="specialReason"><option value="walkover">Walkover</option><option value="no_show">No-show</option><option value="retired">Retired</option><option value="injury">Chấn thương</option><option value="disqualified">Disqualified</option></select></label>
+      <label class="field full">Ghi chú<textarea id="specialNote" rows="2"></textarea></label>
+      <div class="field full"><button type="button" class="btn danger" id="saveSpecialResult">Chốt kết quả đặc biệt</button></div>
+    </div>
+  </div>`:"";
+  $("#genericBody").innerHTML=`<div class="panel" style="box-shadow:none;border:0;padding:0">
+    <div class="match-detail-summary"><div><small>${m.stage}</small><h3>${teamName(m.a)} <span>vs</span> ${teamName(m.b)}</h3><p>${m.time} • Sân ${m.court}</p></div>${statusBadge(m.status)}</div>
+    ${m.resultReason?`<div class="result-reason"><b>${m.resultReason}</b><span>${m.resultNote||""}</span></div>`:""}
+    ${assignment}
+    ${special}
   </div>`;
   $("#genericDialog").showModal();
-  const btn=$("#saveAssignment");if(btn)btn.onclick=async()=>{try{await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,scheduledAt:$("#detailTime").value||null});$("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.")}catch(e){toast("Không thể cập nhật: "+e.message)}};
+
+  const btn=$("#saveAssignment");
+  if(btn)btn.onclick=async()=>{try{
+    await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,scheduledAt:$("#detailTime").value||null});
+    $("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.");
+  }catch(e){toast("Không thể cập nhật: "+e.message)}};
+
+  const specialBtn=$("#saveSpecialResult");
+  if(specialBtn)specialBtn.onclick=async()=>{
+    if(!confirm("Chốt kết quả đặc biệt cho trận này?"))return;
+    try{
+      await API.specialResult(m.id,{winnerTeamId:$("#specialWinner").value,reason:$("#specialReason").value,note:$("#specialNote").value.trim()});
+      $("#genericDialog").close();await refresh();toast("Đã chốt kết quả đặc biệt và cập nhật bracket.");
+    }catch(e){toast("Không thể chốt: "+e.message)}
+  };
 }
 function openDivisionModal(){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
