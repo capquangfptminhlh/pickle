@@ -35,6 +35,8 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
+      - name: Install Chromium for UI smoke tests
+        run: npx playwright install --with-deps chromium
       - name: Syntax check
         run: |
           node --check server/index.js
@@ -48,6 +50,7 @@ jobs:
           node --check assets/pwa.js
           node --check assets/api.js
           node --check scripts/e2e.mjs
+          node --check scripts/ui-smoke.mjs
       - name: Migrate and seed
         run: |
           npm run migrate
@@ -69,6 +72,16 @@ jobs:
           curl -fsS -b cookies.txt http://127.0.0.1:8080/api/admin/state
       - name: End-to-end operations test
         run: node scripts/e2e.mjs
+      - name: Start static preview server
+        run: |
+          python3 -m http.server 8090 > preview.log 2>&1 &
+          echo $! > preview.pid
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:8090/preview/index.html >/dev/null && break
+            sleep 1
+          done
+      - name: UI browser smoke test
+        run: node scripts/ui-smoke.mjs
       - name: Show server log on failure
         if: failure()
         run: cat app.log || true
