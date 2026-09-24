@@ -80,19 +80,34 @@ function matchCard(m){
 }
 function dashboard(){
   const live=state.matches.filter(m=>m.status==="live").length,done=state.matches.filter(m=>m.status==="done").length;
+  const next=state.matches.find(m=>m.status!=="done");
   setHeader("Tổng quan","Điều hành giải đấu theo thời gian thực");
-  return `<div class="kpis">
-    <div class="kpi"><span class="label">GIẢI TRONG HỆ THỐNG</span><strong>${state.tournaments.length}</strong><small>${state.tournaments.filter(t=>t.status==="live").length} đang live</small></div>
-    <div class="kpi"><span class="label">TRẬN ĐANG LIVE</span><strong>${live}</strong><small>${done} trận đã hoàn tất</small></div>
+  return `<section class="admin-app-hero">
+    <div class="admin-app-hero-copy">
+      <span class="admin-app-overline">TOURNAMENT CONTROL</span>
+      <h2>${live?live+" trận đang live":"Sẵn sàng vận hành"}</h2>
+      <p>${next?`${next.stage} • ${next.time} • Sân ${next.court}`:"Chưa có trận sắp tới"}</p>
+    </div>
+    <div class="admin-app-live-orb"><span>${live}</span><small>LIVE</small></div>
+  </section>
+  <div class="admin-quick-grid">
+    <button data-goto="scores"><span>◉</span><b>Nhập điểm</b><small>Score console</small></button>
+    <button data-goto="matches"><span>⌁</span><b>Lịch đấu</b><small>Điều phối sân</small></button>
+    <button data-goto="players"><span>◎</span><b>VĐV</b><small>Hồ sơ & rating</small></button>
+    <button data-goto="tournaments"><span>✦</span><b>Giải đấu</b><small>Quản lý giải</small></button>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><span class="label">GIẢI</span><strong>${state.tournaments.length}</strong><small>${state.tournaments.filter(t=>t.status==="live").length} đang live</small></div>
+    <div class="kpi"><span class="label">LIVE</span><strong>${live}</strong><small>${done} trận hoàn tất</small></div>
     <div class="kpi"><span class="label">ĐỘI / CẶP</span><strong>${state.teams.length}</strong><small>Đang quản lý</small></div>
     <div class="kpi"><span class="label">AUDIT</span><strong>${state.audit.length}</strong><small>Sự kiện gần nhất</small></div>
   </div>
   <div class="grid-2">
-    <div class="panel"><div class="panel-head"><div><h2>Live Center</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="scores">Mở nhập điểm</button></div>
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Live Center</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="scores">Mở console</button></div>
       ${state.matches.filter(m=>m.status!=="done").slice(0,6).map(matchCard).join("")||'<div class="empty">Chưa có trận.</div>'}
     </div>
-    <div class="panel"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Audit log trên server</p></div></div>
-      ${state.audit.slice(0,8).map(a=>`<div style="padding:11px 0;border-bottom:1px solid #edf1ef"><strong style="font-size:13px">${a.action}</strong><div style="color:#73847b;font-size:11px;margin-top:4px">${a.time} • ${a.user}</div><div style="font-size:12px;margin-top:4px">${a.detail}</div></div>`).join("")||'<div class="empty">Chưa có thao tác.</div>'}
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động</h2><p>Nhật ký gần đây</p></div></div>
+      <div class="activity-feed">${state.audit.slice(0,8).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Chưa có thao tác.</div>'}</div>
     </div>
   </div>`;
 }
