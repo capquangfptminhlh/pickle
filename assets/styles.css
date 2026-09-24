@@ -305,3 +305,10 @@ html[data-network="offline"] .live-pill i{background:#d99a26;animation:none}
 .admin-champion span,.public-champion span{font-size:9px;letter-spacing:.15em;color:#91a99c;font-weight:950}
 .admin-champion strong,.public-champion strong{font-size:20px;color:var(--acid);letter-spacing:-.025em}
 @media(max-width:700px){.bracket{gap:14px}.round{min-width:218px}.bracket-match-pro{min-width:0}.admin-champion,.public-champion{align-items:flex-start;flex-direction:column}}
+
+.csv-help{padding:10px 12px;border-radius:11px;background:#f1f6f3;color:#5c7165;font-size:10px}
+.csv-preview{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:260px;background:#fff}
+.csv-preview-head,.csv-preview-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(110px,1fr);min-width:max-content;border-bottom:1px solid #edf1ef}
+.csv-preview-head{position:sticky;top:0;background:#f8fbf9;z-index:1}
+.csv-preview-head b,.csv-preview-row span{padding:8px 10px;font-size:9px;min-width:110px}.csv-preview-head b{color:#6d8175;text-transform:uppercase;letter-spacing:.05em}.csv-preview-row span{color:#253b30}
+.csv-preview>small{display:block;padding:9px 10px;color:var(--muted)}
