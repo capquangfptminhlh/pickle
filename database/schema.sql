@@ -271,3 +271,11 @@ create index if not exists idx_media_tournament on media_assets(tournament_id,so
 create index if not exists idx_bookings_court_time on court_bookings(court_id,start_at,end_at);
 
 alter table sponsors alter column tournament_id drop not null;
+
+alter table divisions add column if not exists active boolean not null default true;
+alter table clubs add column if not exists active boolean not null default true;
+alter table teams add column if not exists updated_at timestamptz not null default now();
+alter table players add column if not exists updated_at timestamptz not null default now();
+alter table tournaments add column if not exists updated_at timestamptz not null default now();
+alter table divisions add column if not exists updated_at timestamptz not null default now();
+alter table courts add column if not exists updated_at timestamptz not null default now();
