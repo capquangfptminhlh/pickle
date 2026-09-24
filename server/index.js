@@ -153,7 +153,7 @@ async function getMatch(c,id,lock=false){
 }
 function validateSet(a,b,target,winByTwo){
   const hi=Math.max(a,b),lo=Math.min(a,b);
-  return hi>=target&&(!winByTwo||hi-lo>=2);
+  return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
 async function authorizeMatch(c,user,m){
   if(["super_admin","organizer"].includes(user.role))return true;
