@@ -25,13 +25,13 @@ async function inspect(page,label){
 }
 async function goto(page,url,label){
   const end=await inspect(page,label);
-  const r=await page.goto(url,{waitUntil:"networkidle"});
+  const r=await page.goto(url,{waitUntil:"domcontentloaded"});
   if(!r||r.status()>=400)failures.push({label,errors:["navigation status "+(r?.status()??"none")]});
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(350);
   end();
 }
 
-const page=await browser.newPage({viewport:{width:390,height:844}});
+const page=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(page,prod+"/","prod public");
 if(!(await page.locator("body").innerText()).includes("Pickle"))failures.push({label:"prod public",errors:["missing Pickle content"]});
 
@@ -73,7 +73,14 @@ if(await scoreBtn.count()){
   await page.locator("#scoreDialog .icon-btn").click();
 }
 
-const ppage=await browser.newPage({viewport:{width:390,height:844}});
+await page.setViewportSize({width:390,height:844});
+await page.waitForTimeout(150);
+if(!(await page.locator(".mobile-dock").isVisible()))failures.push({label:"mobile admin dock",errors:["mobile dock not visible"]});
+const dockScores=page.locator('[data-dock-page="scores"]');
+if(await dockScores.count()){await dockScores.click();await page.waitForTimeout(100);if(!(await page.locator("#content").innerText()).includes("Nhập điểm"))failures.push({label:"mobile admin dock",errors:["scores dock navigation failed"]});}
+await page.setViewportSize({width:1280,height:900});
+
+const ppage=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(ppage,preview+"/index.html","preview public");
 await goto(ppage,preview+"/ranking.html","preview ranking");
 const link=ppage.locator('a[href^="player.html?id="]').first();
