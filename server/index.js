@@ -518,7 +518,7 @@ app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organi
   const before=(await pool.query("select * from matches where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const after=(await pool.query(`
-    update matches set court_id=coalesce($1,court_id),referee_user_id=coalesce($2,referee_user_id),
+    update matches set court_id=$1,referee_user_id=$2,
     scheduled_at=coalesce($3,scheduled_at),version=version+1 where id=$4 returning *
   `,[courtId||null,refereeUserId||null,scheduledAt||null,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'match',$2,'ASSIGN_MATCH',$3,$4)",[req.user.sub,after.id,before,after]);
@@ -1058,6 +1058,8 @@ app.get("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async
 app.post("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {courtId,title,contactName,contactPhone,startAt,endAt,notes}=req.body;
   if(!courtId||!title||!startAt||!endAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const startMs=Date.parse(startAt),endMs=Date.parse(endAt);
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)||endMs<=startMs)return res.status(400).json({error:"INVALID_BOOKING_TIME"});
   const clash=Number((await pool.query("select count(*)::int n from court_bookings where court_id=$1 and status<>'cancelled' and tstzrange(start_at,end_at,'[)') && tstzrange($2::timestamptz,$3::timestamptz,'[)')",[courtId,startAt,endAt])).rows[0].n);
   if(clash)return res.status(409).json({error:"BOOKING_CONFLICT"});
   const row=(await pool.query("insert into court_bookings(court_id,title,contact_name,contact_phone,start_at,end_at,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[courtId,title,contactName||null,contactPhone||null,startAt,endAt,notes||null,req.user.sub])).rows[0];res.status(201).json(row);
