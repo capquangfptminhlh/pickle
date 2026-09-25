@@ -32,14 +32,7 @@
     </form>
   </main>
   <script src="assets/api.js"></script>
-  <script>
-    PickleAPI.session().then(s=>{if(s?.user)location.href="/admin"}).catch(()=>{});
-    loginForm.addEventListener("submit",async e=>{
-      e.preventDefault();error.textContent="";
-      try{await PickleAPI.login(email.value,password.value);location.href="/admin"}
-      catch(err){error.textContent=err.status===429?"Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau.":err.status===401?"Email hoặc mật khẩu không đúng.":"Không thể đăng nhập. Vui lòng thử lại."}
-    });
-  </script>
+  <script src="assets/login.js"></script>
   <script src="/assets/pwa.js"></script>
 </body>
 </html>
