@@ -80,6 +80,10 @@ jobs:
             echo "Conflicting dark public override detected"
             exit 1
           fi
+          if grep -R -n '<script>' -- *.html preview/*.html; then
+            echo "Inline script detected; CSP requires external JavaScript files"
+            exit 1
+          fi
       - name: Migrate and seed
         run: |
           npm run migrate
