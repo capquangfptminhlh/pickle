@@ -11,13 +11,14 @@ import multer from "multer";
 import QRCode from "qrcode";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
-import {authRequired,allow,signUser,verifyPassword} from "./auth.js";
+import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
 const app=express();
 const server=http.createServer(app);
-const io=new SocketServer(server,{cors:{origin:true,credentials:true}});
+const publicOrigin=(()=>{try{return process.env.PUBLIC_BASE_URL?new URL(process.env.PUBLIC_BASE_URL).origin:null}catch{return null}})();
+const io=new SocketServer(server,{cors:publicOrigin?{origin:publicOrigin,credentials:true}:undefined});
 const port=Number(process.env.PORT||8080);
 const uploadRoot=path.join(root,"uploads");
 const avatarDir=path.join(uploadRoot,"avatars");
@@ -59,9 +60,32 @@ if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
 
 app.set("trust proxy",1);
-app.use(helmet({contentSecurityPolicy:false}));
+app.disable("x-powered-by");
+app.use(helmet({
+  contentSecurityPolicy:{
+    directives:{
+      defaultSrc:["'self'"],
+      scriptSrc:["'self'","'unsafe-inline'"],
+      styleSrc:["'self'","'unsafe-inline'"],
+      imgSrc:["'self'","data:","https:"],
+      connectSrc:["'self'","ws:","wss:"],
+      fontSrc:["'self'","data:"],
+      objectSrc:["'none'"],
+      baseUri:["'self'"],
+      frameAncestors:["'none'"]
+    }
+  },
+  referrerPolicy:{policy:"strict-origin-when-cross-origin"}
+}));
 app.use(express.json({limit:"2mb"}));
 app.use(cookieParser());
+app.use((req,res,next)=>{
+  if(["POST","PUT","PATCH","DELETE"].includes(req.method)&&req.path.startsWith("/api/")){
+    const origin=req.get("origin");
+    if(origin&&publicOrigin&&origin!==publicOrigin)return res.status(403).json({error:"ORIGIN_NOT_ALLOWED"});
+  }
+  next();
+});
 
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
@@ -161,25 +185,45 @@ async function authorizeMatch(c,user,m){
   return false;
 }
 
+const loginAttempts=new Map();
+const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_ATTEMPTS=6;
+function loginKey(req,email){return String(req.ip||"")+"|"+email}
+function loginBlocked(key){
+  const now=Date.now(),x=loginAttempts.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS){loginAttempts.delete(key);return false}
+  return x.count>=LOGIN_MAX_ATTEMPTS;
+}
+function recordLoginFailure(key){
+  const now=Date.now(),x=loginAttempts.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS)loginAttempts.set(key,{count:1,startedAt:now});
+  else{x.count++;loginAttempts.set(key,x)}
+}
 app.post("/api/auth/login",wrap(async(req,res)=>{
   const email=String(req.body.email||"").toLowerCase().trim();
   const password=String(req.body.password||"");
+  const key=loginKey(req,email);
+  if(loginBlocked(key))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
   const u=(await pool.query("select * from app_users where email=$1 and active=true",[email])).rows[0];
-  if(!u||!u.password_hash||!(await verifyPassword(password,u.password_hash)))return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  if(!u||!u.password_hash||!(await verifyPassword(password,u.password_hash))){
+    recordLoginFailure(key);return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  }
+  loginAttempts.delete(key);
   const token=signUser(u);
-  res.cookie("pickle_token",token,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:12*60*60*1000});
+  res.cookie("pickle_token",token,{httpOnly:true,sameSite:"strict",secure:process.env.NODE_ENV==="production",path:"/",maxAge:12*60*60*1000});
+  res.set("Cache-Control","no-store");
   res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
 }));
-app.post("/api/auth/logout",(req,res)=>{res.clearCookie("pickle_token");res.json({ok:true})});
-app.get("/api/auth/session",(req,res)=>{
-  const token=req.cookies?.pickle_token||req.headers.authorization?.replace(/^Bearer\s+/i,"");
-  if(!token)return res.json({user:null});
-  try{return res.json({user:jwt.verify(token,process.env.JWT_SECRET)})}
-  catch{return res.json({user:null})}
+app.post("/api/auth/logout",(req,res)=>{
+  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:process.env.NODE_ENV==="production",path:"/"});
+  res.set("Cache-Control","no-store");res.json({ok:true})
 });
+app.get("/api/auth/session",wrap(async(req,res)=>{
+  res.set("Cache-Control","no-store");
+  const user=await sessionUser(req);res.json({user});
+}));
 app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
   const current=String(req.body.currentPassword||""),next=String(req.body.newPassword||"");
-  if(next.length<10)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  if(next.length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
   const u=(await pool.query("select * from app_users where id=$1",[req.user.sub])).rows[0];
   if(!u||!u.password_hash||!(await verifyPassword(current,u.password_hash)))return res.status(401).json({error:"INVALID_CURRENT_PASSWORD"});
   const {hashPassword}=await import("./auth.js");const h=await hashPassword(next);
@@ -1273,21 +1317,65 @@ app.delete("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wra
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'booking',$2,'CANCEL_BOOKING',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"cancelled",entity:after});
 }));
 
+app.get("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select id,email,display_name,role,active,created_at from app_users order by case when role='super_admin' then 0 else 1 end,display_name");
+  res.json(rows);
+}));
+app.post("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const email=String(req.body.email||"").toLowerCase().trim(),name=String(req.body.name||"").trim();
+  const password=String(req.body.password||""),role=String(req.body.role||"");
+  if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(!["organizer","referee"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
+  if(password.length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  if((await pool.query("select 1 from app_users where email=$1",[email])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const h=await hashPassword(password);
+  const row=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,$3,$4) returning id,email,display_name,role,active,created_at",[email,name,role,h])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_CHILD_ACCOUNT',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  if(req.params.id===req.user.sub&&req.body.active===false)return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
+  const before=(await pool.query("select id,email,display_name,role,active from app_users where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(before.role==="super_admin"&&before.id!==req.user.sub)return res.status(403).json({error:"OWNER_ACCOUNT_PROTECTED"});
+  const role=req.body.role===undefined?before.role:String(req.body.role);
+  if(before.role!=="super_admin"&&!["organizer","referee"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
+  let passwordHash=null;
+  if(req.body.password){
+    if(String(req.body.password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+    passwordHash=await hashPassword(String(req.body.password));
+  }
+  const email=req.body.email?String(req.body.email).toLowerCase().trim():before.email;
+  const name=req.body.name===undefined?before.display_name:String(req.body.name).trim();
+  if(!name||!email)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const duplicate=(await pool.query("select 1 from app_users where email=$1 and id<>$2",[email,req.params.id])).rowCount;
+  if(duplicate)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const after=(await pool.query(`
+    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash)
+    where id=$6 returning id,email,display_name,role,active,created_at
+  `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_CHILD_ACCOUNT',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
+  res.json(after);
+}));
+
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const {rows}=await pool.query("select id,email,display_name,active from app_users where role='referee' order by display_name");res.json(rows);
+  const {rows}=await pool.query("select id,email,display_name,active from app_users where role='referee' and active=true order by display_name");res.json(rows);
 }));
 app.post("/api/users/referees",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {email,name,password}=req.body;if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  const {hashPassword}=await import("./auth.js");const h=await hashPassword(password);
-  const r=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,'referee',$3) returning id,email,display_name,role",[email.toLowerCase(),name,h])).rows[0];res.status(201).json(r);
+  if(String(password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  const normalized=String(email).toLowerCase().trim();
+  if((await pool.query("select 1 from app_users where email=$1",[normalized])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const h=await hashPassword(String(password));
+  const r=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,'referee',$3) returning id,email,display_name,role,active",[normalized,String(name).trim(),h])).rows[0];res.status(201).json(r);
 }));
 app.patch("/api/users/referees/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const before=(await pool.query("select id,email,display_name,role,active from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   let passwordHash=null;
   if(req.body.password!==undefined){
-    if(String(req.body.password).length<8)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
-    const {hashPassword}=await import("./auth.js");passwordHash=await hashPassword(String(req.body.password));
+    if(String(req.body.password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+    passwordHash=await hashPassword(String(req.body.password));
   }
   const after=(await pool.query(`
     update app_users set display_name=coalesce($1,display_name),email=coalesce($2,email),active=coalesce($3,active),
