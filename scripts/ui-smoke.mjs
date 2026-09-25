@@ -243,6 +243,7 @@ await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot
 const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(250);
 if(!(await shot.locator(".mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["admin mobile dock missing"]});
 if(await shot.locator("#sidebar").evaluate(el=>el.classList.contains("open")).catch(()=>false))failures.push({label:"preview mobile admin",errors:["admin drawer unexpectedly open on dashboard"]});
+if(await shot.locator("#sidebar").isVisible().catch(()=>false))failures.push({label:"preview mobile admin",errors:["closed admin drawer is still visible"]});
 if(await shot.locator(".app-fab").isVisible().catch(()=>false))failures.push({label:"preview mobile admin",errors:["quick-action FAB overlaps dashboard"]});
 if(!(await shot.locator(".club-home-hero").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["club home hero missing"]});
 if(await shot.locator(".club-home-metrics article").count()!==4)failures.push({label:"preview mobile admin",errors:["club home metrics incomplete"]});
