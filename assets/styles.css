@@ -379,3 +379,28 @@ button{cursor:pointer}
   .generic-dialog .modal-card{background:#fff}
   .generic-dialog .field input,.generic-dialog .field select,.generic-dialog .field textarea{background:#f7f9f8;border:1px solid #e5ebe7}
 }
+
+
+/* APP PAGE TRANSITIONS + ACCOUNT MANAGEMENT */
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:routeOut .16s ease both}
+::view-transition-new(root){animation:routeIn .24s cubic-bezier(.2,.8,.2,1) both}
+@keyframes routeOut{to{opacity:0;transform:translateY(6px) scale(.995)}}
+@keyframes routeIn{from{opacity:0;transform:translateY(10px) scale(.995)}to{opacity:1;transform:none}}
+body{transition:opacity .15s ease,transform .15s ease}
+body.route-leaving{opacity:0;transform:translateY(6px)}
+.account-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid #edf1ef}
+.account-row:last-child{border-bottom:0}.account-row b{display:block;font-size:12px}.account-row small{display:block;margin-top:3px;color:var(--muted);font-size:9px}
+.account-owner{padding:14px;border:1px solid #e4ebe7;border-radius:16px;background:#f7faf8}
+.role-help{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 14px}
+.role-help span,.security-note{padding:12px;border:1px solid #e3ebe6;border-radius:15px;background:#f5faf7;color:#617068;font-size:9px;line-height:1.5}
+.role-help b,.security-note b{display:block;margin-bottom:4px;color:#173324;font-size:10px}
+.security-note span{display:block}
+@media(max-width:760px){
+  .role-help{grid-template-columns:1fr}
+  .account-row{padding:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  ::view-transition-old(root),::view-transition-new(root){animation:none!important}
+  body.route-leaving{opacity:1;transform:none}
+}
