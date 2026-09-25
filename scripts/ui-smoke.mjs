@@ -35,6 +35,7 @@ async function goto(page,url,label){
 const page=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(page,prod+"/","prod public");
 if(!/pickle/i.test(await page.locator("body").innerText()))failures.push({label:"prod public",errors:["missing Pickle content"]});
+if(!(await page.locator('a[href="/login"]').count()))failures.push({label:"prod public",errors:["admin login entry missing"]});
 
 await goto(page,prod+"/ranking.html","prod ranking");
 const players=await fetch(prod+"/api/public/players").then(r=>r.json());
@@ -56,7 +57,7 @@ await Promise.all([
 await page.waitForLoadState("networkidle");
 if(!(await page.locator("#nav").isVisible()))failures.push({label:"prod admin",errors:["admin nav not visible"]});
 
-for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
+for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
   const b=page.locator('[data-page="'+id+'"]');
   if(await b.count()){
     await b.click();
@@ -133,6 +134,7 @@ for(const [pid,selector,label] of [
   ["matches",'[data-action="newMatch"]',"prod create match"],
   ["courts",'[data-action="newCourt"]',"prod create court"],
   ["referees",'[data-action="newReferee"]',"prod create referee"],
+  ["accounts",'[data-action="newUser"]',"prod create child account"],
   ["registrations",'[data-module-action="new-registration"]',"prod create registration"],
   ["clubs",'[data-module-action="new-club"]',"prod create club"],
   ["bookings",'[data-module-action="new-booking"]',"prod create booking"],
@@ -157,6 +159,10 @@ await page.setViewportSize({width:1280,height:900});
 
 const ppage=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(ppage,preview+"/index.html","preview public");
+if(!(await ppage.locator('a[href="login.html"]').count()))failures.push({label:"preview public",errors:["safe admin login entry missing"]});
+await goto(ppage,preview+"/login.html","preview safe login");
+if(!(await ppage.locator("body").innerText()).includes("GitHub Pages chỉ là giao diện public"))failures.push({label:"preview safe login",errors:["static admin security boundary missing"]});
+
 await goto(ppage,preview+"/ranking.html","preview ranking");
 const link=ppage.locator('a[href^="player.html?id="]').first();
 if(await link.count()){
@@ -179,7 +185,7 @@ await ppage.evaluate(async()=>{
   await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
 });
 await ppage.reload({waitUntil:"domcontentloaded"});await ppage.waitForTimeout(250);
-for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
+for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
   const b=ppage.locator('[data-page="'+id+'"]');
   if(await b.count()){
     await b.click();
