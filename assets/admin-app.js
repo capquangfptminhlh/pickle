@@ -13,6 +13,7 @@ const NAV=[
   ["courts","court","Sân thi đấu"],
   ["bookings","booking","Booking sân"],
   ["referees","whistle","Trọng tài"],
+  ["accounts","users","Tài khoản & phân quyền"],
   ["payments","payment","Thanh toán"],
   ["sponsors","sponsor","Sponsor"],
   ["content","content","Tin tức & Media"],
@@ -51,7 +52,21 @@ const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ")
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canReferees=()=>user?.role==="super_admin";
-const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
+const canAccounts=()=>user?.role==="super_admin"&&!location.pathname.includes("/preview/");
+const visibleNav=()=>{
+  if(user?.role==="super_admin")return NAV.filter(n=>n[0]!=="accounts"||canAccounts());
+  if(user?.role==="organizer")return NAV.filter(n=>n[0]!=="accounts");
+  if(user?.role==="referee")return NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0]));
+  return NAV.filter(n=>["dashboard"].includes(n[0]));
+};
+async function switchAdminPage(id){
+  if(!visibleNav().some(n=>n[0]===id))return;
+  const update=async()=>{
+    page=id;$("#sidebar").classList.remove("open");await render();
+    if(matchMedia("(max-width:760px)").matches)scrollTo({top:0,behavior:"smooth"});
+  };
+  if(document.startViewTransition)document.startViewTransition(update);else await update();
+}
 
 async function refresh({keepDialog=false}={}){
   state=await API.adminState();
@@ -63,7 +78,7 @@ async function refresh({keepDialog=false}={}){
 }
 function renderNav(){
   $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${iconSvg(ico)}</span><span>${label}</span></button>`).join("");
-  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{page=b.dataset.page;$("#sidebar").classList.remove("open");render()});
+  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.page));
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
@@ -175,7 +190,22 @@ async function refereesPage(){
   if(!canReferees())return '<div class="panel empty">Chỉ Super Admin được quản lý tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
   return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="4">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
+  </div>`;
+}
+async function accountsPage(){
+  setHeader("Tài khoản & phân quyền","Tạo tài khoản con và giới hạn quyền theo vai trò");
+  if(!canAccounts())return '<div class="panel empty">Tài khoản phân quyền chỉ khả dụng trên hệ thống backend bảo mật.</div>';
+  const rows=await API.users().catch(()=>[]);
+  const owner=rows.filter(x=>x.role==="super_admin"),children=rows.filter(x=>x.role!=="super_admin");
+  return `<div class="panel" style="margin-bottom:12px"><div class="panel-head"><div><h2>Tài khoản chủ</h2><p>Không thể bị tài khoản con chỉnh sửa</p></div></div>
+    ${owner.map(r=>`<div class="account-row account-owner"><div><b>${r.display_name}</b><small>${r.email}</small></div><span class="badge live">SUPER ADMIN</span></div>`).join("")}
+  </div>
+  <div class="panel"><div class="panel-head"><div><h2>Tài khoản con</h2><p>${children.length} tài khoản • BTC hoặc Trọng tài</p></div><button class="btn primary" data-action="newUser">Tạo tài khoản con</button></div>
+    <div class="role-help"><span><b>BTC giải</b>Quản lý giải, VĐV, lịch, đăng ký, thanh toán, nội dung.</span><span><b>Trọng tài</b>Chỉ xem/trực tiếp nhập điểm các trận được phân công.</span></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+      ${children.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${roleLabel(r.role)}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có tài khoản con.</td></tr>'}
+    </tbody></table></div>
   </div>`;
 }
 async function payments(){
@@ -211,7 +241,7 @@ async function render(){
     clubs:()=>window.AdminModules.clubs(ctx),
     matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,
     bookings:()=>window.AdminModules.bookings(ctx),
-    referees:refereesPage,payments,
+    referees:refereesPage,accounts:accountsPage,payments,
     sponsors:()=>window.AdminModules.sponsors(ctx),
     content:()=>window.AdminModules.content(ctx),
     reports:()=>window.AdminModules.reports(ctx),
@@ -239,7 +269,7 @@ function applyMatchFilters(){
   const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
 }
 function bindDynamic(){
-  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
+  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.goto));
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
@@ -253,6 +283,8 @@ function bindDynamic(){
   document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll("[data-edit-referee]").forEach(b=>b.onclick=()=>openEditRefereeModal(b.dataset.editReferee));
+  document.querySelectorAll('[data-action="newUser"]').forEach(b=>b.onclick=openUserModal);
+  document.querySelectorAll("[data-edit-user]").forEach(b=>b.onclick=()=>openEditUserModal(b.dataset.editUser));
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
   document.querySelectorAll('[data-action="changePassword"]').forEach(b=>b.onclick=openPasswordModal);
@@ -322,7 +354,7 @@ function openPasswordModal(){
   $("#genericTitle").textContent="Đổi mật khẩu";
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mật khẩu hiện tại<input id="pwCurrent" type="password"></label><label class="field full">Mật khẩu mới<input id="pwNew" type="password" minlength="10"></label><label class="field full">Nhập lại mật khẩu mới<input id="pwConfirm" type="password" minlength="10"></label><div class="field full"><button type="button" class="btn primary" id="savePassword">Đổi mật khẩu</button></div></div>`;
   $("#genericDialog").showModal();
-  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 10 ký tự.":"Không thể đổi mật khẩu.")}};
+  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 12 ký tự.":"Không thể đổi mật khẩu.")}};
 }
 function selectDivisionDialog(title,buttonText,onSubmit){
   if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
@@ -592,7 +624,7 @@ async function openEditRefereeModal(id){
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên<input id="erName" value="${r.display_name||""}"></label>
     <label class="field full">Email<input id="erEmail" type="email" value="${r.email||""}"></label>
-    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="8"></label>
+    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="12"></label>
     <label class="field full"><span><input id="erActive" type="checkbox" ${r.active?"checked":""}> Tài khoản hoạt động</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveRefereeEdit">Lưu</button></div>
   </div>`;
@@ -605,8 +637,42 @@ async function openEditRefereeModal(id){
 }
 function openRefereeModal(){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
-  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email"></label><label class="field full">Mật khẩu tạm<input id="rPassword" type="password" minlength="8"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
-  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast("Không thể tạo: "+e.message)}};
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email" autocomplete="off"></label><label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="rPassword" type="password" minlength="12" autocomplete="new-password"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
+  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast(e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu phải từ 12 ký tự.":"Không thể tạo: "+e.message)}};
+}
+function openUserModal(){
+  $("#genericTitle").textContent="Tạo tài khoản con";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Tên hiển thị<input id="uName" autocomplete="off"></label>
+    <label class="field full">Email đăng nhập<input id="uEmail" type="email" autocomplete="off"></label>
+    <label class="field full">Vai trò<select id="uRole"><option value="organizer">BTC giải</option><option value="referee">Trọng tài</option></select></label>
+    <label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="uPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Tài khoản con không thể tự nâng lên Super Admin hoặc quản lý tài khoản khác.</span></div>
+    <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveUser").onclick=async()=>{try{
+    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,password:$("#uPassword").value});
+    $("#genericDialog").close();await render();toast("Đã tạo tài khoản con.");
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
+}
+async function openEditUserModal(id){
+  const rows=await API.users().catch(()=>[]),r=rows.find(x=>x.id===id);if(!r||r.role==="super_admin")return;
+  $("#genericTitle").textContent="Sửa tài khoản con";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Tên hiển thị<input id="euName" value="${r.display_name||""}"></label>
+    <label class="field full">Email<input id="euEmail" type="email" value="${r.email||""}"></label>
+    <label class="field full">Vai trò<select id="euRole"><option value="organizer" ${r.role==="organizer"?"selected":""}>BTC giải</option><option value="referee" ${r.role==="referee"?"selected":""}>Trọng tài</option></select></label>
+    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="euPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <label class="field full"><span><input id="euActive" type="checkbox" ${r.active?"checked":""}> Cho phép đăng nhập</span></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveUserEdit").onclick=async()=>{try{
+    const password=$("#euPassword").value;
+    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,active:$("#euActive").checked,...(password?{password}:{})});
+    $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
