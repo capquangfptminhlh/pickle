@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#10281d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
+  <title>Đăng nhập quản trị | Pickle Tour</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <style>
+    body{min-height:100dvh;display:grid;place-items:center;background:radial-gradient(circle at 20% 10%,rgba(216,255,103,.18),transparent 30%),#0d2118;padding:20px}
+    .login-card{width:min(430px,100%);background:#fff;border-radius:26px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+    .login-brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.login-brand small{display:block;color:#708078;margin-top:2px}
+    .login-card h1{margin:0 0 8px;font-size:28px}.login-card>p{color:#708078;margin:0 0 20px;line-height:1.6}
+    .login-form{display:grid;gap:13px}.login-form label{display:grid;gap:7px;font-size:12px;color:#62756a;font-weight:700}
+    .login-form input{border:1px solid #dbe5df;border-radius:12px;padding:13px 14px;font-size:15px;background:#f5f7f6}
+    .security-state{margin-top:16px;padding:13px;border-radius:14px;background:#f1f6f3;color:#52635a;font-size:11px;line-height:1.55}
+    .security-state b{display:block;color:#173324;margin-bottom:4px}
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="login-brand"><div class="brand-mark">P</div><div><b>PICKLE TOUR</b><small>SECURE ADMIN</small></div></div>
+    <h1>Đăng nhập quản trị</h1>
+    <p>Tài khoản quản trị được xác thực ở máy chủ và phân quyền theo vai trò.</p>
+    <form class="login-form" onsubmit="return false">
+      <label>Email<input type="email" autocomplete="username" disabled placeholder="admin@..."></label>
+      <label>Mật khẩu<input type="password" autocomplete="current-password" disabled placeholder="••••••••••••"></label>
+      <button class="btn primary" type="button" disabled>Đăng nhập</button>
+    </form>
+    <div class="security-state"><b>GitHub Pages chỉ là giao diện public</b>Đăng nhập thật, tài khoản con, phân quyền và dữ liệu dùng chung chỉ hoạt động khi kết nối backend bảo mật. Trang này không lưu mật khẩu trên trình duyệt.</div>
+    <a class="mini" href="index.html" style="display:inline-block;margin-top:14px;text-decoration:none">← Về trang công khai</a>
+  </main>
+  <script src="../assets/ui-motion.js"></script>
+</body>
+</html>
