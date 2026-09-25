@@ -74,10 +74,12 @@ Admin login:
 /login
 ```
 
-## Database safety
+## Security & database safety
 PostgreSQL is bound to the internal Docker network and the application port is bound to `127.0.0.1:8080`; expose the website only through a TLS reverse proxy.
 
-Score changes are persisted in `score_events` and sensitive administrative changes in `audit_logs`.
+Authentication uses bcrypt password hashes plus short-lived JWTs stored in HttpOnly, SameSite=Strict cookies. Sessions are revalidated against the database so a disabled child account loses access immediately. Login attempts are rate-limited, state-changing API calls are origin checked, CSP blocks inline script execution, and administrative roles are enforced on the server rather than by hiding buttons.
+
+Score changes are persisted in `score_events`; account, club, attendance, treasury and other sensitive administrative changes are protected by server authorization and/or `audit_logs`.
 
 ## Governance
 This project bootstraps from `capquangfptminhlh/seo-web` Website OS. Governance evidence is under `governance/`.
