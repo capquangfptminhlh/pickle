@@ -13,6 +13,6 @@
   "shortcuts":[
     {"name":"Live Score","url":"./index.html#live"},
     {"name":"Ranking","url":"./ranking.html"},
-    {"name":"Quản trị","url":"./admin.html"}
+    {"name":"Đăng nhập quản trị","url":"./login.html"}
   ]
 }
