@@ -91,6 +91,19 @@ const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const nowTime=d=>d?new Date(d).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";
 const publicStatus=s=>s==="scheduled"?"wait":s==="completed"?"done":s;
+const clubScope=(user,requested=null)=>{
+  if(user?.role==="club_manager")return user.clubId||null;
+  if(user?.role==="finance"&&user.clubId)return user.clubId;
+  return requested||null;
+};
+const canAccessClub=(user,clubId)=>{
+  if(!clubId)return false;
+  if(["super_admin","organizer"].includes(user?.role))return true;
+  if(user?.role==="club_manager")return user.clubId===clubId;
+  if(user?.role==="finance")return !user.clubId||user.clubId===clubId;
+  return false;
+};
+async function clubEventById(id){return (await pool.query("select * from club_events where id=$1",[id])).rows[0]}
 
 async function loadState({publicOnly=false}={}){
   const tSql=publicOnly
@@ -1129,6 +1142,118 @@ app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),w
   res.json(row.value);
 }));
 
+
+app.get("/api/club-events",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+  const scope=clubScope(req.user,req.query.clubId||null);
+  if(req.user.role==="club_manager"&&!scope)return res.json([]);
+  const {rows}=await pool.query(`
+    select e.*,c.name club_name,
+      count(a.player_id)::int participants,
+      count(a.player_id) filter(where a.status='attended')::int attended
+    from club_events e join clubs c on c.id=e.club_id
+    left join club_event_attendance a on a.event_id=e.id
+    where ($1::uuid is null or e.club_id=$1)
+    group by e.id,c.name
+    order by e.start_at desc limit 500
+  `,[scope]);
+  res.json(rows);
+}));
+app.post("/api/club-events",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const clubId=clubScope(req.user,req.body.clubId||null);
+  if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const title=String(req.body.title||"").trim(),startAt=req.body.startAt,endAt=req.body.endAt||null;
+  if(!title||!startAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const startMs=Date.parse(startAt),endMs=endAt?Date.parse(endAt):null;
+  if(!Number.isFinite(startMs)||(endAt&&(!Number.isFinite(endMs)||endMs<=startMs)))return res.status(400).json({error:"INVALID_EVENT_TIME"});
+  const eventType=["social","training","match","meeting","other"].includes(req.body.eventType)?req.body.eventType:"social";
+  const row=(await pool.query(`
+    insert into club_events(club_id,title,event_type,venue,start_at,end_at,max_participants,fee,created_by)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *
+  `,[clubId,title,eventType,req.body.venue||null,startAt,endAt,Number(req.body.maxParticipants)||null,Math.max(0,Number(req.body.fee)||0),req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'club_event',$2,'CREATE_CLUB_EVENT',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.patch("/api/club-events/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const title=String(req.body.title??before.title).trim();
+  const startAt=req.body.startAt??before.start_at,endAt=req.body.endAt===undefined?before.end_at:(req.body.endAt||null);
+  if(!title)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(endAt&&Date.parse(endAt)<=Date.parse(startAt))return res.status(400).json({error:"INVALID_EVENT_TIME"});
+  const status=req.body.status??before.status;
+  if(!["scheduled","live","completed","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  const after=(await pool.query(`
+    update club_events set title=$1,event_type=$2,venue=$3,start_at=$4,end_at=$5,max_participants=$6,fee=$7,status=$8,updated_at=now()
+    where id=$9 returning *
+  `,[title,req.body.eventType??before.event_type,req.body.venue??before.venue,startAt,endAt,req.body.maxParticipants??before.max_participants,req.body.fee??before.fee,status,before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'UPDATE_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
+  res.json(after);
+}));
+app.delete("/api/club-events/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const after=(await pool.query("update club_events set status='cancelled',updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'CANCEL_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
+  res.json({mode:"cancelled",entity:after});
+}));
+app.get("/api/club-events/:id/attendance",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const {rows}=await pool.query(`
+    select a.event_id,a.player_id,a.status,a.checked_in_at,p.full_name,p.nickname,p.avatar_url,p.rating
+    from club_event_attendance a join players p on p.id=a.player_id
+    where a.event_id=$1 order by p.full_name
+  `,[event.id]);res.json(rows);
+}));
+app.post("/api/club-events/:id/attendance",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const playerId=req.body.playerId;
+  const player=(await pool.query("select id,club_id from players where id=$1 and active=true",[playerId])).rows[0];
+  if(!player||player.club_id!==event.club_id)return res.status(400).json({error:"PLAYER_CLUB_MISMATCH"});
+  const row=(await pool.query(`
+    insert into club_event_attendance(event_id,player_id,status) values($1,$2,'registered')
+    on conflict(event_id,player_id) do update set status='registered',checked_in_at=null,checked_in_by=null
+    returning *
+  `,[event.id,player.id])).rows[0];res.status(201).json(row);
+}));
+app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const status=String(req.body.status||"");
+  if(!["registered","attended","absent","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  const row=(await pool.query(`
+    update club_event_attendance set status=$1,checked_in_at=case when $1='attended' then coalesce(checked_in_at,now()) else null end,
+      checked_in_by=case when $1='attended' then $2 else null end
+    where event_id=$3 and player_id=$4 returning *
+  `,[status,req.user.sub,event.id,req.params.playerId])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  res.json(row);
+}));
+
+app.get("/api/club-transactions",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+  const scope=clubScope(req.user,req.query.clubId||null);
+  if(req.user.role==="club_manager"&&!scope)return res.json([]);
+  const {rows}=await pool.query(`
+    select x.*,c.name club_name,u.display_name created_by_name
+    from club_transactions x join clubs c on c.id=x.club_id left join app_users u on u.id=x.created_by
+    where ($1::uuid is null or x.club_id=$1)
+    order by x.occurred_at desc,x.created_at desc limit 1000
+  `,[scope]);res.json(rows);
+}));
+app.post("/api/club-transactions",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+  const clubId=clubScope(req.user,req.body.clubId||null);
+  if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const direction=String(req.body.direction||""),amount=Number(req.body.amount);
+  if(!["income","expense"].includes(direction)||!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:"INVALID_TRANSACTION"});
+  const row=(await pool.query(`
+    insert into club_transactions(club_id,direction,category,amount,note,occurred_at,created_by)
+    values($1,$2,$3,$4,$5,coalesce($6::timestamptz,now()),$7) returning *
+  `,[clubId,direction,String(req.body.category||"other"),amount,req.body.note||null,req.body.occurredAt||null,req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'club_transaction',$2,'CREATE_CLUB_TRANSACTION',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+
 app.get("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query(`
     select b.*,c.name court_name,t.name tournament_name from court_bookings b
@@ -1150,29 +1275,39 @@ app.patch("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap
 }));
 
 app.get("/api/reports/overview",authRequired,allow("super_admin","organizer","finance","club_manager"),wrap(async(req,res)=>{
-  if(req.user.role==="club_manager"){
-    const players=req.user.clubId?Number((await pool.query("select count(*)::int n from players where active=true and club_id=$1",[req.user.clubId])).rows[0].n):0;
-    return res.json({registrations:0,checked_in:0,paid_count:0,revenue:0,matches:0,live:0,completed:0,players});
+  let reg={registrations:0,checked_in:0,paid_count:0,revenue:0},mat={matches:0,live:0,completed:0};
+  if(req.user.role!=="club_manager"){
+    const tournamentId=req.query.tournamentId||null;
+    const params=tournamentId?[tournamentId]:[];
+    const dWhere=tournamentId?"where d.tournament_id=$1":"";
+    const mWhere=tournamentId?"where d.tournament_id=$1":"";
+    reg=(await pool.query(`
+      select count(*)::int registrations,
+        count(*) filter(where r.checked_in_at is not null)::int checked_in,
+        count(*) filter(where r.payment_status='paid')::int paid_count,
+        coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
+      from registrations r join divisions d on d.id=r.division_id ${dWhere}
+    `,params)).rows[0];
+    mat=(await pool.query(`
+      select count(*)::int matches,
+        count(*) filter(where m.status='live')::int live,
+        count(*) filter(where m.status='completed')::int completed
+      from matches m join divisions d on d.id=m.division_id ${mWhere}
+    `,params)).rows[0];
   }
-  const tournamentId=req.query.tournamentId||null;
-  const params=tournamentId?[tournamentId]:[];
-  const dWhere=tournamentId?"where d.tournament_id=$1":"";
-  const mWhere=tournamentId?"where d.tournament_id=$1":"";
-  const reg=(await pool.query(`
-    select count(*)::int registrations,
-      count(*) filter(where r.checked_in_at is not null)::int checked_in,
-      count(*) filter(where r.payment_status='paid')::int paid_count,
-      coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
-    from registrations r join divisions d on d.id=r.division_id ${dWhere}
-  `,params)).rows[0];
-  const mat=(await pool.query(`
-    select count(*)::int matches,
-      count(*) filter(where m.status='live')::int live,
-      count(*) filter(where m.status='completed')::int completed
-    from matches m join divisions d on d.id=m.division_id ${mWhere}
-  `,params)).rows[0];
-  const players=Number((await pool.query("select count(*)::int n from players where active=true")).rows[0].n);
-  res.json({...reg,...mat,players});
+  const scope=clubScope(req.user,req.query.clubId||null);
+  const clubStats=(await pool.query(`
+    select
+      (select count(*)::int from players p where p.active=true and ($1::uuid is null or p.club_id=$1)) members,
+      (select count(*)::int from club_events e where e.status<>'cancelled' and e.start_at>=now() and ($1::uuid is null or e.club_id=$1)) upcoming_activities,
+      (select count(*)::int from club_event_attendance a join club_events e on e.id=a.event_id
+        where a.status='attended' and a.checked_in_at::date=current_date and ($1::uuid is null or e.club_id=$1)) attendance_today,
+      (select coalesce(sum(case when x.direction='income' then x.amount else 0 end),0)::numeric from club_transactions x where ($1::uuid is null or x.club_id=$1)) club_income,
+      (select coalesce(sum(case when x.direction='expense' then x.amount else 0 end),0)::numeric from club_transactions x where ($1::uuid is null or x.club_id=$1)) club_expense
+  `,[scope])).rows[0];
+  const players=Number(clubStats.members||0);
+  const clubIncome=Number(clubStats.club_income||0),clubExpense=Number(clubStats.club_expense||0);
+  res.json({...reg,...mat,players,members:players,upcomingActivities:Number(clubStats.upcoming_activities||0),attendanceToday:Number(clubStats.attendance_today||0),clubIncome,clubExpense,clubBalance:clubIncome-clubExpense});
 }));
 app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
   const rows=(await pool.query(`
@@ -1375,7 +1510,8 @@ app.post("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   if(!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
   if(password.length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
   if((await pool.query("select 1 from app_users where email=$1",[email])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
-  const clubId=role==="club_manager"?(req.body.clubId||null):null;
+  const scopedRole=["club_manager","finance"].includes(role);
+  const clubId=scopedRole?(req.body.clubId||null):null;
   if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
   const h=await hashPassword(password);
@@ -1390,7 +1526,8 @@ app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)
   if(before.role==="super_admin"&&before.id!==req.user.sub)return res.status(403).json({error:"OWNER_ACCOUNT_PROTECTED"});
   const role=req.body.role===undefined?before.role:String(req.body.role);
   if(before.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
-  let clubId=role==="club_manager"?(req.body.clubId??before.club_id??null):null;
+  const scopedRole=["club_manager","finance"].includes(role);
+  let clubId=scopedRole?(req.body.clubId??before.club_id??null):null;
   if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
   let passwordHash=null;
