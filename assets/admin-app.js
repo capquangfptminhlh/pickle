@@ -45,27 +45,35 @@ const iconSvg=name=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" str
 let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
 let user=null,page="dashboard",activeMatch=null,busy=false;
 
-const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",player:"VĐV"}[r]||r);
+const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",finance:"Thu ngân",player:"VĐV"}[r]||r);
 const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
 const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
+const canRoster=()=>["super_admin","organizer","club_manager"].includes(user?.role);
+const canFinance=()=>["super_admin","organizer","finance"].includes(user?.role);
 const canReferees=()=>user?.role==="super_admin";
 const canAccounts=()=>user?.role==="super_admin"&&!location.pathname.includes("/preview/");
 const visibleNav=()=>{
   if(user?.role==="super_admin")return NAV.filter(n=>n[0]!=="accounts"||canAccounts());
-  if(user?.role==="organizer")return NAV.filter(n=>n[0]!=="accounts");
+  if(user?.role==="organizer")return NAV.filter(n=>!["accounts","referees"].includes(n[0]));
   if(user?.role==="referee")return NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0]));
-  return NAV.filter(n=>["dashboard"].includes(n[0]));
+  if(user?.role==="club_manager")return NAV.filter(n=>["dashboard","players","clubs"].includes(n[0]));
+  if(user?.role==="finance")return NAV.filter(n=>["dashboard","payments","reports"].includes(n[0]));
+  return NAV.filter(n=>n[0]==="dashboard");
 };
 async function switchAdminPage(id){
-  if(!visibleNav().some(n=>n[0]===id))return;
+  const nav=visibleNav();if(!nav.some(n=>n[0]===id))return;
+  const oldIndex=nav.findIndex(n=>n[0]===page),newIndex=nav.findIndex(n=>n[0]===id);
   const update=async()=>{
     page=id;$("#sidebar").classList.remove("open");await render();
-    if(matchMedia("(max-width:760px)").matches)scrollTo({top:0,behavior:"smooth"});
+    if(matchMedia("(max-width:760px)").matches)scrollTo({top:0,behavior:"instant"});
   };
-  if(document.startViewTransition)document.startViewTransition(update);else await update();
+  if(document.startViewTransition){
+    document.documentElement.dataset.navDirection=newIndex>=oldIndex?"forward":"back";
+    const vt=document.startViewTransition(update);vt.finished.finally(()=>delete document.documentElement.dataset.navDirection);
+  }else await update();
 }
 
 async function refresh({keepDialog=false}={}){
