@@ -142,6 +142,35 @@ await raw("/api/users/referees",{method:"POST",cookie:admin.cookie,body:{name:"C
 const ref=await login(refEmail,refPassword);
 await raw("/api/tournaments",{method:"POST",cookie:ref.cookie,body:{name:"SHOULD FAIL"} ,ok:[403]});
 
+// Delegated role boundaries.
+const scopeClub=(await raw("/api/clubs",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Club "+stamp,city:"HCMC"}})).data;
+const scopePlayer=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Scope Player "+stamp,rating:3.2,clubId:scopeClub.id}})).data;
+
+const managerMail="ci-manager-"+stamp+"@pickle.test";
+const managerUser=(await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Club Manager",email:managerMail,password:childPassword,role:"club_manager",clubId:club.id}})).data;
+assert(managerUser.club_id===club.id,"club manager assigned club");
+const manager=await login(managerMail,childPassword);
+const managerPlayers=(await raw("/api/players",{cookie:manager.cookie})).data;
+assert(managerPlayers.every(p=>p.club_id===club.id),"club manager roster scoped");
+const managerMade=(await raw("/api/players",{method:"POST",cookie:manager.cookie,body:{fullName:"CI Manager Player "+stamp,clubId:scopeClub.id,rating:4.5}})).data;
+assert(managerMade.club_id===club.id&&Number(managerMade.rating)===3,"club manager cannot escape scope");
+await raw("/api/players/"+scopePlayer.id,{method:"PATCH",cookie:manager.cookie,body:{nickname:"blocked"},ok:[403]});
+await raw("/api/tournaments",{method:"POST",cookie:manager.cookie,body:{name:"blocked"},ok:[403]});
+await raw("/api/users",{cookie:manager.cookie,ok:[403]});
+
+const financeMail="ci-finance-"+stamp+"@pickle.test";
+await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Finance",email:financeMail,password:childPassword,role:"finance"}});
+const finance=await login(financeMail,childPassword);
+await raw("/api/registrations",{cookie:finance.cookie});
+await raw("/api/reports/overview",{cookie:finance.cookie});
+await raw("/api/tournaments",{method:"POST",cookie:finance.cookie,body:{name:"blocked"},ok:[403]});
+await raw("/api/users",{cookie:finance.cookie,ok:[403]});
+
+await raw("/admin",{ok:[302]});
+await raw("/admin",{cookie:admin.cookie});
+await raw("/api/players/"+managerMade.id,{method:"DELETE",cookie:admin.cookie});
+await raw("/api/players/"+scopePlayer.id,{method:"DELETE",cookie:admin.cookie});
+
 await raw("/manifest.webmanifest");
 await raw("/service-worker.js");
 await raw("/api/health");
