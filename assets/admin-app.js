@@ -698,6 +698,7 @@ async function openEditUserModal(id){
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");
+$("#changePasswordBtn")?.addEventListener("click",openPasswordModal);
 $("#quickTournament").onclick=()=>canManage()?openTournamentModal():toast("Bạn không có quyền tạo giải.");
 $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href=location.pathname.includes("/preview/")?"index.html":"/login"};
 
