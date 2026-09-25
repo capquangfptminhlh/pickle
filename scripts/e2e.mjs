@@ -127,6 +127,16 @@ await raw("/api/bookings/"+booking.id,{method:"DELETE",cookie:admin.cookie});
 const report=(await raw("/api/reports/overview",{cookie:admin.cookie})).data;
 assert(Number.isFinite(Number(report.players)),"report overview");
 
+const childEmail="ci-organizer-"+stamp+"@pickle.test",childPassword="ci-organizer-password-123";
+const child=(await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Organizer",email:childEmail,password:childPassword,role:"organizer"}})).data;
+const users=(await raw("/api/users",{cookie:admin.cookie})).data;
+assert(users.some(x=>x.id===child.id&&x.role==="organizer"),"child account listed");
+const organizer=await login(childEmail,childPassword);
+await raw("/api/users",{cookie:organizer.cookie,ok:[403]});
+await raw("/api/admin/state",{cookie:organizer.cookie});
+await raw("/api/users/"+child.id,{method:"PATCH",cookie:admin.cookie,body:{active:false}});
+await raw("/api/admin/state",{cookie:organizer.cookie,ok:[401]});
+
 const refEmail="ci-ref-"+stamp+"@pickle.test",refPassword="ci-ref-password-123";
 await raw("/api/users/referees",{method:"POST",cookie:admin.cookie,body:{name:"CI Ref",email:refEmail,password:refPassword}});
 const ref=await login(refEmail,refPassword);
