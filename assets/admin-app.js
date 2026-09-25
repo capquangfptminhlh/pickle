@@ -655,39 +655,45 @@ function openRefereeModal(){
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email" autocomplete="off"></label><label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="rPassword" type="password" minlength="12" autocomplete="new-password"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
   $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast(e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu phải từ 12 ký tự.":"Không thể tạo: "+e.message)}};
 }
-function openUserModal(){
+async function openUserModal(){
+  const clubs=await API.clubs().catch(()=>[]);
   $("#genericTitle").textContent="Tạo tài khoản con";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên hiển thị<input id="uName" autocomplete="off"></label>
     <label class="field full">Email đăng nhập<input id="uEmail" type="email" autocomplete="off"></label>
-    <label class="field full">Vai trò<select id="uRole"><option value="organizer">BTC giải</option><option value="referee">Trọng tài</option></select></label>
+    <label class="field full">Vai trò<select id="uRole"><option value="organizer">BTC giải</option><option value="referee">Trọng tài</option><option value="club_manager">Quản lý CLB</option><option value="finance">Thu ngân</option></select></label>
+    <label class="field full" id="uClubWrap" hidden>CLB được quản lý<select id="uClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="uPassword" type="password" minlength="12" autocomplete="new-password"></label>
-    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Tài khoản con không thể tự nâng lên Super Admin hoặc quản lý tài khoản khác.</span></div>
+    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Tài khoản con không thể tự nâng lên Super Admin. Quản lý CLB chỉ truy cập CLB được gán; Thu ngân chỉ truy cập thanh toán và báo cáo.</span></div>
     <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
+  const syncRole=()=>{$("#uClubWrap").hidden=$("#uRole").value!=="club_manager"};$("#uRole").onchange=syncRole;syncRole();
   $("#saveUser").onclick=async()=>{try{
-    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,password:$("#uPassword").value});
+    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,clubId:$("#uRole").value==="club_manager"?$("#uClub").value:null,password:$("#uPassword").value});
     $("#genericDialog").close();await render();toast("Đã tạo tài khoản con.");
-  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
 }
 async function openEditUserModal(id){
-  const rows=await API.users().catch(()=>[]),r=rows.find(x=>x.id===id);if(!r||r.role==="super_admin")return;
+  const [rows,clubs]=await Promise.all([API.users().catch(()=>[]),API.clubs().catch(()=>[])]);
+  const r=rows.find(x=>x.id===id);if(!r||r.role==="super_admin")return;
   $("#genericTitle").textContent="Sửa tài khoản con";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên hiển thị<input id="euName" value="${r.display_name||""}"></label>
     <label class="field full">Email<input id="euEmail" type="email" value="${r.email||""}"></label>
-    <label class="field full">Vai trò<select id="euRole"><option value="organizer" ${r.role==="organizer"?"selected":""}>BTC giải</option><option value="referee" ${r.role==="referee"?"selected":""}>Trọng tài</option></select></label>
+    <label class="field full">Vai trò<select id="euRole"><option value="organizer" ${r.role==="organizer"?"selected":""}>BTC giải</option><option value="referee" ${r.role==="referee"?"selected":""}>Trọng tài</option><option value="club_manager" ${r.role==="club_manager"?"selected":""}>Quản lý CLB</option><option value="finance" ${r.role==="finance"?"selected":""}>Thu ngân</option></select></label>
+    <label class="field full" id="euClubWrap" ${r.role==="club_manager"?"":"hidden"}>CLB được quản lý<select id="euClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}" ${x.id===r.club_id?"selected":""}>${x.name}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="euPassword" type="password" minlength="12" autocomplete="new-password"></label>
     <label class="field full"><span><input id="euActive" type="checkbox" ${r.active?"checked":""}> Cho phép đăng nhập</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
+  const syncRole=()=>{$("#euClubWrap").hidden=$("#euRole").value!=="club_manager"};$("#euRole").onchange=syncRole;syncRole();
   $("#saveUserEdit").onclick=async()=>{try{
     const password=$("#euPassword").value;
-    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,active:$("#euActive").checked,...(password?{password}:{})});
+    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,clubId:$("#euRole").value==="club_manager"?$("#euClub").value:null,active:$("#euActive").checked,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
-  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ."}[e.message]||"Không thể cập nhật: "+e.message)}};
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
