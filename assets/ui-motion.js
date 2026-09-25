@@ -251,6 +251,7 @@
 
   function init(){
     document.documentElement.classList.add("motion-ready");
+    if(matchMedia("(max-width:760px)").matches)closeDrawer();
     decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     document.addEventListener("pointerdown",ripple,{passive:true});
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
