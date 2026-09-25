@@ -463,3 +463,15 @@ html[data-nav-direction="back"]::view-transition-new(root){animation:adminNewBac
   .club-event-home-row{grid-template-columns:44px minmax(0,1fr);padding:10px 2px}.club-event-home-row>em{display:none}
   .attendance-add{grid-template-columns:1fr}.attendance-add .btn{width:100%}
 }
+
+
+/* Cross-browser page/tab transition fallback (including Samsung Internet) */
+body.route-entering{animation:routeEnterFallback .28s cubic-bezier(.2,.8,.2,1) both}
+html[data-nav-direction="forward"] #content.page-swap{animation:contentSlideForward .28s cubic-bezier(.2,.8,.2,1) both}
+html[data-nav-direction="back"] #content.page-swap{animation:contentSlideBack .28s cubic-bezier(.2,.8,.2,1) both}
+@keyframes routeEnterFallback{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes contentSlideForward{from{opacity:.25;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes contentSlideBack{from{opacity:.25;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  body.route-entering,html[data-nav-direction] #content.page-swap{animation:none!important}
+}
