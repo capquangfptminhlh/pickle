@@ -117,29 +117,29 @@ async function dashboard(){
     ["payments","payment","Thu quỹ","Phí giải & đối soát"]
   ].filter(x=>allowed.has(x[0]));
   const revenue=Number(report.revenue||0).toLocaleString("vi-VN");
-  return \`<section class="club-home-hero">
+  return `<section class="club-home-hero">
     <div>
       <span class="admin-app-overline">PICKLE TOUR • CLUB OPERATIONS</span>
-      <h2>\${user?.name||"Quản trị viên"}</h2>
-      <p>\${next?\`\${next.stage} • \${next.time} • Sân \${next.court}\`:"Hệ thống sẵn sàng vận hành"}</p>
+      <h2>${user?.name||"Quản trị viên"}</h2>
+      <p>${next?`${next.stage} • ${next.time} • Sân ${next.court}`:"Hệ thống sẵn sàng vận hành"}</p>
     </div>
-    <div class="club-home-live"><i></i><strong>\${live}</strong><span>LIVE</span></div>
+    <div class="club-home-live"><i></i><strong>${live}</strong><span>LIVE</span></div>
   </section>
-  <div class="club-home-actions">\${quick.map(([id,ico,label,sub])=>\`<button data-goto="\${id}"><span>\${iconSvg(ico)}</span><b>\${label}</b><small>\${sub}</small></button>\`).join("")||'<div class="empty">Không có thao tác nhanh cho vai trò này.</div>'}</div>
+  <div class="club-home-actions">${quick.map(([id,ico,label,sub])=>`<button data-goto="${id}"><span>${iconSvg(ico)}</span><b>${label}</b><small>${sub}</small></button>`).join("")||'<div class="empty">Không có thao tác nhanh cho vai trò này.</div>'}</div>
   <div class="club-home-metrics">
-    <article><span class="metric-icon users">\${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>\${report.players||0}</strong><p>Hồ sơ hoạt động</p></div></article>
-    <article><span class="metric-icon checkin">\${iconSvg("checkin")}</span><div><small>ĐIỂM DANH</small><strong>\${report.checked_in||0}<em>/\${report.registrations||0}</em></strong><p>Đã có mặt</p></div></article>
-    <article><span class="metric-icon payment">\${iconSvg("payment")}</span><div><small>ĐÃ THU</small><strong>\${revenue}<em> đ</em></strong><p>Khoản đã xác nhận</p></div></article>
-    <article><span class="metric-icon score">\${iconSvg("score")}</span><div><small>TRẬN ĐẤU</small><strong>\${report.matches||state.matches.length}</strong><p>\${live} live • \${report.completed??done} hoàn tất</p></div></article>
+    <article><span class="metric-icon users">${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>${report.players||0}</strong><p>Hồ sơ hoạt động</p></div></article>
+    <article><span class="metric-icon checkin">${iconSvg("checkin")}</span><div><small>ĐIỂM DANH</small><strong>${report.checked_in||0}<em>/${report.registrations||0}</em></strong><p>Đã có mặt</p></div></article>
+    <article><span class="metric-icon payment">${iconSvg("payment")}</span><div><small>ĐÃ THU</small><strong>${revenue}<em> đ</em></strong><p>Khoản đã xác nhận</p></div></article>
+    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>TRẬN ĐẤU</small><strong>${report.matches||state.matches.length}</strong><p>${live} live • ${report.completed??done} hoàn tất</p></div></article>
   </div>
   <div class="grid-2 club-home-grid">
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Lịch sắp tới</h2><p>Trận đang diễn ra và chờ thi đấu</p></div>\${allowed.has("matches")?'<button class="mini" data-goto="matches">Xem lịch</button>':""}</div>
-      \${state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("")||'<div class="empty">Chưa có lịch.</div>'}
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Lịch sắp tới</h2><p>Trận đang diễn ra và chờ thi đấu</p></div>${allowed.has("matches")?'<button class="mini" data-goto="matches">Xem lịch</button>':""}</div>
+      ${state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("")||'<div class="empty">Chưa có lịch.</div>'}
     </div>
     <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div>
-      <div class="activity-feed">\${state.audit.slice(0,7).map(a=>\`<div class="activity-item"><i></i><div><strong>\${a.action}</strong><small>\${a.time} • \${a.user}</small><p>\${a.detail}</p></div></div>\`).join("")||'<div class="empty">Chưa có hoạt động mới.</div>'}</div>
+      <div class="activity-feed">${state.audit.slice(0,7).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Chưa có hoạt động mới.</div>'}</div>
     </div>
-  </div>\`;
+  </div>`;
 }
 function tournamentCard(t){
   return `<article class="tour-card" data-tournament-card="${t.id}"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
