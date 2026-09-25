@@ -63,10 +63,10 @@
     ctx.setHeader("CLB","Quản lý CLB, khu vực và lực lượng VĐV");
     const rows=await API.clubs().catch(()=>[]);
     const players=await API.players().catch(()=>[]);
-    const html='<div class="module-toolbar standalone"><div><h2>Danh sách CLB</h2><p>'+rows.length+' CLB trong hệ thống</p></div><button class="btn primary" data-module-action="new-club">Thêm CLB</button></div>'+
+    const html='<div class="module-toolbar standalone"><div><h2>Danh sách CLB</h2><p>'+rows.length+' CLB trong hệ thống</p></div>'+(ctx.canManage()?'<button class="btn primary" data-module-action="new-club">Thêm CLB</button>':'')+'</div>'+
       '<div class="club-grid">'+(rows.map(c=>{
         const n=players.filter(p=>p.club_id===c.id).length;
-        return '<article class="club-card" data-club-id="'+c.id+'"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p><div class="actions" style="margin-top:8px"><button class="mini" data-edit-club="'+c.id+'">Sửa</button><button class="mini danger-mini" data-delete-club="'+c.id+'">Khóa/Xóa</button></div></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
+        return '<article class="club-card" data-club-id="'+c.id+'"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p><div class="actions" style="margin-top:8px">'+(ctx.canRoster()?'<button class="mini" data-edit-club="'+c.id+'">Sửa</button>':'')+(ctx.canManage()?'<button class="mini danger-mini" data-delete-club="'+c.id+'">Khóa/Xóa</button>':'')+'</div></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
       }).join("")||empty("Chưa có CLB"))+'</div>';
     return {html,bind(){
       document.querySelectorAll("[data-edit-club]").forEach(b=>b.onclick=()=>{
