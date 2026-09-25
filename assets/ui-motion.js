@@ -117,6 +117,9 @@
     if(!dock){dock=document.createElement("div");dock.className="mobile-dock";document.body.appendChild(dock)}
     const icon={
       dashboard:"<path d='M4 11 12 4l8 7v9h-6v-6h-4v6H4z'/>",
+      club_events:"<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>",
+      club_attendance:"<path d='M4 5h16v14H4zM8 3v4M16 3v4M8 12l2.5 2.5L16 9'/>",
+      treasury:"<path d='M3 6h18v12H3zM3 9h18M7 14h4'/>",
       matches:"<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>",
       scores:"<path d='M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z'/>",
       players:"<path d='M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Z'/>",
@@ -126,9 +129,9 @@
       standings:"<path d='M5 6h14M5 12h14M5 18h14'/>",
       more:"<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"
     };
-    const labels={dashboard:"Trang chủ",matches:"Lịch",scores:"Điểm",players:"VĐV",clubs:"CLB",payments:"Thu chi",reports:"Báo cáo",standings:"BXH"};
+    const labels={dashboard:"Trang chủ",club_events:"Lịch CLB",club_attendance:"Điểm danh",treasury:"Thu chi",matches:"Lịch đấu",scores:"Điểm",players:"Thành viên",clubs:"CLB",payments:"Phí giải",reports:"Báo cáo",standings:"BXH"};
     const available=[...document.querySelectorAll("#nav .nav-btn")].map(x=>x.dataset.page);
-    const preference=["dashboard","matches","scores","players","clubs","payments","reports","standings"];
+    const preference=["dashboard","club_events","players","club_attendance","treasury","matches","scores","clubs","payments","reports","standings"];
     const primary=preference.filter(id=>available.includes(id)).slice(0,4);
     const hasMore=available.some(id=>!primary.includes(id));
     const items=[...primary,...(hasMore?["more"]:[])];
