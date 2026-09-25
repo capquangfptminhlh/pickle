@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v11-club-ops-ui";
+const VERSION="pickle-pages-v12-mobile-drawer";
 const CORE=[
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
