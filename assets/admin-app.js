@@ -6,6 +6,9 @@ const NAV=[
   ["registrations","checkin","Đăng ký & Check-in"],
   ["players","users","VĐV & cặp đấu"],
   ["clubs","club","CLB"],
+  ["club_events","calendar","Lịch hoạt động CLB"],
+  ["club_attendance","checkin","Điểm danh CLB"],
+  ["treasury","payment","Thu chi CLB"],
   ["matches","calendar","Lịch & trận đấu"],
   ["scores","score","Nhập điểm"],
   ["standings","standings","Bảng xếp hạng"],
@@ -59,8 +62,8 @@ const visibleNav=()=>{
   if(user?.role==="super_admin")return NAV.filter(n=>n[0]!=="accounts"||canAccounts());
   if(user?.role==="organizer")return NAV.filter(n=>!["accounts","referees"].includes(n[0]));
   if(user?.role==="referee")return NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0]));
-  if(user?.role==="club_manager")return NAV.filter(n=>["dashboard","players","clubs"].includes(n[0]));
-  if(user?.role==="finance")return NAV.filter(n=>["dashboard","payments","reports"].includes(n[0]));
+  if(user?.role==="club_manager")return NAV.filter(n=>["dashboard","club_events","players","clubs","club_attendance","treasury"].includes(n[0]));
+  if(user?.role==="finance")return NAV.filter(n=>["dashboard","treasury","payments","reports"].includes(n[0]));
   return NAV.filter(n=>n[0]==="dashboard");
 };
 async function switchAdminPage(id){
@@ -103,42 +106,39 @@ function matchCard(m){
 }
 async function dashboard(){
   const live=state.matches.filter(m=>m.status==="live").length,done=state.matches.filter(m=>m.status==="done").length;
-  const next=state.matches.find(m=>m.status!=="done");
-  let report={players:0,registrations:0,checked_in:0,paid_count:0,revenue:0,matches:state.matches.length,live,completed:done};
-  if(["super_admin","organizer","finance","club_manager"].includes(user?.role)){
-    report=await API.reportOverview().catch(()=>report);
-  }
+  const clubRole=["super_admin","organizer","finance","club_manager"].includes(user?.role);
+  const [report,events]=clubRole?await Promise.all([API.reportOverview().catch(()=>({})),API.clubEvents().catch(()=>[])]):[{},[]];
+  const nextMatch=state.matches.find(m=>m.status!=="done"),nextEvent=events.find(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date());
   setHeader("Trang chủ","Lịch, thành viên, điểm danh, thu chi và thi đấu trong một màn hình");
   const allowed=new Set(visibleNav().map(n=>n[0]));
   const quick=[
-    ["matches","calendar","Lịch trận","Điều phối lịch & sân"],
-    ["players","users","Thành viên","VĐV, hồ sơ & rating"],
-    ["registrations","checkin","Điểm danh","Check-in tại sân"],
-    ["payments","payment","Thu quỹ","Phí giải & đối soát"]
-  ].filter(x=>allowed.has(x[0]));
-  const revenue=Number(report.revenue||0).toLocaleString("vi-VN");
+    ["club_events","calendar","Lịch hoạt động","Social, tập luyện, giao hữu"],
+    ["players","users","Thành viên","Hồ sơ VĐV trong CLB"],
+    ["club_attendance","checkin","Điểm danh","Có mặt theo từng buổi"],
+    ["treasury","payment","Thu chi","Quỹ và lịch sử giao dịch"],
+    ["matches","calendar","Lịch trận","Điều phối giải đấu"],
+    ["scores","score","Nhập điểm","Courtside scoring"],
+    ["payments","payment","Phí giải","Đối soát đăng ký"]
+  ].filter(x=>allowed.has(x[0])).slice(0,4);
+  const metricHtml=user?.role==="referee"?`
+    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>TRẬN ĐƯỢC GÁN</small><strong>${state.matches.length}</strong><p>Trong phạm vi tài khoản</p></div></article>
+    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>ĐANG LIVE</small><strong>${live}</strong><p>Cần theo dõi</p></div></article>
+    <article><span class="metric-icon standings">${iconSvg("standings")}</span><div><small>HOÀN TẤT</small><strong>${done}</strong><p>Đã chốt kết quả</p></div></article>
+    <article><span class="metric-icon court">${iconSvg("court")}</span><div><small>SÂN LIÊN QUAN</small><strong>${state.courts.length}</strong><p>Theo phân công</p></div></article>`:`
+    <article><span class="metric-icon users">${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>${Number(report.members??report.players??0)}</strong><p>Hồ sơ hoạt động</p></div></article>
+    <article><span class="metric-icon checkin">${iconSvg("checkin")}</span><div><small>ĐIỂM DANH HÔM NAY</small><strong>${Number(report.attendanceToday||0)}</strong><p>Lượt có mặt</p></div></article>
+    <article><span class="metric-icon payment">${iconSvg("payment")}</span><div><small>SỐ DƯ QUỸ</small><strong>${Number(report.clubBalance||0).toLocaleString("vi-VN")}<em> đ</em></strong><p>Thu trừ chi</p></div></article>
+    <article><span class="metric-icon calendar">${iconSvg("calendar")}</span><div><small>HOẠT ĐỘNG SẮP TỚI</small><strong>${Number(report.upcomingActivities||0)}</strong><p>Lịch CLB</p></div></article>`;
+  const scheduleHtml=clubRole?events.filter(e=>e.status!=="cancelled").slice(0,5).map(e=>`<button class="club-event-home-row" data-home-event="${e.id}"><span class="club-event-date"><b>${new Date(e.start_at).toLocaleDateString("vi-VN",{day:"2-digit"})}</b><small>${new Date(e.start_at).toLocaleDateString("vi-VN",{month:"2-digit"})}</small></span><span><strong>${e.title}</strong><small>${new Date(e.start_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})} • ${e.venue||e.club_name||"CLB"}</small></span><em>${Number(e.participants||0)} người</em></button>`).join(""):state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("");
   return `<section class="club-home-hero">
-    <div>
-      <span class="admin-app-overline">PICKLE TOUR • CLUB OPERATIONS</span>
-      <h2>${user?.name||"Quản trị viên"}</h2>
-      <p>${next?`${next.stage} • ${next.time} • Sân ${next.court}`:"Hệ thống sẵn sàng vận hành"}</p>
-    </div>
+    <div><span class="admin-app-overline">PICKLE TOUR • CLUB OPERATIONS</span><h2>${user?.name||"Quản trị viên"}</h2><p>${nextEvent?`${nextEvent.title} • ${new Date(nextEvent.start_at).toLocaleString("vi-VN",{dateStyle:"short",timeStyle:"short"})}`:nextMatch?`${nextMatch.stage} • ${nextMatch.time} • Sân ${nextMatch.court}`:"Hệ thống sẵn sàng vận hành"}</p></div>
     <div class="club-home-live"><i></i><strong>${live}</strong><span>LIVE</span></div>
   </section>
   <div class="club-home-actions">${quick.map(([id,ico,label,sub])=>`<button data-goto="${id}"><span>${iconSvg(ico)}</span><b>${label}</b><small>${sub}</small></button>`).join("")||'<div class="empty">Không có thao tác nhanh cho vai trò này.</div>'}</div>
-  <div class="club-home-metrics">
-    <article><span class="metric-icon users">${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>${report.players||0}</strong><p>Hồ sơ hoạt động</p></div></article>
-    <article><span class="metric-icon checkin">${iconSvg("checkin")}</span><div><small>ĐIỂM DANH</small><strong>${report.checked_in||0}<em>/${report.registrations||0}</em></strong><p>Đã có mặt</p></div></article>
-    <article><span class="metric-icon payment">${iconSvg("payment")}</span><div><small>ĐÃ THU</small><strong>${revenue}<em> đ</em></strong><p>Khoản đã xác nhận</p></div></article>
-    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>TRẬN ĐẤU</small><strong>${report.matches||state.matches.length}</strong><p>${live} live • ${report.completed??done} hoàn tất</p></div></article>
-  </div>
+  <div class="club-home-metrics">${metricHtml}</div>
   <div class="grid-2 club-home-grid">
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Lịch sắp tới</h2><p>Trận đang diễn ra và chờ thi đấu</p></div>${allowed.has("matches")?'<button class="mini" data-goto="matches">Xem lịch</button>':""}</div>
-      ${state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("")||'<div class="empty">Chưa có lịch.</div>'}
-    </div>
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div>
-      <div class="activity-feed">${state.audit.slice(0,7).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Chưa có hoạt động mới.</div>'}</div>
-    </div>
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>${clubRole?"Lịch CLB sắp tới":"Lịch thi đấu"}</h2><p>${clubRole?"Hoạt động của thành viên":"Trận đang diễn ra và chờ thi đấu"}</p></div>${allowed.has(clubRole?"club_events":"matches")?`<button class="mini" data-goto="${clubRole?"club_events":"matches"}">Xem tất cả</button>`:""}</div>${scheduleHtml||'<div class="empty">Chưa có lịch.</div>'}</div>
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div><div class="activity-feed">${state.audit.slice(0,7).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Không có log quản trị trong phạm vi tài khoản.</div>'}</div></div>
   </div>`;
 }
 function tournamentCard(t){
@@ -255,6 +255,9 @@ async function render(){
     players,
     clubs:()=>window.AdminModules.clubs(ctx),
     matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,
+    club_events:()=>window.AdminModules.clubEvents(ctx),
+    club_attendance:()=>window.AdminModules.clubAttendance(ctx),
+    treasury:()=>window.AdminModules.treasury(ctx),
     bookings:()=>window.AdminModules.bookings(ctx),
     referees:refereesPage,accounts:accountsPage,payments,
     sponsors:()=>window.AdminModules.sponsors(ctx),
@@ -285,6 +288,7 @@ function applyMatchFilters(){
 }
 function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.goto));
+  document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
@@ -668,9 +672,9 @@ async function openUserModal(){
     <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{$("#uClubWrap").hidden=$("#uRole").value!=="club_manager"};$("#uRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uClubWrap").firstChild.textContent=r==="finance"?"CLB giới hạn (để trống = toàn hệ thống)":"CLB được quản lý"};$("#uRole").onchange=syncRole;syncRole();
   $("#saveUser").onclick=async()=>{try{
-    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,clubId:$("#uRole").value==="club_manager"?$("#uClub").value:null,password:$("#uPassword").value});
+    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,clubId:["club_manager","finance"].includes($("#uRole").value)?($("#uClub").value||null):null,password:$("#uPassword").value});
     $("#genericDialog").close();await render();toast("Đã tạo tài khoản con.");
   }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
 }
@@ -688,10 +692,10 @@ async function openEditUserModal(id){
     <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{$("#euClubWrap").hidden=$("#euRole").value!=="club_manager"};$("#euRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const r=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#euClubWrap").firstChild.textContent=r==="finance"?"CLB giới hạn (để trống = toàn hệ thống)":"CLB được quản lý"};$("#euRole").onchange=syncRole;syncRole();
   $("#saveUserEdit").onclick=async()=>{try{
     const password=$("#euPassword").value;
-    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,clubId:$("#euRole").value==="club_manager"?$("#euClub").value:null,active:$("#euActive").checked,...(password?{password}:{})});
+    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,clubId:["club_manager","finance"].includes($("#euRole").value)?($("#euClub").value||null):null,active:$("#euActive").checked,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
   }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
@@ -704,7 +708,7 @@ $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href
 
 (async function boot(){
   try{
-    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);
+    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);$("#quickTournament").hidden=!canManage();
     if(user.role==="referee")page="scores";
     if(user.role==="finance")page="payments";
     state=await API.adminState();await render();
