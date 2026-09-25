@@ -451,3 +451,15 @@ html[data-nav-direction="back"]::view-transition-new(root){animation:adminNewBac
   .club-home-grid{display:block}.club-home-grid>.panel{margin-bottom:10px}
   .side-bottom{gap:6px}.side-bottom .ghost{min-height:38px}
 }
+
+
+/* Club schedule / attendance / treasury */
+.club-event-home-row{width:100%;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 4px;border:0;border-bottom:1px solid #edf1ef;background:transparent;text-align:left;color:inherit}
+.club-event-home-row:last-child{border-bottom:0}.club-event-home-row:hover{background:#f7faf8}.club-event-home-row>span:nth-child(2){min-width:0}
+.club-event-home-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}.club-event-home-row small{display:block;margin-top:3px;color:var(--muted);font-size:8px}.club-event-home-row em{font-size:8px;font-style:normal;color:var(--muted);white-space:nowrap}
+.club-event-date{width:42px;height:42px;display:grid;place-items:center;align-content:center;border-radius:13px;background:#edf8f2;color:#08784d}.club-event-date b{font-size:15px;line-height:1}.club-event-date small{margin:2px 0 0;color:#4c7460;font-size:7px}
+.attendance-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:12px 0;padding:12px;border-radius:17px;background:#f5f8f6}.attendance-add select{min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 11px}
+@media(max-width:760px){
+  .club-event-home-row{grid-template-columns:44px minmax(0,1fr);padding:10px 2px}.club-event-home-row>em{display:none}
+  .attendance-add{grid-template-columns:1fr}.attendance-add .btn{width:100%}
+}
