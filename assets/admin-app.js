@@ -154,11 +154,11 @@ function tournaments(){
 }
 async function players(){
   setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
-  const roster=canManage()?await API.players().catch(()=>[]):[];
+  const roster=canRoster()?await API.players().catch(()=>[]):[];
   return `<div class="panel" style="margin-bottom:16px">
-    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button><button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>':""}</div>
+    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':""}<button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>`:""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}</td></tr>`).join("")}
+      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button><button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>':""}</div>
@@ -209,23 +209,23 @@ async function refereesPage(){
   </div>`;
 }
 async function accountsPage(){
-  setHeader("Tài khoản & phân quyền","Tạo tài khoản con và giới hạn quyền theo vai trò");
+  setHeader("Tài khoản & phân quyền","Tạo nhiều tài khoản con và giới hạn quyền ở server");
   if(!canAccounts())return '<div class="panel empty">Tài khoản phân quyền chỉ khả dụng trên hệ thống backend bảo mật.</div>';
   const rows=await API.users().catch(()=>[]);
   const owner=rows.filter(x=>x.role==="super_admin"),children=rows.filter(x=>x.role!=="super_admin");
   return `<div class="panel" style="margin-bottom:12px"><div class="panel-head"><div><h2>Tài khoản chủ</h2><p>Không thể bị tài khoản con chỉnh sửa</p></div></div>
     ${owner.map(r=>`<div class="account-row account-owner"><div><b>${r.display_name}</b><small>${r.email}</small></div><span class="badge live">SUPER ADMIN</span></div>`).join("")}
   </div>
-  <div class="panel"><div class="panel-head"><div><h2>Tài khoản con</h2><p>${children.length} tài khoản • BTC hoặc Trọng tài</p></div><button class="btn primary" data-action="newUser">Tạo tài khoản con</button></div>
-    <div class="role-help"><span><b>BTC giải</b>Quản lý giải, VĐV, lịch, đăng ký, thanh toán, nội dung.</span><span><b>Trọng tài</b>Chỉ xem/trực tiếp nhập điểm các trận được phân công.</span></div>
+  <div class="panel"><div class="panel-head"><div><h2>Tài khoản con</h2><p>${children.length} tài khoản • phân quyền tại server</p></div><button class="btn primary" data-action="newUser">Tạo tài khoản con</button></div>
+    <div class="role-help"><span><b>BTC giải</b>Vận hành giải, lịch, đăng ký, VĐV, thanh toán và nội dung.</span><span><b>Trọng tài</b>Chỉ thấy các trận được phân công và nhập điểm.</span><span><b>Quản lý CLB</b>Chỉ quản lý hồ sơ VĐV thuộc CLB được gán.</span><span><b>Thu ngân</b>Chỉ đối soát thanh toán và xem báo cáo.</span></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${children.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${roleLabel(r.role)}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có tài khoản con.</td></tr>'}
+      ${children.map(r=>`<tr><td><b>${r.display_name}</b>${r.club_name?`<small style="display:block;color:#73847b">${r.club_name}</small>`:""}</td><td>${r.email}</td><td>${roleLabel(r.role)}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có tài khoản con.</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
 async function payments(){
   setHeader("Thanh toán","Đăng ký giải, phí tham dự và đối soát");
-  if(!canManage())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
+  if(!canFinance())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
   const rows=await API.registrations().catch(()=>[]);
   return `<div class="panel">
     <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div><button class="btn primary" data-action="newRegistration">Tạo đăng ký</button></div>
@@ -248,7 +248,7 @@ function settings(){
 }
 async function render(){
   renderNav();
-  const ctx={API,state,user,setHeader,toast,refresh,canManage};
+  const ctx={API,state,user,setHeader,toast,refresh,canManage,canRoster,canFinance};
   const map={
     dashboard,tournaments,
     registrations:()=>window.AdminModules.registrations(ctx),
@@ -699,6 +699,7 @@ $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href
   try{
     const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);
     if(user.role==="referee")page="scores";
+    if(user.role==="finance")page="payments";
     state=await API.adminState();await render();
     const socket=window.io?io():null;
     if(socket){
