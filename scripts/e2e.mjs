@@ -124,8 +124,22 @@ assert(badBooking.error==="INVALID_BOOKING_TIME","invalid booking time rejected"
 const booking=(await raw("/api/bookings",{method:"POST",cookie:admin.cookie,body:{courtId:court.id,title:"CI Booking "+stamp,startAt:start.toISOString(),endAt:end.toISOString()}})).data;
 await raw("/api/bookings/"+booking.id,{method:"DELETE",cookie:admin.cookie});
 
-const report=(await raw("/api/reports/overview",{cookie:admin.cookie})).data;
-assert(Number.isFinite(Number(report.players)),"report overview");
+// Real club operations: schedule, member attendance and treasury.
+const clubEvent=(await raw("/api/club-events",{method:"POST",cookie:admin.cookie,body:{
+  clubId:club.id,title:"CI Social "+stamp,eventType:"social",venue:"CI Club Court",
+  startAt:new Date(Date.now()+3*3600000).toISOString(),endAt:new Date(Date.now()+5*3600000).toISOString(),fee:50000
+}})).data;
+await raw("/api/club-events/"+clubEvent.id+"/attendance",{method:"POST",cookie:admin.cookie,body:{playerId:player.id}});
+await raw("/api/club-events/"+clubEvent.id+"/attendance/"+player.id,{method:"PATCH",cookie:admin.cookie,body:{status:"attended"}});
+const clubAttendance=(await raw("/api/club-events/"+clubEvent.id+"/attendance",{cookie:admin.cookie})).data;
+assert(clubAttendance.some(x=>x.player_id===player.id&&x.status==="attended"),"club attendance persists");
+await raw("/api/club-transactions",{method:"POST",cookie:admin.cookie,body:{clubId:club.id,direction:"income",category:"membership",amount:300000,note:"CI income"}});
+await raw("/api/club-transactions",{method:"POST",cookie:admin.cookie,body:{clubId:club.id,direction:"expense",category:"court",amount:100000,note:"CI expense"}});
+const clubLedger=(await raw("/api/club-transactions?clubId="+club.id,{cookie:admin.cookie})).data;
+assert(clubLedger.length>=2,"club treasury persists");
+
+const report=(await raw("/api/reports/overview?clubId="+club.id,{cookie:admin.cookie})).data;
+assert(Number.isFinite(Number(report.players))&&Number(report.clubBalance)>=200000,"club overview and treasury balance");
 
 const childEmail="ci-organizer-"+stamp+"@pickle.test",childPassword="ci-organizer-password-123";
 const child=(await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Organizer",email:childEmail,password:childPassword,role:"organizer"}})).data;
