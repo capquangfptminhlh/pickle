@@ -12,7 +12,11 @@ Self-hosted tournament operations platform for pickleball. No Supabase dependenc
 - responsive desktop/mobile UI
 
 ## Admin
-- JWT login with roles: Super Admin, Organizer, Referee, Club Manager, Player
+- Secure JWT HttpOnly login with active-account revalidation on every protected request
+- login attempt throttling, same-site secure cookies, origin checks, Helmet security headers
+- child account management for Super Admin
+- roles currently exposed to child accounts: Organizer (BTC) and Referee
+- locked child accounts lose API access immediately, even if an older JWT has not expired
 - tournament creation
 - multiple divisions / event types
 - courts
@@ -27,7 +31,8 @@ Self-hosted tournament operations platform for pickleball. No Supabase dependenc
 - bracket advancement
 - standings calculated from confirmed match data
 - audited Undo with downstream bracket protection
-- referee account creation
+- referee account creation and assignment
+- multiple organizer/referee child accounts with role changes, lock/unlock and password reset
 - registration and payment reconciliation
 - auditable manual player rating adjustment
 - password rotation
@@ -78,4 +83,4 @@ Score changes are persisted in `score_events` and sensitive administrative chang
 This project bootstraps from `capquangfptminhlh/seo-web` Website OS. Governance evidence is under `governance/`.
 
 ## Deployment status
-The repository contains the production self-host stack, but a public production deployment still requires access to the target VPS plus its domain/TLS configuration. The existing AutoTax deploy agent was intentionally not reused because it is project-specific.
+The repository contains the production backend/auth stack, but a public secure admin deployment still requires a server runtime + PostgreSQL + HTTPS. GitHub Pages is used only for the public/static presentation and intentionally does not provide a fake secured admin session.
