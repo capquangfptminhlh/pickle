@@ -101,38 +101,45 @@ function matchCard(m){
     <div class="actions" style="margin-top:12px">${scoreBtn}<button class="mini" data-match-detail="${m.id}">Chi tiết</button></div>
   </div>`;
 }
-function dashboard(){
+async function dashboard(){
   const live=state.matches.filter(m=>m.status==="live").length,done=state.matches.filter(m=>m.status==="done").length;
   const next=state.matches.find(m=>m.status!=="done");
-  setHeader("Tổng quan","Điều hành giải đấu theo thời gian thực");
-  return `<section class="admin-app-hero">
-    <div class="admin-app-hero-copy">
-      <span class="admin-app-overline">TOURNAMENT CONTROL</span>
-      <h2>${live?live+" trận đang live":"Sẵn sàng vận hành"}</h2>
-      <p>${next?`${next.stage} • ${next.time} • Sân ${next.court}`:"Chưa có trận sắp tới"}</p>
+  let report={players:0,registrations:0,checked_in:0,paid_count:0,revenue:0,matches:state.matches.length,live,completed:done};
+  if(["super_admin","organizer","finance","club_manager"].includes(user?.role)){
+    report=await API.reportOverview().catch(()=>report);
+  }
+  setHeader("Trang chủ","Lịch, thành viên, điểm danh, thu chi và thi đấu trong một màn hình");
+  const allowed=new Set(visibleNav().map(n=>n[0]));
+  const quick=[
+    ["matches","calendar","Lịch trận","Điều phối lịch & sân"],
+    ["players","users","Thành viên","VĐV, hồ sơ & rating"],
+    ["registrations","checkin","Điểm danh","Check-in tại sân"],
+    ["payments","payment","Thu quỹ","Phí giải & đối soát"]
+  ].filter(x=>allowed.has(x[0]));
+  const revenue=Number(report.revenue||0).toLocaleString("vi-VN");
+  return \`<section class="club-home-hero">
+    <div>
+      <span class="admin-app-overline">PICKLE TOUR • CLUB OPERATIONS</span>
+      <h2>\${user?.name||"Quản trị viên"}</h2>
+      <p>\${next?\`\${next.stage} • \${next.time} • Sân \${next.court}\`:"Hệ thống sẵn sàng vận hành"}</p>
     </div>
-    <div class="admin-app-live-orb"><span>${live}</span><small>LIVE</small></div>
+    <div class="club-home-live"><i></i><strong>\${live}</strong><span>LIVE</span></div>
   </section>
-  <div class="admin-quick-grid">
-    <button data-goto="scores"><span>${iconSvg("score")}</span><b>Nhập điểm</b><small>Score console</small></button>
-    <button data-goto="matches"><span>${iconSvg("calendar")}</span><b>Lịch đấu</b><small>Điều phối sân</small></button>
-    <button data-goto="players"><span>${iconSvg("users")}</span><b>VĐV</b><small>Hồ sơ & rating</small></button>
-    <button data-goto="tournaments"><span>${iconSvg("trophy")}</span><b>Giải đấu</b><small>Quản lý giải</small></button>
+  <div class="club-home-actions">\${quick.map(([id,ico,label,sub])=>\`<button data-goto="\${id}"><span>\${iconSvg(ico)}</span><b>\${label}</b><small>\${sub}</small></button>\`).join("")||'<div class="empty">Không có thao tác nhanh cho vai trò này.</div>'}</div>
+  <div class="club-home-metrics">
+    <article><span class="metric-icon users">\${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>\${report.players||0}</strong><p>Hồ sơ hoạt động</p></div></article>
+    <article><span class="metric-icon checkin">\${iconSvg("checkin")}</span><div><small>ĐIỂM DANH</small><strong>\${report.checked_in||0}<em>/\${report.registrations||0}</em></strong><p>Đã có mặt</p></div></article>
+    <article><span class="metric-icon payment">\${iconSvg("payment")}</span><div><small>ĐÃ THU</small><strong>\${revenue}<em> đ</em></strong><p>Khoản đã xác nhận</p></div></article>
+    <article><span class="metric-icon score">\${iconSvg("score")}</span><div><small>TRẬN ĐẤU</small><strong>\${report.matches||state.matches.length}</strong><p>\${live} live • \${report.completed??done} hoàn tất</p></div></article>
   </div>
-  <div class="kpis">
-    <div class="kpi"><span class="label">GIẢI</span><strong>${state.tournaments.length}</strong><small>${state.tournaments.filter(t=>t.status==="live").length} đang live</small></div>
-    <div class="kpi"><span class="label">LIVE</span><strong>${live}</strong><small>${done} trận hoàn tất</small></div>
-    <div class="kpi"><span class="label">ĐỘI / CẶP</span><strong>${state.teams.length}</strong><small>Đang quản lý</small></div>
-    <div class="kpi"><span class="label">AUDIT</span><strong>${state.audit.length}</strong><small>Sự kiện gần nhất</small></div>
-  </div>
-  <div class="grid-2">
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Live Center</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="scores">Mở console</button></div>
-      ${state.matches.filter(m=>m.status!=="done").slice(0,6).map(matchCard).join("")||'<div class="empty">Chưa có trận.</div>'}
+  <div class="grid-2 club-home-grid">
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Lịch sắp tới</h2><p>Trận đang diễn ra và chờ thi đấu</p></div>\${allowed.has("matches")?'<button class="mini" data-goto="matches">Xem lịch</button>':""}</div>
+      \${state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("")||'<div class="empty">Chưa có lịch.</div>'}
     </div>
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động</h2><p>Nhật ký gần đây</p></div></div>
-      <div class="activity-feed">${state.audit.slice(0,8).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Chưa có thao tác.</div>'}</div>
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div>
+      <div class="activity-feed">\${state.audit.slice(0,7).map(a=>\`<div class="activity-item"><i></i><div><strong>\${a.action}</strong><small>\${a.time} • \${a.user}</small><p>\${a.detail}</p></div></div>\`).join("")||'<div class="empty">Chưa có hoạt động mới.</div>'}</div>
     </div>
-  </div>`;
+  </div>\`;
 }
 function tournamentCard(t){
   return `<article class="tour-card" data-tournament-card="${t.id}"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
