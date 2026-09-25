@@ -242,7 +242,12 @@ await shot.screenshot({path:"ui-artifacts/mobile-ranking.png",fullPage:true});
 await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(250);
 if(!(await shot.locator(".mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["admin mobile dock missing"]});
+if(await shot.locator("#sidebar").evaluate(el=>el.classList.contains("open")).catch(()=>false))failures.push({label:"preview mobile admin",errors:["admin drawer unexpectedly open on dashboard"]});
 if(await shot.locator(".app-fab").isVisible().catch(()=>false))failures.push({label:"preview mobile admin",errors:["quick-action FAB overlaps dashboard"]});
+if(!(await shot.locator(".club-home-hero").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["club home hero missing"]});
+if(await shot.locator(".club-home-metrics article").count()!==4)failures.push({label:"preview mobile admin",errors:["club home metrics incomplete"]});
+const adminOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+if(adminOverflow)failures.push({label:"preview mobile admin",errors:["admin dashboard has horizontal overflow"]});
 await shot.screenshot({path:"ui-artifacts/mobile-admin-home.png",fullPage:true});
 
 const scoreNav=shot.locator('[data-dock-page="scores"]');if(await scoreNav.count())await scoreNav.click();else await shot.evaluate(()=>document.querySelector('[data-page="scores"]')?.click());await shot.waitForTimeout(250);
