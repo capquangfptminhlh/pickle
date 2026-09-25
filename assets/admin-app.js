@@ -73,10 +73,13 @@ async function switchAdminPage(id){
     page=id;$("#sidebar").classList.remove("open");await render();
     if(matchMedia("(max-width:760px)").matches)scrollTo({top:0,behavior:"instant"});
   };
+  const direction=newIndex>=oldIndex?"forward":"back";
+  document.documentElement.dataset.navDirection=direction;
   if(document.startViewTransition){
-    document.documentElement.dataset.navDirection=newIndex>=oldIndex?"forward":"back";
     const vt=document.startViewTransition(update);vt.finished.finally(()=>delete document.documentElement.dataset.navDirection);
-  }else await update();
+  }else{
+    await update();setTimeout(()=>delete document.documentElement.dataset.navDirection,320);
+  }
 }
 
 async function refresh({keepDialog=false}={}){
