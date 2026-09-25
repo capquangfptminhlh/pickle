@@ -115,18 +115,30 @@
     if(!document.querySelector("#nav"))return;
     let dock=document.querySelector(".mobile-dock");
     if(!dock){dock=document.createElement("div");dock.className="mobile-dock";document.body.appendChild(dock)}
-    const items=[
-      ["dashboard","Trang chủ","<path d='M4 11 12 4l8 7v9h-6v-6h-4v6H4z'/>"],
-      ["matches","Lịch","<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>"],
-      ["scores","Điểm","<path d='M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z'/>"],
-      ["players","VĐV","<path d='M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Zm12-6c3.4 0 6 1.7 6 5h-4c-.2-2-1-3.6-2.4-4.7Z'/>"],
-      ["more","Khác","<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"]
-    ];
+    const icon={
+      dashboard:"<path d='M4 11 12 4l8 7v9h-6v-6h-4v6H4z'/>",
+      club_events:"<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>",
+      club_attendance:"<path d='M4 5h16v14H4zM8 3v4M16 3v4M8 12l2.5 2.5L16 9'/>",
+      treasury:"<path d='M3 6h18v12H3zM3 9h18M7 14h4'/>",
+      matches:"<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>",
+      scores:"<path d='M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z'/>",
+      players:"<path d='M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Z'/>",
+      clubs:"<path d='M3 20h18M5 20V8l7-4 7 4v12M9 12h2M13 12h2M9 16h6'/>",
+      payments:"<path d='M3 6h18v12H3zM3 9h18M7 14h4'/>",
+      reports:"<path d='M4 20V10h4v10m2 0V4h4v16m2 0v-7h4v7'/>",
+      standings:"<path d='M5 6h14M5 12h14M5 18h14'/>",
+      more:"<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"
+    };
+    const labels={dashboard:"Trang chủ",club_events:"Lịch CLB",club_attendance:"Điểm danh",treasury:"Thu chi",matches:"Lịch đấu",scores:"Điểm",players:"Thành viên",clubs:"CLB",payments:"Phí giải",reports:"Báo cáo",standings:"BXH"};
+    const available=[...document.querySelectorAll("#nav .nav-btn")].map(x=>x.dataset.page);
+    const preference=["dashboard","club_events","players","club_attendance","treasury","matches","scores","clubs","payments","reports","standings"];
+    const primary=preference.filter(id=>available.includes(id)).slice(0,4);
+    const hasMore=available.some(id=>!primary.includes(id));
+    const items=[...primary,...(hasMore?["more"]:[])];
     const active=document.querySelector("#nav .nav-btn.active")?.dataset.page||"dashboard";
-    const primaryIds=new Set(items.filter(x=>x[0]!=="more").map(x=>x[0]));
-    dock.innerHTML=items.map(([id,label,path])=>{
-      const isActive=id==="more"?!primaryIds.has(active):active===id;
-      return '<button data-dock-page="'+id+'" class="'+(isActive?"active":"")+'"><span class="ico-clone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+path+'</svg></span><small>'+label+'</small></button>';
+    dock.innerHTML=items.map(id=>{
+      const isActive=id==="more"?!primary.includes(active):active===id;
+      return '<button data-dock-page="'+id+'" class="'+(isActive?"active":"")+'"><span class="ico-clone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+icon[id]+'</svg></span><small>'+(labels[id]||"Khác")+'</small></button>';
     }).join("");
     $$(".mobile-dock [data-dock-page]",dock).forEach(b=>b.onclick=()=>{
       if(navigator.vibrate)navigator.vibrate(6);

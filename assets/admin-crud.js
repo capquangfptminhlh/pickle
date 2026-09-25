@@ -132,7 +132,10 @@
   }
 
   async function decorate(ctx){
-    if(!ctx?.user||!["super_admin","organizer"].includes(ctx.user.role))return;
+    if(!ctx?.user)return;
+    const full=["super_admin","organizer"].includes(ctx.user.role);
+    const rosterOnly=ctx.user.role==="club_manager"&&ctx.page==="players";
+    if(!full&&!rosterOnly)return;
     const page=ctx.page;
 
     if(page==="tournaments"){
@@ -152,15 +155,17 @@
         const cell=row.lastElementChild;if(!cell||cell.dataset.crud)return;cell.dataset.crud="1";
         cell.insertAdjacentHTML("beforeend",' <button class="mini" data-crud-edit-player="'+p.id+'">Sửa</button>'+(p.active?'<button class="mini danger-mini" data-crud-disable-player="'+p.id+'">Khóa</button>':''));
       });
-      ctx.state.teams.forEach(t=>{
-        const row=document.querySelector('[data-team-row="'+t.id+'"]');if(!row||row.dataset.crud)return;row.dataset.crud="1";
-        const td=document.createElement("td");td.innerHTML='<div class="actions"><button class="mini" data-crud-edit-team="'+t.id+'">Sửa</button><button class="mini danger-mini" data-crud-delete-team="'+t.id+'">Rút/Xóa</button></div>';row.appendChild(td);
-      });
-      const teamTable=document.querySelectorAll(".table")[1];if(teamTable&&!teamTable.querySelector("thead th[data-crud-head]")){const th=document.createElement("th");th.dataset.crudHead="1";th.textContent="Thao tác";teamTable.querySelector("thead tr")?.appendChild(th)}
       document.querySelectorAll("[data-crud-edit-player]").forEach(b=>b.onclick=()=>editPlayer(roster.find(p=>p.id===b.dataset.crudEditPlayer),ctx));
       document.querySelectorAll("[data-crud-disable-player]").forEach(b=>b.onclick=()=>danger("Khóa VĐV này khỏi danh sách công khai?",()=>API.deactivatePlayer(b.dataset.crudDisablePlayer),ctx));
-      document.querySelectorAll("[data-crud-edit-team]").forEach(b=>b.onclick=()=>editTeam(ctx.state.teams.find(t=>t.id===b.dataset.crudEditTeam),ctx));
-      document.querySelectorAll("[data-crud-delete-team]").forEach(b=>b.onclick=()=>danger("Rút/xóa đội này? Nếu đã có lịch sử thi đấu, hệ thống chỉ đánh dấu rút giải.",()=>API.deleteTeam(b.dataset.crudDeleteTeam),ctx));
+      if(full){
+        ctx.state.teams.forEach(t=>{
+          const row=document.querySelector('[data-team-row="'+t.id+'"]');if(!row||row.dataset.crud)return;row.dataset.crud="1";
+          const td=document.createElement("td");td.innerHTML='<div class="actions"><button class="mini" data-crud-edit-team="'+t.id+'">Sửa</button><button class="mini danger-mini" data-crud-delete-team="'+t.id+'">Rút/Xóa</button></div>';row.appendChild(td);
+        });
+        const teamTable=document.querySelectorAll(".table")[1];if(teamTable&&!teamTable.querySelector("thead th[data-crud-head]")){const th=document.createElement("th");th.dataset.crudHead="1";th.textContent="Thao tác";teamTable.querySelector("thead tr")?.appendChild(th)}
+        document.querySelectorAll("[data-crud-edit-team]").forEach(b=>b.onclick=()=>editTeam(ctx.state.teams.find(t=>t.id===b.dataset.crudEditTeam),ctx));
+        document.querySelectorAll("[data-crud-delete-team]").forEach(b=>b.onclick=()=>danger("Rút/xóa đội này? Nếu đã có lịch sử thi đấu, hệ thống chỉ đánh dấu rút giải.",()=>API.deleteTeam(b.dataset.crudDeleteTeam),ctx));
+      }
     }
 
     if(page==="courts"){

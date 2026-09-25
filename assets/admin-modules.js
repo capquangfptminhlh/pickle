@@ -63,10 +63,10 @@
     ctx.setHeader("CLB","Quản lý CLB, khu vực và lực lượng VĐV");
     const rows=await API.clubs().catch(()=>[]);
     const players=await API.players().catch(()=>[]);
-    const html='<div class="module-toolbar standalone"><div><h2>Danh sách CLB</h2><p>'+rows.length+' CLB trong hệ thống</p></div><button class="btn primary" data-module-action="new-club">Thêm CLB</button></div>'+
+    const html='<div class="module-toolbar standalone"><div><h2>Danh sách CLB</h2><p>'+rows.length+' CLB trong hệ thống</p></div>'+(ctx.canManage()?'<button class="btn primary" data-module-action="new-club">Thêm CLB</button>':'')+'</div>'+
       '<div class="club-grid">'+(rows.map(c=>{
         const n=players.filter(p=>p.club_id===c.id).length;
-        return '<article class="club-card" data-club-id="'+c.id+'"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p><div class="actions" style="margin-top:8px"><button class="mini" data-edit-club="'+c.id+'">Sửa</button><button class="mini danger-mini" data-delete-club="'+c.id+'">Khóa/Xóa</button></div></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
+        return '<article class="club-card" data-club-id="'+c.id+'"><div class="club-monogram">'+(c.name||"C").split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()+'</div><div><h3>'+c.name+'</h3><p>'+(c.city||"Chưa khai báo khu vực")+'</p><div class="actions" style="margin-top:8px">'+(ctx.canRoster()?'<button class="mini" data-edit-club="'+c.id+'">Sửa</button>':'')+(ctx.canManage()?'<button class="mini danger-mini" data-delete-club="'+c.id+'">Khóa/Xóa</button>':'')+'</div></div><div class="club-stat"><strong>'+n+'</strong><span>VĐV</span></div></article>';
       }).join("")||empty("Chưa có CLB"))+'</div>';
     return {html,bind(){
       document.querySelectorAll("[data-edit-club]").forEach(b=>b.onclick=()=>{
@@ -161,5 +161,83 @@
     }};
   }
 
-  window.AdminModules={registrations,clubs,bookings,sponsors,content,reports,settings};
+
+  async function clubEvents(ctx){
+    ctx.setHeader("Lịch hoạt động CLB","Social, tập luyện, giao hữu và sinh hoạt của CLB");
+    const [rows,clubs]=await Promise.all([API.clubEvents().catch(()=>[]),API.clubs().catch(()=>[])]);
+    const upcoming=rows.filter(x=>x.status!=="cancelled"&&new Date(x.start_at)>=new Date()).length;
+    const html='<div class="module-metrics">'+
+      metric("Sắp tới",upcoming,"Hoạt động chưa diễn ra")+
+      metric("Tổng lịch",rows.length,"Hoạt động đã tạo")+
+      metric("Đã tham gia",rows.reduce((n,x)=>n+Number(x.attended||0),0),"Lượt check-in")+
+      metric("CLB",clubs.length,"Trong phạm vi quyền")+
+      '</div>'+
+      '<div class="panel pro-panel"><div class="module-toolbar"><div><h2>Lịch CLB</h2><p>Lên lịch hoạt động và theo dõi số người tham gia</p></div><button class="btn primary" data-club-action="new-event">Tạo hoạt động</button></div>'+
+      '<div class="booking-list">'+(rows.map(e=>'<article class="booking-card"><div class="booking-time"><strong>'+new Date(e.start_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})+'</strong><span>'+new Date(e.start_at).toLocaleDateString("vi-VN")+'</span></div><div class="booking-main"><h3>'+e.title+'</h3><p>'+(e.club_name||"CLB")+' • '+(e.venue||"Chưa chốt địa điểm")+'</p><small>'+Number(e.participants||0)+' đăng ký • '+Number(e.attended||0)+' đã điểm danh'+(Number(e.fee||0)>0?' • '+money(e.fee):'')+'</small></div>'+badge(e.status==="scheduled"?"Sắp tới":e.status==="live"?"Đang diễn ra":e.status==="completed"?"Hoàn tất":"Đã hủy",e.status==="live"?"success":e.status==="cancelled"?"neutral":"warning")+'<div class="actions"><button class="mini" data-club-attendance="'+e.id+'">Điểm danh</button>'+(e.status!=="cancelled"?'<button class="mini danger-mini" data-cancel-club-event="'+e.id+'">Hủy</button>':'')+'</div></article>').join("")||empty("Chưa có lịch hoạt động"))+'</div></div>';
+    return {html,bind(){
+      document.querySelector('[data-club-action="new-event"]')?.addEventListener("click",()=>{
+        if(!clubs.length)return ctx.toast("Chưa có CLB trong phạm vi quản lý.");
+        modal("Tạo hoạt động CLB",'<div class="form-grid"><label class="field full">CLB<select id="clubEventClub">'+clubs.map(x=>'<option value="'+x.id+'">'+x.name+'</option>').join("")+'</select></label><label class="field full">Tên hoạt động<input id="clubEventTitle" placeholder="VD: Social tối thứ 6"></label><label class="field">Loại<select id="clubEventType"><option value="social">Social</option><option value="training">Tập luyện</option><option value="match">Giao hữu</option><option value="meeting">Họp CLB</option><option value="other">Khác</option></select></label><label class="field">Địa điểm<input id="clubEventVenue"></label><label class="field">Bắt đầu<input id="clubEventStart" type="datetime-local"></label><label class="field">Kết thúc<input id="clubEventEnd" type="datetime-local"></label><label class="field">Giới hạn người<input id="clubEventMax" type="number" min="1"></label><label class="field">Phí tham gia<input id="clubEventFee" type="number" min="0" step="1000"></label><div class="field full"><button class="btn primary" type="button" id="saveClubEvent">Tạo hoạt động</button></div></div>');
+        document.querySelector("#saveClubEvent").onclick=async()=>{
+          const title=document.querySelector("#clubEventTitle").value.trim(),startAt=document.querySelector("#clubEventStart").value,endAt=document.querySelector("#clubEventEnd").value||null;
+          if(!title||!startAt)return ctx.toast("Nhập tên và giờ bắt đầu.");
+          if(endAt&&Date.parse(endAt)<=Date.parse(startAt))return ctx.toast("Giờ kết thúc phải sau giờ bắt đầu.");
+          try{await API.createClubEvent({clubId:document.querySelector("#clubEventClub").value,title,eventType:document.querySelector("#clubEventType").value,venue:document.querySelector("#clubEventVenue").value,startAt,endAt,maxParticipants:Number(document.querySelector("#clubEventMax").value)||null,fee:Number(document.querySelector("#clubEventFee").value)||0});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã tạo hoạt động.")}catch(e){ctx.toast("Không thể tạo: "+e.message)}
+        };
+      });
+      document.querySelectorAll("[data-club-attendance]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.clubAttendance);document.querySelector('[data-page="club_attendance"]')?.click()});
+      document.querySelectorAll("[data-cancel-club-event]").forEach(b=>b.onclick=async()=>{if(!confirm("Hủy hoạt động này?"))return;try{await API.deleteClubEvent(b.dataset.cancelClubEvent);await ctx.refresh();ctx.toast("Đã hủy hoạt động.")}catch(e){ctx.toast("Không thể hủy: "+e.message)}});
+    }};
+  }
+
+  async function clubAttendance(ctx){
+    ctx.setHeader("Điểm danh CLB","Danh sách thành viên đăng ký và có mặt theo từng hoạt động");
+    const events=(await API.clubEvents().catch(()=>[])).filter(x=>x.status!=="cancelled");
+    if(!events.length)return {html:empty("Chưa có hoạt động để điểm danh"),bind(){}};
+    let eventId=sessionStorage.getItem("pickle-club-event");
+    if(!events.some(x=>x.id===eventId))eventId=events[0].id;
+    sessionStorage.setItem("pickle-club-event",eventId);
+    const event=events.find(x=>x.id===eventId);
+    const [people,players]=await Promise.all([API.clubAttendance(eventId).catch(()=>[]),API.players().catch(()=>[])]);
+    const used=new Set(people.map(x=>x.player_id));
+    const candidates=players.filter(p=>p.club_id===event.club_id&&!used.has(p.id)&&p.active!==false);
+    const attended=people.filter(x=>x.status==="attended").length;
+    const html='<div class="module-metrics">'+metric("Đăng ký",people.length,"Thành viên trong danh sách")+metric("Có mặt",attended,people.length?Math.round(attended*100/people.length)+"%":"0%")+metric("Vắng",people.filter(x=>x.status==="absent").length,"Đã đánh dấu")+metric("Còn lại",people.filter(x=>x.status==="registered").length,"Chờ điểm danh")+'</div>'+
+      '<div class="panel pro-panel"><div class="module-toolbar"><div><h2>'+event.title+'</h2><p>'+date(event.start_at)+' • '+(event.venue||"Chưa chốt địa điểm")+'</p></div><select id="clubAttendanceEvent">'+events.map(x=>'<option value="'+x.id+'" '+(x.id===eventId?"selected":"")+'>'+x.title+' — '+new Date(x.start_at).toLocaleDateString("vi-VN")+'</option>').join("")+'</select></div>'+
+      '<div class="attendance-add"><select id="attendancePlayer"><option value="">Chọn thành viên</option>'+candidates.map(p=>'<option value="'+p.id+'">'+p.full_name+'</option>').join("")+'</select><button class="btn primary" type="button" id="addAttendancePlayer" '+(!candidates.length?"disabled":"")+'>Thêm vào danh sách</button></div>'+
+      '<div class="table-wrap"><table class="table pro-table"><thead><tr><th>Thành viên</th><th>Rating</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>'+
+      people.map(p=>'<tr><td><b>'+p.full_name+'</b>'+(p.nickname?'<small class="muted-block">'+p.nickname+'</small>':'')+'</td><td>'+Number(p.rating||0).toFixed(3)+'</td><td>'+badge(p.status==="attended"?"Có mặt":p.status==="absent"?"Vắng":p.status==="cancelled"?"Đã hủy":"Đã đăng ký",p.status==="attended"?"success":p.status==="absent"?"warning":"neutral")+'</td><td><div class="actions"><button class="mini primary-mini" data-attend-player="'+p.player_id+'">Có mặt</button><button class="mini" data-absent-player="'+p.player_id+'">Vắng</button></div></td></tr>').join("")+
+      '</tbody></table></div></div>';
+    return {html,bind(){
+      document.querySelector("#clubAttendanceEvent")?.addEventListener("change",async e=>{sessionStorage.setItem("pickle-club-event",e.target.value);await ctx.refresh()});
+      document.querySelector("#addAttendancePlayer")?.addEventListener("click",async()=>{const id=document.querySelector("#attendancePlayer").value;if(!id)return;try{await API.addClubAttendance(eventId,id);await ctx.refresh();ctx.toast("Đã thêm thành viên.")}catch(e){ctx.toast("Không thể thêm: "+e.message)}});
+      document.querySelectorAll("[data-attend-player]").forEach(b=>b.onclick=async()=>{try{await API.updateClubAttendance(eventId,b.dataset.attendPlayer,"attended");await ctx.refresh();ctx.toast("Đã điểm danh.")}catch(e){ctx.toast("Không thể điểm danh: "+e.message)}});
+      document.querySelectorAll("[data-absent-player]").forEach(b=>b.onclick=async()=>{try{await API.updateClubAttendance(eventId,b.dataset.absentPlayer,"absent");await ctx.refresh()}catch(e){ctx.toast("Không thể cập nhật: "+e.message)}});
+    }};
+  }
+
+  async function treasury(ctx){
+    ctx.setHeader("Thu chi CLB","Quỹ CLB, các khoản thu và chi có lịch sử người nhập");
+    const [rows,clubs]=await Promise.all([API.clubTransactions().catch(()=>[]),API.clubs().catch(()=>[])]);
+    const income=rows.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0);
+    const expense=rows.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0);
+    const balance=income-expense;
+    const html='<div class="module-metrics">'+metric("Số dư",money(balance),"Thu trừ chi")+metric("Tổng thu",money(income),rows.filter(x=>x.direction==="income").length+" khoản")+metric("Tổng chi",money(expense),rows.filter(x=>x.direction==="expense").length+" khoản")+metric("Giao dịch",rows.length,"Có lưu người nhập")+'</div>'+
+      '<div class="panel pro-panel"><div class="module-toolbar"><div><h2>Sổ quỹ CLB</h2><p>Mỗi khoản được lưu ở server và có audit</p></div><button class="btn primary" data-club-action="new-transaction">Ghi thu / chi</button></div>'+
+      '<div class="table-wrap"><table class="table pro-table"><thead><tr><th>Ngày</th><th>CLB</th><th>Loại</th><th>Danh mục</th><th>Số tiền</th><th>Ghi chú</th><th>Người nhập</th></tr></thead><tbody>'+
+      rows.map(x=>'<tr><td>'+date(x.occurred_at)+'</td><td>'+x.club_name+'</td><td>'+badge(x.direction==="income"?"THU":"CHI",x.direction==="income"?"success":"warning")+'</td><td>'+x.category+'</td><td><b>'+(x.direction==="income"?"+":"-")+money(x.amount)+'</b></td><td>'+(x.note||"—")+'</td><td>'+(x.created_by_name||"—")+'</td></tr>').join("")+
+      '</tbody></table></div></div>';
+    return {html,bind(){
+      document.querySelector('[data-club-action="new-transaction"]')?.addEventListener("click",()=>{
+        if(!clubs.length)return ctx.toast("Chưa có CLB trong phạm vi quản lý.");
+        modal("Ghi thu / chi",'<div class="form-grid"><label class="field full">CLB<select id="treasuryClub">'+clubs.map(x=>'<option value="'+x.id+'">'+x.name+'</option>').join("")+'</select></label><label class="field">Loại<select id="treasuryDirection"><option value="income">Thu</option><option value="expense">Chi</option></select></label><label class="field">Danh mục<select id="treasuryCategory"><option value="membership">Phí thành viên</option><option value="court">Tiền sân</option><option value="ball">Bóng / vật tư</option><option value="event">Hoạt động</option><option value="sponsor">Tài trợ</option><option value="other">Khác</option></select></label><label class="field full">Số tiền<input id="treasuryAmount" type="number" min="1" step="1000"></label><label class="field">Ngày giao dịch<input id="treasuryDate" type="datetime-local"></label><label class="field full">Ghi chú<textarea id="treasuryNote" rows="3"></textarea></label><div class="field full"><button class="btn primary" type="button" id="saveTreasury">Lưu giao dịch</button></div></div>');
+        document.querySelector("#saveTreasury").onclick=async()=>{
+          const amount=Number(document.querySelector("#treasuryAmount").value);if(!Number.isFinite(amount)||amount<=0)return ctx.toast("Nhập số tiền hợp lệ.");
+          try{await API.createClubTransaction({clubId:document.querySelector("#treasuryClub").value,direction:document.querySelector("#treasuryDirection").value,category:document.querySelector("#treasuryCategory").value,amount,note:document.querySelector("#treasuryNote").value,occurredAt:document.querySelector("#treasuryDate").value||null});document.querySelector("#genericDialog").close();await ctx.refresh();ctx.toast("Đã ghi sổ quỹ.")}catch(e){ctx.toast("Không thể ghi sổ: "+e.message)}
+        };
+      });
+    }};
+  }
+
+  window.AdminModules={registrations,clubs,clubEvents,clubAttendance,treasury,bookings,sponsors,content,reports,settings};
 })();

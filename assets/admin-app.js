@@ -6,6 +6,9 @@ const NAV=[
   ["registrations","checkin","Đăng ký & Check-in"],
   ["players","users","VĐV & cặp đấu"],
   ["clubs","club","CLB"],
+  ["club_events","calendar","Lịch hoạt động CLB"],
+  ["club_attendance","checkin","Điểm danh CLB"],
+  ["treasury","payment","Thu chi CLB"],
   ["matches","calendar","Lịch & trận đấu"],
   ["scores","score","Nhập điểm"],
   ["standings","standings","Bảng xếp hạng"],
@@ -13,6 +16,7 @@ const NAV=[
   ["courts","court","Sân thi đấu"],
   ["bookings","booking","Booking sân"],
   ["referees","whistle","Trọng tài"],
+  ["accounts","users","Tài khoản & phân quyền"],
   ["payments","payment","Thanh toán"],
   ["sponsors","sponsor","Sponsor"],
   ["content","content","Tin tức & Media"],
@@ -44,14 +48,36 @@ const iconSvg=name=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" str
 let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
 let user=null,page="dashboard",activeMatch=null,busy=false;
 
-const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",player:"VĐV"}[r]||r);
+const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",finance:"Thu ngân",player:"VĐV"}[r]||r);
 const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
 const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
+const canRoster=()=>["super_admin","organizer","club_manager"].includes(user?.role);
+const canFinance=()=>["super_admin","organizer","finance"].includes(user?.role);
 const canReferees=()=>user?.role==="super_admin";
-const visibleNav=()=>user?.role==="referee"?NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0])):NAV;
+const canAccounts=()=>user?.role==="super_admin"&&!location.pathname.includes("/preview/");
+const visibleNav=()=>{
+  if(user?.role==="super_admin")return NAV.filter(n=>n[0]!=="accounts"||canAccounts());
+  if(user?.role==="organizer")return NAV.filter(n=>!["accounts","referees"].includes(n[0]));
+  if(user?.role==="referee")return NAV.filter(n=>["dashboard","matches","scores","standings","bracket","courts"].includes(n[0]));
+  if(user?.role==="club_manager")return NAV.filter(n=>["dashboard","club_events","players","clubs","club_attendance","treasury"].includes(n[0]));
+  if(user?.role==="finance")return NAV.filter(n=>["dashboard","treasury","payments","reports"].includes(n[0]));
+  return NAV.filter(n=>n[0]==="dashboard");
+};
+async function switchAdminPage(id){
+  const nav=visibleNav();if(!nav.some(n=>n[0]===id))return;
+  const oldIndex=nav.findIndex(n=>n[0]===page),newIndex=nav.findIndex(n=>n[0]===id);
+  const update=async()=>{
+    page=id;$("#sidebar").classList.remove("open");await render();
+    if(matchMedia("(max-width:760px)").matches)scrollTo({top:0,behavior:"instant"});
+  };
+  if(document.startViewTransition){
+    document.documentElement.dataset.navDirection=newIndex>=oldIndex?"forward":"back";
+    const vt=document.startViewTransition(update);vt.finished.finally(()=>delete document.documentElement.dataset.navDirection);
+  }else await update();
+}
 
 async function refresh({keepDialog=false}={}){
   state=await API.adminState();
@@ -63,7 +89,7 @@ async function refresh({keepDialog=false}={}){
 }
 function renderNav(){
   $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${iconSvg(ico)}</span><span>${label}</span></button>`).join("");
-  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{page=b.dataset.page;$("#sidebar").classList.remove("open");render()});
+  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.page));
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
@@ -78,37 +104,41 @@ function matchCard(m){
     <div class="actions" style="margin-top:12px">${scoreBtn}<button class="mini" data-match-detail="${m.id}">Chi tiết</button></div>
   </div>`;
 }
-function dashboard(){
+async function dashboard(){
   const live=state.matches.filter(m=>m.status==="live").length,done=state.matches.filter(m=>m.status==="done").length;
-  const next=state.matches.find(m=>m.status!=="done");
-  setHeader("Tổng quan","Điều hành giải đấu theo thời gian thực");
-  return `<section class="admin-app-hero">
-    <div class="admin-app-hero-copy">
-      <span class="admin-app-overline">TOURNAMENT CONTROL</span>
-      <h2>${live?live+" trận đang live":"Sẵn sàng vận hành"}</h2>
-      <p>${next?`${next.stage} • ${next.time} • Sân ${next.court}`:"Chưa có trận sắp tới"}</p>
-    </div>
-    <div class="admin-app-live-orb"><span>${live}</span><small>LIVE</small></div>
+  const clubRole=["super_admin","organizer","finance","club_manager"].includes(user?.role);
+  const [report,events]=clubRole?await Promise.all([API.reportOverview().catch(()=>({})),API.clubEvents().catch(()=>[])]):[{},[]];
+  const nextMatch=state.matches.find(m=>m.status!=="done"),nextEvent=events.find(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date());
+  setHeader("Trang chủ","Lịch, thành viên, điểm danh, thu chi và thi đấu trong một màn hình");
+  const allowed=new Set(visibleNav().map(n=>n[0]));
+  const quick=[
+    ["club_events","calendar","Lịch hoạt động","Social, tập luyện, giao hữu"],
+    ["players","users","Thành viên","Hồ sơ VĐV trong CLB"],
+    ["club_attendance","checkin","Điểm danh","Có mặt theo từng buổi"],
+    ["treasury","payment","Thu chi","Quỹ và lịch sử giao dịch"],
+    ["matches","calendar","Lịch trận","Điều phối giải đấu"],
+    ["scores","score","Nhập điểm","Courtside scoring"],
+    ["payments","payment","Phí giải","Đối soát đăng ký"]
+  ].filter(x=>allowed.has(x[0])).slice(0,4);
+  const metricHtml=user?.role==="referee"?`
+    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>TRẬN ĐƯỢC GÁN</small><strong>${state.matches.length}</strong><p>Trong phạm vi tài khoản</p></div></article>
+    <article><span class="metric-icon score">${iconSvg("score")}</span><div><small>ĐANG LIVE</small><strong>${live}</strong><p>Cần theo dõi</p></div></article>
+    <article><span class="metric-icon standings">${iconSvg("standings")}</span><div><small>HOÀN TẤT</small><strong>${done}</strong><p>Đã chốt kết quả</p></div></article>
+    <article><span class="metric-icon court">${iconSvg("court")}</span><div><small>SÂN LIÊN QUAN</small><strong>${state.courts.length}</strong><p>Theo phân công</p></div></article>`:`
+    <article><span class="metric-icon users">${iconSvg("users")}</span><div><small>THÀNH VIÊN</small><strong>${Number(report.members??report.players??0)}</strong><p>Hồ sơ hoạt động</p></div></article>
+    <article><span class="metric-icon checkin">${iconSvg("checkin")}</span><div><small>ĐIỂM DANH HÔM NAY</small><strong>${Number(report.attendanceToday||0)}</strong><p>Lượt có mặt</p></div></article>
+    <article><span class="metric-icon payment">${iconSvg("payment")}</span><div><small>SỐ DƯ QUỸ</small><strong>${Number(report.clubBalance||0).toLocaleString("vi-VN")}<em> đ</em></strong><p>Thu trừ chi</p></div></article>
+    <article><span class="metric-icon calendar">${iconSvg("calendar")}</span><div><small>HOẠT ĐỘNG SẮP TỚI</small><strong>${Number(report.upcomingActivities||0)}</strong><p>Lịch CLB</p></div></article>`;
+  const scheduleHtml=clubRole?events.filter(e=>e.status!=="cancelled").slice(0,5).map(e=>`<button class="club-event-home-row" data-home-event="${e.id}"><span class="club-event-date"><b>${new Date(e.start_at).toLocaleDateString("vi-VN",{day:"2-digit"})}</b><small>${new Date(e.start_at).toLocaleDateString("vi-VN",{month:"2-digit"})}</small></span><span><strong>${e.title}</strong><small>${new Date(e.start_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})} • ${e.venue||e.club_name||"CLB"}</small></span><em>${Number(e.participants||0)} người</em></button>`).join(""):state.matches.filter(m=>m.status!=="done").slice(0,5).map(matchCard).join("");
+  return `<section class="club-home-hero">
+    <div><span class="admin-app-overline">PICKLE TOUR • CLUB OPERATIONS</span><h2>${user?.name||"Quản trị viên"}</h2><p>${nextEvent?`${nextEvent.title} • ${new Date(nextEvent.start_at).toLocaleString("vi-VN",{dateStyle:"short",timeStyle:"short"})}`:nextMatch?`${nextMatch.stage} • ${nextMatch.time} • Sân ${nextMatch.court}`:"Hệ thống sẵn sàng vận hành"}</p></div>
+    <div class="club-home-live"><i></i><strong>${live}</strong><span>LIVE</span></div>
   </section>
-  <div class="admin-quick-grid">
-    <button data-goto="scores"><span>${iconSvg("score")}</span><b>Nhập điểm</b><small>Score console</small></button>
-    <button data-goto="matches"><span>${iconSvg("calendar")}</span><b>Lịch đấu</b><small>Điều phối sân</small></button>
-    <button data-goto="players"><span>${iconSvg("users")}</span><b>VĐV</b><small>Hồ sơ & rating</small></button>
-    <button data-goto="tournaments"><span>${iconSvg("trophy")}</span><b>Giải đấu</b><small>Quản lý giải</small></button>
-  </div>
-  <div class="kpis">
-    <div class="kpi"><span class="label">GIẢI</span><strong>${state.tournaments.length}</strong><small>${state.tournaments.filter(t=>t.status==="live").length} đang live</small></div>
-    <div class="kpi"><span class="label">LIVE</span><strong>${live}</strong><small>${done} trận hoàn tất</small></div>
-    <div class="kpi"><span class="label">ĐỘI / CẶP</span><strong>${state.teams.length}</strong><small>Đang quản lý</small></div>
-    <div class="kpi"><span class="label">AUDIT</span><strong>${state.audit.length}</strong><small>Sự kiện gần nhất</small></div>
-  </div>
-  <div class="grid-2">
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Live Center</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="scores">Mở console</button></div>
-      ${state.matches.filter(m=>m.status!=="done").slice(0,6).map(matchCard).join("")||'<div class="empty">Chưa có trận.</div>'}
-    </div>
-    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động</h2><p>Nhật ký gần đây</p></div></div>
-      <div class="activity-feed">${state.audit.slice(0,8).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Chưa có thao tác.</div>'}</div>
-    </div>
+  <div class="club-home-actions">${quick.map(([id,ico,label,sub])=>`<button data-goto="${id}"><span>${iconSvg(ico)}</span><b>${label}</b><small>${sub}</small></button>`).join("")||'<div class="empty">Không có thao tác nhanh cho vai trò này.</div>'}</div>
+  <div class="club-home-metrics">${metricHtml}</div>
+  <div class="grid-2 club-home-grid">
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>${clubRole?"Lịch CLB sắp tới":"Lịch thi đấu"}</h2><p>${clubRole?"Hoạt động của thành viên":"Trận đang diễn ra và chờ thi đấu"}</p></div>${allowed.has(clubRole?"club_events":"matches")?`<button class="mini" data-goto="${clubRole?"club_events":"matches"}">Xem tất cả</button>`:""}</div>${scheduleHtml||'<div class="empty">Chưa có lịch.</div>'}</div>
+    <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div><div class="activity-feed">${state.audit.slice(0,7).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Không có log quản trị trong phạm vi tài khoản.</div>'}</div></div>
   </div>`;
 }
 function tournamentCard(t){
@@ -124,11 +154,11 @@ function tournaments(){
 }
 async function players(){
   setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
-  const roster=canManage()?await API.players().catch(()=>[]):[];
+  const roster=canRoster()?await API.players().catch(()=>[]):[];
   return `<div class="panel" style="margin-bottom:16px">
-    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button><button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>':""}</div>
+    <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':""}<button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>`:""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canManage()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}</td></tr>`).join("")}
+      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button><button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>':""}</div>
@@ -175,15 +205,30 @@ async function refereesPage(){
   if(!canReferees())return '<div class="panel empty">Chỉ Super Admin được quản lý tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
   return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${r.display_name}</b></td><td>${r.email}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="4">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
+  </div>`;
+}
+async function accountsPage(){
+  setHeader("Tài khoản & phân quyền","Tạo nhiều tài khoản con và giới hạn quyền ở server");
+  if(!canAccounts())return '<div class="panel empty">Tài khoản phân quyền chỉ khả dụng trên hệ thống backend bảo mật.</div>';
+  const rows=await API.users().catch(()=>[]);
+  const owner=rows.filter(x=>x.role==="super_admin"),children=rows.filter(x=>x.role!=="super_admin");
+  return `<div class="panel" style="margin-bottom:12px"><div class="panel-head"><div><h2>Tài khoản chủ</h2><p>Không thể bị tài khoản con chỉnh sửa</p></div></div>
+    ${owner.map(r=>`<div class="account-row account-owner"><div><b>${r.display_name}</b><small>${r.email}</small></div><span class="badge live">SUPER ADMIN</span></div>`).join("")}
+  </div>
+  <div class="panel"><div class="panel-head"><div><h2>Tài khoản con</h2><p>${children.length} tài khoản • phân quyền tại server</p></div><button class="btn primary" data-action="newUser">Tạo tài khoản con</button></div>
+    <div class="role-help"><span><b>BTC giải</b>Vận hành giải, lịch, đăng ký, VĐV, thanh toán và nội dung.</span><span><b>Trọng tài</b>Chỉ thấy các trận được phân công và nhập điểm.</span><span><b>Quản lý CLB</b>Chỉ quản lý hồ sơ VĐV thuộc CLB được gán.</span><span><b>Thu ngân</b>Chỉ đối soát thanh toán và xem báo cáo.</span></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+      ${children.map(r=>`<tr><td><b>${r.display_name}</b>${r.club_name?`<small style="display:block;color:#73847b">${r.club_name}</small>`:""}</td><td>${r.email}</td><td>${roleLabel(r.role)}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có tài khoản con.</td></tr>'}
+    </tbody></table></div>
   </div>`;
 }
 async function payments(){
   setHeader("Thanh toán","Đăng ký giải, phí tham dự và đối soát");
-  if(!canManage())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
+  if(!canFinance())return '<div class="panel empty">Bạn không có quyền quản lý thanh toán.</div>';
   const rows=await API.registrations().catch(()=>[]);
   return `<div class="panel">
-    <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div><button class="btn primary" data-action="newRegistration">Tạo đăng ký</button></div>
+    <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div>${canManage()?'<button class="btn primary" data-action="newRegistration">Tạo đăng ký</button>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Giải</th><th>Nội dung</th><th>Đội</th><th>Số tiền</th><th>Đăng ký</th><th>Thanh toán</th><th>Thao tác</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td>${r.tournament_name}</td><td>${r.division_name}</td><td><b>${r.team_name||"—"}</b></td><td>${r.amount?Number(r.amount).toLocaleString("vi-VN")+" đ":"—"}</td><td>${r.status}</td><td>${r.payment_status}</td><td><div class="actions">${!r.payment_id?`<button class="mini" data-add-payment="${r.id}">Ghi nhận CK</button>`:""}${r.payment_id&&r.payment_review_status==="pending"?`<button class="mini" data-review-payment="${r.payment_id}" data-status="approved">Duyệt</button><button class="mini" data-review-payment="${r.payment_id}" data-status="rejected">Từ chối</button>`:""}</div></td></tr>`).join("")}
     </tbody></table></div>
@@ -203,15 +248,18 @@ function settings(){
 }
 async function render(){
   renderNav();
-  const ctx={API,state,user,setHeader,toast,refresh,canManage};
+  const ctx={API,state,user,setHeader,toast,refresh,canManage,canRoster,canFinance};
   const map={
     dashboard,tournaments,
     registrations:()=>window.AdminModules.registrations(ctx),
     players,
     clubs:()=>window.AdminModules.clubs(ctx),
     matches:()=>matchesPage(false),scores:()=>matchesPage(true),standings,bracket,courts,
+    club_events:()=>window.AdminModules.clubEvents(ctx),
+    club_attendance:()=>window.AdminModules.clubAttendance(ctx),
+    treasury:()=>window.AdminModules.treasury(ctx),
     bookings:()=>window.AdminModules.bookings(ctx),
-    referees:refereesPage,payments,
+    referees:refereesPage,accounts:accountsPage,payments,
     sponsors:()=>window.AdminModules.sponsors(ctx),
     content:()=>window.AdminModules.content(ctx),
     reports:()=>window.AdminModules.reports(ctx),
@@ -239,7 +287,8 @@ function applyMatchFilters(){
   const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
 }
 function bindDynamic(){
-  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{page=b.dataset.goto;render()});
+  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.goto));
+  document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
@@ -253,6 +302,8 @@ function bindDynamic(){
   document.querySelectorAll("[data-avatar-player]").forEach(b=>b.onclick=()=>openAvatarModal(b.dataset.avatarPlayer,b.dataset.avatarName));
   document.querySelectorAll('[data-action="newReferee"]').forEach(b=>b.onclick=openRefereeModal);
   document.querySelectorAll("[data-edit-referee]").forEach(b=>b.onclick=()=>openEditRefereeModal(b.dataset.editReferee));
+  document.querySelectorAll('[data-action="newUser"]').forEach(b=>b.onclick=openUserModal);
+  document.querySelectorAll("[data-edit-user]").forEach(b=>b.onclick=()=>openEditUserModal(b.dataset.editUser));
   document.querySelectorAll('[data-action="newRegistration"]').forEach(b=>b.onclick=openRegistrationModal);
   document.querySelectorAll('[data-action="newMatch"]').forEach(b=>b.onclick=openMatchModal);
   document.querySelectorAll('[data-action="changePassword"]').forEach(b=>b.onclick=openPasswordModal);
@@ -320,9 +371,9 @@ async function undoScore(){
 }
 function openPasswordModal(){
   $("#genericTitle").textContent="Đổi mật khẩu";
-  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mật khẩu hiện tại<input id="pwCurrent" type="password"></label><label class="field full">Mật khẩu mới<input id="pwNew" type="password" minlength="10"></label><label class="field full">Nhập lại mật khẩu mới<input id="pwConfirm" type="password" minlength="10"></label><div class="field full"><button type="button" class="btn primary" id="savePassword">Đổi mật khẩu</button></div></div>`;
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mật khẩu hiện tại<input id="pwCurrent" type="password"></label><label class="field full">Mật khẩu mới<input id="pwNew" type="password" minlength="12"></label><label class="field full">Nhập lại mật khẩu mới<input id="pwConfirm" type="password" minlength="12"></label><div class="field full"><button type="button" class="btn primary" id="savePassword">Đổi mật khẩu</button></div></div>`;
   $("#genericDialog").showModal();
-  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 10 ký tự.":"Không thể đổi mật khẩu.")}};
+  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 12 ký tự.":"Không thể đổi mật khẩu.")}};
 }
 function selectDivisionDialog(title,buttonText,onSubmit){
   if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
@@ -592,7 +643,7 @@ async function openEditRefereeModal(id){
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên<input id="erName" value="${r.display_name||""}"></label>
     <label class="field full">Email<input id="erEmail" type="email" value="${r.email||""}"></label>
-    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="8"></label>
+    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="12"></label>
     <label class="field full"><span><input id="erActive" type="checkbox" ${r.active?"checked":""}> Tài khoản hoạt động</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveRefereeEdit">Lưu</button></div>
   </div>`;
@@ -605,19 +656,61 @@ async function openEditRefereeModal(id){
 }
 function openRefereeModal(){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
-  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email"></label><label class="field full">Mật khẩu tạm<input id="rPassword" type="password" minlength="8"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
-  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast("Không thể tạo: "+e.message)}};
+  $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email" autocomplete="off"></label><label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="rPassword" type="password" minlength="12" autocomplete="new-password"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
+  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast(e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu phải từ 12 ký tự.":"Không thể tạo: "+e.message)}};
+}
+async function openUserModal(){
+  const clubs=await API.clubs().catch(()=>[]);
+  $("#genericTitle").textContent="Tạo tài khoản con";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Tên hiển thị<input id="uName" autocomplete="off"></label>
+    <label class="field full">Email đăng nhập<input id="uEmail" type="email" autocomplete="off"></label>
+    <label class="field full">Vai trò<select id="uRole"><option value="organizer">BTC giải</option><option value="referee">Trọng tài</option><option value="club_manager">Quản lý CLB</option><option value="finance">Thu ngân</option></select></label>
+    <label class="field full" id="uClubWrap" hidden>CLB được quản lý<select id="uClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label>
+    <label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="uPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Tài khoản con không thể tự nâng lên Super Admin. Quản lý CLB chỉ truy cập CLB được gán; Thu ngân chỉ truy cập thanh toán và báo cáo.</span></div>
+    <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uClubWrap").firstChild.textContent=r==="finance"?"CLB giới hạn (để trống = toàn hệ thống)":"CLB được quản lý"};$("#uRole").onchange=syncRole;syncRole();
+  $("#saveUser").onclick=async()=>{try{
+    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,clubId:["club_manager","finance"].includes($("#uRole").value)?($("#uClub").value||null):null,password:$("#uPassword").value});
+    $("#genericDialog").close();await render();toast("Đã tạo tài khoản con.");
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
+}
+async function openEditUserModal(id){
+  const [rows,clubs]=await Promise.all([API.users().catch(()=>[]),API.clubs().catch(()=>[])]);
+  const r=rows.find(x=>x.id===id);if(!r||r.role==="super_admin")return;
+  $("#genericTitle").textContent="Sửa tài khoản con";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Tên hiển thị<input id="euName" value="${r.display_name||""}"></label>
+    <label class="field full">Email<input id="euEmail" type="email" value="${r.email||""}"></label>
+    <label class="field full">Vai trò<select id="euRole"><option value="organizer" ${r.role==="organizer"?"selected":""}>BTC giải</option><option value="referee" ${r.role==="referee"?"selected":""}>Trọng tài</option><option value="club_manager" ${r.role==="club_manager"?"selected":""}>Quản lý CLB</option><option value="finance" ${r.role==="finance"?"selected":""}>Thu ngân</option></select></label>
+    <label class="field full" id="euClubWrap" ${r.role==="club_manager"?"":"hidden"}>CLB được quản lý<select id="euClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}" ${x.id===r.club_id?"selected":""}>${x.name}</option>`).join("")}</select></label>
+    <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="euPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <label class="field full"><span><input id="euActive" type="checkbox" ${r.active?"checked":""}> Cho phép đăng nhập</span></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  const syncRole=()=>{const r=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#euClubWrap").firstChild.textContent=r==="finance"?"CLB giới hạn (để trống = toàn hệ thống)":"CLB được quản lý"};$("#euRole").onchange=syncRole;syncRole();
+  $("#saveUserEdit").onclick=async()=>{try{
+    const password=$("#euPassword").value;
+    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role:$("#euRole").value,clubId:["club_manager","finance"].includes($("#euRole").value)?($("#euClub").value||null):null,active:$("#euActive").checked,...(password?{password}:{})});
+    $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");
+$("#changePasswordBtn")?.addEventListener("click",openPasswordModal);
 $("#quickTournament").onclick=()=>canManage()?openTournamentModal():toast("Bạn không có quyền tạo giải.");
 $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href=location.pathname.includes("/preview/")?"index.html":"/login"};
 
 (async function boot(){
   try{
-    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);
+    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);$("#quickTournament").hidden=!canManage();
     if(user.role==="referee")page="scores";
+    if(user.role==="finance")page="payments";
     state=await API.adminState();await render();
     const socket=window.io?io():null;
     if(socket){

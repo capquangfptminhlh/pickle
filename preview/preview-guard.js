@@ -1,0 +1,1 @@
+if(location.hostname.endsWith(".github.io"))location.replace("login.html");
