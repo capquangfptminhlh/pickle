@@ -19,11 +19,11 @@ export async function sessionUser(req){
   try{claims=jwt.verify(token,secret(),{issuer:"pickle-tour",audience:"pickle-admin"})}
   catch{return null}
   const row=(await pool.query(
-    "select id,email,display_name,role,active from app_users where id=$1",
+    "select id,email,display_name,role,active,club_id from app_users where id=$1",
     [claims.sub]
   )).rows[0];
   if(!row?.active)return null;
-  return {sub:row.id,id:row.id,email:row.email,name:row.display_name,role:row.role};
+  return {sub:row.id,id:row.id,email:row.email,name:row.display_name,role:row.role,clubId:row.club_id||null};
 }
 
 export async function authRequired(req,res,next){
