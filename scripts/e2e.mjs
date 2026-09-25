@@ -25,6 +25,10 @@ async function login(email,password){
 }
 const assert=(v,msg)=>{if(!v)throw new Error("ASSERT: "+msg)};
 
+const loginDoc=await raw("/login");
+const csp=loginDoc.r.headers.get("content-security-policy")||"";
+assert(csp.includes("script-src 'self'")&&!csp.includes("script-src 'self' 'unsafe-inline'"),"CSP blocks inline scripts");
+
 const admin=await login(adminEmail,adminPassword);
 let state=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
 assert(Array.isArray(state.tournaments),"admin state");
