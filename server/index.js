@@ -455,11 +455,11 @@ app.post("/api/players/:id/rating-adjust",authRequired,allow("super_admin","orga
     return {...p,rating:after};
   });res.json(row);
 }));
-app.get("/api/clubs",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
-  if(req.user.role==="club_manager"){
-    if(!req.user.clubId)return res.json([]);
+app.get("/api/clubs",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+  if(["club_manager","finance"].includes(req.user.role)&&req.user.clubId){
     const {rows}=await pool.query("select * from clubs where id=$1",[req.user.clubId]);return res.json(rows);
   }
+  if(req.user.role==="club_manager")return res.json([]);
   const {rows}=await pool.query("select * from clubs order by name");res.json(rows);
 }));
 app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
@@ -1154,7 +1154,7 @@ app.get("/api/club-events",authRequired,allow("super_admin","organizer","club_ma
     left join club_event_attendance a on a.event_id=e.id
     where ($1::uuid is null or e.club_id=$1)
     group by e.id,c.name
-    order by e.start_at desc limit 500
+    order by (e.start_at>=now()) desc,case when e.start_at>=now() then e.start_at end asc,e.start_at desc limit 500
   `,[scope]);
   res.json(rows);
 }));
