@@ -362,7 +362,7 @@ app.get("/api/checkin/:token",wrap(async(req,res)=>{
   if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
 }));
 
-app.get("/api/admin/state",authRequired,wrap(async(req,res)=>res.json(await loadState())));
+app.get("/api/admin/state",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>res.json(await loadState())));
 
 app.get("/api/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {rows}=await pool.query(`
