@@ -57,7 +57,7 @@ await Promise.all([
 await page.waitForLoadState("networkidle");
 if(!(await page.locator("#nav").isVisible()))failures.push({label:"prod admin",errors:["admin nav not visible"]});
 
-for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
+for(const id of ["dashboard","club_events","players","clubs","club_attendance","treasury","tournaments","registrations","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
   const b=page.locator('[data-page="'+id+'"]');
   if(await b.count()){
     await b.click();
@@ -139,7 +139,9 @@ for(const [pid,selector,label] of [
   ["clubs",'[data-module-action="new-club"]',"prod create club"],
   ["bookings",'[data-module-action="new-booking"]',"prod create booking"],
   ["sponsors",'[data-module-action="new-sponsor"]',"prod create sponsor"],
-  ["content",'[data-module-action="new-post"]',"prod create post"]
+  ["content",'[data-module-action="new-post"]',"prod create post"],
+  ["club_events",'[data-club-action="new-event"]',"prod create club activity"],
+  ["treasury",'[data-club-action="new-transaction"]',"prod create treasury transaction"]
 ])await modalSmoke(page,pid,selector,label);
 
 const scoreBtn=page.locator("[data-score-match]").first();
@@ -172,7 +174,7 @@ if(await link.count()){
 await goto(ppage,preview+"/checkin.html","preview checkin");
 await goto(ppage,preview+"/admin.html","preview admin");
 const initialLocalState=await ppage.evaluate(async()=>await window.PickleAPI.adminState());
-if(["tournaments","divisions","courts","clubs","players","teams","matches","registrations","sponsors","posts","bookings"].some(k=>(initialLocalState[k]||[]).length)){
+if(["tournaments","divisions","courts","clubs","players","teams","matches","registrations","sponsors","posts","bookings","clubEvents","clubTransactions"].some(k=>(initialLocalState[k]||[]).length)){
   failures.push({label:"preview clean start",errors:["Pages app must start without seeded mock data"]});
 }
 // Create temporary browser-local records only for UI smoke coverage. These never ship as app data.
@@ -180,6 +182,11 @@ await ppage.evaluate(async()=>{
   const created=await window.PickleAPI.createTournament({name:"UI Smoke Tournament",venue:"CI",eventType:"doubles"});
   const did=created.division.id,tid=created.tournament.id;
   const court=await window.PickleAPI.createCourt(tid,{name:"UI Court"});
+  const club=await window.PickleAPI.createClub({name:"UI Club",city:"HCMC"});
+  const player=await window.PickleAPI.createPlayer({fullName:"UI Player",clubId:club.id,rating:3});
+  const event=await window.PickleAPI.createClubEvent({clubId:club.id,title:"UI Social",eventType:"social",venue:"UI Court",startAt:new Date(Date.now()+3600000).toISOString(),endAt:new Date(Date.now()+7200000).toISOString()});
+  await window.PickleAPI.addClubAttendance(event.id,player.id);
+  await window.PickleAPI.createClubTransaction({clubId:club.id,direction:"income",category:"membership",amount:100000,note:"UI test"});
   const a=await window.PickleAPI.createTeam(did,{name:"UI Team A",group:"A",seed:1});
   const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2});
   await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
@@ -204,7 +211,9 @@ for(const [pid,selector,label] of [
   ["clubs",'[data-module-action="new-club"]',"preview create club"],
   ["bookings",'[data-module-action="new-booking"]',"preview create booking"],
   ["sponsors",'[data-module-action="new-sponsor"]',"preview create sponsor"],
-  ["content",'[data-module-action="new-post"]',"preview create post"]
+  ["content",'[data-module-action="new-post"]',"preview create post"],
+  ["club_events",'[data-club-action="new-event"]',"preview create club activity"],
+  ["treasury",'[data-club-action="new-transaction"]',"preview create treasury transaction"]
 ])await modalSmoke(ppage,pid,selector,label);
 
 const pscore=ppage.locator("[data-score-match]").first();
