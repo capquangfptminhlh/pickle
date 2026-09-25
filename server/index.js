@@ -1225,7 +1225,7 @@ app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_
   if(!["registered","attended","absent","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
   const row=(await pool.query(`
     update club_event_attendance set status=$1,checked_in_at=case when $1='attended' then coalesce(checked_in_at,now()) else null end,
-      checked_in_by=case when $1='attended' then $2 else null end
+      checked_in_by=case when $1='attended' then $2::uuid else null::uuid end
     where event_id=$3 and player_id=$4 returning *
   `,[status,req.user.sub,event.id,req.params.playerId])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});
