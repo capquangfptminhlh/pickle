@@ -5,7 +5,7 @@ create table if not exists app_users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   display_name text not null,
-  role text not null check (role in ('super_admin','organizer','referee','club_manager','player')),
+  role text not null check (role in ('super_admin','organizer','referee','club_manager','finance','player')),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -17,6 +17,12 @@ create table if not exists clubs (
   city text,
   created_at timestamptz not null default now()
 );
+
+-- Account scoping for delegated club managers.
+alter table app_users add column if not exists club_id uuid references clubs(id) on delete set null;
+alter table app_users drop constraint if exists app_users_role_check;
+alter table app_users add constraint app_users_role_check
+  check (role in ('super_admin','organizer','referee','club_manager','finance','player'));
 
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
