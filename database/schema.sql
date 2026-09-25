@@ -290,3 +290,47 @@ alter table matches add column if not exists result_reason text;
 alter table matches add column if not exists result_note text;
 alter table matches add column if not exists loser_next_match_id uuid references matches(id) on delete set null;
 alter table matches add column if not exists loser_next_match_side text check (loser_next_match_side in ('A','B'));
+
+
+-- Club operations: activities, attendance and treasury
+create table if not exists club_events (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references clubs(id) on delete cascade,
+  title text not null,
+  event_type text not null default 'social' check (event_type in ('social','training','match','meeting','other')),
+  venue text,
+  start_at timestamptz not null,
+  end_at timestamptz,
+  max_participants integer check (max_participants is null or max_participants > 0),
+  fee numeric(14,2) not null default 0 check (fee >= 0),
+  status text not null default 'scheduled' check (status in ('scheduled','live','completed','cancelled')),
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (end_at is null or end_at > start_at)
+);
+create index if not exists idx_club_events_club_start on club_events(club_id,start_at desc);
+
+create table if not exists club_event_attendance (
+  event_id uuid not null references club_events(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  status text not null default 'registered' check (status in ('registered','attended','absent','cancelled')),
+  checked_in_at timestamptz,
+  checked_in_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key(event_id,player_id)
+);
+create index if not exists idx_club_attendance_player on club_event_attendance(player_id);
+
+create table if not exists club_transactions (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references clubs(id) on delete cascade,
+  direction text not null check (direction in ('income','expense')),
+  category text not null default 'other',
+  amount numeric(14,2) not null check (amount > 0),
+  note text,
+  occurred_at timestamptz not null default now(),
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_club_transactions_club_date on club_transactions(club_id,occurred_at desc);
