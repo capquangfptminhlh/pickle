@@ -1,10 +1,11 @@
-const VERSION="pickle-tour-v9-ranking-mobile-fix-20260924";
+const VERSION="pickle-tour-v10-club-ops-security-20260925";
 const STATIC=[
   "/offline.html",
   "/assets/styles.css",
   "/assets/public.css",
   "/assets/ui-motion.js",
   "/assets/pwa.js",
+  "/assets/login.js",
   "/assets/app-icon.svg"
 ];
 
