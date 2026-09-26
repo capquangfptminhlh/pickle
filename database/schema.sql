@@ -158,6 +158,7 @@ create index if not exists idx_audit_entity on audit_logs(entity_type,entity_id,
 
 -- Production auth/scoring extensions
 alter table app_users add column if not exists password_hash text;
+alter table app_users add column if not exists auth_version integer not null default 0 check (auth_version >= 0);
 alter table app_users add column if not exists tournament_id_scope uuid;
 alter table matches add column if not exists current_score_a smallint not null default 0 check (current_score_a >= 0);
 alter table matches add column if not exists current_score_b smallint not null default 0 check (current_score_b >= 0);
