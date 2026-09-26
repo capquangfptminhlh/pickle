@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v21-female-rating-2";
+const VERSION="pickle-pages-v22-image-vision-verified";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
