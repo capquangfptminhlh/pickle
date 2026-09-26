@@ -1,11 +1,13 @@
-const VERSION="pickle-tour-v15-responsive-unified-20260926";
+const VERSION="pickle-tour-v16-desktop-app-hub";
 const STATIC=[
   "/offline.html",
+  "/manifest.webmanifest",
   "/assets/styles.css",
   "/assets/public.css",
   "/assets/ui-motion.js",
   "/assets/pwa.js",
   "/assets/login.js",
+  "/assets/members-binh-loi-data.js",
   "/assets/app-icon.svg"
 ];
 

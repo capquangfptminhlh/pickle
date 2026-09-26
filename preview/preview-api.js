@@ -36,12 +36,105 @@
     state.players.forEach(p=>{if(!p.avatar_url)p.avatar_url=svgAvatar(p.full_name||"Player")});
     localStorage.setItem(KEY,JSON.stringify(state));
   }
-  const persist=()=>{localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
+  const ensureBinhLoiSeed=()=>{
+    const members=typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS;
+    if(!members||!Array.isArray(members)||!members.length)return;
+    let club=state.clubs.find(c=>c.name==="CLB Pickleball Bình Lợi");
+    if(!club){
+      club={id:"club-binh-loi",name:"CLB Pickleball Bình Lợi",city:"TP.HCM",active:true};
+      state.clubs.push(club);
+    }
+    const playerMap=new Map(state.players.map(p=>[p.full_name.toLowerCase(),p]));
+    let added=0;
+    for(const r of members){
+      const name=String(r.fullName||"").trim();if(!name)continue;
+      const lName=name.toLowerCase(),p=playerMap.get(lName);
+      if(p){
+        if(r.avatarUrl&&(!p.avatar_url||!p.avatar_url.startsWith("http"))){p.avatar_url=r.avatarUrl;added++;}
+        if(Number(r.rating)&&p.rating!==Number(r.rating)){p.rating=Number(r.rating);added++;}
+        if(r.role&&r.role!=="Thành viên"&&!p.nickname){p.nickname=r.role;added++;}
+      }else{
+        const newP={
+          id:r.zaloId?("zl-"+r.zaloId):uid(),
+          full_name:name,
+          nickname:r.role&&r.role!=="Thành viên"?r.role:"",
+          gender:null,
+          rating:Number(r.rating)||3.0,
+          phone:r.phone||"",
+          club_id:club.id,
+          club_name:club.name,
+          active:true,
+          avatar_url:r.avatarUrl||svgAvatar(name)
+        };
+        state.players.push(newP);playerMap.set(lName,newP);added++;
+      }
+    }
+    if(!state.tournaments.length){
+      const tid="tour-binh-loi-open",did="div-binh-loi-open";
+      state.tournaments.push({
+        id:tid,name:"Giải Pickleball Bình Lợi Open 2026",
+        date:new Date().toLocaleDateString("vi-VN"),
+        startAt:new Date().toISOString(),endAt:null,
+        venue:"171/4 Bình Lợi, P.13, Q.Bình Thạnh, TP.HCM",
+        format:"Đôi & Đồng đội MLP",status:"live",publicVisible:true,teams:4
+      });
+      state.divisions.push({
+        id:did,tournamentId:tid,name:"Đôi Nam Nữ Phong Trào",
+        eventType:"doubles",format:"pool_to_knockout",
+        bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true
+      });
+      state.courts.push(
+        {id:"court-bl-1",tournamentId:tid,name:"Sân 1",sortOrder:1,active:true},
+        {id:"court-bl-2",tournamentId:tid,name:"Sân 2",sortOrder:2,active:true}
+      );
+      const samplePairs=[["Pickleball Bình Lợi","Tấn Luân"],["Đạt Khoa","Nguyễn Đình Lưu"],["Stella Nguyen","Duy Long"],["Huỳnh Như","Hằng Blue"]];
+      samplePairs.forEach(([p1Name,p2Name],idx)=>{
+        const teamId="team-bl-"+(idx+1),group=idx<2?"A":"B";
+        state.teams.push({
+          id:teamId,divisionId:did,name:`${p1Name} / ${p2Name}`,
+          club:club.name,clubId:club.id,group,seed:idx+1,status:"active",
+          w:0,l:0,sw:0,sl:0,pf:0,pa:0,diffSet:0,diffPts:0
+        });
+        const p1=state.players.find(p=>p.full_name.toLowerCase().includes(p1Name.toLowerCase()));
+        const p2=state.players.find(p=>p.full_name.toLowerCase().includes(p2Name.toLowerCase()));
+        state.teamPlayers[teamId]=[p1?.id,p2?.id].filter(Boolean);
+      });
+      added++;
+    }
+    if(added>0){
+      localStorage.setItem(KEY,JSON.stringify(state));
+    }
+  };
+  ensureBinhLoiSeed();
+  if(typeof window!=="undefined"){
+    window.addEventListener("DOMContentLoaded",ensureBinhLoiSeed);
+  }
+  const recomputeStats=()=>{
+    const stats=new Map(state.teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
+    const isGroupMatch=m=>!m.bracketSlot&&((m.stage&&m.stage.startsWith("Bảng"))||/bảng|group|vòng bảng/i.test(m.stage||"")||!/chung kết|bán kết|tứ kết/i.test(m.stage||""));
+    for(const m of (state.matches||[]).filter(x=>(x.status==="done"||x.status==="completed")&&isGroupMatch(x)&&x.winner)){
+      const ms=m.sets||[];let ap=0,bp=0,asw=0,bsw=0;
+      for(const [a,b] of ms){
+        ap+=Number(a||0);bp+=Number(b||0);
+        if(Number(a)>Number(b))asw++;else if(Number(b)>Number(a))bsw++;
+      }
+      const sa=stats.get(m.a),sb=stats.get(m.b);
+      if(sa){sa.pf+=ap;sa.pa+=bp;sa.sw+=asw;sa.sl+=bsw;m.winner===m.a?sa.w++:sa.l++}
+      if(sb){sb.pf+=bp;sb.pa+=ap;sb.sw+=bsw;sb.sl+=asw;m.winner===m.b?sb.w++:sb.l++}
+    }
+    state.teams.forEach(t=>{
+      const s=stats.get(t.id)||{w:0,l:0,sw:0,sl:0,pf:0,pa:0};
+      Object.assign(t,{...s,diffSet:s.sw-s.sl,diffPts:s.pf-s.pa});
+    });
+  };
+  recomputeStats();
+  const persist=()=>{recomputeStats();localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
   const api={
     me:async()=>({user:{id:"local-admin",email:"",name:"Quản trị viên",role:"super_admin"}}),
     logout:async()=>({ok:true}),changePassword:async()=>({ok:true}),
-    publicState:async()=>clone(state),
-    adminState:async()=>clone(state),
+    publicState:async()=>{recomputeStats();return clone(state)},
+    submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
+    adminState:async()=>{recomputeStats();return clone(state)},
     publicPlayers:async()=>clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""}))),
     publicClubs:async()=>clone(state.clubs),
     publicPosts:async()=>clone(state.posts.filter(x=>x.status==="published")),
@@ -62,7 +155,7 @@
       return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:"TP.HCM"},stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},teams:myTeams.map(tid=>{const team=state.teams.find(t=>t.id===tid),division=state.divisions.find(d=>d.id===team?.divisionId),tournament=state.tournaments.find(t=>t.id===division?.tournamentId);return {id:tid,tournament_id:tournament?.id||null,tournament_name:tournament?.name||"",division_name:division?.name||"",start_at:tournament?.startAt||null}}),partners:partnerIds.map(pid=>{const x=state.players.find(p=>p.id===pid);return {id:x.id,full_name:x.full_name,avatar_url:x.avatar_url,rating:x.rating,club_name:x.club_name}}),matches,ratingHistory:clone(state.ratingHistory[id]||[])};
     },
     players:async()=>clone(state.players),clubs:async()=>clone(state.clubs),
-    importPlayers:async rows=>{let created=0;for(const r of rows){const name=String(r.fullName||r.name||"").trim();if(!name)continue;let club=state.clubs.find(c=>c.name.toLowerCase()===String(r.club||"").trim().toLowerCase());if(!club&&r.club){club={id:uid(),name:r.club,city:"",active:true};state.clubs.push(club)}state.players.push({id:uid(),full_name:name,nickname:r.nickname||"",gender:["male","female","other"].includes(r.gender)?r.gender:null,rating:Number(r.rating)||3,phone:r.phone||"",club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(name)});created++}persist();return {created}},
+    importPlayers:async rows=>{let created=0;const playerMap=new Map(state.players.map(x=>[x.full_name.toLowerCase(),x])),clubMap=new Map(state.clubs.map(c=>[c.name.toLowerCase(),c]));for(const r of rows){const name=String(r.fullName||r.name||"").trim();if(!name)continue;const avatar=String(r.avatarUrl||r.avatar_url||r.avatar||"").trim(),lName=name.toLowerCase();let p=playerMap.get(lName);if(p){if(avatar)p.avatar_url=avatar;created++;continue;}const cName=String(r.club||"").trim();let club=cName?clubMap.get(cName.toLowerCase()):null;if(!club&&cName){club={id:uid(),name:cName,city:"",active:true};state.clubs.push(club);clubMap.set(cName.toLowerCase(),club)}const newP={id:uid(),full_name:name,nickname:r.nickname||"",gender:["male","female","other"].includes(r.gender)?r.gender:null,rating:Number(r.rating)||3,phone:r.phone||"",club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:avatar||svgAvatar(name)};state.players.push(newP);playerMap.set(lName,newP);created++}persist();return {created}},
     importTeams:async(did,rows)=>{let created=0,linkedPlayers=0;for(const r of rows){const name=String(r.name||"").trim();if(!name)continue;let club=state.clubs.find(c=>c.name.toLowerCase()===String(r.club||"").trim().toLowerCase());if(!club&&r.club){club={id:uid(),name:r.club,city:"",active:true};state.clubs.push(club)}const id=uid(),t={id,divisionId:did,name,club:club?.name||"Tự do",clubId:club?.id||null,group:r.group||"A",seed:Number(r.seed)||null,status:"active",w:0,l:0,pf:0,pa:0};state.teams.push(t);state.teamPlayers[id]=[];for(const pn of [r.player1,r.player2,r.player3,r.player4].filter(Boolean)){let p=state.players.find(x=>x.full_name.toLowerCase()===String(pn).trim().toLowerCase());if(!p){p={id:uid(),full_name:String(pn).trim(),nickname:"",gender:null,rating:3,club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(String(pn).trim())};state.players.push(p)}state.teamPlayers[id].push(p.id);linkedPlayers++}created++}persist();return {created,linkedPlayers}},
     uploadReceipt:async file=>({url:await fileData(file)}),
     uploadImage:async file=>({url:await fileData(file)}),
@@ -98,6 +191,7 @@
     point:async(id,p)=>{const m=state.matches.find(x=>x.id===id),i=p.side==="A"?0:1;m.current[i]=Math.max(0,m.current[i]+Number(p.delta));m.status="live";m.version++;persist();return clone(m)},
     finishSet:async id=>{const m=state.matches.find(x=>x.id===id);m.sets.push([...m.current]);m.current=[0,0];m.version++;persist();return clone(m)},
     finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;persist();return clone(m)},
+    quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;persist();return clone(m)},
     specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),createReferee:async p=>{const r={id:uid(),email:p.email,display_name:p.name,active:true};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active});persist();return clone(r)},

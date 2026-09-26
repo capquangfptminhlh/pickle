@@ -3,23 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pickle Tour">
+  <link rel="apple-touch-icon" href="../assets/app-icon.svg">
   <meta name="theme-color" content="#0b7a4b">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
-  <title>Pickle Tour — Giải đấu, Live Score & Ranking</title>
-  <meta name="description" content="Theo dõi giải pickleball, lịch thi đấu, live score, bảng xếp hạng và bracket.">
+  <title>Pickle Tour — Cộng đồng & Giải đấu Pickleball</title>
+  <meta name="description" content="Cộng đồng pickleball: giải đấu, live score, bảng xếp hạng, người chơi và hoạt động thể thao trong một ứng dụng.">
   <link rel="stylesheet" href="../assets/styles.css">  <link rel="stylesheet" href="../assets/public.css">
 </head>
 <body class="public-body">
   <header class="public-header">
     <div class="public-container public-nav">
-      <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
-      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="ranking.html">Ranking</a><a href="#bracket">Bracket</a><a href="about.html">Giới thiệu</a></nav>
+      <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>CỘNG ĐỒNG PICKLEBALL</small></span></a>
+      <nav><a href="#news">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">BXH</a><a href="#top-players">Người chơi</a><a href="#live">Live</a></nav>
       <a class="btn primary" href="login.html">Đăng nhập quản trị</a>
     </div>
   </header>
 
   <main>
+    <section class="desktop-app-hub" aria-label="Tổng quan Pickle Tour">
+      <div class="public-container">
+        <div class="desktop-commandbar">
+          <div class="desktop-command-title"><span class="desktop-online-dot"></span><b>Pickle Tour</b><span>Cộng đồng pickleball</span></div>
+          <div class="desktop-command-actions">
+            <a href="#news">Bài viết</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">Bảng xếp hạng</a><a class="desktop-submit" href="submit-tournament.html">＋ Đăng giải</a>
+          </div>
+        </div>
+        <div class="desktop-bento">
+          <article class="desktop-hero-card">
+            <div class="desktop-hero-copy">
+              <span class="desktop-kicker">PICKLEBALL COMMUNITY APP</span>
+              <h1>Kết nối. Thi đấu.<br><em>Chơi cùng cộng đồng.</em></h1>
+              <p>Theo dõi giải đấu, live score, bảng xếp hạng và người chơi trong một trải nghiệm thống nhất như ứng dụng.</p>
+              <div class="desktop-hero-actions"><a href="#tournaments">Khám phá giải đấu</a><a href="#news">Vào cộng đồng</a></div>
+            </div>
+            <div class="desktop-sport-art" aria-hidden="true"><span class="sport-ball"></span><span class="sport-paddle">P</span><i></i></div>
+          </article>
+          <aside class="desktop-today-card">
+            <div class="desktop-today-head"><div><small>HÔM NAY</small><h2>Hoạt động nổi bật</h2></div><span class="desktop-live-badge"><i></i> LIVE</span></div>
+            <div class="desktop-stat-grid">
+              <a href="#live"><span>Đang live</span><strong id="desktopLiveCount">0</strong><small>trận</small></a>
+              <a href="#tournaments"><span>Giải đấu</span><strong id="desktopTournamentCount">0</strong><small>giải</small></a>
+              <a href="#top-players"><span>Người chơi</span><strong id="desktopPlayerCount">0</strong><small>hồ sơ</small></a>
+              <a href="#news"><span>Bài viết</span><strong id="desktopPostCount">0</strong><small>cập nhật</small></a>
+            </div>
+            <a class="desktop-featured-row" href="#tournaments"><span><small>GIẢI NỔI BẬT</small><strong id="desktopFeaturedName">Chưa có giải đang mở</strong></span><b>›</b></a>
+          </aside>
+        </div>
+      </div>
+    </section>
     <section class="mobile-app-dashboard">
       <div class="public-container">
         <div class="mobile-app-status-card">
@@ -60,7 +96,7 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><p>Đang diễn ra, sắp mở và đã kết thúc.</p></div>
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
@@ -110,6 +146,7 @@
 
   <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span></div></footer>
   
+  <script src="../assets/members-binh-loi-data.js"></script>
   <script src="preview-api.js"></script>
   <script src="../assets/bracket-ui.js"></script>
   <script src="preview-public.js"></script>
