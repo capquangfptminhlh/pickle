@@ -251,6 +251,19 @@ for(const mode of ["player","club","area"]){
   if(!(await ppage.locator("#rankingRows .ranking-app-row").count()))failures.push({label:"preview ranking modes",errors:[mode+" ranking has no populated rows"]});
 }
 
+await goto(ppage,preview+"/admin.html","preview populated admin return");
+await ppage.setViewportSize({width:390,height:844});
+for(const id of ["dashboard","club_events","players","clubs","club_attendance","treasury","tournaments","registrations","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
+  const b=ppage.locator('[data-page="'+id+'"]');
+  if(!(await b.count()))continue;
+  await b.evaluate(el=>el.click());await ppage.waitForTimeout(90);
+  const overflow=await ppage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+  if(overflow)failures.push({label:"preview mobile admin "+id,errors:["page has horizontal overflow"]});
+  if(!(await ppage.locator("#content").innerText()).trim())failures.push({label:"preview mobile admin "+id,errors:["empty mobile content"]});
+}
+const previewScoresNav=ppage.locator('[data-page="scores"]');
+if(await previewScoresNav.count())await previewScoresNav.evaluate(el=>el.click());
+await ppage.waitForTimeout(100);
 const pscore=ppage.locator("[data-score-match]").first();
 if(await pscore.count()){
   await pscore.click();
