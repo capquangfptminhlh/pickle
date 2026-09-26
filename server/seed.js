@@ -6,6 +6,7 @@ async function seedAdmin(){
   const email=process.env.ADMIN_EMAIL;
   const password=process.env.ADMIN_PASSWORD;
   if(!email||!password)return;
+  if(String(password).length<12)throw new Error("ADMIN_PASSWORD must be at least 12 characters");
   const passwordHash=await hashPassword(password);
   await pool.query(`
     insert into app_users(email,display_name,role,password_hash)
@@ -100,6 +101,6 @@ async function seedDemo(){
 }
 
 await seedAdmin();
-await seedDemo();
+if(process.env.NODE_ENV==="test"||process.env.SEED_DEMO==="true")await seedDemo();
 console.log("seed complete");
 await pool.end();
