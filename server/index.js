@@ -628,10 +628,14 @@ app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),w
 }));
 
 app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const {name,club,group="A",seed}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const {name,club,clubId:requestedClubId,group="A",seed}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   const row=await tx(async c=>{
     let clubId=null;
-    if(club){
+    if(requestedClubId){
+      const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
+      if(!cr)throw Object.assign(new Error("INVALID_CLUB"),{status:400});
+      clubId=cr.id;
+    }else if(club){
       let cr=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[club])).rows[0];
       if(!cr)cr=(await c.query("insert into clubs(name,slug) values($1,$2) returning id",[club,slugify(club)+"-"+Date.now().toString().slice(-4)])).rows[0];
       clubId=cr.id;
