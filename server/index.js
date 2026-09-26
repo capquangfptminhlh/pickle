@@ -17,9 +17,11 @@ const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
 const app=express();
 const server=http.createServer(app);
-const publicOrigin=(()=>{try{return process.env.PUBLIC_BASE_URL?new URL(process.env.PUBLIC_BASE_URL).origin:null}catch{return null}})();
+const publicBaseUrl=(()=>{try{return process.env.PUBLIC_BASE_URL?new URL(process.env.PUBLIC_BASE_URL):null}catch{return null}})();
+const publicOrigin=publicBaseUrl?.origin||null;
 const isProduction=process.env.NODE_ENV==="production";
 if(isProduction&&!publicOrigin)throw new Error("PUBLIC_BASE_URL is required in production");
+if(isProduction&&publicBaseUrl.protocol!=="https:")throw new Error("PUBLIC_BASE_URL must use HTTPS in production");
 const authCookieName=isProduction?"__Host-pickle_token":"pickle_token";
 const authCookieOptions={httpOnly:true,sameSite:"strict",secure:isProduction,path:"/",maxAge:12*60*60*1000};
 const io=new SocketServer(server,{cors:publicOrigin?{origin:publicOrigin,credentials:true}:undefined});
@@ -247,28 +249,38 @@ async function authorizeMatch(c,user,m){
   return false;
 }
 
-const loginAttempts=new Map();
-const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_ATTEMPTS=6;
+const loginAttempts=new Map(),loginIpAttempts=new Map();
+const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_ATTEMPTS=6,LOGIN_IP_MAX_ATTEMPTS=30;
 function loginKey(req,email){return String(req.ip||"")+"|"+email}
-function loginBlocked(key){
-  const now=Date.now(),x=loginAttempts.get(key);
-  if(!x||now-x.startedAt>LOGIN_WINDOW_MS){loginAttempts.delete(key);return false}
-  return x.count>=LOGIN_MAX_ATTEMPTS;
+function loginIpKey(req){return String(req.ip||"unknown")}
+function bucketBlocked(map,key,max){
+  const now=Date.now(),x=map.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS){map.delete(key);return false}
+  return x.count>=max;
 }
-function recordLoginFailure(key){
-  const now=Date.now(),x=loginAttempts.get(key);
-  if(!x||now-x.startedAt>LOGIN_WINDOW_MS)loginAttempts.set(key,{count:1,startedAt:now});
-  else{x.count++;loginAttempts.set(key,x)}
+function recordBucketFailure(map,key){
+  const now=Date.now(),x=map.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS)map.set(key,{count:1,startedAt:now});
+  else{x.count++;map.set(key,x)}
 }
+const pruneLoginBuckets=()=>{
+  const cutoff=Date.now()-LOGIN_WINDOW_MS;
+  for(const map of [loginAttempts,loginIpAttempts])for(const [k,v] of map)if(v.startedAt<cutoff)map.delete(k);
+};
+setInterval(pruneLoginBuckets,LOGIN_WINDOW_MS).unref();
+const dummyPasswordHash=await hashPassword("invalid-"+randomUUID());
 app.post("/api/auth/login",wrap(async(req,res)=>{
   const email=String(req.body.email||"").toLowerCase().trim();
   const password=String(req.body.password||"");
   if(!validEmail(email)||!password||password.length>64)return res.status(401).json({error:"INVALID_CREDENTIALS"});
-  const key=loginKey(req,email);
-  if(loginBlocked(key))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
+  const key=loginKey(req,email),ipKey=loginIpKey(req);
+  if(bucketBlocked(loginAttempts,key,LOGIN_MAX_ATTEMPTS)||bucketBlocked(loginIpAttempts,ipKey,LOGIN_IP_MAX_ATTEMPTS))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
   const u=(await pool.query("select * from app_users where email=$1 and active=true",[email])).rows[0];
-  if(!u||!u.password_hash||!(await verifyPassword(password,u.password_hash))){
-    recordLoginFailure(key);return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  const hash=u?.password_hash||dummyPasswordHash;
+  const passwordOk=await verifyPassword(password,hash);
+  if(!u||!u.password_hash||!passwordOk){
+    recordBucketFailure(loginAttempts,key);recordBucketFailure(loginIpAttempts,ipKey);
+    return res.status(401).json({error:"INVALID_CREDENTIALS"});
   }
   loginAttempts.delete(key);
   const token=signUser(u);
