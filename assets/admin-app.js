@@ -182,13 +182,29 @@ function matchesPage(scoreOnly=false){
       ${state.courts.length?state.courts.map(c=>{const m=state.matches.find(x=>x.courtId===c.id&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
     </div></div>`;
 }
-function calcGroup(g){return state.teams.filter(t=>t.group===g).sort((a,b)=>b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf)}
+function calcGroup(g){
+  return [...state.teams.filter(t=>t.group===g)].sort((a,b)=>{
+    if(b.w!==a.w)return b.w-a.w;
+    const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+    if(sdB!==sdA)return sdB-sdA;
+    const h2h=state.matches.find(m=>(m.status==="done"||m.status==="completed")&&((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
+    if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1;}
+    return ((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf)||((a.seed||999)-(b.seed||999));
+  });
+}
 function standings(){
-  setHeader("Bảng xếp hạng","Tự tính từ kết quả trận đã chốt trên server");
+  setHeader("Bảng xếp hạng","Tự động tính: Trận thắng → Hiệu số set → Đối đầu trực tiếp → Hiệu số điểm");
   const groups=[...new Set(state.teams.map(t=>t.group).filter(Boolean))];
-  return groups.map(g=>`<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảng ${g}</h2><p>Thắng → hiệu số → điểm ghi</p></div></div>
-    <div class="standing-row head"><span>#</span><span>Đội</span><span>W</span><span>L</span><span>PF</span><span>PA</span><span>+/-</span></div>
-    ${calcGroup(g).map((t,i)=>`<div class="standing-row"><span class="rank">${i+1}</span><span><b>${t.name}</b><small style="display:block;color:#73847b">${t.club}</small></span><span>${t.w}</span><span>${t.l}</span><span>${t.pf}</span><span>${t.pa}</span><span><b>${t.pf-t.pa>0?"+":""}${t.pf-t.pa}</b></span></div>`).join("")}
+  return groups.map(g=>`<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảng ${g}</h2><p>Top 2 giành quyền vào vòng Knockout / Bán kết</p></div><span class="badge blue">TOP 2 ĐI TIẾP</span></div>
+    <div class="standing-table-wrap">
+      <div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>
+      ${calcGroup(g).map((t,i)=>{
+        const rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span><small class="qualify-status">Vào vòng trong</small>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span><small class="qualify-status">Vào vòng trong</small>':`<span class="rank-badge rank-other">Hạng ${i+1}</span>`;
+        const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';
+        const diff=t.pf-t.pa;
+        return `<div class="standing-row ${qCls}"><span class="rank">${i+1}</span><span><b>${t.name}</b><small style="display:block;color:#73847b">${t.club||"Tự do"}</small></span><span>${t.w}-${t.l}</span><span>${t.sw||0}-${t.sl||0}</span><span>${t.pf}-${t.pa}</span><span><b>${diff>0?"+":""}${diff}</b></span><div>${rankTag}</div></div>`;
+      }).join("")}
+    </div>
   </div>`).join("")||'<div class="panel empty">Chưa có bảng đấu.</div>';
 }
 function bracketMatch(m){if(!m)return"";return `<div class="bracket-match"><div class="bracket-team ${m.winner===m.a?"win":""}"><span>${teamName(m.a)}</span><b>${m.sets?.filter(s=>s[0]>s[1]).length||""}</b></div><div class="bracket-team ${m.winner===m.b?"win":""}"><span>${teamName(m.b)}</span><b>${m.sets?.filter(s=>s[1]>s[0]).length||""}</b></div>${m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" style="margin-top:7px" data-score-match="${m.id}">Nhập điểm</button>`:""}</div>`}
@@ -324,11 +340,27 @@ function openScore(id){
   activeMatch=state.matches.find(m=>m.id===id);if(!activeMatch)return;
   if(activeMatch.a==="TBD"||activeMatch.b==="TBD"){toast("Chưa xác định đủ hai đội.");return}
   const d=divisionForMatch(activeMatch);
+  const isMlp=d?.eventType==="team";
+  const isDoubles=d?.eventType==="doubles"||d?.eventType==="mixed_doubles";
   $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time}`;
-  $("#scoreTitle").textContent=`Nhập điểm trận`;
+  $("#scoreTitle").textContent=isMlp?"Nhập điểm: MLP Đồng đội":isDoubles?"Nhập điểm: Đôi":"Nhập điểm trận";
   $("#teamAName").textContent=teamName(activeMatch.a);$("#teamBName").textContent=teamName(activeMatch.b);
   $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
   $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
+
+  const maxSets=isMlp?5:Number(d?.bestOf||3);
+  const mlpLabels=["Trận 1: Đôi Nữ","Trận 2: Đôi Nam","Trận 3: Đôi Nam Nữ 1","Trận 4: Đôi Nam Nữ 2","Trận 5: Dreambreaker (nếu 2-2)"];
+  const existingSets=activeMatch.sets||[];
+  let setsHtml="";
+  for(let i=0;i<maxSets;i++){
+    const label=isMlp?(mlpLabels[i]||`Trận ${i+1}`):`Set ${i+1}`;
+    const curA=existingSets[i]?.[0]??(i===existingSets.length?activeMatch.current?.[0]||"":"");
+    const curB=existingSets[i]?.[1]??(i===existingSets.length?activeMatch.current?.[1]||"":"");
+    setsHtml+=`<div class="quick-set-row"><span>${label}</span><input type="number" min="0" max="99" class="quick-score-a" value="${curA}" placeholder="0"><span>:</span><input type="number" min="0" max="99" class="quick-score-b" value="${curB}" placeholder="0"></div>`;
+  }
+  const qList=$("#quickSetsList");
+  if(qList)qList.innerHTML=setsHtml;
+
   syncScoreDialog();$("#scoreDialog").showModal();
 }
 function syncScoreDialog(){
@@ -337,14 +369,52 @@ function syncScoreDialog(){
   $("#scoreA").textContent=a;$("#scoreB").textContent=b;
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
-  $("#finishSet").disabled=!(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
+  const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
+  $("#finishSet").disabled=!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
   const winsB=(activeMatch.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length;
-  $("#finishMatch").disabled=!(winsA>=need||winsB>=need);
+  $("#finishMatch").disabled=!(winsA>=need||winsB>=need||setWon);
   document.querySelectorAll('[data-score][data-delta="-1"]').forEach(btn=>{
     btn.disabled=(btn.dataset.score==="a"?a:b)<=0;
   });
+  const tip=$("#scoreStatusTip");
+  if(tip){
+    if(setWon){
+      const winName=hi===a?teamName(activeMatch.a):teamName(activeMatch.b);
+      const isMatchDecider=(hi===a?winsA+1:winsB+1)>=need;
+      tip.hidden=false;
+      tip.innerHTML=`✅ <b>${winName}</b> đã đủ điều kiện thắng ${isMatchDecider?'trận':'set'} (${hi}–${lo})! Bấm <b>${isMatchDecider?'Kết thúc trận':'Hoàn tất set'}</b> để lưu.`;
+    }else{
+      tip.hidden=true;
+      tip.innerHTML="";
+    }
+  }
+}
+async function saveQuickScore(){
+  if(busy||!activeMatch)return;busy=true;
+  try{
+    const rows=document.querySelectorAll("#quickSetsList .quick-set-row");
+    const sets=[];
+    rows.forEach(r=>{
+      const valA=r.querySelector(".quick-score-a").value.trim();
+      const valB=r.querySelector(".quick-score-b").value.trim();
+      if(valA!==""&&valB!==""){
+        const a=Number(valA)||0,b=Number(valB)||0;
+        if(a>0||b>0)sets.push([a,b]);
+      }
+    });
+    if(!sets.length)return toast("Vui lòng nhập tỉ số ít nhất 1 set.");
+    await API.quickScore(activeMatch.id,{sets});
+    $("#scoreDialog").close();
+    activeMatch=null;
+    await refresh();
+    toast("Đã lưu kết quả! Bảng xếp hạng đã tự động xếp Nhất bảng & Nhì bảng.");
+  }catch(e){
+    toast("Không thể lưu tỉ số: "+e.message);
+  }finally{
+    busy=false;
+  }
 }
 async function scorePoint(side,delta){
   if(busy||!activeMatch)return;busy=true;
@@ -488,26 +558,72 @@ function openTournamentModal(){
   $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");try{await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});$("#genericDialog").close();await refresh();toast("Đã tạo giải.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
 }
 function openCsvImportModal(){
-  $("#genericTitle").textContent="Import CSV";
+  $("#genericTitle").textContent="Import VĐV / Hội viên (Hỗ trợ Zalo)";
   $("#genericBody").innerHTML=`<div class="form-grid">
-    <label class="field">Loại dữ liệu<select id="csvType"><option value="players">VĐV</option><option value="teams">Đội / cặp</option></select></label>
+    <label class="field">Loại dữ liệu<select id="csvType"><option value="players">VĐV / Hội viên</option><option value="teams">Đội / cặp</option></select></label>
     <label class="field" id="csvDivisionWrap" style="display:none">Nội dung<select id="csvDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
-    <label class="field full">File CSV<input id="csvFile" type="file" accept=".csv,text/csv"></label>
-    <div class="field full csv-help" id="csvHelp"><b>Header VĐV:</b> fullName,nickname,gender,rating,phone,club</div>
-    <div class="field full"><div id="csvPreview" class="csv-preview">Chọn file để xem trước.</div></div>
-    <div class="field full"><button type="button" class="btn primary" id="csvImportBtn" disabled>Import</button></div>
+    <label class="field full">Tải lên file CSV<input id="csvFile" type="file" accept=".csv,text/csv,.json"></label>
+    <label class="field full">Hoặc dán trực tiếp (CSV / JSON quét từ Zalo)<textarea id="csvPaste" rows="3" placeholder="Dán dữ liệu CSV hoặc JSON danh sách hội viên Zalo vào đây..."></textarea></label>
+    <div class="field full" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div class="csv-help" id="csvHelp" style="margin:0"><b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,nickname,gender</div>
+      <button type="button" class="mini" id="lhmPresetBtn" style="font-size:12px;padding:6px 12px;background:#0d2118;color:#dfff69;border:1px solid #dfff6944;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">⚡ Nạp 1,015 hội viên Bình Lợi (LHM CRM)</button>
+    </div>
+    <div class="field full"><div id="csvPreview" class="csv-preview">Chọn file hoặc dán dữ liệu để xem trước.</div></div>
+    <div class="field full"><button type="button" class="btn primary" id="csvImportBtn" disabled>Bắt đầu Import</button></div>
   </div>`;
   $("#genericDialog").showModal();
   let rows=[];
-  const type=$("#csvType"),file=$("#csvFile"),preview=$("#csvPreview"),btn=$("#csvImportBtn");
-  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2':'<b>Header VĐV:</b> fullName,nickname,gender,rating,phone,club'};
-  type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file để xem trước.";btn.disabled=true};updateHelp();
-  file.onchange=async()=>{
-    const f=file.files?.[0];if(!f)return;rows=window.PickleCSV?.parse(await f.text())||[];
-    if(!rows.length){preview.textContent="CSV không có dữ liệu hợp lệ.";btn.disabled=true;return}
-    const keys=Object.keys(rows[0]);preview.innerHTML='<div class="csv-preview-head">'+keys.map(k=>`<b>${k}</b>`).join("")+'</div>'+rows.slice(0,5).map(r=>'<div class="csv-preview-row">'+keys.map(k=>`<span>${r[k]||""}</span>`).join("")+'</div>').join("")+`<small>${rows.length} dòng dữ liệu</small>`;btn.disabled=false;
+  const type=$("#csvType"),file=$("#csvFile"),paste=$("#csvPaste"),preview=$("#csvPreview"),btn=$("#csvImportBtn"),lhmBtn=$("#lhmPresetBtn");
+  if(lhmBtn){
+    lhmBtn.onclick=async()=>{
+      try{
+        lhmBtn.disabled=true;
+        lhmBtn.textContent="Đang nạp 1,015 hội viên...";
+        type.value="players";updateHelp();
+        if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS&&window.PICKLE_BINH_LOI_MEMBERS.length){
+          rows=window.PICKLE_BINH_LOI_MEMBERS;
+        }else{
+          const res=await fetch("assets/members-binh-loi.json");
+          if(!res.ok)throw new Error("Không thể tải file dữ liệu.");
+          rows=await res.json();
+        }
+        renderPreview();
+        toast("Đã nạp 1,015 hội viên CLB Bình Lợi từ LHM CRM!");
+      }catch(err){
+        toast("Lỗi tải dữ liệu: "+err.message);
+      }finally{
+        lhmBtn.disabled=false;
+        lhmBtn.textContent="⚡ Nạp 1,015 hội viên Bình Lợi (LHM CRM)";
+      }
+    };
+  }
+  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
+  type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file hoặc dán dữ liệu để xem trước.";btn.disabled=true};updateHelp();
+  const renderPreview=()=>{
+    if(!rows.length){preview.textContent="Không có dữ liệu hợp lệ.";btn.disabled=true;return}
+    const keys=Object.keys(rows[0]);
+    preview.innerHTML='<div class="csv-preview-head">'+keys.map(k=>`<b>${k}</b>`).join("")+'</div>'+rows.slice(0,5).map(r=>'<div class="csv-preview-row">'+keys.map(k=>{const val=r[k]||"";if(k.toLowerCase().includes("avatar")&&val.startsWith("http"))return `<span><img src="${esc(val)}" style="width:24px;height:24px;border-radius:50%;object-fit:cover"></span>`;return `<span>${esc(val)}</span>`;}).join("")+'</div>').join("")+`<small>${rows.length} dòng dữ liệu sẵn sàng import</small>`;btn.disabled=false;
   };
-  btn.onclick=async()=>{if(!rows.length)return;btn.disabled=true;try{const r=type.value==="players"?await API.importPlayers(rows):await API.importTeams($("#csvDivision").value,rows);$("#genericDialog").close();await refresh();toast(`Đã import ${r.created} ${type.value==="players"?"VĐV":"đội"}.`)}catch(e){btn.disabled=false;toast("Import thất bại: "+e.message)}};
+  file.onchange=async()=>{
+    const f=file.files?.[0];if(!f)return;
+    const txt=await f.text();
+    if(f.name.endsWith(".json")||txt.trim().startsWith("[")){try{rows=JSON.parse(txt)}catch{rows=[]}}
+    else rows=window.PickleCSV?.parse(txt)||[];
+    renderPreview();
+  };
+  paste.oninput=()=>{
+    const txt=paste.value.trim();if(!txt){rows=[];renderPreview();return}
+    if(txt.startsWith("[")){try{rows=JSON.parse(txt)}catch{rows=[]}}
+    else rows=window.PickleCSV?.parse(txt)||[];
+    renderPreview();
+  };
+  btn.onclick=async()=>{
+    if(!rows.length)return;btn.disabled=true;
+    try{
+      const r=type.value==="players"?await API.importPlayers(rows):await API.importTeams($("#csvDivision").value,rows);
+      $("#genericDialog").close();await refresh();toast(`Đã import thành công ${r.created} ${type.value==="players"?"VĐV / Hội viên":"đội"}.`);
+    }catch(e){btn.disabled=false;toast("Import thất bại: "+e.message)}
+  };
 }
 async function openPlayerModal(){
   const clubs=await API.clubs().catch(()=>[]);
@@ -704,6 +820,7 @@ async function openEditUserModal(id){
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
+$("#saveQuickScore")?.addEventListener("click",saveQuickScore);
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");
 $("#changePasswordBtn")?.addEventListener("click",openPasswordModal);
 $("#quickTournament").onclick=()=>canManage()?openTournamentModal():toast("Bạn không có quyền tạo giải.");

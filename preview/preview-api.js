@@ -143,7 +143,14 @@
     publicCheckin:async token=>{const r=state.registrations.find(x=>x.id===token);if(!r)throw Object.assign(new Error("NOT_FOUND"),{status:404});return clone({...r,start_at:new Date().toISOString()})},
     confirmCheckin:async token=>{const r=state.registrations.find(x=>x.id===token);if(!r)throw Object.assign(new Error("NOT_FOUND"),{status:404});r.checked_in_at=new Date().toISOString();persist();return clone(r)},
     publicPlayer:async id=>{
-      const p=state.players.find(x=>x.id===id);if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+      let p=state.players.find(x=>x.id===id);
+      if(!p&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+        const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);
+        if(zl){
+          p={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:null,rating:Number(zl.rating)||3.0,avatar_url:zl.avatarUrl||zl.avatar_url||"",club_name:zl.club||"CLB Pickleball Bình Lợi"};
+        }
+      }
+      if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
       const myTeams=Object.entries(state.teamPlayers).filter(([,ids])=>ids.includes(id)).map(([tid])=>tid);
       const matches=state.matches.filter(m=>myTeams.includes(m.a)||myTeams.includes(m.b)).map(m=>{
         const myTeam=myTeams.includes(m.a)?m.a:m.b,side=myTeam===m.a?"A":"B";

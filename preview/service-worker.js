@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v17-desktop-app-hub";
+const VERSION="pickle-pages-v18-binh-loi-members";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",

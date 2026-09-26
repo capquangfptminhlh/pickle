@@ -43,7 +43,27 @@ function render(){
  }).join("")||'<div class="app-empty-card"><span>🔎</span><b>Không có dữ liệu phù hợp</b><small>Thử từ khóa khác.</small></div>';
 }
 async function load(){
- players=await PickleAPI.publicPlayers();
+ try{
+  players=await PickleAPI.publicPlayers();
+ }catch(e){
+  players=[];
+ }
+ if(!players||!players.length){
+  const localState=JSON.parse(localStorage.getItem("pickle-local-state-v1")||"null");
+  if(localState?.players?.length){
+   players=localState.players;
+  }else if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+   players=window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
+    id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
+    full_name:r.fullName||r.name,
+    avatar_url:r.avatarUrl||r.avatar_url||"",
+    rating:Number(r.rating)||3.0,
+    club_name:r.club||"CLB Pickleball Bình Lợi",
+    club_city:"TP.HCM",
+    nickname:r.role!=="Thành viên"?r.role:""
+   }));
+  }
+ }
  const clubs=[...new Set(players.map(p=>p.club_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"vi"));
  $("#rankClub").innerHTML='<option value="">Tất cả CLB</option>'+clubs.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
  render();
