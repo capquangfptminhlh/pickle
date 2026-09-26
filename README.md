@@ -15,7 +15,7 @@ Self-hosted tournament operations platform for pickleball. No Supabase dependenc
 - Secure JWT HttpOnly login with active-account revalidation on every protected request
 - login attempt throttling, same-site secure cookies, origin checks, Helmet security headers
 - child account management for Super Admin
-- roles currently exposed to child accounts: Organizer (BTC) and Referee
+- delegated roles: Organizer (BTC), Referee, Club Manager and Finance; permissions are enforced server-side
 - locked child accounts lose API access immediately, even if an older JWT has not expired
 - tournament creation
 - multiple divisions / event types
@@ -32,7 +32,7 @@ Self-hosted tournament operations platform for pickleball. No Supabase dependenc
 - standings calculated from confirmed match data
 - audited Undo with downstream bracket protection
 - referee account creation and assignment
-- multiple organizer/referee child accounts with role changes, lock/unlock and password reset
+- multiple child accounts with role changes, club scope, lock/unlock and password reset; password reset revokes old sessions
 - registration and payment reconciliation
 - auditable manual player rating adjustment
 - password rotation
@@ -54,10 +54,11 @@ See `docs/VPS_DEPLOY.md`.
 Required production environment:
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
-- `JWT_SECRET` (32+ chars)
+- `JWT_SECRET` (use a long random secret; 48+ chars recommended)
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `PUBLIC_BASE_URL`
+- `SEED_DEMO=false`
 
 Start:
 ```
@@ -77,7 +78,7 @@ Admin login:
 ## Security & database safety
 PostgreSQL is bound to the internal Docker network and the application port is bound to `127.0.0.1:8080`; expose the website only through a TLS reverse proxy.
 
-Authentication uses bcrypt password hashes plus short-lived JWTs stored in HttpOnly, SameSite=Strict cookies. Sessions are revalidated against the database so a disabled child account loses access immediately. Login attempts are rate-limited, state-changing API calls are origin checked, CSP blocks inline script execution, and administrative roles are enforced on the server rather than by hiding buttons.
+Authentication uses bcrypt password hashes plus short-lived JWTs stored in HttpOnly, SameSite=Strict cookies; production uses the `__Host-` cookie prefix. Sessions are revalidated against the database and carry a credential version, so password changes/resets revoke older sessions immediately. Login attempts are throttled, production state-changing requests enforce the configured origin/fetch metadata, CSP blocks inline script execution, private receipts require authentication, uploaded files are checked by magic bytes, and administrative roles/club scopes are enforced on the server rather than by hiding buttons.
 
 Score changes are persisted in `score_events`; account, club, attendance, treasury and other sensitive administrative changes are protected by server authorization and/or `audit_logs`.
 
