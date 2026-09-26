@@ -486,3 +486,8 @@ radial-gradient(circle at 50% 86%,#0c6e49 0 3px,transparent 4px)}
 @media(prefers-reduced-motion:reduce){
   .community-chips a,.featured-event-card,.community-welcome-card a,.event-list-card,.connect-player-card,.community-post-card,.app-live-card,.ranking-app-row,.podium-player{transition:none!important}
 }
+
+.ranking-podium>.app-empty-card{grid-column:1/-1;min-height:112px;justify-content:center}
+@media(max-width:760px){
+  .ranking-podium>.app-empty-card{min-height:104px;padding:16px}
+}
