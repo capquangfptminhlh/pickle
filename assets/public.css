@@ -472,3 +472,17 @@ radial-gradient(circle at 50% 86%,#0c6e49 0 3px,transparent 4px)}
   radial-gradient(circle at 50% 86%,#0c6e49 0 2px,transparent 3px)}
   .community-welcome-art b{font-size:38px;right:-6px;bottom:12px}
 }
+
+
+/* Community app micro-interactions */
+.community-public{scroll-behavior:smooth}
+.community-chips a,.featured-event-card,.community-welcome-card a,.event-list-card,.connect-player-card,.community-post-card,.app-live-card,.ranking-app-row,.podium-player{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,background-color .18s ease}
+.community-chips a:active,.community-welcome-card a:active,.event-list-card:active,.connect-player-card:active,.podium-player:active{transform:scale(.975)}
+.featured-event-card:active,.community-post-card:active,.app-live-card:active{transform:scale(.988)}
+@media(hover:hover){
+  .event-list-card:hover,.connect-player-card:hover,.podium-player:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(17,42,29,.08)}
+  .featured-event-card:hover{transform:translateY(-2px);box-shadow:0 25px 58px rgba(10,93,62,.22)}
+}
+@media(prefers-reduced-motion:reduce){
+  .community-chips a,.featured-event-card,.community-welcome-card a,.event-list-card,.connect-player-card,.community-post-card,.app-live-card,.ranking-app-row,.podium-player{transition:none!important}
+}
