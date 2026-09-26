@@ -791,3 +791,123 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
 @media(max-width:760px){
   .desktop-app-hub{display:none!important}
 }
+
+
+/* MOBILE TOP PLAYER CARD HOTFIX V8 */
+@media(max-width:760px){
+  #top-players .section-title{align-items:flex-end;gap:10px}
+  #top-players .section-title>div{min-width:0}
+  #top-players .section-link{flex:0 0 auto;font-size:11px;white-space:nowrap}
+
+  #publicTopPlayers.top-player-grid{
+    display:flex;
+    grid-template-columns:none;
+    gap:10px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    margin:0 -12px;
+    padding:0 12px 8px;
+    scroll-snap-type:x mandatory;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  #publicTopPlayers.top-player-grid::-webkit-scrollbar{display:none}
+
+  #publicTopPlayers .top-player-card{
+    box-sizing:border-box;
+    flex:0 0 calc((100vw - 34px)/2);
+    width:calc((100vw - 34px)/2);
+    min-width:140px;
+    max-width:190px;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:0;
+    padding:10px;
+    overflow:hidden;
+    scroll-snap-align:start;
+    border:0;
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(17,45,30,.055);
+  }
+
+  #publicTopPlayers .top-player-rank{
+    display:block;
+    margin:0 0 8px;
+    color:#0c7f52;
+    font-size:10px;
+    line-height:1;
+    font-weight:950;
+  }
+
+  #publicTopPlayers .top-player-avatar{
+    display:block;
+    width:100%;
+    height:124px;
+    min-width:0;
+    max-width:none;
+    aspect-ratio:auto;
+    border-radius:15px;
+    object-fit:cover;
+    object-position:center;
+    background:#eef4f0;
+  }
+  #publicTopPlayers .top-player-avatar.avatar-fallback{
+    display:grid;
+    place-items:center;
+    color:#0a6847;
+    font-size:28px;
+    font-weight:950;
+  }
+
+  #publicTopPlayers .top-player-copy{
+    min-width:0;
+    width:100%;
+    margin:10px 0 0;
+    overflow:hidden;
+  }
+  #publicTopPlayers .top-player-copy b,
+  #publicTopPlayers .top-player-copy span,
+  #publicTopPlayers .top-player-copy small{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #publicTopPlayers .top-player-copy b{
+    color:#17241d;
+    font-size:13px;
+    line-height:1.3;
+    font-weight:900;
+  }
+  #publicTopPlayers .top-player-copy span,
+  #publicTopPlayers .top-player-copy small{
+    margin-top:3px;
+    color:#88948d;
+    font-size:10px;
+    line-height:1.3;
+  }
+
+  #publicTopPlayers .top-player-card>strong{
+    display:block;
+    width:100%;
+    margin-top:9px;
+    color:#0a6b47;
+    font-size:16px;
+    line-height:1;
+    font-weight:950;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+@media(max-width:340px){
+  #publicTopPlayers .top-player-card{
+    flex-basis:calc((100vw - 30px)/2);
+    width:calc((100vw - 30px)/2);
+    min-width:132px;
+  }
+  #publicTopPlayers .top-player-avatar{height:108px}
+}
