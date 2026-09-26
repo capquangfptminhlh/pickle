@@ -468,11 +468,10 @@ html[data-nav-direction="back"]::view-transition-new(root){animation:adminNewBac
 
 /* Cross-browser page/tab transition fallback (including Samsung Internet) */
 body.route-entering{animation:routeEnterFallback .28s cubic-bezier(.2,.8,.2,1) both}
-html[data-nav-direction="forward"] #content.page-swap{animation:contentSlideForward .28s cubic-bezier(.2,.8,.2,1) both}
-html[data-nav-direction="back"] #content.page-swap{animation:contentSlideBack .28s cubic-bezier(.2,.8,.2,1) both}
+html.no-view-transition[data-nav-direction="forward"] #content.page-swap,
+html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:contentFallback .26s cubic-bezier(.2,.8,.2,1) both}
 @keyframes routeEnterFallback{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes contentSlideForward{from{opacity:.25;transform:translateX(18px)}to{opacity:1;transform:none}}
-@keyframes contentSlideBack{from{opacity:.25;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes contentFallback{from{opacity:.3;transform:translateY(7px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){
   body.route-entering,html[data-nav-direction] #content.page-swap{animation:none!important}
 }
@@ -556,4 +555,11 @@ html[data-nav-direction="back"] #content.page-swap{animation:contentSlideBack .2
 }
 @media(max-width:380px){
   .content .filters{grid-template-columns:1fr}
+}
+
+@media(max-width:760px){
+  .table tbody td:last-child{justify-content:flex-end;flex-wrap:wrap;gap:6px}
+  .table tbody td:last-child:before{display:none}
+  .table tbody td:last-child>.mini,
+  .table tbody td:last-child>a.mini{flex:0 1 auto;max-width:100%}
 }
