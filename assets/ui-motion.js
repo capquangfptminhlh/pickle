@@ -173,9 +173,10 @@
       const path=location.pathname,hash=location.hash;
       $$(".public-mobile-dock a",dock).forEach(a=>a.classList.remove("active"));
       let key="home";
-      if(path.includes("ranking"))key="ranking";
-      else if(path.includes("login"))key="admin";
-      else if(hash==="#community")key="community";
+      if(path.includes("ranking")||path.includes("player"))key="ranking";
+      else if(path.includes("login")||path.includes("admin"))key="admin";
+      else if(path.includes("tournament")||path.includes("checkin"))key="events";
+      else if(hash==="#community"||hash==="#connect")key="community";
       else if(hash==="#tournaments"||hash==="#live"||hash==="#bracket")key="events";
       dock.querySelector('[data-public-tab="'+key+'"]')?.classList.add("active");
     };

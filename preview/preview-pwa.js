@@ -1,6 +1,6 @@
 (()=>{
   if(!("serviceWorker" in navigator))return;
-  let deferred=null;
+  let deferred=null,refreshing=false;
   const button=()=>{
     let b=document.querySelector("[data-pwa-install]");
     if(b)return b;
@@ -10,6 +10,20 @@
     return b;
   };
   addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;const b=button();if(b)b.hidden=false});
-  navigator.serviceWorker.register("service-worker.js",{scope:"./"}).catch(console.error);
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(refreshing)return;refreshing=true;
+    if(sessionStorage.getItem("pickle-sw-reloaded")==="1"){sessionStorage.removeItem("pickle-sw-reloaded");return}
+    sessionStorage.setItem("pickle-sw-reloaded","1");location.reload();
+  });
+  navigator.serviceWorker.register("service-worker.js",{scope:"./"}).then(reg=>{
+    reg.update().catch(()=>{});
+    if(reg.waiting)reg.waiting.postMessage({type:"SKIP_WAITING"});
+    reg.addEventListener("updatefound",()=>{
+      const worker=reg.installing;
+      worker?.addEventListener("statechange",()=>{
+        if(worker.state==="installed"&&navigator.serviceWorker.controller)worker.postMessage({type:"SKIP_WAITING"});
+      });
+    });
+  }).catch(console.error);
   button();
 })();
