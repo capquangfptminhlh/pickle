@@ -1,19 +1,23 @@
-const VERSION="pickle-pages-root-v3-mobile-reset";
-const CORE=[
-  "./manifest.webmanifest",
-  "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html","./submit-tournament.html",
-  "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
-  "./assets/styles.css","./assets/public.css","./assets/admin-app.js","./assets/admin-modules.js","./assets/admin-crud.js",
-  "./assets/bracket-ui.js","./assets/csv-import.js","./assets/ui-motion.js","./assets/player.js","./assets/ranking.js",
-  "./assets/tournament.js","./assets/checkin.js","./assets/members-binh-loi-data.js","./assets/app-icon.svg"
+const VERSION="pickle-tour-v20-clean-ratings-criteria";
+const STATIC=[
+  "/offline.html",
+  "/manifest.webmanifest",
+  "/assets/styles.css",
+  "/assets/public.css",
+  "/assets/ui-motion.js",
+  "/assets/pwa.js",
+  "/assets/login.js",
+  "/assets/members-binh-loi-data.js",
+  "/assets/app-icon.svg"
 ];
 
+async function cacheCore(){
+  const cache=await caches.open(VERSION);
+  await Promise.allSettled(STATIC.map(url=>cache.add(url)));
+}
+
 self.addEventListener("install",event=>{
-  event.waitUntil(
-    caches.open(VERSION)
-      .then(cache=>Promise.allSettled(CORE.map(url=>cache.add(url))))
-      .then(()=>self.skipWaiting())
-  );
+  event.waitUntil(cacheCore().then(()=>self.skipWaiting()));
 });
 
 self.addEventListener("activate",event=>{
@@ -24,18 +28,28 @@ self.addEventListener("activate",event=>{
   );
 });
 
+self.addEventListener("message",event=>{
+  if(event.data?.type==="SKIP_WAITING")self.skipWaiting();
+});
+
 self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin)return;
 
+  if(url.pathname.startsWith("/api/")||
+     url.pathname.startsWith("/socket.io/")||
+     url.pathname.startsWith("/uploads/")){
+    return;
+  }
+
   if(req.mode==="navigate"){
     event.respondWith(
       fetch(req).then(async res=>{
-        if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
+        if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
         return res;
-      }).catch(async()=>await caches.match(req)||await caches.match("./offline.html"))
+      }).catch(async()=>await caches.match(req)||await caches.match("/offline.html"))
     );
     return;
   }
@@ -43,7 +57,7 @@ self.addEventListener("fetch",event=>{
   if(req.destination==="script"||req.destination==="style"||req.destination==="font"){
     event.respondWith(
       fetch(req).then(async res=>{
-        if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
+        if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
         return res;
       }).catch(()=>caches.match(req))
     );
@@ -54,7 +68,7 @@ self.addEventListener("fetch",event=>{
     event.respondWith(
       caches.match(req).then(cached=>{
         const refresh=fetch(req).then(async res=>{
-          if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
+          if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
           return res;
         }).catch(()=>cached);
         return cached||refresh;
