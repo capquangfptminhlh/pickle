@@ -34,7 +34,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
       - name: Install Chromium for UI smoke tests
         run: npx playwright install --with-deps chromium
       - name: Syntax check
