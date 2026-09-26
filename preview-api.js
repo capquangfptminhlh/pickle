@@ -182,23 +182,24 @@
     publicCheckin:async token=>{const r=state.registrations.find(x=>x.id===token);if(!r)throw Object.assign(new Error("NOT_FOUND"),{status:404});return clone({...r,start_at:new Date().toISOString()})},
     confirmCheckin:async token=>{const r=state.registrations.find(x=>x.id===token);if(!r)throw Object.assign(new Error("NOT_FOUND"),{status:404});r.checked_in_at=new Date().toISOString();persist();return clone(r)},
     publicPlayer:async id=>{
-      let p=state.players.find(x=>x.id===id);
+      let p=state.players.find(x=>x.id===id||x.id===("zl-"+id)||("zl-"+x.id)===id);
       if(!p&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
-        const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);
+        const cleanId=String(id||"").replace(/^zl-/,"");
+        const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>String(m.zaloId)===cleanId||("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);
         if(zl){
           p={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_name:zl.club||"CLB Pickleball Bình Lợi"};
         }
       }
       if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-      const myTeams=Object.entries(state.teamPlayers).filter(([,ids])=>ids.includes(id)).map(([tid])=>tid);
-      const matches=state.matches.filter(m=>myTeams.includes(m.a)||myTeams.includes(m.b)).map(m=>{
+      const myTeams=Object.entries(state.teamPlayers||{}).filter(([,ids])=>ids.includes(id)).map(([tid])=>tid);
+      const matches=(state.matches||[]).filter(m=>myTeams.includes(m.a)||myTeams.includes(m.b)).map(m=>{
         const myTeam=myTeams.includes(m.a)?m.a:m.b,side=myTeam===m.a?"A":"B";
         let myPoints=0,oppPoints=0;(m.sets||[]).forEach(s=>{if(side==="A"){myPoints+=s[0];oppPoints+=s[1]}else{myPoints+=s[1];oppPoints+=s[0]}});
         const team=state.teams.find(t=>t.id===myTeam),division=state.divisions.find(d=>d.id===team?.divisionId),tournament=state.tournaments.find(t=>t.id===division?.tournamentId);return {id:m.id,tournamentId:tournament?.id||null,tournamentName:tournament?.name||"",divisionName:division?.name||"",stage:m.stage,status:m.status,teamAName:state.teams.find(t=>t.id===m.a)?.name||"TBD",teamBName:state.teams.find(t=>t.id===m.b)?.name||"TBD",mySide:side,winnerTeamId:m.winner,won:m.status==="done"&&m.winner===myTeam,lost:m.status==="done"&&m.winner&&m.winner!==myTeam,sets:m.sets||[],myPoints,oppPoints};
       });
       const wins=matches.filter(x=>x.won).length,losses=matches.filter(x=>x.lost).length,pf=matches.reduce((a,x)=>a+x.myPoints,0),pa=matches.reduce((a,x)=>a+x.oppPoints,0);
-      const partnerIds=[...new Set(myTeams.flatMap(tid=>state.teamPlayers[tid]||[]).filter(pid=>pid!==id))];
-      return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:"TP.HCM"},stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},teams:myTeams.map(tid=>{const team=state.teams.find(t=>t.id===tid),division=state.divisions.find(d=>d.id===team?.divisionId),tournament=state.tournaments.find(t=>t.id===division?.tournamentId);return {id:tid,tournament_id:tournament?.id||null,tournament_name:tournament?.name||"",division_name:division?.name||"",start_at:tournament?.startAt||null}}),partners:partnerIds.map(pid=>{const x=state.players.find(p=>p.id===pid);return {id:x.id,full_name:x.full_name,avatar_url:x.avatar_url,rating:x.rating,club_name:x.club_name}}),matches,ratingHistory:clone(state.ratingHistory[id]||[])};
+      const partnerIds=[...new Set(myTeams.flatMap(tid=>(state.teamPlayers||{})[tid]||[]).filter(pid=>pid!==id))];
+      return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:"TP.HCM"},stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},teams:myTeams.map(tid=>{const team=state.teams.find(t=>t.id===tid),division=state.divisions.find(d=>d.id===team?.divisionId),tournament=state.tournaments.find(t=>t.id===division?.tournamentId);return {id:tid,tournament_id:tournament?.id||null,tournament_name:tournament?.name||"",division_name:division?.name||"",start_at:tournament?.startAt||null}}),partners:partnerIds.map(pid=>{const x=state.players.find(p=>p.id===pid);return {id:x.id,full_name:x.full_name,avatar_url:x.avatar_url,rating:x.rating,club_name:x.club_name}}),matches,ratingHistory:clone((state.ratingHistory||{})[id]||[])};
     },
     players:async()=>clone(state.players),clubs:async()=>clone(state.clubs),
     importPlayers:async rows=>{let created=0;const playerMap=new Map(state.players.map(x=>[x.full_name.toLowerCase(),x])),clubMap=new Map(state.clubs.map(c=>[c.name.toLowerCase(),c]));for(const r of rows){const name=String(r.fullName||r.name||"").trim();if(!name)continue;const avatar=String(r.avatarUrl||r.avatar_url||r.avatar||"").trim(),lName=name.toLowerCase();let p=playerMap.get(lName);if(p){if(avatar)p.avatar_url=avatar;created++;continue;}const cName=String(r.club||"").trim();let club=cName?clubMap.get(cName.toLowerCase()):null;if(!club&&cName){club={id:uid(),name:cName,city:"",active:true};state.clubs.push(club);clubMap.set(cName.toLowerCase(),club)}const newP={id:uid(),full_name:name,nickname:r.nickname||"",gender:["male","female","other"].includes(r.gender)?r.gender:null,rating:Number(r.rating)||3,phone:r.phone||"",club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:avatar||svgAvatar(name)};state.players.push(newP);playerMap.set(lName,newP);created++}persist();return {created}},

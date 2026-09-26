@@ -46,8 +46,9 @@
         if(data&&data.profile)return data;
       }catch(e){}
       const all=await window.PickleAPI.publicPlayers();
-      const p=all.find(x=>x.id===id||x.full_name===id);
-      if(p)return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:null,rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:p.club_city||"TP.HCM"},stats:{wins:0,losses:0,matches:0,winRate:0,pointsFor:0,pointsAgainst:0,diff:0},teams:[],partners:[],matches:[],ratingHistory:[]};
+      const cleanId=String(id||"").replace(/^zl-/,"");
+      const p=all.find(x=>x.id===id||x.id===("zl-"+id)||("zl-"+x.id)===id||String(x.zaloId||"")===cleanId||x.full_name===id);
+      if(p)return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:p.gender||"male",rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:p.club_city||"TP.HCM"},stats:{wins:0,losses:0,matches:0,winRate:0,pointsFor:0,pointsAgainst:0,diff:0},teams:[],partners:[],matches:[],ratingHistory:[]};
       throw Object.assign(new Error("NOT_FOUND"),{status:404});
     },
     publicClubs:async()=>{
