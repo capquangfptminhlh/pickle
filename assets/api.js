@@ -19,14 +19,49 @@
     me:()=>request("/api/auth/me"),
     session:()=>request("/api/auth/session"),
     publicState:()=>request("/api/public/state"),
-    publicPlayers:()=>request("/api/public/players"),
-    publicPlayer:(id)=>request(`/api/public/players/${encodeURIComponent(id)}`),
-    publicClubs:()=>request("/api/public/clubs"),
+    publicPlayers:async()=>{
+      try{
+        const data=await request("/api/public/players");
+        if(Array.isArray(data)&&data.length)return data;
+      }catch(e){}
+      const localState=JSON.parse(localStorage.getItem("pickle-local-state-v1")||"null");
+      if(localState?.players?.length)return localState.players;
+      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+        return window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
+          id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
+          full_name:r.fullName||r.name,
+          avatar_url:r.avatarUrl||r.avatar_url||"",
+          rating:Number(r.rating)||3.0,
+          club_name:r.club||"CLB Pickleball Bình Lợi",
+          club_city:"TP.HCM",
+          nickname:r.role!=="Thành viên"?r.role:""
+        }));
+      }
+      return [];
+    },
+    publicPlayer:async(id)=>{
+      try{
+        const data=await request(`/api/public/players/${encodeURIComponent(id)}`);
+        if(data&&data.profile)return data;
+      }catch(e){}
+      const all=await window.PickleAPI.publicPlayers();
+      const p=all.find(x=>x.id===id||x.full_name===id);
+      if(p)return {profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:null,rating:p.rating,avatarUrl:p.avatar_url,clubName:p.club_name,clubCity:p.club_city||"TP.HCM"},stats:{wins:0,losses:0,matches:0,winRate:0,pointsFor:0,pointsAgainst:0,diff:0},teams:[],partners:[],matches:[],ratingHistory:[]};
+      throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    },
+    publicClubs:async()=>{
+      try{
+        const data=await request("/api/public/clubs");
+        if(Array.isArray(data)&&data.length)return data;
+      }catch(e){}
+      return [{id:"club-binh-loi",name:"CLB Pickleball Bình Lợi",city:"TP.HCM",active:true}];
+    },
     publicPosts:()=>request("/api/public/posts"),
     publicSponsors:()=>request("/api/public/sponsors"),
     publicBranding:()=>request("/api/public/branding"),
     publicCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}`),
     confirmCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}/confirm`,{method:"POST",body:"{}"}),
+    submitTournament:payload=>request("/api/public/tournaments/submit",{method:"POST",body:JSON.stringify(payload)}),
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
     importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
@@ -113,6 +148,7 @@
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     finishSet:(id,payload)=>request(`/api/matches/${id}/finish-set`,{method:"POST",body:JSON.stringify(payload)}),
     finishMatch:(id,payload)=>request(`/api/matches/${id}/finish`,{method:"POST",body:JSON.stringify(payload)}),
+    quickScore:(id,payload)=>request(`/api/matches/${id}/quick-score`,{method:"POST",body:JSON.stringify(payload)}),
     specialResult:(id,payload)=>request(`/api/matches/${id}/special-result`,{method:"POST",body:JSON.stringify(payload)}),
     undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
     users:()=>request("/api/users"),

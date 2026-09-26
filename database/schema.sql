@@ -332,6 +332,17 @@ create table if not exists club_transactions (
   note text,
   occurred_at timestamptz not null default now(),
   created_by uuid references app_users(id) on delete set null,
-  created_at timestamptz not null default now()
-);
 create index if not exists idx_club_transactions_club_date on club_transactions(club_id,occurred_at desc);
+
+-- Tournament self-service submission and sponsored promotion
+alter table tournaments add column if not exists is_featured boolean not null default false;
+alter table tournaments add column if not exists featured_rank integer not null default 0;
+alter table tournaments add column if not exists contact_name text;
+alter table tournaments add column if not exists contact_phone text;
+alter table tournaments add column if not exists contact_email text;
+alter table tournaments add column if not exists prize_pool text;
+alter table tournaments add column if not exists entry_fee text;
+alter table tournaments add column if not exists poster_url text;
+alter table tournaments add column if not exists sponsor_package text default 'free';
+create index if not exists idx_tournaments_featured on tournaments(is_featured desc, featured_rank desc, start_at desc);
+

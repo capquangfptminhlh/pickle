@@ -128,7 +128,8 @@
   .public-bracket{margin:0 -12px;padding:0 12px 8px;scroll-snap-type:x mandatory}.public-round{scroll-snap-align:start}
   .public-footer{display:none}
   .public-mobile-dock{position:fixed;display:flex;left:10px;right:10px;bottom:max(8px,var(--safe-bottom));height:66px;z-index:70;padding:5px;border:1px solid #e1e5e3;border-radius:22px;background:rgba(255,255,255,.95);backdrop-filter:blur(22px);box-shadow:0 18px 45px rgba(8,19,12,.15)}
-  .public-mobile-dock a{flex:1;display:grid;place-items:center;gap:2px;border-radius:17px;color:#89928d;text-decoration:none;font-size:8px;font-weight:850}
+  .public-mobile-dock a{flex:1;display:grid;place-items:center;gap:2px;border-radius:17px;color:#89928d;text-decoration:none;font-size:8px;font-weight:850;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+  .public-mobile-dock a:active{transform:scale(.95);opacity:.88;transition:transform .08s ease-out}
   .public-mobile-dock a.active{background:#101513;color:#fff}.public-mobile-dock a.active svg{color:var(--accent)}
   .public-mobile-dock svg{width:19px;height:19px}
   .player-hero{padding:22px 0;border-radius:0 0 28px 28px}
@@ -570,7 +571,6 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   .tournament-team-grid{grid-template-columns:1fr}.tournament-team-card{border:0;box-shadow:0 7px 20px rgba(17,42,29,.05)}
 }
 
-
 /* DESKTOP ↔ MOBILE UNIFIED PUBLIC SCALE V6 */
 @media(min-width:761px){
   .public-container{width:min(1280px,calc(100% - 64px))}
@@ -712,3 +712,22 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   .tournament-team-card b{font-size:13px}
   .tournament-team-card small,.tournament-team-card em{font-size:10px}
 }
+
+/* Featured & Sponsored Tournaments */
+.tour-card.is-featured{border:2px solid #0c7f52!important;box-shadow:0 14px 38px rgba(12,127,82,.14)!important;position:relative}
+.tour-card.is-featured:has(.tour-featured-badge.gold){border:2px solid #d4af37!important;box-shadow:0 16px 44px rgba(212,175,55,.22)!important}
+.tour-featured-badge{position:absolute;top:10px;left:10px;z-index:4;padding:4px 9px;border-radius:999px;background:#0c7f52;color:#fff;font-size:10px;font-weight:900;letter-spacing:.04em;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.tour-featured-badge.gold{background:linear-gradient(135deg,#e6b800,#b8860b);color:#101513;font-weight:950}
+.package-card.selected{border-color:var(--brand)!important;background:#f3faf6!important;box-shadow:0 8px 24px rgba(12,127,82,.08)}
+
+/* Standings qualification badges */
+.standing-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.standing-row{display:grid;grid-template-columns:36px minmax(130px,1.4fr) repeat(4,minmax(40px,0.5fr)) minmax(115px,1fr);gap:6px;align-items:center;padding:10px 8px;border-bottom:1px solid #edf0ee;font-size:11px;border-radius:10px;transition:background .15s}
+.standing-row.head{color:var(--muted);font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.standing-row.qualify-rank-1{background:rgba(255,215,0,0.12);border-left:3.5px solid #f59e0b}
+.standing-row.qualify-rank-2{background:rgba(59,130,246,0.08);border-left:3.5px solid #3b82f6}
+.rank-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
+.rank-badge.rank-1{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.rank-badge.rank-2{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd}
+.rank-badge.rank-other{background:#f3f4f6;color:#6b7280}
+.qualify-status{display:block;font-size:8.5px;color:#059669;font-weight:750;margin-top:2px}

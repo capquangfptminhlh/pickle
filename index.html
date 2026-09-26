@@ -3,9 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pickle Tour">
   <meta name="theme-color" content="#0b7a4b">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/app-icon.svg">
   <title>Pickle Tour — Giải đấu, Live Score & Ranking</title>
   <meta name="description" content="Theo dõi giải pickleball, lịch thi đấu, live score, bảng xếp hạng và bracket.">
   <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css">
@@ -14,7 +19,7 @@
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
-      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="/ranking.html">Ranking</a><a href="#bracket">Bracket</a><a href="/about.html">Giới thiệu</a></nav>
+      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="/ranking.html">Ranking</a><a href="#bracket">Bracket</a><a href="/submit-tournament.html" style="color:var(--brand);font-weight:800">+ Đăng giải</a><a href="/about.html">Giới thiệu</a></nav>
       <a class="btn primary" href="/login">Đăng nhập quản trị</a>
     </div>
   </header>
@@ -60,7 +65,7 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><p>Đang diễn ra, sắp mở và đã kết thúc.</p></div>
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
@@ -110,6 +115,7 @@
 
   <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span></div></footer>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="assets/members-binh-loi-data.js"></script>
   <script src="assets/api.js"></script>
   <script src="assets/bracket-ui.js"></script>
   <script src="assets/public.js"></script>

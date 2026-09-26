@@ -90,10 +90,18 @@
         <label><input id="winByTwo" type="checkbox" checked> Thắng cách 2</label>
       </div>
 
+      <div id="scoreStatusTip" class="score-lead-tip" hidden></div>
+
       <div class="score-actions">
         <button type="button" class="btn secondary" id="undoScore">↶ Undo</button>
         <button type="button" class="btn dark" id="finishSet">Hoàn tất set</button>
         <button type="button" class="btn primary" id="finishMatch">Kết thúc trận</button>
+      </div>
+
+      <div class="quick-score-card">
+        <h3><span>⚡ Nhập nhanh tỉ số các set</span><small style="color:#0b7b50;font-size:10px">Tự tính Nhất/Nhì bảng</small></h3>
+        <div id="quickSetsList"></div>
+        <button type="button" class="btn primary" id="saveQuickScore" style="width:100%;margin-top:8px">Lưu tỉ số & Tự động xếp Nhất/Nhì bảng</button>
       </div>
       <p class="score-note">Mọi thay đổi kết quả được lưu trên server và ghi audit log.</p>
     </form>
@@ -109,7 +117,7 @@
     </form>
   </dialog>
 
-  
+  <script src="../assets/members-binh-loi-data.js"></script>
   <script src="preview-api.js"></script>
   <script src="../assets/csv-import.js"></script>
   <script src="../assets/admin-modules.js"></script>
