@@ -223,21 +223,15 @@ for(const [pid,selector,label] of [
 
 // Exercise populated public Preview flows using temporary browser-local records.
 await goto(ppage,preview+"/index.html","preview populated home");
-if(!(await ppage.locator(".event-list-card").count()))failures.push({label:"preview populated home",errors:["created tournament not visible on public home"]});
-if(!(await ppage.locator(".connect-player-card").count()))failures.push({label:"preview populated home",errors:["created player not visible on public home"]});
-const search=ppage.locator("#appSearch");
-if(await search.count()){
-  await search.fill("UI Smoke Tournament");await ppage.waitForTimeout(60);
-  if(!(await ppage.locator(".event-list-card:visible").count()))failures.push({label:"preview public search",errors:["search hides matching tournament"]});
-  await search.fill("");
-}
-const eventHref=await ppage.locator(".event-list-card").first().getAttribute("href").catch(()=>null);
+if(!(await ppage.locator(".tour-card").count()))failures.push({label:"preview populated home",errors:["created tournament not visible on public home"]});
+if(!(await ppage.locator(".top-player-card").count()))failures.push({label:"preview populated home",errors:["created player not visible on public home"]});
+const eventHref=await ppage.locator(".tour-card").first().getAttribute("href").catch(()=>null);
 if(eventHref){
   await goto(ppage,preview+"/"+eventHref,"preview tournament detail");
   if(!(await ppage.locator("#tourName").innerText()).includes("UI Smoke Tournament"))failures.push({label:"preview tournament detail",errors:["tournament route shows wrong record"]});
 }
 await goto(ppage,preview+"/index.html","preview populated home return");
-const playerHref=await ppage.locator(".connect-player-card").first().getAttribute("href").catch(()=>null);
+const playerHref=await ppage.locator(".top-player-card").first().getAttribute("href").catch(()=>null);
 if(playerHref){
   await goto(ppage,preview+"/"+playerHref,"preview player detail");
   if(!(await ppage.locator("#playerName").innerText()).includes("UI Player"))failures.push({label:"preview player detail",errors:["player route shows wrong record"]});
@@ -272,6 +266,9 @@ if(await pscore.count()){
   await pscore.click();
   await ppage.waitForTimeout(100);
   if(!(await ppage.locator("#scoreDialog").evaluate(el=>el.open)))failures.push({label:"preview scoring",errors:["score dialog did not open"]});
+  const scoreCardBox=await ppage.locator("#scoreDialog .score-card").boundingBox();
+  if(scoreCardBox&&(scoreCardBox.x<0||scoreCardBox.x+scoreCardBox.width>390.5))failures.push({label:"preview scoring",errors:["score dialog leaves mobile viewport"]});
+  await ppage.locator("#scoreDialog .icon-btn").click().catch(()=>{});
 }
 
 // UI VISUAL QA — real mobile screenshots used for design review.
@@ -279,13 +276,12 @@ await mkdir("ui-artifacts",{recursive:true});
 const shot=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
 await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 if(!(await shot.locator(".public-mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["public mobile dock missing"]});
-if(await shot.locator(".public-mobile-dock a").count()!==5)failures.push({label:"preview mobile public",errors:["community bottom nav must have 5 tabs"]});
-if(!(await shot.locator("#appSearch").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community search missing"]});
-if(!(await shot.locator(".community-welcome-card").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community brand hero missing"]});
-if(!(await shot.locator("#featuredTournament").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["featured tournament area missing"]});
-if(!(await shot.locator("#community").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community feed missing"]});
+if(await shot.locator(".public-mobile-dock a").count()!==5)failures.push({label:"preview mobile public",errors:["public bottom nav must have 5 tabs"]});
+if(!(await shot.locator(".mobile-app-dashboard").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["mobile tournament dashboard missing"]});
+if(!(await shot.locator(".public-hero").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["tournament network hero missing"]});
+if(!(await shot.locator("#publicTours").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["tournament list missing"]});
 const publicOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
-if(publicOverflow)failures.push({label:"preview mobile public",errors:["community home has horizontal overflow"]});
+if(publicOverflow)failures.push({label:"preview mobile public",errors:["public home has horizontal overflow"]});
 await shot.screenshot({path:"ui-artifacts/mobile-public.png",fullPage:true});
 
 await shot.goto(preview+"/ranking.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
