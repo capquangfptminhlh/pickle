@@ -63,7 +63,8 @@ function renderCore(){
   if(bracket){
     const html=window.PickleBracket?.render(state.matches,team,{admin:false})||'<div class="app-empty-card"><span>🏆</span><b>Chưa có bracket</b><small>Bracket sẽ xuất hiện khi BTC khởi tạo vòng loại trực tiếp.</small></div>';
     const champ=window.PickleBracket?.champion(state.matches,team);
-    bracket.innerHTML=html+(champ?'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>':"");
+    const hasChampion=champ&&champ!=="Chưa xác định";
+    bracket.innerHTML=html+(hasChampion?'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>':"");
   }
   renderFeatured();
 }
