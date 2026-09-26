@@ -78,7 +78,8 @@ async function rejectInvalidUpload(file){
   return true;
 }
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
-if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
+const jwtMinLength=isProduction?48:32;
+if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<jwtMinLength)throw new Error(`JWT_SECRET must be at least ${jwtMinLength} characters`);
 
 app.set("trust proxy",1);
 app.disable("x-powered-by");
@@ -118,6 +119,9 @@ app.use((req,res,next)=>{
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const validEmail=s=>typeof s==="string"&&s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const validPassword=s=>typeof s==="string"&&s.length>=12&&s.length<=64;
+const validHexColor=s=>typeof s==="string"&&/^#[0-9a-f]{6}$/i.test(s);
+const validHttpsUrl=s=>{if(!s)return true;try{return new URL(String(s)).protocol==="https:"}catch{return false}};
+const validAssetUrl=s=>!s||String(s).startsWith("/uploads/media/")||String(s).startsWith("/uploads/avatars/")||validHttpsUrl(s);
 const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const nowTime=d=>d?new Date(d).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";
 const publicStatus=s=>s==="scheduled"?"wait":s==="completed"?"done":s;
@@ -1159,11 +1163,14 @@ app.get("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async
 }));
 app.post("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {tournamentId,name,logoUrl,websiteUrl,tier,sortOrder=0}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!validAssetUrl(logoUrl)||!validHttpsUrl(websiteUrl))return res.status(400).json({error:"INVALID_URL"});
   const row=(await pool.query("insert into sponsors(tournament_id,name,logo_url,website_url,tier,sort_order) values($1,$2,$3,$4,$5,$6) returning *",[tournamentId||null,name,logoUrl||null,websiteUrl||null,tier||null,sortOrder])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'sponsor',$2,'CREATE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
 }));
 app.patch("/api/sponsors/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from sponsors where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.body.logoUrl!==undefined&&!validAssetUrl(req.body.logoUrl))return res.status(400).json({error:"INVALID_URL"});
+  if(req.body.websiteUrl!==undefined&&!validHttpsUrl(req.body.websiteUrl))return res.status(400).json({error:"INVALID_URL"});
   const row=(await pool.query("update sponsors set name=coalesce($1,name),logo_url=coalesce($2,logo_url),website_url=coalesce($3,website_url),tier=coalesce($4,tier),sort_order=coalesce($5,sort_order),tournament_id=coalesce($6,tournament_id) where id=$7 returning *",[req.body.name??null,req.body.logoUrl??null,req.body.websiteUrl??null,req.body.tier??null,req.body.sortOrder??null,req.body.tournamentId??null,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'sponsor',$2,'UPDATE_SPONSOR',$3,$4)",[req.user.sub,row.id,before,row]);res.json(row);
 }));
@@ -1177,6 +1184,7 @@ app.get("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(re
 }));
 app.post("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {title,excerpt,body,coverUrl,status="draft",tournamentId}=req.body;if(!title)return res.status(400).json({error:"TITLE_REQUIRED"});
+  if(!validAssetUrl(coverUrl))return res.status(400).json({error:"INVALID_URL"});
   let slug=slugify(title);if((await pool.query("select 1 from content_posts where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
   const publishedAt=status==="published"?new Date():null;
   const row=(await pool.query("insert into content_posts(tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[tournamentId||null,title,slug,excerpt||null,body||null,coverUrl||null,status,publishedAt,req.user.sub])).rows[0];
@@ -1184,6 +1192,7 @@ app.post("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(r
 }));
 app.patch("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from content_posts where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.body.coverUrl!==undefined&&!validAssetUrl(req.body.coverUrl))return res.status(400).json({error:"INVALID_URL"});
   const status=req.body.status??before.status;
   const publishedAt=status==="published"?(before.published_at||new Date()):before.published_at;
   const row=(await pool.query("update content_posts set title=coalesce($1,title),excerpt=coalesce($2,excerpt),body=coalesce($3,body),cover_url=coalesce($4,cover_url),status=$5,published_at=$6,tournament_id=coalesce($7,tournament_id),updated_at=now() where id=$8 returning *",[req.body.title??null,req.body.excerpt??null,req.body.body??null,req.body.coverUrl??null,status,publishedAt,req.body.tournamentId??null,req.params.id])).rows[0];
@@ -1197,7 +1206,13 @@ app.get("/api/settings/branding",authRequired,allow("super_admin","organizer"),w
   const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];res.json(row?.value||{});
 }));
 app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const value=req.body||{};
+  const raw=req.body||{};
+  const name=String(raw.name||"Pickle Tour").trim();
+  const primaryColor=String(raw.primaryColor||"#0a8b55"),accentColor=String(raw.accentColor||"#dfff69");
+  const logoUrl=raw.logoUrl?String(raw.logoUrl):"";
+  if(!name||name.length>80)return res.status(400).json({error:"INVALID_BRAND_NAME"});
+  if(!validHexColor(primaryColor)||!validHexColor(accentColor)||!validAssetUrl(logoUrl))return res.status(400).json({error:"INVALID_BRANDING"});
+  const value={name,primaryColor,accentColor,logoUrl};
   const row=(await pool.query(`
     insert into app_settings(key,value,updated_by) values('branding',$1,$2)
     on conflict(key) do update set value=excluded.value,updated_by=excluded.updated_by,updated_at=now()
