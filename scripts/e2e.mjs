@@ -52,7 +52,7 @@ const player=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{
 await raw("/api/players/"+player.id,{method:"PATCH",cookie:admin.cookie,body:{nickname:"CI",active:true}});
 await raw("/api/players/"+player.id+"/rating-adjust",{method:"POST",cookie:admin.cookie,body:{delta:0.01,reason:"CI rating test"}});
 
-const teamA=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI A "+stamp,club:"CI Club Updated "+stamp,group:"A",seed:1}})).data;
+const teamA=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI A "+stamp,clubId:club.id,group:"A",seed:1}})).data;
 const teamB=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI B "+stamp,group:"A",seed:2}})).data;
 await raw("/api/teams/"+teamB.id,{method:"PATCH",cookie:admin.cookie,body:{group:"B",seed:2,status:"active"}});
 
@@ -152,17 +152,25 @@ assert(users.some(x=>x.id===child.id&&x.role==="organizer"),"child account liste
 const organizer=await login(childEmail,childPassword);
 await raw("/api/users",{cookie:organizer.cookie,ok:[403]});
 await raw("/api/admin/state",{cookie:organizer.cookie});
-await raw("/api/users/"+child.id,{method:"PATCH",cookie:admin.cookie,body:{active:false}});
+const rotatedPassword="ci-organizer-rotated-123";
+await raw("/api/users/"+child.id,{method:"PATCH",cookie:admin.cookie,body:{password:rotatedPassword}});
 await raw("/api/admin/state",{cookie:organizer.cookie,ok:[401]});
+const organizerRotated=await login(childEmail,rotatedPassword);
+await raw("/api/admin/state",{cookie:organizerRotated.cookie});
+await raw("/api/users/"+child.id,{method:"PATCH",cookie:admin.cookie,body:{active:false}});
+await raw("/api/admin/state",{cookie:organizerRotated.cookie,ok:[401]});
 
 const refEmail="ci-ref-"+stamp+"@pickle.test",refPassword="ci-ref-password-123";
 await raw("/api/users/referees",{method:"POST",cookie:admin.cookie,body:{name:"CI Ref",email:refEmail,password:refPassword}});
 const ref=await login(refEmail,refPassword);
 await raw("/api/tournaments",{method:"POST",cookie:ref.cookie,body:{name:"SHOULD FAIL"} ,ok:[403]});
+await raw("/api/registrations/"+reg.id+"/checkin",{method:"POST",cookie:ref.cookie,body:{},ok:[403]});
 
 // Delegated role boundaries.
 const scopeClub=(await raw("/api/clubs",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Club "+stamp,city:"HCMC"}})).data;
 const scopePlayer=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Scope Player "+stamp,rating:3.2,clubId:scopeClub.id}})).data;
+const scopeTeam=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Team "+stamp,clubId:scopeClub.id,group:"C",seed:3}})).data;
+const scopeReg=(await raw("/api/divisions/"+did+"/registrations",{method:"POST",cookie:admin.cookie,body:{teamId:scopeTeam.id,amount:900000}})).data;
 
 const managerMail="ci-manager-"+stamp+"@pickle.test";
 const managerUser=(await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Club Manager",email:managerMail,password:childPassword,role:"club_manager",clubId:club.id}})).data;
@@ -177,10 +185,15 @@ await raw("/api/tournaments",{method:"POST",cookie:manager.cookie,body:{name:"bl
 await raw("/api/users",{cookie:manager.cookie,ok:[403]});
 
 const financeMail="ci-finance-"+stamp+"@pickle.test";
-await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Finance",email:financeMail,password:childPassword,role:"finance"}});
+await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{name:"CI Finance",email:financeMail,password:childPassword,role:"finance",clubId:club.id}});
 const finance=await login(financeMail,childPassword);
-await raw("/api/registrations",{cookie:finance.cookie});
-await raw("/api/reports/overview",{cookie:finance.cookie});
+const financeRegs=(await raw("/api/registrations",{cookie:finance.cookie})).data;
+assert(financeRegs.some(x=>x.id===reg.id)&&!financeRegs.some(x=>x.id===scopeReg.id),"finance registration scope");
+await raw("/api/registrations/"+scopeReg.id+"/payment",{method:"POST",cookie:finance.cookie,body:{method:"cash"},ok:[403]});
+const financeReport=(await raw("/api/reports/overview",{cookie:finance.cookie})).data;
+assert(Number(financeReport.registrations)>=1,"finance scoped overview");
+const financeCsv=(await raw("/api/reports/export.csv",{cookie:finance.cookie})).data;
+assert(String(financeCsv).includes("CI A "+stamp)&&!String(financeCsv).includes("CI Scope Team "+stamp),"finance csv scope");
 await raw("/api/tournaments",{method:"POST",cookie:finance.cookie,body:{name:"blocked"},ok:[403]});
 await raw("/api/users",{cookie:finance.cookie,ok:[403]});
 
@@ -188,6 +201,14 @@ await raw("/admin",{ok:[302]});
 await raw("/admin",{cookie:admin.cookie});
 await raw("/api/players/"+managerMade.id,{method:"DELETE",cookie:admin.cookie});
 await raw("/api/players/"+scopePlayer.id,{method:"DELETE",cookie:admin.cookie});
+await raw("/api/registrations/"+scopeReg.id,{method:"DELETE",cookie:admin.cookie});
+await raw("/api/teams/"+scopeTeam.id,{method:"DELETE",cookie:admin.cookie});
+
+const badUpload=new FormData();
+badUpload.append("image",new Blob(["not-a-real-png"],{type:"image/png"}),"fake.png");
+const badUploadRes=await fetch(base+"/api/uploads/image",{method:"POST",headers:{Cookie:admin.cookie},body:badUpload});
+assert(badUploadRes.status===400,"fake MIME upload rejected by signature");
+await raw("/uploads/receipts/not-found.pdf",{ok:[401]});
 
 await raw("/manifest.webmanifest");
 await raw("/service-worker.js");
