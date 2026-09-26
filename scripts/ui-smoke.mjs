@@ -240,6 +240,12 @@ await shot.screenshot({path:"ui-artifacts/mobile-public.png",fullPage:true});
 await shot.goto(preview+"/ranking.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 if(!(await shot.locator(".ranking-tabs").isVisible().catch(()=>false)))failures.push({label:"preview mobile ranking",errors:["ranking app tabs missing"]});
 if(!(await shot.locator("#rankingPodium").isVisible().catch(()=>false)))failures.push({label:"preview mobile ranking",errors:["ranking podium missing"]});
+for(const mode of ["player","club","area"]){
+  const tab=shot.locator('[data-rank-mode="'+mode+'"]');
+  if(!(await tab.count())){failures.push({label:"preview mobile ranking",errors:["missing ranking tab "+mode]});continue}
+  await tab.click();await shot.waitForTimeout(80);
+  if(!(await tab.evaluate(el=>el.classList.contains("active"))))failures.push({label:"preview mobile ranking",errors:["ranking tab did not activate: "+mode]});
+}
 const rankHeroImg=shot.locator(".ranking-hero-grid>img");
 if(await rankHeroImg.count()&&await rankHeroImg.isVisible().catch(()=>false)){
   failures.push({label:"preview mobile ranking",errors:["ranking hero image must be hidden on mobile"]});
