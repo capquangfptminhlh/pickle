@@ -163,10 +163,10 @@
     dock.className="public-mobile-dock";
     dock.setAttribute("aria-label","Điều hướng nhanh");
     dock.innerHTML=
-      '<a data-public-tab="home" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Trang chủ</span></a>'+
-      '<a data-public-tab="community" href="'+home+'#community"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M8 9h8M8 12h5"/></svg><span>Cộng đồng</span></a>'+
-      '<a data-public-tab="events" href="'+home+'#tournaments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4ZM5 5h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8"/></svg><span>Sự kiện</span></a>'+
-      '<a data-public-tab="ranking" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>BXH</span></a>'+
+      '<a data-public-tab="home" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Home</span></a>'+
+      '<a data-public-tab="events" href="'+home+'#tournaments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4ZM5 5h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8"/></svg><span>Giải</span></a>'+
+      '<a data-public-tab="live" href="'+home+'#live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13"/></svg><span>Live</span></a>'+
+      '<a data-public-tab="ranking" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>Ranking</span></a>'+
       '<a data-public-tab="admin" href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.2-7 8-7s8 2.5 8 7"/></svg><span>Quản trị</span></a>';
     document.body.appendChild(dock);
     const sync=()=>{
@@ -175,9 +175,8 @@
       let key="home";
       if(path.includes("ranking")||path.includes("player"))key="ranking";
       else if(path.includes("login")||path.includes("admin"))key="admin";
-      else if(path.includes("tournament")||path.includes("checkin"))key="events";
-      else if(hash==="#community"||hash==="#connect")key="community";
-      else if(hash==="#tournaments"||hash==="#live"||hash==="#bracket")key="events";
+      else if(path.includes("tournament")||hash==="#tournaments"||hash==="#bracket")key="events";
+      else if(hash==="#live")key="live";
       dock.querySelector('[data-public-tab="'+key+'"]')?.classList.add("active");
     };
     dock.addEventListener("click",e=>{if(e.target.closest("a"))setTimeout(sync,0)});
@@ -249,6 +248,7 @@
 
   function init(){
     document.documentElement.classList.add("motion-ready");
+    if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
     decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();

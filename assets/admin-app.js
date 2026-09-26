@@ -376,7 +376,7 @@ function openPasswordModal(){
   $("#genericTitle").textContent="Đổi mật khẩu";
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Mật khẩu hiện tại<input id="pwCurrent" type="password"></label><label class="field full">Mật khẩu mới<input id="pwNew" type="password" minlength="12"></label><label class="field full">Nhập lại mật khẩu mới<input id="pwConfirm" type="password" minlength="12"></label><div class="field full"><button type="button" class="btn primary" id="savePassword">Đổi mật khẩu</button></div></div>`;
   $("#genericDialog").showModal();
-  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu mới phải từ 12 ký tự.":"Không thể đổi mật khẩu.")}};
+  $("#savePassword").onclick=async()=>{const n=$("#pwNew").value;if(n!==$("#pwConfirm").value)return toast("Mật khẩu nhập lại không khớp.");try{await API.changePassword($("#pwCurrent").value,n);toast("Đã đổi mật khẩu. Vui lòng đăng nhập lại.");location.href=location.pathname.includes("/preview/")?"admin.html":"/login"}catch(e){toast(e.message==="INVALID_CURRENT_PASSWORD"?"Mật khẩu hiện tại không đúng.":["PASSWORD_POLICY","PASSWORD_TOO_SHORT"].includes(e.message)?"Mật khẩu mới phải từ 12–64 ký tự.":e.message==="PASSWORD_REUSE"?"Mật khẩu mới phải khác mật khẩu hiện tại.":"Không thể đổi mật khẩu.")}};
 }
 function selectDivisionDialog(title,buttonText,onSubmit){
   if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
@@ -660,7 +660,7 @@ async function openEditRefereeModal(id){
 function openRefereeModal(){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên<input id="rName"></label><label class="field full">Email<input id="rEmail" type="email" autocomplete="off"></label><label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="rPassword" type="password" minlength="12" autocomplete="new-password"></label><div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div></div>`;
-  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast(e.message==="PASSWORD_TOO_SHORT"?"Mật khẩu phải từ 12 ký tự.":"Không thể tạo: "+e.message)}};
+  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value});$("#genericDialog").close();await render();toast("Đã tạo trọng tài.")}catch(e){toast(["PASSWORD_TOO_SHORT","PASSWORD_POLICY"].includes(e.message)?"Mật khẩu phải từ 12–64 ký tự.":e.message==="INVALID_EMAIL"?"Email không hợp lệ.":"Không thể tạo: "+e.message)}};
 }
 async function openUserModal(){
   const clubs=await API.clubs().catch(()=>[]);
@@ -679,7 +679,7 @@ async function openUserModal(){
   $("#saveUser").onclick=async()=>{try{
     await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role:$("#uRole").value,clubId:["club_manager","finance"].includes($("#uRole").value)?($("#uClub").value||null):null,password:$("#uPassword").value});
     $("#genericDialog").close();await render();toast("Đã tạo tài khoản con.");
-  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_EMAIL:"Email không hợp lệ.",NAME_TOO_LONG:"Tên hiển thị quá dài.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
 }
 async function openEditUserModal(id){
   const [rows,clubs]=await Promise.all([API.users().catch(()=>[]),API.clubs().catch(()=>[])]);
