@@ -1018,3 +1018,173 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
     text-overflow:ellipsis!important;
   }
 }
+
+
+/* MOBILE PROFESSIONAL HOME V10 */
+@media(max-width:760px){
+  :root{--mobile-pad:16px}
+  .public-body{background:#f3f6f4!important}
+  .public-header{
+    height:64px!important;
+    padding:0!important;
+    background:rgba(255,255,255,.96)!important;
+    border-bottom:1px solid #e7ede9!important;
+    box-shadow:none!important
+  }
+  .public-nav{height:64px!important}
+  .public-container{
+    width:calc(100% - 32px)!important;
+    margin-left:16px!important;
+    margin-right:16px!important
+  }
+  .public-brand{gap:10px}
+  .public-brand .brand-mark{
+    width:42px!important;height:42px!important;border-radius:13px!important;
+    background:#dfff63!important;color:#12361f!important;
+    box-shadow:none!important;font-size:18px!important
+  }
+  .public-brand b{font-size:14px!important;letter-spacing:-.01em}
+  .public-brand small{font-size:7.5px!important;letter-spacing:.14em!important}
+
+  .mobile-app-dashboard{padding:14px 0 6px!important}
+  .mobile-app-status-card{
+    display:block!important;
+    padding:18px!important;
+    border-radius:22px!important;
+    background:
+      radial-gradient(circle at 88% 4%,rgba(223,255,99,.12),transparent 28%),
+      linear-gradient(145deg,#0b6d49,#07533a)!important;
+    box-shadow:0 12px 28px rgba(8,86,57,.15)!important
+  }
+  .mobile-dashboard-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mobile-dashboard-head .eyebrow{font-size:9px!important;letter-spacing:.12em;color:#bfe7d2!important}
+  .mobile-dashboard-head h2{margin:5px 0 0!important;font-size:24px!important;line-height:1.05!important;letter-spacing:-.035em!important;color:#fff}
+  .mobile-app-badge{
+    width:52px!important;height:52px!important;flex:0 0 52px!important;
+    border-radius:16px!important;background:rgba(255,255,255,.1)!important;
+    border:1px solid rgba(255,255,255,.1)!important;color:#e5ff72!important;
+    font-size:18px!important;box-shadow:none!important
+  }
+  .mobile-status-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px
+  }
+  .mobile-status-grid a{
+    min-width:0;padding:10px 9px;border-radius:14px;text-decoration:none;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.07);
+    color:#fff
+  }
+  .mobile-status-grid strong{
+    display:block;font-size:20px;line-height:1;font-weight:950;letter-spacing:-.04em
+  }
+  .mobile-status-grid span{
+    display:block;margin-top:5px;color:#c9e4d6;font-size:9px;font-weight:750;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  }
+
+  .mobile-app-actions{
+    grid-template-columns:repeat(4,1fr)!important;gap:8px!important;margin-top:10px!important
+  }
+  .mobile-app-actions a{
+    min-height:76px!important;padding:10px 4px!important;border-radius:17px!important;
+    background:#fff!important;border:1px solid #e7ede9!important;
+    box-shadow:none!important;gap:6px!important
+  }
+  .mobile-app-actions span{
+    width:34px!important;height:34px!important;border-radius:11px!important;
+    background:#edf7f1!important;color:#0b7a50!important
+  }
+  .mobile-app-actions span svg{width:18px!important;height:18px!important}
+  .mobile-app-actions b{font-size:10px!important;color:#26342d!important}
+
+  /* The old mobile hero duplicated Live Center and looked like a web landing page. */
+  .public-hero{display:none!important}
+
+  .public-section{padding:22px 0!important;background:#f3f6f4!important}
+  .soft-section{background:#eef3f0!important}
+  .section-title{margin-bottom:12px!important;align-items:flex-end!important;gap:10px!important}
+  .section-title .eyebrow{font-size:8.5px!important;letter-spacing:.1em!important}
+  .section-title h2{margin-top:4px!important;font-size:25px!important;line-height:1!important;letter-spacing:-.04em!important}
+  .section-title p{display:none!important}
+  .section-title .btn.mini{
+    min-height:36px!important;padding:0 13px!important;border-radius:12px!important;
+    background:#132119!important;color:#fff!important;font-size:10px!important;
+    box-shadow:none!important
+  }
+
+  .page-grid{gap:12px!important}
+  .tour-card{
+    border-radius:22px!important;border:1px solid #e4ebe7!important;
+    box-shadow:0 8px 22px rgba(17,45,30,.05)!important;background:#fff!important
+  }
+  .tour-media{
+    height:142px!important;
+    background:
+      radial-gradient(circle at 84% 25%,rgba(222,255,96,.16),transparent 24%),
+      linear-gradient(145deg,#0d714a,#094b35)!important
+  }
+  .tour-pickle-art{
+    display:block!important;position:absolute!important;inset:0!important
+  }
+  .tour-pickle-art i{
+    position:absolute;left:10%;right:10%;bottom:18px;height:1px;background:rgba(255,255,255,.17)
+  }
+  .tour-ball{
+    position:absolute;right:48px;top:25px;width:64px;height:64px;border-radius:50%;
+    background:#dfff63;box-shadow:0 0 0 14px rgba(223,255,99,.07)
+  }
+  .tour-ball:after{
+    content:"";position:absolute;inset:14px;border-radius:50%;
+    background:
+      radial-gradient(circle at 25% 22%,#0b6545 0 2px,transparent 3px),
+      radial-gradient(circle at 66% 24%,#0b6545 0 2px,transparent 3px),
+      radial-gradient(circle at 78% 60%,#0b6545 0 2px,transparent 3px),
+      radial-gradient(circle at 36% 70%,#0b6545 0 2px,transparent 3px)
+  }
+  .tour-paddle-shape{
+    position:absolute;right:102px;bottom:19px;width:38px;height:54px;
+    border-radius:48% 48% 34% 34%;background:#111916;transform:rotate(-18deg)
+  }
+  .tour-paddle-shape:after{
+    content:"";position:absolute;left:13px;bottom:-24px;width:12px;height:28px;
+    border-radius:0 0 5px 5px;background:#111916
+  }
+  .tour-cover{padding:16px!important}
+  .tour-cover small{font-size:8px!important;letter-spacing:.1em!important}
+  .tour-cover strong{font-size:15px!important}
+  .tour-body{padding:15px!important}
+  .tour-body h3{font-size:17px!important;line-height:1.25!important;margin-bottom:13px!important}
+  .tour-meta-grid{gap:8px!important}
+  .tour-meta-grid small{font-size:8px!important}
+  .tour-meta-grid b{font-size:10px!important}
+
+  #live.public-section{background:#f3f6f4!important}
+  #publicMatches .empty{
+    min-height:88px!important;border:1px solid #e3ebe6!important;border-radius:18px!important;
+    background:#fff!important;justify-content:flex-start!important;
+    box-shadow:none!important;text-align:left!important
+  }
+  #publicMatches .empty:before{
+    content:"";width:9px;height:9px;margin-right:11px;border-radius:50%;
+    background:#29c77d;box-shadow:0 0 0 6px rgba(41,199,125,.09)
+  }
+
+  #top-players.public-section{padding-top:22px!important}
+  #publicTopPlayers .top-player-card{
+    min-height:76px!important;padding:9px 11px!important;border-radius:17px!important;
+    box-shadow:none!important;border:1px solid #e5ece8!important
+  }
+
+  .public-mobile-dock{
+    left:12px!important;right:12px!important;bottom:max(8px,var(--safe-bottom))!important;
+    height:62px!important;padding:4px!important;border-radius:20px!important;
+    border:1px solid #dfe7e2!important;background:rgba(255,255,255,.97)!important;
+    box-shadow:0 12px 28px rgba(17,45,30,.12)!important
+  }
+  .public-mobile-dock a{
+    border-radius:15px!important;font-size:8px!important;font-weight:800!important;gap:1px!important
+  }
+  .public-mobile-dock a.active{
+    background:#edf7f1!important;color:#08754b!important
+  }
+  .public-mobile-dock svg{width:18px!important;height:18px!important}
+}
