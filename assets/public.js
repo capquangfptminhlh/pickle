@@ -2,7 +2,7 @@ let state={tournaments:[],divisions:[],teams:[],matches:[],audit:[]};
 let players=[],posts=[],sponsors=[],branding={};
 const $=s=>document.querySelector(s);
 const isPreview=location.pathname.includes("/preview/");
-const href=p=>isPreview?p.replace(/^\//,""):p;
+const href=p=>p.replace(/^\//,"");
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const initials=name=>(name||"P").trim().split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase();
 const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);

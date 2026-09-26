@@ -2,7 +2,7 @@
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   const isPreview=location.pathname.includes("/preview/");
-  const local=p=>isPreview?p.replace(/^\//,""):p;
+  const local=p=>p.replace(/^\//,"");
 
   const observer=new IntersectionObserver(entries=>{
     entries.forEach(e=>{
@@ -246,12 +246,24 @@
     if(nav)new MutationObserver(()=>{buildAdminDock();buildFab()}).observe(nav,{childList:true,subtree:true});
   }
 
+  function normalizeProjectLinks(){
+    if(!location.hostname.endsWith(".github.io"))return;
+    const parts=location.pathname.split("/").filter(Boolean);
+    const project=parts[0]||"pickle";
+    const base="/"+project+"/";
+    document.querySelectorAll('a[href^="/"]').forEach(a=>{
+      const raw=a.getAttribute("href");
+      if(!raw||raw.startsWith("//")||raw.startsWith(base))return;
+      a.setAttribute("href",base+raw.replace(/^\/+/, ""));
+    });
+  }
+
   function init(){
     document.documentElement.classList.add("motion-ready");
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
-    decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    normalizeProjectLinks();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     document.addEventListener("pointerdown",ripple,{passive:true});
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});

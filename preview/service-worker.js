@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v19-gender-ratings";
+const VERSION="pickle-pages-preview-v20-route-guard";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
