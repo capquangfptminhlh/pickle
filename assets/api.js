@@ -3,7 +3,7 @@
     const res=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});
     const data=await res.json().catch(()=>({}));
     if(res.status===401&&location.pathname!="/login"&&!location.pathname.endsWith("login.html")){
-      location.href="/login"; throw new Error("AUTH_REQUIRED");
+      location.href="login.html"; throw new Error("AUTH_REQUIRED");
     }
     if(!res.ok){
       const err=new Error(data.error||"REQUEST_FAILED");

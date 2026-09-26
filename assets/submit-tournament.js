@@ -97,7 +97,7 @@
         $("#successTourName").textContent = res.tournament?.name || name;
         const tourLink = $("#successTourLink");
         if (tourLink && res.tournament?.id) {
-          tourLink.href = `/tournament.html?id=${encodeURIComponent(res.tournament.id)}`;
+          tourLink.href = `tournament.html?id=${encodeURIComponent(res.tournament.id)}`;
         }
       }
       toast("Đăng giải thành công!");
