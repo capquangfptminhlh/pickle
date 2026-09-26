@@ -26,7 +26,7 @@ async function load(){
 $("#confirmCheckin").onclick=async()=>{
   try{await PickleAPI.confirmCheckin(token);await load()}
   catch(e){
-    if(e.status===401){location.href="/login?return="+encodeURIComponent(location.href)}
+    if(e.status===401){location.href="login.html?return="+encodeURIComponent(location.href)}
     else $("#checkinNote").textContent="Không thể xác nhận: "+e.message;
   }
 };

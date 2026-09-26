@@ -7,20 +7,21 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pickle Tour">
+  <link rel="apple-touch-icon" href="assets/app-icon.svg">
   <meta name="theme-color" content="#0b7a4b">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/assets/app-icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <title>Pickle Tour — Cộng đồng & Giải đấu Pickleball</title>
   <meta name="description" content="Cộng đồng pickleball: giải đấu, live score, bảng xếp hạng, người chơi và hoạt động thể thao trong một ứng dụng.">
   <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css">
+  <link rel="canonical" href="https://capquangfptminhlh.github.io/pickle/">
 </head>
 <body class="public-body">
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>CỘNG ĐỒNG PICKLEBALL</small></span></a>
-      <nav><a href="#news">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="/ranking.html">BXH</a><a href="#top-players">Người chơi</a><a href="#live">Live</a></nav>
-      <a class="btn primary" href="/login">Đăng nhập quản trị</a>
+      <nav><a href="#news">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">BXH</a><a href="#top-players">Người chơi</a><a href="#live">Live</a></nav>
+      <a class="btn primary" href="login.html">Đăng nhập quản trị</a>
     </div>
   </header>
 
@@ -30,7 +31,7 @@
         <div class="desktop-commandbar">
           <div class="desktop-command-title"><span class="desktop-online-dot"></span><b>Pickle Tour</b><span>Cộng đồng pickleball</span></div>
           <div class="desktop-command-actions">
-            <a href="#news">Bài viết</a><a href="#tournaments">Giải đấu</a><a href="/ranking.html">Bảng xếp hạng</a><a class="desktop-submit" href="/submit-tournament.html">＋ Đăng giải</a>
+            <a href="#news">Bài viết</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">Bảng xếp hạng</a><a class="desktop-submit" href="submit-tournament.html">＋ Đăng giải</a>
           </div>
         </div>
         <div class="desktop-bento">
@@ -69,7 +70,7 @@
         <div class="mobile-app-actions">
           <a href="#tournaments"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4Zm-3 1h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8m-4-4H9v4m3-4h3v4"/></svg></span><b>Giải đấu</b></a>
           <a href="#live"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13M8 8a5.5 5.5 0 0 0 0 8m8-8a5.5 5.5 0 0 1 0 8"/></svg></span><b>Live</b></a>
-          <a href="/ranking.html"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg></span><b>Ranking</b></a>
+          <a href="ranking.html"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg></span><b>Ranking</b></a>
           <a href="#news"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span><b>Tin tức</b></a>
         </div>
       </div>
@@ -96,14 +97,14 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
 
     <section id="top-players" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">PLAYER RATING</span><h2>Top VĐV</h2></div><a class="section-link" href="/ranking.html">Xem toàn bộ ranking →</a></div>
+        <div class="section-title"><div><span class="eyebrow">PLAYER RATING</span><h2>Top VĐV</h2></div><a class="section-link" href="ranking.html">Xem toàn bộ ranking →</a></div>
         <div id="publicTopPlayers" class="top-player-grid"></div>
       </div>
     </section>
@@ -145,12 +146,12 @@
   </main>
 
   <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span></div></footer>
-  <script src="/socket.io/socket.io.js"></script>
+  
   <script src="assets/members-binh-loi-data.js"></script>
-  <script src="assets/api.js"></script>
+  <script src="preview-api.js"></script>
   <script src="assets/bracket-ui.js"></script>
-  <script src="assets/public.js"></script>
+  <script src="preview-public.js"></script>
   <script src="assets/ui-motion.js"></script>
-  <script src="/assets/pwa.js"></script>
+  <script src="preview-pwa.js"></script>
 </body>
 </html>

@@ -1,0 +1,18 @@
+{
+  "id":"./",
+  "name":"Pickle Tour",
+  "short_name":"Pickle Tour",
+  "description":"Pickle Tour tournament operations.",
+  "lang":"vi",
+  "start_url":"./index.html?source=pwa",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#0d2118",
+  "theme_color":"#0d2118",
+  "icons":[{"src":"assets/app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "shortcuts":[
+    {"name":"Live Score","url":"./index.html#live"},
+    {"name":"Ranking","url":"./ranking.html"},
+    {"name":"Đăng nhập quản trị","url":"./login.html"}
+  ]
+}

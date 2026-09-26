@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b7a4b">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <title>Pickle Tour Admin</title>
-  <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">\n  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">  <meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
-<body>
+<body><script src="preview-guard.js"></script>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
@@ -21,6 +23,7 @@
           <strong id="userName" style="color:#fff;font-size:13px">...</strong>
           <span id="userRole">...</span>
         </div>
+        <button class="ghost" id="changePasswordBtn">Đổi mật khẩu</button>
         <button class="ghost" id="logoutBtn">Đăng xuất</button>
       </div>
     </aside>
@@ -106,8 +109,14 @@
     </form>
   </dialog>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="assets/api.js"></script>
+  
+  <script src="preview-api.js"></script>
+  <script src="assets/csv-import.js"></script>
+  <script src="assets/admin-modules.js"></script>
+  <script src="assets/bracket-ui.js"></script>
+  <script src="assets/admin-crud.js"></script>
   <script src="assets/admin-app.js"></script>
+  <script src="assets/ui-motion.js"></script>
+  <script src="preview-pwa.js"></script>
 </body>
 </html>

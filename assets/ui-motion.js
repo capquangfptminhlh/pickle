@@ -156,9 +156,9 @@
   function buildPublicDock(){
     if(!document.body.classList.contains("public-body"))return;
     if(document.querySelector(".public-mobile-dock"))return;
-    const home=isPreview?"index.html":"/";
-    const ranking=isPreview?"ranking.html":"/ranking.html";
-    const admin=isPreview?"login.html":"/login";
+    const home="index.html";
+    const ranking="ranking.html";
+    const admin="login.html";
     const dock=document.createElement("nav");
     dock.className="public-mobile-dock";
     dock.setAttribute("aria-label","Điều hướng nhanh");
