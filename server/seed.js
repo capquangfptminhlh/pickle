@@ -6,13 +6,15 @@ async function seedAdmin(){
   const email=process.env.ADMIN_EMAIL;
   const password=process.env.ADMIN_PASSWORD;
   if(!email||!password)return;
-  if(String(password).length<12)throw new Error("ADMIN_PASSWORD must be at least 12 characters");
-  const passwordHash=await hashPassword(password);
+  const normalized=String(email).toLowerCase().trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)||normalized.length>254)throw new Error("ADMIN_EMAIL is invalid");
+  if(String(password).length<12||String(password).length>64)throw new Error("ADMIN_PASSWORD must be 12 to 64 characters");
+  const passwordHash=await hashPassword(String(password));
   await pool.query(`
     insert into app_users(email,display_name,role,password_hash)
     values($1,'Super Admin','super_admin',$2)
     on conflict(email) do nothing
-  `,[email.toLowerCase(),passwordHash]);
+  `,[normalized,passwordHash]);
 }
 
 async function seedDemo(){
