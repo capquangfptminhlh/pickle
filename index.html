@@ -15,11 +15,13 @@
   <meta name="description" content="Cộng đồng pickleball: giải đấu, live score, bảng xếp hạng, người chơi và hoạt động thể thao trong một ứng dụng.">
   <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css?v=20260926-1720">
   <link rel="canonical" href="https://capquangfptminhlh.github.io/pickle/">
+  <link rel="stylesheet" href="assets/home-mobile.css?v=20260926-1725">
 </head>
-<body class="public-body">
+<body class="public-body home-screen">
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>CỘNG ĐỒNG PICKLEBALL</small></span></a>
+      <a class="mobile-admin-link" href="login.html" aria-label="Đăng nhập quản trị"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-4 2.8-6.5 7-6.5s7 2.5 7 6.5"/></svg></a>
       <nav><a href="#news">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">BXH</a><a href="#top-players">Người chơi</a><a href="#live">Live</a></nav>
       <a class="btn primary" href="login.html">Đăng nhập quản trị</a>
     </div>
@@ -100,21 +102,21 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải</a></div></div>
+        <div class="section-title"><div><span class="eyebrow">GIẢI ĐẤU</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
 
     <section id="top-players" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">PLAYER RATING</span><h2>Top VĐV</h2></div><a class="section-link" href="ranking.html">Xem toàn bộ ranking →</a></div>
+        <div class="section-title"><div><span class="eyebrow">XẾP HẠNG</span><h2>Top VĐV</h2></div><a class="section-link" href="ranking.html">Xem toàn bộ ranking →</a></div>
         <div id="publicTopPlayers" class="top-player-grid"></div>
       </div>
     </section>
 
     <section id="live" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">COURTSIDE</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài từ bàn điều hành.</p></div>
+        <div class="section-title"><div><span class="eyebrow">TRỰC TIẾP</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài từ bàn điều hành.</p></div>
         <div id="publicMatches" class="public-match-grid"></div>
       </div>
     </section>
@@ -134,7 +136,7 @@
     </section>
     <section id="news" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">MEDIA</span><h2>Tin tức & cập nhật</h2></div><p>Nội dung từ BTC giải đấu.</p></div>
+        <div class="section-title"><div><span class="eyebrow">CỘNG ĐỒNG</span><h2>Tin tức & cập nhật</h2></div><p>Nội dung từ BTC giải đấu.</p></div>
         <div id="publicNews" class="news-grid"></div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-root-v4-pro-home";
+const VERSION="pickle-pages-root-v5-isolated-home";
 const STATIC=[
   "/offline.html",
   "/manifest.webmanifest",
