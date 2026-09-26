@@ -37,6 +37,11 @@ await goto(page,prod+"/","prod public");
 if(!/pickle/i.test(await page.locator("body").innerText()))failures.push({label:"prod public",errors:["missing Pickle content"]});
 if(!(await page.locator('a[href="/login"]').count()))failures.push({label:"prod public",errors:["admin login entry missing"]});
 
+const prodState=await fetch(prod+"/api/public/state").then(r=>r.json());
+if(prodState.tournaments?.[0]?.id){
+  await goto(page,prod+"/tournament.html?id="+encodeURIComponent(prodState.tournaments[0].id),"prod tournament detail");
+  if(!(await page.locator("#tourName").innerText()).trim())failures.push({label:"prod tournament detail",errors:["empty tournament name"]});
+}
 await goto(page,prod+"/ranking.html","prod ranking");
 const players=await fetch(prod+"/api/public/players").then(r=>r.json());
 if(players[0]?.id){
@@ -216,6 +221,36 @@ for(const [pid,selector,label] of [
   ["treasury",'[data-club-action="new-transaction"]',"preview create treasury transaction"]
 ])await modalSmoke(ppage,pid,selector,label);
 
+// Exercise populated public Preview flows using temporary browser-local records.
+await goto(ppage,preview+"/index.html","preview populated home");
+if(!(await ppage.locator(".event-list-card").count()))failures.push({label:"preview populated home",errors:["created tournament not visible on public home"]});
+if(!(await ppage.locator(".connect-player-card").count()))failures.push({label:"preview populated home",errors:["created player not visible on public home"]});
+const search=ppage.locator("#appSearch");
+if(await search.count()){
+  await search.fill("UI Smoke Tournament");await ppage.waitForTimeout(60);
+  if(!(await ppage.locator(".event-list-card:visible").count()))failures.push({label:"preview public search",errors:["search hides matching tournament"]});
+  await search.fill("");
+}
+const eventHref=await ppage.locator(".event-list-card").first().getAttribute("href").catch(()=>null);
+if(eventHref){
+  await goto(ppage,preview+"/"+eventHref,"preview tournament detail");
+  if(!(await ppage.locator("#tourName").innerText()).includes("UI Smoke Tournament"))failures.push({label:"preview tournament detail",errors:["tournament route shows wrong record"]});
+}
+await goto(ppage,preview+"/index.html","preview populated home return");
+const playerHref=await ppage.locator(".connect-player-card").first().getAttribute("href").catch(()=>null);
+if(playerHref){
+  await goto(ppage,preview+"/"+playerHref,"preview player detail");
+  if(!(await ppage.locator("#playerName").innerText()).includes("UI Player"))failures.push({label:"preview player detail",errors:["player route shows wrong record"]});
+}
+await goto(ppage,preview+"/ranking.html","preview populated ranking");
+for(const mode of ["player","club","area"]){
+  const tab=ppage.locator('[data-rank-mode="'+mode+'"]');
+  if(!(await tab.count())){failures.push({label:"preview ranking modes",errors:["missing "+mode+" tab"]});continue}
+  await tab.click();await ppage.waitForTimeout(60);
+  if(!(await tab.evaluate(el=>el.classList.contains("active"))))failures.push({label:"preview ranking modes",errors:[mode+" tab did not activate"]});
+  if(!(await ppage.locator("#rankingRows .ranking-app-row").count()))failures.push({label:"preview ranking modes",errors:[mode+" ranking has no populated rows"]});
+}
+
 const pscore=ppage.locator("[data-score-match]").first();
 if(await pscore.count()){
   await pscore.click();
@@ -274,6 +309,10 @@ const clippedScoreControls=await shot.evaluate(()=>[...document.querySelectorAll
 }).map(el=>({tag:el.tagName,text:(el.textContent||"").trim().slice(0,40)})));
 if(clippedScoreControls.length)failures.push({label:"preview mobile score",errors:["score filters/actions clipped outside viewport: "+JSON.stringify(clippedScoreControls)]});
 const scoreOpen=shot.locator("[data-score-match]").first();if(await scoreOpen.count()){await scoreOpen.click();await shot.waitForTimeout(220);}
+const scoreOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+if(scoreOverflow)failures.push({label:"preview mobile score",errors:["score screen has horizontal overflow"]});
+const filterBoxes=await shot.locator("#content .filters>*").evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width}})).catch(()=>[]);
+if(filterBoxes.some(r=>r.left<0||r.right>390.5))failures.push({label:"preview mobile score",errors:["score filter/action controls leave viewport"]});
 await shot.screenshot({path:"ui-artifacts/mobile-score.png"});
 
 // No seeded player is expected on a fresh Pages install.
