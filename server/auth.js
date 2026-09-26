@@ -6,7 +6,7 @@ import {pool} from "./db.js";
 const secret=()=>process.env.JWT_SECRET||"";
 export const hashPassword=p=>bcrypt.hash(p,12);
 export const verifyPassword=(p,h)=>bcrypt.compare(p,h);
-export const signUser=u=>jwt.sign({sub:u.id,ver:Number(u.auth_version||0)},secret(),{expiresIn:"12h",issuer:"pickle-tour",audience:"pickle-admin"});
+export const signUser=u=>jwt.sign({sub:u.id,ver:Number(u.auth_version||0)},secret(),{algorithm:"HS256",expiresIn:"12h",issuer:"pickle-tour",audience:"pickle-admin"});
 
 function tokenFrom(req){
   return req.cookies?.pickle_token||req.headers.authorization?.replace(/^Bearer\s+/i,"");
@@ -16,7 +16,7 @@ export async function sessionUser(req){
   const token=tokenFrom(req);
   if(!token)return null;
   let claims;
-  try{claims=jwt.verify(token,secret(),{issuer:"pickle-tour",audience:"pickle-admin"})}
+  try{claims=jwt.verify(token,secret(),{algorithms:["HS256"],issuer:"pickle-tour",audience:"pickle-admin"})}
   catch{return null}
   const row=(await pool.query(
     "select id,email,display_name,role,active,club_id,auth_version from app_users where id=$1",
