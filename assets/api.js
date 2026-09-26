@@ -31,7 +31,8 @@
           id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
           full_name:r.fullName||r.name,
           avatar_url:r.avatarUrl||r.avatar_url||"",
-          rating:Number(r.rating)||3.0,
+          gender:r.gender||"male",
+          rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
           club_name:r.club||"CLB Pickleball Bình Lợi",
           club_city:"TP.HCM",
           nickname:r.role!=="Thành viên"?r.role:""
