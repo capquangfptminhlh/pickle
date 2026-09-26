@@ -258,7 +258,10 @@ for(const id of ["dashboard","club_events","players","clubs","club_attendance","
   if(!(await b.count()))continue;
   await b.evaluate(el=>el.click());await ppage.waitForTimeout(90);
   const overflow=await ppage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
-  if(overflow)failures.push({label:"preview mobile admin "+id,errors:["page has horizontal overflow"]});
+  if(overflow){
+    const offenders=await ppage.evaluate(()=>[...document.querySelectorAll("body *")].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,cls:el.className?.toString?.().slice(0,90)||"",text:(el.textContent||"").trim().replace(/\s+/g," ").slice(0,70),left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width)}}).filter(x=>x.width>0&&(x.left<-1||x.right>window.innerWidth+1)).slice(0,12));
+    failures.push({label:"preview mobile admin "+id,errors:["page has horizontal overflow: "+JSON.stringify(offenders)]});
+  }
   if(!(await ppage.locator("#content").innerText()).trim())failures.push({label:"preview mobile admin "+id,errors:["empty mobile content"]});
 }
 const previewScoresNav=ppage.locator('[data-page="scores"]');
