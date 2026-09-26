@@ -249,6 +249,7 @@
 
   function init(){
     document.documentElement.classList.add("motion-ready");
+    if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
     decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
