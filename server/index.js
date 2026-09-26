@@ -263,6 +263,7 @@ function recordLoginFailure(key){
 app.post("/api/auth/login",wrap(async(req,res)=>{
   const email=String(req.body.email||"").toLowerCase().trim();
   const password=String(req.body.password||"");
+  if(!validEmail(email)||!password||password.length>64)return res.status(401).json({error:"INVALID_CREDENTIALS"});
   const key=loginKey(req,email);
   if(loginBlocked(key))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
   const u=(await pool.query("select * from app_users where email=$1 and active=true",[email])).rows[0];
@@ -271,12 +272,13 @@ app.post("/api/auth/login",wrap(async(req,res)=>{
   }
   loginAttempts.delete(key);
   const token=signUser(u);
-  res.cookie("pickle_token",token,{httpOnly:true,sameSite:"strict",secure:process.env.NODE_ENV==="production",path:"/",maxAge:12*60*60*1000});
+  res.cookie(authCookieName,token,authCookieOptions);
   res.set("Cache-Control","no-store");
   res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
 }));
 app.post("/api/auth/logout",(req,res)=>{
-  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:process.env.NODE_ENV==="production",path:"/"});
+  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:false,path:"/"});
+  res.clearCookie("__Host-pickle_token",{httpOnly:true,sameSite:"strict",secure:true,path:"/"});
   res.set("Cache-Control","no-store");res.json({ok:true})
 });
 app.get("/api/auth/session",wrap(async(req,res)=>{
@@ -285,12 +287,17 @@ app.get("/api/auth/session",wrap(async(req,res)=>{
 }));
 app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
   const current=String(req.body.currentPassword||""),next=String(req.body.newPassword||"");
-  if(next.length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  if(!validPassword(next))return res.status(400).json({error:"PASSWORD_POLICY"});
+  if(current===next)return res.status(400).json({error:"PASSWORD_REUSE"});
   const u=(await pool.query("select * from app_users where id=$1",[req.user.sub])).rows[0];
   if(!u||!u.password_hash||!(await verifyPassword(current,u.password_hash)))return res.status(401).json({error:"INVALID_CURRENT_PASSWORD"});
-  const {hashPassword}=await import("./auth.js");const h=await hashPassword(next);
-  await pool.query("update app_users set password_hash=$1 where id=$2",[h,u.id]);
-  res.clearCookie("pickle_token");res.json({ok:true,reauthenticate:true});
+  const h=await hashPassword(next);
+  await pool.query("update app_users set password_hash=$1,auth_version=auth_version+1 where id=$2",[h,u.id]);
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,reason) values($1,'user',$2,'CHANGE_PASSWORD','Self-service password change')",[u.id,u.id]);
+  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:false,path:"/"});
+  res.clearCookie("__Host-pickle_token",{httpOnly:true,sameSite:"strict",secure:true,path:"/"});
+  res.set("Cache-Control","no-store");
+  res.json({ok:true,reauthenticate:true});
 }));
 app.get("/api/auth/me",authRequired,(req,res)=>res.json({user:req.user}));
 
@@ -457,7 +464,7 @@ app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","club_
   res.json(row);
 }));
 app.post("/api/players/:id/avatar",authRequired,allow("super_admin","organizer","club_manager"),avatarUpload.single("avatar"),wrap(async(req,res)=>{
-  if(!req.file)return res.status(400).json({error:"INVALID_AVATAR"});
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_AVATAR"});
   const p=(await pool.query("select id,avatar_url,club_id from players where id=$1",[req.params.id])).rows[0];
   if(!p){await fs.unlink(req.file.path).catch(()=>{});return res.status(404).json({error:"NOT_FOUND"})}
   if(req.user.role==="club_manager"&&p.club_id!==req.user.clubId){await fs.unlink(req.file.path).catch(()=>{});return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"})}
@@ -1073,11 +1080,11 @@ app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer
 
 
 app.post("/api/uploads/image",authRequired,allow("super_admin","organizer"),mediaUpload.single("image"),wrap(async(req,res)=>{
-  if(!req.file)return res.status(400).json({error:"INVALID_IMAGE"});
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_IMAGE"});
   res.status(201).json({url:`/uploads/media/${req.file.filename}`});
 }));
 app.post("/api/uploads/receipt",authRequired,allow("super_admin","organizer","finance"),receiptUpload.single("receipt"),wrap(async(req,res)=>{
-  if(!req.file)return res.status(400).json({error:"INVALID_RECEIPT"});
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_RECEIPT"});
   res.status(201).json({url:`/uploads/receipts/${req.file.filename}`,mime:req.file.mimetype,size:req.file.size});
 }));
 
@@ -1615,8 +1622,10 @@ app.get("/api/health",wrap(async(req,res)=>{
 
 io.on("connection",socket=>{socket.emit("connected",{ok:true})});
 
-app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:process.env.NODE_ENV==="production"?"1h":0}));
-app.use("/uploads",express.static(uploadRoot,{fallthrough:false,maxAge:process.env.NODE_ENV==="production"?"7d":0}));
+app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:isProduction?"1h":0}));
+app.use("/uploads/avatars",express.static(avatarDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
+app.use("/uploads/media",express.static(mediaDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
+app.use("/uploads/receipts",authRequired,allow("super_admin","organizer","finance"),(req,res,next)=>{res.set("Cache-Control","no-store");next()},express.static(receiptDir,{fallthrough:false,maxAge:0}));
 app.get("/",(req,res)=>res.sendFile(path.join(root,"index.html")));
 app.get("/index.html",(req,res)=>res.sendFile(path.join(root,"index.html")));
 const adminPage=wrap(async(req,res)=>{
