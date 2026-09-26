@@ -1044,6 +1044,7 @@ app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organize
 }));
 
 app.get("/api/registrations",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+  const financeClub=req.user.role==="finance"?req.user.clubId:null;
   const {rows}=await pool.query(`
     select r.id,r.status,r.payment_status,r.amount,r.created_at,r.checked_in_at,r.checkin_token,t.name team_name,d.name division_name,tr.name tournament_name,
       p.id payment_id,p.status payment_review_status,p.method,p.reference_code,p.receipt_url
@@ -1051,8 +1052,9 @@ app.get("/api/registrations",authRequired,allow("super_admin","organizer","finan
     join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
     left join teams t on t.id=r.team_id
     left join lateral (select * from payment_records where registration_id=r.id order by created_at desc limit 1) p on true
+    where ($1::uuid is null or t.club_id=$1)
     order by r.created_at desc
-  `);res.json(rows);
+  `,[financeClub]);res.json(rows);
 }));
 app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
@@ -1063,6 +1065,11 @@ app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","or
   res.status(201).json(row);
 }));
 app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+  const reg=(await pool.query(`
+    select r.id,t.club_id from registrations r left join teams t on t.id=r.team_id where r.id=$1
+  `,[req.params.id])).rows[0];
+  if(!reg)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="finance"&&req.user.clubId&&reg.club_id!==req.user.clubId)return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const {method,referenceCode,receiptUrl}=req.body;
   const row=(await pool.query("insert into payment_records(registration_id,method,reference_code,receipt_url,status) values($1,$2,$3,$4,'pending') returning *",[req.params.id,method||"bank_transfer",referenceCode||null,receiptUrl||null])).rows[0];
   await pool.query("update registrations set payment_status='pending' where id=$1",[req.params.id]);res.status(201).json(row);
@@ -1070,11 +1077,18 @@ app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","orga
 app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
   if(!["approved","rejected","refunded"].includes(req.body.status))return res.status(400).json({error:"INVALID_STATUS"});
   const row=await tx(async c=>{
+    const before=(await c.query(`
+      select p.*,t.club_id from payment_records p
+      join registrations r on r.id=p.registration_id
+      left join teams t on t.id=r.team_id
+      where p.id=$1 for update
+    `,[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(req.user.role==="finance"&&req.user.clubId&&before.club_id!==req.user.clubId)throw Object.assign(new Error("CLUB_SCOPE_FORBIDDEN"),{status:403});
     const p=(await c.query("update payment_records set status=$1,reviewed_by=$2,reviewed_at=now() where id=$3 returning *",[req.body.status,req.user.sub,req.params.id])).rows[0];
-    if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     const mapped=req.body.status==="approved"?"paid":req.body.status==="refunded"?"refunded":"unpaid";
     await c.query("update registrations set payment_status=$1 where id=$2",[mapped,p.registration_id]);
-    await audit(c,req.user,"payment",p.id,"REVIEW_PAYMENT",null,p,req.body.status);return p;
+    await audit(c,req.user,"payment",p.id,"REVIEW_PAYMENT",before,p,req.body.status);return p;
   });res.json(row);
 }));
 
@@ -1088,7 +1102,7 @@ app.post("/api/uploads/receipt",authRequired,allow("super_admin","organizer","fi
   res.status(201).json({url:`/uploads/receipts/${req.file.filename}`,mime:req.file.mimetype,size:req.file.size});
 }));
 
-app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>{
+app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const row=await tx(async c=>{
     const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1115,7 +1129,7 @@ app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","or
   const dataUrl=await QRCode.toDataURL(url,{margin:1,width:420,color:{dark:"#0d2118",light:"#ffffff"}});
   res.json({token:row.checkin_token,url,dataUrl});
 }));
-app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organizer","referee"),wrap(async(req,res)=>{
+app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const row=(await pool.query("select id from registrations where checkin_token=$1",[req.params.token])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});
   req.params.id=row.id;
@@ -1345,11 +1359,14 @@ app.get("/api/reports/overview",authRequired,allow("super_admin","organizer","fi
   res.json({...reg,...mat,players,members:players,upcomingActivities:Number(clubStats.upcoming_activities||0),attendanceToday:Number(clubStats.attendance_today||0),clubIncome,clubExpense,clubBalance:clubIncome-clubExpense});
 }));
 app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+  const financeClub=req.user.role==="finance"?req.user.clubId:null;
   const rows=(await pool.query(`
     select tr.name tournament,d.name division,t.name team,r.status registration_status,r.payment_status,r.amount,r.checked_in_at
     from registrations r join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
-    left join teams t on t.id=r.team_id order by tr.start_at desc,t.name
-  `)).rows;
+    left join teams t on t.id=r.team_id
+    where ($1::uuid is null or t.club_id=$1)
+    order by tr.start_at desc,t.name
+  `,[financeClub])).rows;
   const q=v=>'"'+String(v??"").replaceAll('"','""')+'"';
   const csv=["Tournament,Division,Team,Registration,Payment,Amount,CheckedIn",...rows.map(x=>[x.tournament,x.division,x.team,x.registration_status,x.payment_status,x.amount,x.checked_in_at].map(q).join(","))].join("\n");
   res.setHeader("Content-Disposition","attachment; filename=pickle-tour-report.csv");res.type("text/csv; charset=utf-8").send("\ufeff"+csv);
@@ -1671,6 +1688,12 @@ app.get("/sitemap.xml",wrap(async(req,res)=>{
 
 app.use((err,req,res,next)=>{
   console.error(err);
-  res.status(err.status||500).json({error:err.message||"SERVER_ERROR",currentVersion:err.currentVersion});
+  if(err instanceof multer.MulterError){
+    const status=err.code==="LIMIT_FILE_SIZE"?413:400;
+    return res.status(status).json({error:err.code==="LIMIT_FILE_SIZE"?"UPLOAD_TOO_LARGE":"INVALID_UPLOAD"});
+  }
+  const status=Number(err.status)||500;
+  const error=status>=500?"SERVER_ERROR":(err.message||"REQUEST_FAILED");
+  res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{})});
 });
 server.listen(port,()=>console.log(`Pickle Tour listening on :${port}`));
