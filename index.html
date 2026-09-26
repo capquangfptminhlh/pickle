@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/assets/app-icon.svg">
   <title>Pickle Tour — Cộng đồng & Giải đấu Pickleball</title>
   <meta name="description" content="Cộng đồng pickleball: giải đấu, live score, bảng xếp hạng, người chơi và hoạt động thể thao trong một ứng dụng.">
-  <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css">
+  <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css?v=20260926-1720">
 </head>
 <body class="public-body">
   <header class="public-header">
@@ -59,18 +59,21 @@
     <section class="mobile-app-dashboard">
       <div class="public-container">
         <div class="mobile-app-status-card">
-          <div>
-            <span class="eyebrow">PICKLE TOUR</span>
-            <h2>Hôm nay có gì?</h2>
-            <p><span class="status-dot"></span><strong id="mobileLiveCount">0</strong> trận đang live</p>
+          <div class="mobile-dashboard-head">
+            <div><span class="eyebrow">PICKLE TOUR</span><h2>Hoạt động hôm nay</h2></div>
+            <div class="mobile-app-badge">PT</div>
           </div>
-          <div class="mobile-app-badge">PT</div>
+          <div class="mobile-status-grid">
+            <a href="#live"><strong id="mobileLiveCount">0</strong><span>Đang live</span></a>
+            <a href="#tournaments"><strong id="mobileTournamentCount">0</strong><span>Giải đấu</span></a>
+            <a href="#top-players"><strong id="mobilePlayerCount">0</strong><span>VĐV</span></a>
+          </div>
         </div>
         <div class="mobile-app-actions">
           <a href="#tournaments"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4Zm-3 1h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8m-4-4H9v4m3-4h3v4"/></svg></span><b>Giải đấu</b></a>
           <a href="#live"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13M8 8a5.5 5.5 0 0 0 0 8m8-8a5.5 5.5 0 0 1 0 8"/></svg></span><b>Live</b></a>
-          <a href="/ranking.html"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg></span><b>Ranking</b></a>
-          <a href="#news"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span><b>Tin tức</b></a>
+          <a href="/ranking.html"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg></span><b>BXH</b></a>
+          <a href="#news"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span><b>Cộng đồng</b></a>
         </div>
       </div>
     </section>
@@ -96,7 +99,7 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
