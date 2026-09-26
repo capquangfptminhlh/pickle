@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v16-members-ranking-20260926";
+const VERSION="pickle-tour-v16-desktop-app-hub";
 const STATIC=[
   "/offline.html",
   "/manifest.webmanifest",
