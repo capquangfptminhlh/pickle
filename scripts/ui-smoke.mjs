@@ -256,11 +256,17 @@ if(await shot.locator("#sidebar").isVisible().catch(()=>false))failures.push({la
 if(await shot.locator(".app-fab").isVisible().catch(()=>false))failures.push({label:"preview mobile admin",errors:["quick-action FAB overlaps dashboard"]});
 if(!(await shot.locator(".club-home-hero").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["club home hero missing"]});
 if(await shot.locator(".club-home-metrics article").count()!==4)failures.push({label:"preview mobile admin",errors:["club home metrics incomplete"]});
+const clippedHomeActions=await shot.evaluate(()=>[...document.querySelectorAll(".club-home-actions button")].filter(el=>{const r=el.getBoundingClientRect();return r.left<0||r.right>window.innerWidth+1}).length);
+if(clippedHomeActions)failures.push({label:"preview mobile admin",errors:["dashboard quick actions clipped outside viewport"]});
 const adminOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
 if(adminOverflow)failures.push({label:"preview mobile admin",errors:["admin dashboard has horizontal overflow"]});
 await shot.screenshot({path:"ui-artifacts/mobile-admin-home.png",fullPage:true});
 
 const scoreNav=shot.locator('[data-dock-page="scores"]');if(await scoreNav.count())await scoreNav.click();else await shot.evaluate(()=>document.querySelector('[data-page="scores"]')?.click());await shot.waitForTimeout(250);
+const clippedScoreControls=await shot.evaluate(()=>[...document.querySelectorAll(".filters>*")].filter(el=>{
+  const r=el.getBoundingClientRect();return r.left<0||r.right>window.innerWidth+1;
+}).map(el=>({tag:el.tagName,text:(el.textContent||"").trim().slice(0,40)})));
+if(clippedScoreControls.length)failures.push({label:"preview mobile score",errors:["score filters/actions clipped outside viewport: "+JSON.stringify(clippedScoreControls)]});
 const scoreOpen=shot.locator("[data-score-match]").first();if(await scoreOpen.count()){await scoreOpen.click();await shot.waitForTimeout(220);}
 await shot.screenshot({path:"ui-artifacts/mobile-score.png"});
 
