@@ -1325,7 +1325,17 @@ app.patch("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap
 
 app.get("/api/reports/overview",authRequired,allow("super_admin","organizer","finance","club_manager"),wrap(async(req,res)=>{
   let reg={registrations:0,checked_in:0,paid_count:0,revenue:0},mat={matches:0,live:0,completed:0};
-  if(req.user.role!=="club_manager"){
+  if(req.user.role==="finance"&&req.user.clubId){
+    reg=(await pool.query(`
+      select count(*)::int registrations,
+        count(*) filter(where r.checked_in_at is not null)::int checked_in,
+        count(*) filter(where r.payment_status='paid')::int paid_count,
+        coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
+      from registrations r
+      join teams t on t.id=r.team_id
+      where t.club_id=$1
+    `,[req.user.clubId])).rows[0];
+  }else if(req.user.role!=="club_manager"){
     const tournamentId=req.query.tournamentId||null;
     const params=tournamentId?[tournamentId]:[];
     const dWhere=tournamentId?"where d.tournament_id=$1":"";
