@@ -50,6 +50,7 @@ let user=null,page="dashboard",activeMatch=null,busy=false;
 
 const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",finance:"Thu ngân",player:"VĐV"}[r]||r);
 const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
+const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
 const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
@@ -161,7 +162,7 @@ async function players(){
   return `<div class="panel" style="margin-bottom:16px">
     <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':""}<button class="btn primary" data-action="newPlayer">Thêm VĐV</button></div>`:""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${Number(p.rating||0).toFixed(3)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
+      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${fmtRating(p.rating)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button><button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>':""}</div>
@@ -654,8 +655,19 @@ function openAvatarModal(playerId,name){
 }
 function openRatingModal(playerId,name,current){
   $("#genericTitle").textContent="Điều chỉnh rating";
-  $("#genericBody").innerHTML=`<div class="form-grid"><div class="field full"><b>${name}</b><span>Rating hiện tại: ${Number(current).toFixed(3)}</span></div><label class="field">Điều chỉnh (+/-)<input id="ratingDelta" type="number" step="0.001" placeholder="VD: 0.015 hoặc -0.010"></label><label class="field full">Lý do<textarea id="ratingReason" rows="3" placeholder="Bắt buộc ghi lý do"></textarea></label><div class="field full"><button type="button" class="btn primary" id="saveRating">Lưu rating</button></div></div>`;
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <div class="field full"><b>${name}</b><span>Rating hiện tại: <strong>${fmtRating(current)}</strong></span></div>
+    <div class="field full" style="display:flex;gap:8px">
+      <button type="button" class="mini" id="quickChampion" style="background:#eaf1ed;border:1px solid #1a5632;color:#1a5632;font-weight:700;cursor:pointer">+0.2 (Vô địch)</button>
+      <button type="button" class="mini" id="quickEliminated" style="background:#fde8e8;border:1px solid #c81e1e;color:#c81e1e;font-weight:700;cursor:pointer">-0.2 (Loại vòng bảng)</button>
+    </div>
+    <label class="field">Điều chỉnh (+/-)<input id="ratingDelta" type="number" step="0.1" placeholder="VD: 0.2 hoặc -0.2"></label>
+    <label class="field full">Lý do<textarea id="ratingReason" rows="3" placeholder="Bắt buộc ghi lý do"></textarea></label>
+    <div class="field full"><button type="button" class="btn primary" id="saveRating">Lưu rating</button></div>
+  </div>`;
   $("#genericDialog").showModal();
+  $("#quickChampion").onclick=()=>{ $("#ratingDelta").value="0.2"; $("#ratingReason").value="Vô địch giải đấu (+0.2)"; };
+  $("#quickEliminated").onclick=()=>{ $("#ratingDelta").value="-0.2"; $("#ratingReason").value="Dừng bước vòng bảng (-0.2)"; };
   $("#saveRating").onclick=async()=>{try{await API.adjustRating(playerId,{delta:Number($("#ratingDelta").value),reason:$("#ratingReason").value});$("#genericDialog").close();await render();toast("Đã cập nhật rating và audit.")}catch(e){toast("Không thể cập nhật: "+e.message)}};
 }
 function openAutoSeedModal(){
@@ -677,7 +689,7 @@ async function openTeamModal(){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
   const roster=await API.players().catch(()=>[]);
   $("#genericTitle").textContent="Thêm cặp / đội";
-  const options='<option value="">Chưa chọn</option>'+roster.filter(p=>p.active).map(p=>`<option value="${p.id}">${p.full_name} • ${Number(p.rating||0).toFixed(3)}</option>`).join("");
+  const options='<option value="">Chưa chọn</option>'+roster.filter(p=>p.active).map(p=>`<option value="${p.id}">${p.full_name} • ${fmtRating(p.rating)}</option>`).join("");
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Nội dung<select id="teamDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
     <label class="field">VĐV 1<select id="teamPlayer1">${options}</select></label>

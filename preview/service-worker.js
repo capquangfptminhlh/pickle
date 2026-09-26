@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v19-route-guard";
+const VERSION="pickle-pages-v20-clean-ratings-criteria";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",

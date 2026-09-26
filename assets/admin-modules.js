@@ -3,6 +3,7 @@
   const money=v=>v==null||v===""?"—":Number(v).toLocaleString("vi-VN")+" đ";
   const date=v=>v?new Date(v).toLocaleString("vi-VN",{dateStyle:"short",timeStyle:"short"}):"—";
   const badge=(text,type="neutral")=>'<span class="status-chip '+type+'">'+text+'</span>';
+  const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
   const modal=(title,body)=>{
     const d=document.querySelector("#genericDialog");
     document.querySelector("#genericTitle").textContent=title;
@@ -206,7 +207,7 @@
       '<div class="panel pro-panel"><div class="module-toolbar"><div><h2>'+event.title+'</h2><p>'+date(event.start_at)+' • '+(event.venue||"Chưa chốt địa điểm")+'</p></div><select id="clubAttendanceEvent">'+events.map(x=>'<option value="'+x.id+'" '+(x.id===eventId?"selected":"")+'>'+x.title+' — '+new Date(x.start_at).toLocaleDateString("vi-VN")+'</option>').join("")+'</select></div>'+
       '<div class="attendance-add"><select id="attendancePlayer"><option value="">Chọn thành viên</option>'+candidates.map(p=>'<option value="'+p.id+'">'+p.full_name+'</option>').join("")+'</select><button class="btn primary" type="button" id="addAttendancePlayer" '+(!candidates.length?"disabled":"")+'>Thêm vào danh sách</button></div>'+
       '<div class="table-wrap"><table class="table pro-table"><thead><tr><th>Thành viên</th><th>Rating</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>'+
-      people.map(p=>'<tr><td><b>'+p.full_name+'</b>'+(p.nickname?'<small class="muted-block">'+p.nickname+'</small>':'')+'</td><td>'+Number(p.rating||0).toFixed(3)+'</td><td>'+badge(p.status==="attended"?"Có mặt":p.status==="absent"?"Vắng":p.status==="cancelled"?"Đã hủy":"Đã đăng ký",p.status==="attended"?"success":p.status==="absent"?"warning":"neutral")+'</td><td><div class="actions"><button class="mini primary-mini" data-attend-player="'+p.player_id+'">Có mặt</button><button class="mini" data-absent-player="'+p.player_id+'">Vắng</button></div></td></tr>').join("")+
+      people.map(p=>'<tr><td><b>'+p.full_name+'</b>'+(p.nickname?'<small class="muted-block">'+p.nickname+'</small>':'')+'</td><td>'+fmtRating(p.rating)+'</td><td>'+badge(p.status==="attended"?"Có mặt":p.status==="absent"?"Vắng":p.status==="cancelled"?"Đã hủy":"Đã đăng ký",p.status==="attended"?"success":p.status==="absent"?"warning":"neutral")+'</td><td><div class="actions"><button class="mini primary-mini" data-attend-player="'+p.player_id+'">Có mặt</button><button class="mini" data-absent-player="'+p.player_id+'">Vắng</button></div></td></tr>').join("")+
       '</tbody></table></div></div>';
     return {html,bind(){
       document.querySelector("#clubAttendanceEvent")?.addEventListener("change",async e=>{sessionStorage.setItem("pickle-club-event",e.target.value);await ctx.refresh()});

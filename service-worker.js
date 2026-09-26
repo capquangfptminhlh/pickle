@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v18-route-guard";
+const VERSION="pickle-tour-v20-clean-ratings-criteria";
 const STATIC=[
   "/offline.html",
   "/manifest.webmanifest",

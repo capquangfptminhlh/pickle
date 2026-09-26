@@ -27,10 +27,12 @@
     clubAttendance:{},
     clubTransactions:[],
     ratingHistory:{},
+    ratingProcessedKeys:[],
     audit:[]
   });
   let state=JSON.parse(localStorage.getItem(KEY)||"null")||emptyState();
   state.clubEvents||=[];state.clubAttendance||={};state.clubTransactions||=[];
+  state.ratingProcessedKeys||=[];
   const avatarMigration=state.players?.some(p=>!p.avatar_url);
   if(avatarMigration){
     state.players.forEach(p=>{if(!p.avatar_url)p.avatar_url=svgAvatar(p.full_name||"Player")});
@@ -54,14 +56,107 @@
       Object.assign(t,{...s,diffSet:s.sw-s.sl,diffPts:s.pf-s.pa});
     });
   };
+  const evaluateTournamentRatings=()=>{
+    state.ratingProcessedKeys||=[];
+    const ensurePlayer=pid=>{
+      let pl=state.players.find(x=>x.id===pid);
+      if(!pl&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+        const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===pid||("p-"+i)===pid||m.id===pid);
+        if(zl){
+          pl={id:pid,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_id:null,club_name:zl.club||"CLB Pickleball Bình Lợi",active:true};
+          state.players.push(pl);
+        }
+      }
+      return pl;
+    };
+    (state.divisions||[]).forEach(d=>{
+      const groups=[...new Set(state.teams.filter(t=>t.divisionId===d.id&&t.status!=="withdrawn").map(t=>t.group).filter(Boolean))];
+      groups.forEach(g=>{
+        const gMatches=(state.matches||[]).filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g)));
+        if(gMatches.length>0&&gMatches.every(m=>(m.status==="done"||m.status==="completed")&&m.winner)){
+          const gTeams=state.teams.filter(t=>t.divisionId===d.id&&t.group===g&&t.status!=="withdrawn");
+          const ranked=[...gTeams].sort((a,b)=>{
+            if(b.w!==a.w)return b.w-a.w;
+            const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+            if(sdB!==sdA)return sdB-sdA;
+            const h2h=gMatches.find(m=>((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
+            if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1;}
+            return ((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf)||((a.seed||999)-(b.seed||999));
+          });
+          const advCount=Number(d.advanceCount)||2;
+          const eliminated=ranked.slice(advCount);
+          eliminated.forEach(t=>{
+            const pids=state.teamPlayers[t.id]||[];
+            pids.forEach(pid=>{
+              const key="elim:"+d.id+":"+t.id+":"+pid;
+              if(!state.ratingProcessedKeys.includes(key)){
+                const pl=ensurePlayer(pid);
+                if(pl){
+                  const before=Number(pl.rating||0);
+                  pl.rating=Math.max(0,Math.round((before-0.2)*100)/100);
+                  (state.ratingHistory[pid]||(state.ratingHistory[pid]=[])).unshift({
+                    before_rating:before,
+                    delta:-0.2,
+                    after_rating:pl.rating,
+                    reason:`Dừng bước vòng bảng ${g} (${d.name||"Giải đấu"}) (-0.2)`,
+                    created_at:new Date().toISOString()
+                  });
+                  state.ratingProcessedKeys.push(key);
+                }
+              }
+            });
+          });
+        }
+      });
+      const dMatches=(state.matches||[]).filter(m=>m.divisionId===d.id);
+      const finalMatch=dMatches.find(m=>m.bracketSlot==="DE-GF")||
+        [...dMatches.filter(m=>(m.bracketSlot||"").startsWith("SE-"))].sort((a,b)=>(b.bracketSlot||"").localeCompare(a.bracketSlot||"",undefined,{numeric:true}))[0]||
+        dMatches.find(m=>/chung kết/i.test(m.stage||""));
+      let champTeamId=null;
+      if(finalMatch&&(finalMatch.status==="done"||finalMatch.status==="completed")&&finalMatch.winner){
+        champTeamId=finalMatch.winner;
+      }else if(d.format==="round_robin"&&dMatches.length>0&&dMatches.every(m=>(m.status==="done"||m.status==="completed")&&m.winner)){
+        const allTeams=state.teams.filter(t=>t.divisionId===d.id&&t.status!=="withdrawn");
+        const rankedAll=[...allTeams].sort((a,b)=>{
+          if(b.w!==a.w)return b.w-a.w;
+          const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+          if(sdB!==sdA)return sdB-sdA;
+          return ((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf);
+        });
+        if(rankedAll.length)champTeamId=rankedAll[0].id;
+      }
+      if(champTeamId){
+        const pids=state.teamPlayers[champTeamId]||[];
+        pids.forEach(pid=>{
+          const key="champ:"+d.id+":"+champTeamId+":"+pid;
+          if(!state.ratingProcessedKeys.includes(key)){
+            const pl=ensurePlayer(pid);
+            if(pl){
+              const before=Number(pl.rating||0);
+              pl.rating=Math.round((before+0.2)*100)/100;
+              (state.ratingHistory[pid]||(state.ratingHistory[pid]=[])).unshift({
+                before_rating:before,
+                delta:0.2,
+                after_rating:pl.rating,
+                reason:`Vô địch giải đấu (${d.name||"Nội dung"}) (+0.2)`,
+                created_at:new Date().toISOString()
+              });
+              state.ratingProcessedKeys.push(key);
+            }
+          }
+        });
+      }
+    });
+  };
   recomputeStats();
-  const persist=()=>{recomputeStats();localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
+  evaluateTournamentRatings();
+  const persist=()=>{recomputeStats();evaluateTournamentRatings();localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
   const api={
     me:async()=>({user:{id:"local-admin",email:"",name:"Quản trị viên",role:"super_admin"}}),
     logout:async()=>({ok:true}),changePassword:async()=>({ok:true}),
-    publicState:async()=>{recomputeStats();return clone(state)},
+    publicState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
     submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
-    adminState:async()=>{recomputeStats();return clone(state)},
+    adminState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
     publicPlayers:async()=>{
       if(state.players&&state.players.length){
         return clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""})));
@@ -117,7 +212,7 @@
     createPlayer:async p=>{const club=state.clubs.find(c=>c.id===p.clubId);const x={id:uid(),full_name:p.fullName,nickname:p.nickname||"",gender:p.gender||null,rating:Number(p.rating||3),phone:p.phone||"",club_id:p.clubId||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(p.fullName||"P")};state.players.push(x);persist();return clone(x)},
     updatePlayer:async(id,p)=>{const x=state.players.find(v=>v.id===id);const club=state.clubs.find(c=>c.id===p.clubId);Object.assign(x,{full_name:p.fullName??x.full_name,nickname:p.nickname??x.nickname,gender:p.gender??x.gender,phone:p.phone??x.phone,club_id:p.clubId===undefined?x.club_id:(p.clubId||null),club_name:p.clubId===undefined?x.club_name:(club?.name||"Tự do"),active:p.active??x.active});persist();return clone(x)},
     deactivatePlayer:async id=>{const x=state.players.find(v=>v.id===id);x.active=false;persist();return {mode:"deactivated",entity:clone(x)}},
-    adjustRating:async(id,p)=>{const x=state.players.find(v=>v.id===id),before=Number(x.rating||0);x.rating=Math.max(0,before+Number(p.delta||0));(state.ratingHistory[id]||(state.ratingHistory[id]=[])).unshift({before_rating:before,delta:Number(p.delta||0),after_rating:x.rating,reason:p.reason||"",created_at:new Date().toISOString()});persist();return clone(x)},
+    adjustRating:async(id,p)=>{let x=state.players.find(v=>v.id===id);if(!x&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);if(zl){x={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_id:null,club_name:zl.club||"CLB Pickleball Bình Lợi",active:true};state.players.push(x)}}if(!x)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});const before=Number(x.rating||0);x.rating=Math.round(Math.max(0,before+Number(p.delta||0))*100)/100;(state.ratingHistory[id]||(state.ratingHistory[id]=[])).unshift({before_rating:before,delta:Number(p.delta||0),after_rating:x.rating,reason:p.reason||"",created_at:new Date().toISOString()});persist();return clone(x)},
     createTournament:async p=>{const t={id:uid(),name:p.name,date:p.startAt?new Date(p.startAt).toLocaleDateString("vi-VN"):"Chưa chốt",startAt:p.startAt||null,endAt:null,venue:p.venue||"Chưa chốt",format:"Tournament",status:"open",publicVisible:true,teams:0};state.tournaments.push(t);const d={id:uid(),tournamentId:t.id,name:"Open",eventType:p.eventType||"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true};state.divisions.push(d);persist();return {tournament:t,division:d}},
     updateTournament:async(id,p)=>{const x=state.tournaments.find(v=>v.id===id);Object.assign(x,{name:p.name??x.name,venue:p.venue??x.venue,startAt:p.startAt??x.startAt,endAt:p.endAt??x.endAt,status:p.status==="registration"?"open":(p.status??x.status),publicVisible:p.publicVisible??x.publicVisible});if(p.startAt)x.date=new Date(p.startAt).toLocaleDateString("vi-VN");persist();return clone(x)},
     deleteTournament:async id=>{const x=state.tournaments.find(v=>v.id===id);const dids=state.divisions.filter(d=>d.tournamentId===id).map(d=>d.id);const hasHistory=state.matches.some(m=>dids.includes(m.divisionId))||state.registrations.some(r=>dids.some(did=>state.divisions.find(d=>d.id===did)?.name===r.division_name));if(hasHistory){x.status="cancelled";x.publicVisible=false;persist();return {mode:"archived",entity:clone(x)}}state.tournaments=state.tournaments.filter(v=>v.id!==id);state.divisions=state.divisions.filter(d=>d.tournamentId!==id);persist();return {mode:"deleted"}},
