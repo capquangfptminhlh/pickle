@@ -18,6 +18,10 @@ const root=path.resolve(__dirname,"..");
 const app=express();
 const server=http.createServer(app);
 const publicOrigin=(()=>{try{return process.env.PUBLIC_BASE_URL?new URL(process.env.PUBLIC_BASE_URL).origin:null}catch{return null}})();
+const isProduction=process.env.NODE_ENV==="production";
+if(isProduction&&!publicOrigin)throw new Error("PUBLIC_BASE_URL is required in production");
+const authCookieName=isProduction?"__Host-pickle_token":"pickle_token";
+const authCookieOptions={httpOnly:true,sameSite:"strict",secure:isProduction,path:"/",maxAge:12*60*60*1000};
 const io=new SocketServer(server,{cors:publicOrigin?{origin:publicOrigin,credentials:true}:undefined});
 const port=Number(process.env.PORT||8080);
 const uploadRoot=path.join(root,"uploads");
@@ -56,6 +60,21 @@ const receiptUpload=multer({
   limits:{fileSize:8*1024*1024},
   fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(receiptMimeExt,file.mimetype))
 });
+async function validUploadSignature(file){
+  if(!file)return false;
+  const data=await fs.readFile(file.path);
+  const b=(...xs)=>xs.every((x,i)=>data[i]===x);
+  if(file.mimetype==="image/jpeg")return data.length>=3&&b(0xff,0xd8,0xff);
+  if(file.mimetype==="image/png")return data.length>=8&&b(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
+  if(file.mimetype==="image/webp")return data.length>=12&&data.subarray(0,4).toString()==="RIFF"&&data.subarray(8,12).toString()==="WEBP";
+  if(file.mimetype==="application/pdf")return data.length>=5&&data.subarray(0,5).toString()==="%PDF-";
+  return false;
+}
+async function rejectInvalidUpload(file){
+  if(await validUploadSignature(file))return false;
+  if(file?.path)await fs.unlink(file.path).catch(()=>{});
+  return true;
+}
 if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET must be at least 32 characters");
 
@@ -81,14 +100,22 @@ app.use(helmet({
 app.use(express.json({limit:"2mb"}));
 app.use(cookieParser());
 app.use((req,res,next)=>{
+  res.set("Permissions-Policy","camera=(self), microphone=(), geolocation=(), payment=()");
+  next();
+});
+app.use((req,res,next)=>{
   if(["POST","PUT","PATCH","DELETE"].includes(req.method)&&req.path.startsWith("/api/")){
-    const origin=req.get("origin");
-    if(origin&&publicOrigin&&origin!==publicOrigin)return res.status(403).json({error:"ORIGIN_NOT_ALLOWED"});
+    const origin=req.get("origin"),bearer=/^Bearer\s+/i.test(req.get("authorization")||"");
+    const fetchSite=req.get("sec-fetch-site");
+    if(isProduction&&!bearer&&(!origin||origin!==publicOrigin))return res.status(403).json({error:"ORIGIN_NOT_ALLOWED"});
+    if(fetchSite&&!["same-origin","none"].includes(fetchSite)&&!bearer)return res.status(403).json({error:"CROSS_SITE_REQUEST_BLOCKED"});
   }
   next();
 });
 
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+const validEmail=s=>typeof s==="string"&&s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const validPassword=s=>typeof s==="string"&&s.length>=12&&s.length<=64;
 const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const nowTime=d=>d?new Date(d).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";
 const publicStatus=s=>s==="scheduled"?"wait":s==="completed"?"done":s;
