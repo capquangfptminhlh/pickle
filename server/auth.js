@@ -6,7 +6,7 @@ import {pool} from "./db.js";
 const secret=()=>process.env.JWT_SECRET||"";
 export const hashPassword=p=>bcrypt.hash(p,12);
 export const verifyPassword=(p,h)=>bcrypt.compare(p,h);
-export const signUser=u=>jwt.sign({sub:u.id},secret(),{expiresIn:"12h",issuer:"pickle-tour",audience:"pickle-admin"});
+export const signUser=u=>jwt.sign({sub:u.id,ver:Number(u.auth_version||0)},secret(),{expiresIn:"12h",issuer:"pickle-tour",audience:"pickle-admin"});
 
 function tokenFrom(req){
   return req.cookies?.pickle_token||req.headers.authorization?.replace(/^Bearer\s+/i,"");
@@ -19,10 +19,11 @@ export async function sessionUser(req){
   try{claims=jwt.verify(token,secret(),{issuer:"pickle-tour",audience:"pickle-admin"})}
   catch{return null}
   const row=(await pool.query(
-    "select id,email,display_name,role,active,club_id from app_users where id=$1",
+    "select id,email,display_name,role,active,club_id,auth_version from app_users where id=$1",
     [claims.sub]
   )).rows[0];
   if(!row?.active)return null;
+  if(Number(claims.ver||0)!==Number(row.auth_version||0))return null;
   return {sub:row.id,id:row.id,email:row.email,name:row.display_name,role:row.role,clubId:row.club_id||null};
 }
 
