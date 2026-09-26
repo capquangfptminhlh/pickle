@@ -332,6 +332,8 @@ create table if not exists club_transactions (
   note text,
   occurred_at timestamptz not null default now(),
   created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
 create index if not exists idx_club_transactions_club_date on club_transactions(club_id,occurred_at desc);
 
 -- Tournament self-service submission and sponsored promotion
