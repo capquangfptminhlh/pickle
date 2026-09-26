@@ -1,5 +1,6 @@
-const VERSION="pickle-tour-v19-pro-home";
+const VERSION="pickle-tour-v20-isolated-home";
 const STATIC=[
+  "/assets/home-mobile.css",
   "/offline.html",
   "/manifest.webmanifest",
   "/assets/styles.css",

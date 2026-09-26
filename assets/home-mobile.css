@@ -1,0 +1,203 @@
+/* Pickle Tour — isolated mobile home design system */
+@media (max-width:760px){
+  body.home-screen{
+    --home-bg:#f5f7f6;
+    --home-surface:#fff;
+    --home-ink:#122019;
+    --home-muted:#7b8881;
+    --home-green:#08754b;
+    --home-green-2:#0b5f41;
+    --home-lime:#ddff63;
+    --home-line:#e5ebe7;
+    background:var(--home-bg)!important;
+    color:var(--home-ink)!important;
+    padding-bottom:82px!important;
+  }
+  .home-screen .public-header{
+    position:sticky;top:0;z-index:60;height:auto!important;
+    background:rgba(255,255,255,.96)!important;
+    border-bottom:1px solid var(--home-line)!important;
+    box-shadow:none!important;
+    backdrop-filter:blur(18px) saturate(160%);
+  }
+  .home-screen .public-nav{
+    width:100%!important;height:62px!important;margin:0!important;padding:0 16px!important;
+    display:flex!important;align-items:center!important;gap:10px!important;
+  }
+  .home-screen .public-brand{min-width:0;gap:10px!important}
+  .home-screen .public-brand .brand-mark{
+    width:38px!important;height:38px!important;border-radius:12px!important;
+    background:linear-gradient(145deg,#dfff63,#c9f947)!important;
+    color:#173820!important;font-size:17px!important;box-shadow:none!important;
+  }
+  .home-screen .public-brand b{font-size:13px!important;line-height:1.05!important}
+  .home-screen .public-brand small{margin-top:3px!important;font-size:7px!important;letter-spacing:.13em!important}
+  .home-screen .public-nav nav,.home-screen .public-nav>.btn{display:none!important}
+  .home-screen .mobile-admin-link{
+    margin-left:auto;display:grid!important;place-items:center;width:38px;height:38px;flex:0 0 38px;
+    border:1px solid var(--home-line);border-radius:12px;background:#fff;color:#506058;text-decoration:none;
+  }
+  .home-screen .mobile-admin-link svg{width:18px;height:18px}
+
+  .home-screen .desktop-app-hub,.home-screen .public-hero{display:none!important}
+  .home-screen .mobile-app-dashboard{display:block!important;padding:14px 0 10px!important}
+  .home-screen .mobile-app-dashboard>.public-container,
+  .home-screen .public-section>.public-container{
+    width:calc(100% - 32px)!important;max-width:none!important;margin:0 16px!important;padding:0!important;
+  }
+
+  .home-screen .mobile-app-status-card{
+    padding:18px!important;border-radius:20px!important;
+    background:
+      radial-gradient(circle at 88% 12%,rgba(221,255,99,.16),transparent 24%),
+      linear-gradient(145deg,#0b6948,#084a35)!important;
+    border:1px solid rgba(255,255,255,.06)!important;
+    box-shadow:0 10px 26px rgba(6,78,51,.15)!important;color:#fff!important;
+  }
+  .home-screen .mobile-dashboard-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .home-screen .mobile-dashboard-head .eyebrow{
+    color:#bfe5d1!important;font-size:8px!important;font-weight:900!important;letter-spacing:.12em!important;
+  }
+  .home-screen .mobile-dashboard-head h2{
+    margin:5px 0 0!important;color:#fff!important;font-size:23px!important;line-height:1.05!important;letter-spacing:-.035em!important;
+  }
+  .home-screen .mobile-app-badge{
+    width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:15px!important;
+    background:rgba(255,255,255,.1)!important;border:1px solid rgba(255,255,255,.1)!important;
+    color:var(--home-lime)!important;font-size:16px!important;box-shadow:none!important;
+  }
+  .home-screen .mobile-status-grid{display:grid!important;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:15px}
+  .home-screen .mobile-status-grid a{
+    min-width:0;padding:10px 8px;border-radius:13px;background:rgba(255,255,255,.075);
+    border:1px solid rgba(255,255,255,.07);color:#fff;text-decoration:none;
+  }
+  .home-screen .mobile-status-grid strong{display:block;font-size:19px;line-height:1;font-weight:950;letter-spacing:-.04em}
+  .home-screen .mobile-status-grid span{
+    display:block;margin-top:5px;color:#c9e2d5;font-size:8px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  .home-screen .mobile-app-actions{
+    display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;margin-top:10px!important;
+  }
+  .home-screen .mobile-app-actions a{
+    min-height:72px!important;padding:9px 3px!important;display:grid!important;place-items:center!important;gap:5px!important;
+    border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
+    color:#26342d!important;text-decoration:none!important;
+  }
+  .home-screen .mobile-app-actions span{
+    width:32px!important;height:32px!important;display:grid!important;place-items:center!important;border-radius:10px!important;
+    background:#edf7f1!important;color:var(--home-green)!important;
+  }
+  .home-screen .mobile-app-actions svg{width:17px!important;height:17px!important}
+  .home-screen .mobile-app-actions b{font-size:9px!important;font-weight:850!important}
+
+  .home-screen .public-section{padding:20px 0!important;background:transparent!important}
+  .home-screen .soft-section{background:#f0f4f1!important}
+  .home-screen .section-title{align-items:flex-end!important;margin-bottom:12px!important;gap:10px!important}
+  .home-screen .section-title>div{min-width:0}
+  .home-screen .section-title .eyebrow{font-size:8px!important;letter-spacing:.1em!important;color:var(--home-green)!important}
+  .home-screen .section-title h2{margin:4px 0 0!important;font-size:23px!important;line-height:1!important;letter-spacing:-.04em!important}
+  .home-screen .section-title p{display:none!important}
+  .home-screen .section-link{font-size:9px!important;color:var(--home-green)!important;white-space:nowrap}
+  .home-screen .section-title .btn.mini{
+    min-height:34px!important;padding:0 11px!important;border-radius:11px!important;background:#14231a!important;
+    color:#fff!important;font-size:9px!important;box-shadow:none!important;
+  }
+
+  .home-screen #publicTours.page-grid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
+  .home-screen #publicTours .tour-card{
+    overflow:hidden!important;border:1px solid var(--home-line)!important;border-radius:19px!important;
+    background:#fff!important;box-shadow:none!important;
+  }
+  .home-screen #publicTours .tour-card:nth-child(n+3){display:none!important}
+  .home-screen .tour-media{height:132px!important;background:linear-gradient(145deg,#0d714a,#084833)!important}
+  .home-screen .tour-media-shade{display:none!important}
+  .home-screen .tour-cover{padding:14px!important}
+  .home-screen .tour-cover small{font-size:7px!important;letter-spacing:.1em!important;color:#c6e4d4!important}
+  .home-screen .tour-cover strong{font-size:14px!important}
+  .home-screen .tour-featured-badge{top:12px!important;left:12px!important;font-size:7px!important}
+  .home-screen .tour-body{padding:14px!important}
+  .home-screen .tour-body h3{margin:0 0 12px!important;font-size:16px!important;line-height:1.25!important}
+  .home-screen .tour-meta-grid{grid-template-columns:1fr 1.35fr .55fr!important;gap:8px!important}
+  .home-screen .tour-meta-grid small{font-size:7px!important}
+  .home-screen .tour-meta-grid b{font-size:9px!important}
+
+  .home-screen .tour-pickle-art{position:absolute!important;inset:0!important;display:block!important}
+  .home-screen .tour-ball{
+    position:absolute;right:34px;top:24px;width:58px;height:58px;border-radius:50%;background:var(--home-lime);
+    box-shadow:0 0 0 13px rgba(221,255,99,.07);
+  }
+  .home-screen .tour-ball:after{
+    content:"";position:absolute;inset:13px;border-radius:50%;
+    background:radial-gradient(circle at 24% 24%,#0b6545 0 2px,transparent 3px),
+               radial-gradient(circle at 70% 27%,#0b6545 0 2px,transparent 3px),
+               radial-gradient(circle at 72% 70%,#0b6545 0 2px,transparent 3px),
+               radial-gradient(circle at 28% 68%,#0b6545 0 2px,transparent 3px);
+  }
+  .home-screen .tour-paddle-shape{
+    position:absolute;right:86px;bottom:21px;width:34px;height:48px;border-radius:48% 48% 32% 32%;
+    background:#111916;transform:rotate(-18deg);
+  }
+  .home-screen .tour-paddle-shape:after{
+    content:"";position:absolute;left:11px;bottom:-21px;width:11px;height:25px;border-radius:0 0 5px 5px;background:#111916;
+  }
+
+  .home-screen #publicTopPlayers.top-player-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+  .home-screen #publicTopPlayers .top-player-card{
+    min-height:70px!important;display:grid!important;grid-template-columns:24px 52px minmax(0,1fr) auto!important;
+    align-items:center!important;gap:9px!important;padding:8px 10px!important;border:1px solid var(--home-line)!important;
+    border-radius:16px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important;
+  }
+  .home-screen #publicTopPlayers .top-player-card:nth-child(n+4){display:none!important}
+  .home-screen #publicTopPlayers .top-player-rank{margin:0!important;font-size:9px!important}
+  .home-screen #publicTopPlayers .top-player-avatar{
+    width:52px!important;height:52px!important;min-width:52px!important;max-width:52px!important;border-radius:14px!important;object-fit:cover!important;
+  }
+  .home-screen #publicTopPlayers .top-player-copy{min-width:0!important;margin:0!important}
+  .home-screen #publicTopPlayers .top-player-copy b{font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .home-screen #publicTopPlayers .top-player-copy span{margin-top:3px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .home-screen #publicTopPlayers .top-player-card>strong{margin:0!important;font-size:12px!important;color:var(--home-green)!important}
+
+  .home-screen #live{background:transparent!important}
+  .home-screen #publicMatches{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+  .home-screen .public-match{
+    padding:12px!important;border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
+  }
+  .home-screen .public-match:before{display:none!important}
+  .home-screen .public-match-top{font-size:8px!important}
+  .home-screen .public-team-row{padding:7px 0!important}
+  .home-screen .public-team-row b:first-child{font-size:11px!important}
+  .home-screen .public-team-row b:last-child{font-size:18px!important}
+  .home-screen #publicMatches .empty{
+    min-height:72px!important;padding:14px!important;border:1px solid var(--home-line)!important;border-radius:16px!important;
+    background:#fff!important;box-shadow:none!important;justify-content:flex-start!important;text-align:left!important;font-size:10px!important;
+  }
+  .home-screen #publicMatches .empty:before{
+    content:"";width:8px;height:8px;flex:0 0 8px;margin-right:10px;border-radius:50%;background:#27c77d;
+    box-shadow:0 0 0 5px rgba(39,199,125,.09);
+  }
+
+  .home-screen #ranking,.home-screen #bracket,.home-screen #sponsors{display:none!important}
+  .home-screen #news{padding-bottom:24px!important}
+  .home-screen .news-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;overflow:visible!important;margin:0!important;padding:0!important}
+  .home-screen .news-card{
+    min-width:0!important;border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
+  }
+  .home-screen .news-card:nth-child(n+4){display:none!important}
+  .home-screen .news-card-body{padding:13px!important}
+  .home-screen .news-card-body h3{font-size:13px!important}
+  .home-screen .news-card-body p{font-size:9px!important;line-height:1.45!important}
+
+  .home-screen .public-mobile-dock{
+    left:12px!important;right:12px!important;bottom:max(8px,var(--safe-bottom))!important;height:60px!important;
+    padding:4px!important;border:1px solid #dfe7e2!important;border-radius:19px!important;background:rgba(255,255,255,.97)!important;
+    box-shadow:0 10px 26px rgba(17,45,30,.11)!important;
+  }
+  .home-screen .public-mobile-dock a{font-size:7.5px!important;border-radius:14px!important;color:#8b9690!important}
+  .home-screen .public-mobile-dock a.active{background:#edf7f1!important;color:var(--home-green)!important}
+  .home-screen .public-mobile-dock svg{width:17px!important;height:17px!important}
+}
+
+@media (min-width:761px){
+  .mobile-admin-link{display:none!important}
+}
