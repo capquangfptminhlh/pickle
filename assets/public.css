@@ -404,7 +404,7 @@
 .podium-player.podium-1{min-height:192px;background:linear-gradient(180deg,#fff9dc,#fff);border-color:#f2e6ad}.podium-player.podium-2,.podium-player.podium-3{min-height:170px}
 .podium-crown{height:26px;font-size:21px}.podium-avatar{width:66px;height:66px;margin:3px 0 10px;border-radius:50%;object-fit:cover}.podium-avatar.ranking-avatar-fallback{display:grid;place-items:center;background:#eaf7f0;color:#0c7b51;font-size:14px;font-weight:950}
 .podium-player b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}.podium-player small{margin-top:3px;color:#8b958f;font-size:8px}.podium-player strong{margin-top:10px;color:#0b8053;font-size:22px}.podium-player span{color:#9aa39e;font-size:7px}
-.ranking-search-panel{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:8px;margin-bottom:10px}
+.ranking-search-panel{display:grid;grid-template-columns:minmax(0,1fr) 130px 145px;gap:8px;margin-bottom:10px}
 .ranking-search-box{display:flex;align-items:center;gap:9px;padding:0 13px;border:1px solid #e6ece8;border-radius:15px;background:#fff}.ranking-search-box svg{width:18px;height:18px;color:#87928b}.ranking-search-box input{height:44px;flex:1;border:0;outline:0;background:transparent;font-size:11px}
 .ranking-search-panel select{height:44px;border:1px solid #e6ece8;border-radius:15px;background:#fff;padding:0 11px;color:#4f5b53;font-size:10px}
 .ranking-list-card{overflow:hidden;border:1px solid #e8eeea;border-radius:22px;background:#fff;box-shadow:0 9px 28px rgba(17,42,29,.04)}
@@ -419,7 +419,7 @@
   .ranking-tabs{margin-bottom:12px}.ranking-tabs button{padding:9px 5px}
   .ranking-podium{gap:7px;margin:0 -2px 12px}.podium-player{padding:14px 6px 12px;border:0;border-radius:20px;box-shadow:0 7px 20px rgba(17,42,29,.05)}.podium-player.podium-1{min-height:176px}.podium-player.podium-2,.podium-player.podium-3{min-height:158px}
   .podium-avatar{width:54px;height:54px}.podium-player b{font-size:9px}.podium-player strong{font-size:18px}
-  .ranking-search-panel{grid-template-columns:1fr 118px}.ranking-search-box input,.ranking-search-panel select{font-size:9px}
+  .ranking-search-panel{grid-template-columns:1fr 1fr}.ranking-search-panel .ranking-search-box{grid-column:1/-1}.ranking-search-box input,.ranking-search-panel select{font-size:9px}
   .ranking-list-card{border:0;border-radius:20px;box-shadow:0 7px 20px rgba(17,42,29,.05)}.ranking-list-head,.ranking-app-row{grid-template-columns:38px minmax(0,1fr) 72px}.ranking-app-row{padding:10px 11px}.ranking-app-rating{font-size:12px}
 }
 

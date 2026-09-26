@@ -18,27 +18,31 @@ function aggregates(key,labelFallback){
 function currentRows(){
  const q=($("#rankSearch").value||"").trim().toLocaleLowerCase("vi");
  const club=$("#rankClub").value;
+ const gender=$("#rankGender")?.value;
  if(mode==="club")return aggregates("club_name","Tự do").filter(x=>!q||x.name.toLocaleLowerCase("vi").includes(q));
  if(mode==="area")return aggregates("club_city","Chưa cập nhật khu vực").filter(x=>!q||x.name.toLocaleLowerCase("vi").includes(q));
  return players
-   .filter(p=>(!club||p.club_name===club)&&(!q||(p.full_name+" "+(p.nickname||"")+" "+(p.club_name||"")+" "+(p.club_city||"")).toLocaleLowerCase("vi").includes(q)))
+   .filter(p=>(!club||p.club_name===club)&&(!gender||p.gender===gender)&&(!q||(p.full_name+" "+(p.nickname||"")+" "+(p.club_name||"")+" "+(p.club_city||"")).toLocaleLowerCase("vi").includes(q)))
    .sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||a.full_name.localeCompare(b.full_name,"vi"));
 }
 function podiumCard(item,index){
  const rank=index+1,crown=rank===1?"👑":rank===2?"🥈":"🥉";
- if(mode==="player")return '<a class="podium-player podium-'+rank+'" href="player.html?id='+encodeURIComponent(item.id)+'"><div class="podium-crown">'+crown+'</div>'+avatar(item,"podium-avatar")+'<b>'+esc(item.full_name)+'</b><small>'+esc(item.club_name||"Tự do")+'</small><strong>'+Number(item.rating||0).toFixed(3)+'</strong><span>điểm</span></a>';
+ const gTag=item.gender==="female"?" • Nữ":item.gender==="male"?" • Nam":"";
+ if(mode==="player")return '<a class="podium-player podium-'+rank+'" href="player.html?id='+encodeURIComponent(item.id)+'"><div class="podium-crown">'+crown+'</div>'+avatar(item,"podium-avatar")+'<b>'+esc(item.full_name)+'</b><small>'+esc(item.club_name||"Tự do")+gTag+'</small><strong>'+Number(item.rating||0).toFixed(3)+'</strong><span>điểm</span></a>';
  return '<div class="podium-player podium-'+rank+'"><div class="podium-crown">'+crown+'</div><span class="podium-avatar ranking-avatar-fallback">'+esc(initials(item.name))+'</span><b>'+esc(item.name)+'</b><small>'+item.members+' VĐV'+(item.city?' • '+esc(item.city):'')+'</small><strong>'+Number(item.rating||0).toFixed(3)+'</strong><span>rating TB</span></div>';
 }
 function render(){
  const rows=currentRows();
  $$(".ranking-tabs button").forEach(b=>b.classList.toggle("active",b.dataset.rankMode===mode));
  $("#rankClub").hidden=mode!=="player";
+ if($("#rankGender"))$("#rankGender").hidden=mode!=="player";
  $("#rankSearch").placeholder=mode==="player"?"Tìm VĐV hoặc CLB...":mode==="club"?"Tìm CLB...":"Tìm khu vực...";
  const head=$(".ranking-list-head");if(head)head.innerHTML='<span>Hạng</span><span>'+(mode==="player"?"VĐV":mode==="club"?"CLB":"Khu vực")+'</span><span>Rating</span>';
  const top=rows.slice(0,3),order=[1,0,2];
  $("#rankingPodium").innerHTML=top.length?order.filter(i=>top[i]).map(i=>podiumCard(top[i],i)).join(""):'<div class="app-empty-card"><span>📊</span><b>Chưa có dữ liệu ranking</b><small>Dữ liệu thật sẽ xuất hiện khi có VĐV được công khai.</small></div>';
  $("#rankingRows").innerHTML=rows.map((item,i)=>{
-   if(mode==="player")return '<div class="ranking-app-row"><b class="ranking-app-rank">'+(i+1)+'</b><a class="ranking-app-player" href="player.html?id='+encodeURIComponent(item.id)+'">'+avatar(item)+'<span><b>'+esc(item.full_name)+'</b><small>'+esc(item.club_name||item.nickname||"Tự do")+(item.club_city?' • '+esc(item.club_city):'')+'</small></span></a><strong class="ranking-app-rating">'+Number(item.rating||0).toFixed(3)+'</strong></div>';
+   const gTag=item.gender==="female"?" • Nữ":item.gender==="male"?" • Nam":"";
+   if(mode==="player")return '<div class="ranking-app-row"><b class="ranking-app-rank">'+(i+1)+'</b><a class="ranking-app-player" href="player.html?id='+encodeURIComponent(item.id)+'">'+avatar(item)+'<span><b>'+esc(item.full_name)+'</b><small>'+esc(item.club_name||item.nickname||"Tự do")+gTag+(item.club_city?' • '+esc(item.club_city):'')+'</small></span></a><strong class="ranking-app-rating">'+Number(item.rating||0).toFixed(3)+'</strong></div>';
    return '<div class="ranking-app-row"><b class="ranking-app-rank">'+(i+1)+'</b><div class="ranking-app-player"><span class="ranking-avatar ranking-avatar-fallback">'+esc(initials(item.name))+'</span><span><b>'+esc(item.name)+'</b><small>'+item.members+' VĐV'+(item.city?' • '+esc(item.city):'')+'</small></span></div><strong class="ranking-app-rating">'+Number(item.rating||0).toFixed(3)+'</strong></div>';
  }).join("")||'<div class="app-empty-card"><span>🔎</span><b>Không có dữ liệu phù hợp</b><small>Thử từ khóa khác.</small></div>';
 }
@@ -57,7 +61,8 @@ async function load(){
     id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
     full_name:r.fullName||r.name,
     avatar_url:r.avatarUrl||r.avatar_url||"",
-    rating:Number(r.rating)||3.0,
+    rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
+    gender:r.gender||"male",
     club_name:r.club||"CLB Pickleball Bình Lợi",
     club_city:"TP.HCM",
     nickname:r.role!=="Thành viên"?r.role:""
@@ -68,7 +73,8 @@ async function load(){
  $("#rankClub").innerHTML='<option value="">Tất cả CLB</option>'+clubs.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
  render();
 }
-$$(".ranking-tabs button").forEach(b=>b.onclick=()=>{mode=b.dataset.rankMode||"player";$("#rankSearch").value="";$("#rankClub").value="";render()});
+$$(".ranking-tabs button").forEach(b=>b.onclick=()=>{mode=b.dataset.rankMode||"player";$("#rankSearch").value="";$("#rankClub").value="";if($("#rankGender"))$("#rankGender").value="";render()});
 $("#rankSearch").oninput=render;$("#rankClub").onchange=render;
+if($("#rankGender"))$("#rankGender").onchange=render;
 load().catch(console.error);
 if(window.io){const s=io();s.on("public:state",()=>load().catch(()=>{}))}

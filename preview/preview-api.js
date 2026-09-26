@@ -52,14 +52,15 @@
       if(p){
         if(r.avatarUrl&&(!p.avatar_url||!p.avatar_url.startsWith("http"))){p.avatar_url=r.avatarUrl;added++;}
         if(Number(r.rating)&&p.rating!==Number(r.rating)){p.rating=Number(r.rating);added++;}
+        if(r.gender&&p.gender!==r.gender){p.gender=r.gender;added++;}
         if(r.role&&r.role!=="Thành viên"&&!p.nickname){p.nickname=r.role;added++;}
       }else{
         const newP={
           id:r.zaloId?("zl-"+r.zaloId):uid(),
           full_name:name,
           nickname:r.role&&r.role!=="Thành viên"?r.role:"",
-          gender:null,
-          rating:Number(r.rating)||3.0,
+          gender:r.gender||"male",
+          rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
           phone:r.phone||"",
           club_id:club.id,
           club_name:club.name,
@@ -135,7 +136,24 @@
     publicState:async()=>{recomputeStats();return clone(state)},
     submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
     adminState:async()=>{recomputeStats();return clone(state)},
-    publicPlayers:async()=>clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""}))),
+    publicPlayers:async()=>{
+      if(state.players&&state.players.length){
+        return clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""})));
+      }
+      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+        return window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
+          id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
+          full_name:r.fullName||r.name,
+          nickname:r.nickname||"",
+          gender:r.gender||"male",
+          avatar_url:r.avatarUrl||r.avatar_url||"",
+          rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
+          club_name:r.club||"CLB Pickleball Bình Lợi",
+          club_city:"TP.HCM"
+        }));
+      }
+      return [];
+    },
     publicClubs:async()=>clone(state.clubs),
     publicPosts:async()=>clone(state.posts.filter(x=>x.status==="published")),
     publicSponsors:async()=>clone(state.sponsors),
@@ -147,7 +165,7 @@
       if(!p&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
         const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);
         if(zl){
-          p={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:null,rating:Number(zl.rating)||3.0,avatar_url:zl.avatarUrl||zl.avatar_url||"",club_name:zl.club||"CLB Pickleball Bình Lợi"};
+          p={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_name:zl.club||"CLB Pickleball Bình Lợi"};
         }
       }
       if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
