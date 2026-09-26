@@ -3,112 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b7a4b">
+  <meta name="theme-color" content="#ffffff">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
-  <title>Pickle Tour — Giải đấu, Live Score & Ranking</title>
-  <meta name="description" content="Theo dõi giải pickleball, lịch thi đấu, live score, bảng xếp hạng và bracket.">
-  <link rel="stylesheet" href="../assets/styles.css">  <link rel="stylesheet" href="../assets/public.css">
+  <title>Pickle Tour — Cộng đồng Pickleball</title>
+  <meta name="description" content="Cộng đồng pickleball: giải đấu, bài viết, người chơi, live score, ranking và hoạt động CLB.">
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/public.css">
 </head>
-<body class="public-body">
-  <header class="public-header">
+<body class="public-body community-public">
+  <header class="public-header community-appbar">
     <div class="public-container public-nav">
-      <a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
-      <nav><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="ranking.html">Ranking</a><a href="#bracket">Bracket</a><a href="about.html">Giới thiệu</a></nav>
+      <a class="public-brand" href="index.html">
+        <span class="brand-mark">P</span>
+        <span><b>PICKLE TOUR</b><small>CỘNG ĐỒNG PICKLEBALL</small></span>
+      </a>
+      <nav><a href="#community">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="ranking.html">BXH</a><a href="#connect">Người chơi</a></nav>
       <a class="btn primary" href="login.html">Đăng nhập quản trị</a>
     </div>
   </header>
 
-  <main>
-    <section class="mobile-app-dashboard">
+  <main class="community-app-main">
+    <section class="community-app-top">
       <div class="public-container">
-        <div class="mobile-app-status-card">
-          <div>
-            <span class="eyebrow">PICKLE TOUR</span>
-            <h2>Hôm nay có gì?</h2>
-            <p><span class="status-dot"></span><strong id="mobileLiveCount">0</strong> trận đang live</p>
-          </div>
-          <div class="mobile-app-badge">PT</div>
+        <div class="community-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="appSearch" type="search" autocomplete="off" placeholder="Tìm giải đấu, bài viết, VĐV...">
         </div>
-        <div class="mobile-app-actions">
-          <a href="#tournaments"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4Zm-3 1h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8m-4-4H9v4m3-4h3v4"/></svg></span><b>Giải đấu</b></a>
-          <a href="#live"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13M8 8a5.5 5.5 0 0 0 0 8m8-8a5.5 5.5 0 0 1 0 8"/></svg></span><b>Live</b></a>
-          <a href="ranking.html"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg></span><b>Ranking</b></a>
-          <a href="#news"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span><b>Tin tức</b></a>
+        <div class="community-chips" aria-label="Chủ đề">
+          <a href="#community">💬 Thảo luận</a>
+          <a href="#community">🏓 Kỹ thuật</a>
+          <a href="#tournaments">🏆 Giải đấu</a>
+          <a href="#live">⚡ Live score</a>
+          <a href="#connect">👥 Kết nối</a>
         </div>
-      </div>
-    </section>
-    <section class="public-hero">
-      <div class="public-container public-hero-grid">
-        <div>
-          <span class="eyebrow">PICKLEBALL • LIVE TOURNAMENT</span>
-          <h1>Mọi trận đấu.<br><em>Một nơi theo dõi.</em></h1>
-          <p>Giải đấu, lịch sân, tỷ số trực tiếp, bảng xếp hạng và nhánh loại trực tiếp được cập nhật từ bàn điều hành.</p>
-          <div class="hero-actions"><a class="btn primary" href="#live">Xem trận đang live</a><a class="btn secondary" href="#tournaments">Xem giải đấu</a></div>
-        </div>
-        <div class="hero-media-stage">
-          <img class="hero-sport-visual" src="https://images.pexels.com/photos/29439333/pexels-photo-29439333.jpeg?cs=srgb&dl=pexels-anhleephoto-29439333.jpg&fm=jpg" alt="Vận động viên pickleball thi đấu trên sân">
-          <div class="hero-media-glow"></div>
-          <div class="hero-live-card">
-            <div class="hero-live-top"><span><i></i> LIVE CENTER</span><small id="liveCount">0 trận</small></div>
-            <div id="heroLive"></div>
-          </div>
-          <div class="hero-float-stat"><span>LIVE DATA</span><strong>REAL-TIME</strong><small>Score • Court • Bracket</small></div>
-        </div>
+        <div id="featuredTournament" class="featured-tournament"></div>
       </div>
     </section>
 
-    <section id="tournaments" class="public-section">
+    <section id="community" class="public-section community-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><p>Đang diễn ra, sắp mở và đã kết thúc.</p></div>
-        <div id="publicTours" class="page-grid"></div>
+        <div class="app-section-head"><div><span>CỘNG ĐỒNG</span><h2>Bài viết nổi bật</h2></div><a href="#community">Xem tất cả</a></div>
+        <div id="publicNews" class="community-feed"></div>
       </div>
     </section>
 
-    <section id="top-players" class="public-section soft-section">
+    <section id="tournaments" class="public-section community-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">PLAYER RATING</span><h2>Top VĐV</h2></div><a class="section-link" href="ranking.html">Xem toàn bộ ranking →</a></div>
-        <div id="publicTopPlayers" class="top-player-grid"></div>
+        <div class="app-section-head"><div><span>SỰ KIỆN</span><h2>Giải đấu</h2></div><a href="#live">Live score</a></div>
+        <div id="publicTours" class="event-card-list"></div>
       </div>
     </section>
 
-    <section id="live" class="public-section soft-section">
+    <section id="connect" class="public-section community-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">COURTSIDE</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài trên cùng trình duyệt.</p></div>
-        <div id="publicMatches" class="public-match-grid"></div>
+        <div class="app-section-head"><div><span>KẾT NỐI</span><h2>Người chơi nổi bật</h2></div><a href="ranking.html">BXH →</a></div>
+        <div id="publicTopPlayers" class="connect-player-list"></div>
       </div>
     </section>
 
-    <section id="ranking" class="public-section">
+    <section id="live" class="public-section community-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng vòng bảng</h2></div><p>Xếp theo số trận thắng, hiệu số và điểm ghi.</p></div>
+        <div class="app-section-head"><div><span>COURTSIDE</span><h2>Live score</h2></div><span id="liveCount" class="app-count-pill">0 trận</span></div>
+        <div id="heroLive" class="app-live-strip"></div>
+        <div id="publicMatches" class="public-match-grid app-match-list"></div>
+      </div>
+    </section>
+
+    <section id="ranking" class="public-section community-section">
+      <div class="public-container">
+        <div class="app-section-head"><div><span>THI ĐẤU</span><h2>Bảng xếp hạng vòng bảng</h2></div><a href="ranking.html">Ranking cá nhân →</a></div>
         <div id="publicStandings" class="grid-2"></div>
       </div>
     </section>
 
-    <section id="bracket" class="public-section soft-section">
+    <section id="bracket" class="public-section community-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div><p>Người thắng bán kết tự động lên trận chung kết.</p></div>
+        <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Bracket</h2></div></div>
         <div id="publicBracket"></div>
-      </div>
-    </section>
-    <section id="news" class="public-section">
-      <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">MEDIA</span><h2>Tin tức & cập nhật</h2></div><p>Nội dung từ BTC giải đấu.</p></div>
-        <div id="publicNews" class="news-grid"></div>
       </div>
     </section>
 
     <section id="sponsors" class="sponsor-strip-section">
       <div class="public-container">
-        <span class="sponsor-strip-label">ĐỒNG HÀNH CÙNG GIẢI</span>
+        <span class="sponsor-strip-label">ĐỒNG HÀNH CÙNG CỘNG ĐỒNG</span>
         <div id="publicSponsors" class="public-sponsor-strip"></div>
       </div>
     </section>
-
   </main>
 
-  <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span></div></footer>
+  <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Cộng đồng • Giải đấu • Ranking • CLB</span></div></footer>
   
   <script src="preview-api.js"></script>
   <script src="../assets/bracket-ui.js"></script>
