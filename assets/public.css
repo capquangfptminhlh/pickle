@@ -491,3 +491,28 @@ radial-gradient(circle at 50% 86%,#0c6e49 0 3px,transparent 4px)}
 @media(max-width:760px){
   .ranking-podium>.app-empty-card{min-height:104px;padding:16px}
 }
+
+
+/* TOURNAMENT EVENT APP SCREEN */
+.tournament-app-main{padding:18px 0 42px}
+.tournament-app-hero{position:relative;overflow:hidden;min-height:280px;padding:28px;border-radius:30px;background:
+radial-gradient(circle at 86% 10%,rgba(224,255,111,.28),transparent 29%),
+linear-gradient(145deg,#0d714a,#0b5037 60%,#10241b);color:#fff;box-shadow:0 22px 52px rgba(10,93,62,.2)}
+.tournament-app-kicker{position:relative;z-index:2;color:#c5e1d2;font-size:9px;font-weight:950;letter-spacing:.12em}.tournament-app-hero h1{position:relative;z-index:2;max-width:680px;margin:58px 0 9px;font-size:44px;line-height:.98;letter-spacing:-.05em}.tournament-app-hero p{position:relative;z-index:2;margin:0;color:#d2e6db;font-size:11px}
+.tournament-app-tags{position:relative;z-index:2;display:flex;gap:7px;margin-top:22px}.tournament-app-tags span{padding:8px 10px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(255,255,255,.08);font-size:8px;font-weight:850}
+.tournament-app-ball{position:absolute;right:38px;top:62px;width:122px;height:122px;border-radius:50%;background:#dfff68;box-shadow:0 0 0 26px rgba(223,255,104,.07)}
+.tournament-app-ball:after{content:"";position:absolute;inset:18px;border-radius:50%;background:
+radial-gradient(circle at 20% 20%,#0b714a 0 3px,transparent 4px),
+radial-gradient(circle at 58% 14%,#0b714a 0 3px,transparent 4px),
+radial-gradient(circle at 80% 42%,#0b714a 0 3px,transparent 4px),
+radial-gradient(circle at 30% 62%,#0b714a 0 3px,transparent 4px),
+radial-gradient(circle at 68% 74%,#0b714a 0 3px,transparent 4px),
+radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
+.tournament-tabs{position:sticky;top:76px;z-index:25;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:12px;padding:4px;border:1px solid #e8eeea;border-radius:17px;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(17,42,29,.04)}
+.tournament-tabs a{padding:10px;border-radius:13px;color:#69766e;text-align:center;text-decoration:none;font-size:9px;font-weight:900}.tournament-tabs a:first-child{background:#e9f8ef;color:#08754b}
+
+@media(max-width:760px){
+  .tournament-app-main{padding:10px 0 18px}.tournament-app-hero{min-height:235px;padding:20px;border-radius:24px}.tournament-app-kicker{font-size:8px}.tournament-app-hero h1{max-width:78%;margin:48px 0 8px;font-size:30px}.tournament-app-hero p{max-width:78%;font-size:9px}.tournament-app-tags{margin-top:18px}.tournament-app-tags span{padding:7px 9px;font-size:7px}
+  .tournament-app-ball{right:-8px;top:72px;width:90px;height:90px;box-shadow:0 0 0 20px rgba(223,255,104,.06)}.tournament-app-ball:after{inset:14px}
+  .tournament-tabs{top:calc(62px + var(--safe-top));margin-top:9px}.tournament-tabs a{padding:9px 4px;font-size:8px}
+}
