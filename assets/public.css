@@ -911,3 +911,110 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   }
   #publicTopPlayers .top-player-avatar{height:108px}
 }
+
+
+/* MOBILE LAYOUT RESET V9 */
+@media(max-width:760px){
+  html,body,.public-body{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+    overflow-x:hidden!important;
+  }
+  .public-header,main,.public-section,.soft-section,.mobile-app-dashboard{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+  }
+  .public-container{
+    box-sizing:border-box!important;
+    width:calc(100% - 24px)!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin-left:12px!important;
+    margin-right:12px!important;
+  }
+
+  #publicTopPlayers.top-player-grid{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+  }
+  #publicTopPlayers .top-player-card{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    min-height:82px!important;
+    display:grid!important;
+    grid-template-columns:28px 62px minmax(0,1fr) auto!important;
+    grid-template-rows:1fr!important;
+    align-items:center!important;
+    gap:10px!important;
+    padding:10px 12px!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-radius:18px!important;
+    background:#fff!important;
+    box-shadow:0 7px 22px rgba(17,45,30,.055)!important;
+  }
+  #publicTopPlayers .top-player-rank{
+    grid-column:auto!important;
+    margin:0!important;
+    color:#0c7f52!important;
+    font-size:10px!important;
+    font-weight:950!important;
+  }
+  #publicTopPlayers .top-player-avatar{
+    width:62px!important;
+    height:62px!important;
+    min-width:62px!important;
+    max-width:62px!important;
+    border-radius:16px!important;
+    object-fit:cover!important;
+    object-position:center!important;
+    overflow:hidden!important;
+  }
+  #publicTopPlayers .top-player-copy{
+    min-width:0!important;
+    width:auto!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
+  #publicTopPlayers .top-player-copy b,
+  #publicTopPlayers .top-player-copy span,
+  #publicTopPlayers .top-player-copy small{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  #publicTopPlayers .top-player-copy b{
+    font-size:13px!important;
+    line-height:1.3!important;
+  }
+  #publicTopPlayers .top-player-copy span,
+  #publicTopPlayers .top-player-copy small{
+    margin-top:3px!important;
+    font-size:10px!important;
+    line-height:1.25!important;
+  }
+  #publicTopPlayers .top-player-card>strong{
+    width:auto!important;
+    max-width:72px!important;
+    margin:0!important;
+    font-size:14px!important;
+    line-height:1!important;
+    text-align:right!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+}
