@@ -230,6 +230,7 @@ await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot
 if(!(await shot.locator(".public-mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["public mobile dock missing"]});
 if(await shot.locator(".public-mobile-dock a").count()!==5)failures.push({label:"preview mobile public",errors:["community bottom nav must have 5 tabs"]});
 if(!(await shot.locator("#appSearch").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community search missing"]});
+if(!(await shot.locator(".community-welcome-card").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community brand hero missing"]});
 if(!(await shot.locator("#featuredTournament").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["featured tournament area missing"]});
 if(!(await shot.locator("#community").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["community feed missing"]});
 const publicOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
@@ -237,6 +238,8 @@ if(publicOverflow)failures.push({label:"preview mobile public",errors:["communit
 await shot.screenshot({path:"ui-artifacts/mobile-public.png",fullPage:true});
 
 await shot.goto(preview+"/ranking.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
+if(!(await shot.locator(".ranking-tabs").isVisible().catch(()=>false)))failures.push({label:"preview mobile ranking",errors:["ranking app tabs missing"]});
+if(!(await shot.locator("#rankingPodium").isVisible().catch(()=>false)))failures.push({label:"preview mobile ranking",errors:["ranking podium missing"]});
 const rankHeroImg=shot.locator(".ranking-hero-grid>img");
 if(await rankHeroImg.count()&&await rankHeroImg.isVisible().catch(()=>false)){
   failures.push({label:"preview mobile ranking",errors:["ranking hero image must be hidden on mobile"]});
