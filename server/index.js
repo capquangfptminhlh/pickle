@@ -1542,8 +1542,10 @@ app.post("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const email=String(req.body.email||"").toLowerCase().trim(),name=String(req.body.name||"").trim();
   const password=String(req.body.password||""),role=String(req.body.role||"");
   if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   if(!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
-  if(password.length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+  if(!validPassword(password))return res.status(400).json({error:"PASSWORD_POLICY"});
   if((await pool.query("select 1 from app_users where email=$1",[email])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
   const scopedRole=["club_manager","finance"].includes(role);
   const clubId=scopedRole?(req.body.clubId||null):null;
@@ -1559,7 +1561,7 @@ app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)
   const before=(await pool.query("select id,email,display_name,role,active,club_id from app_users where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(before.role==="super_admin"&&before.id!==req.user.sub)return res.status(403).json({error:"OWNER_ACCOUNT_PROTECTED"});
-  const role=req.body.role===undefined?before.role:String(req.body.role);
+  const role=before.role==="super_admin"?"super_admin":(req.body.role===undefined?before.role:String(req.body.role));
   if(before.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
   const scopedRole=["club_manager","finance"].includes(role);
   let clubId=scopedRole?(req.body.clubId??before.club_id??null):null;
@@ -1567,16 +1569,19 @@ app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
   let passwordHash=null;
   if(req.body.password){
-    if(String(req.body.password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+    if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
     passwordHash=await hashPassword(String(req.body.password));
   }
   const email=req.body.email?String(req.body.email).toLowerCase().trim():before.email;
   const name=req.body.name===undefined?before.display_name:String(req.body.name).trim();
   if(!name||!email)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   const duplicate=(await pool.query("select 1 from app_users where email=$1 and id<>$2",[email,req.params.id])).rowCount;
   if(duplicate)return res.status(409).json({error:"EMAIL_EXISTS"});
   const after=(await pool.query(`
-    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash),club_id=$6
+    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash),club_id=$6,
+      auth_version=auth_version+case when $5::text is null then 0 else 1 end
     where id=$7 returning id,email,display_name,role,active,created_at,club_id
   `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,clubId,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_CHILD_ACCOUNT',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
@@ -1588,8 +1593,10 @@ app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap
 }));
 app.post("/api/users/referees",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {email,name,password}=req.body;if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  if(String(password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
   const normalized=String(email).toLowerCase().trim();
+  if(!validEmail(normalized))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(String(name).trim().length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(!validPassword(String(password)))return res.status(400).json({error:"PASSWORD_POLICY"});
   if((await pool.query("select 1 from app_users where email=$1",[normalized])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
   const h=await hashPassword(String(password));
   const r=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,'referee',$3) returning id,email,display_name,role,active",[normalized,String(name).trim(),h])).rows[0];res.status(201).json(r);
@@ -1599,14 +1606,18 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin"),wrap(async
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   let passwordHash=null;
   if(req.body.password!==undefined){
-    if(String(req.body.password).length<12)return res.status(400).json({error:"PASSWORD_TOO_SHORT"});
+    if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
     passwordHash=await hashPassword(String(req.body.password));
   }
+  const nextEmail=req.body.email?String(req.body.email).toLowerCase().trim():null;
+  const nextName=req.body.name===undefined?null:String(req.body.name).trim();
+  if(nextEmail&&!validEmail(nextEmail))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(nextName&&nextName.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   const after=(await pool.query(`
     update app_users set display_name=coalesce($1,display_name),email=coalesce($2,email),active=coalesce($3,active),
-      password_hash=coalesce($4,password_hash)
+      password_hash=coalesce($4,password_hash),auth_version=auth_version+case when $4::text is null then 0 else 1 end
     where id=$5 and role='referee' returning id,email,display_name,role,active
-  `,[req.body.name??null,req.body.email?String(req.body.email).toLowerCase():null,req.body.active??null,passwordHash,req.params.id])).rows[0];
+  `,[nextName,nextEmail,req.body.active??null,passwordHash,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_REFEREE',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
   res.json(after);
 }));
