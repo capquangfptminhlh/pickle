@@ -159,31 +159,28 @@
     const home=isPreview?"index.html":"/";
     const ranking=isPreview?"ranking.html":"/ranking.html";
     const admin=isPreview?"login.html":"/login";
-    const current=location.pathname;
-    const homeActive=current.endsWith("/")||current.endsWith("/index.html")||current.endsWith("/preview/");
-    const rankActive=current.includes("ranking");
     const dock=document.createElement("nav");
     dock.className="public-mobile-dock";
     dock.setAttribute("aria-label","Điều hướng nhanh");
     dock.innerHTML=
-      '<a class="'+(homeActive?"active":"")+'" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Home</span></a>'+
-      '<a href="'+home+'#tournaments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4ZM5 5h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8"/></svg><span>Giải</span></a>'+
-      '<a href="'+home+'#live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M5.5 5.5a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13"/></svg><span>Live</span></a>'+
-      '<a class="'+(rankActive?"active":"")+'" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>Ranking</span></a>'+
-      '<a href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5 2 2 3-.5.5 3 2 2-2 2 .5 3-3 .5-2 2-2-2-3 .5-.5-3-2-2 2-2-.5-3 3-.5z"/></svg><span>Đăng nhập</span></a>';
+      '<a data-public-tab="home" href="'+home+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4z"/></svg><span>Trang chủ</span></a>'+
+      '<a data-public-tab="community" href="'+home+'#community"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M8 9h8M8 12h5"/></svg><span>Cộng đồng</span></a>'+
+      '<a data-public-tab="events" href="'+home+'#tournaments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h8v3a4 4 0 0 1-8 0V4ZM5 5h3v2a4 4 0 0 1-3-2Zm11 0h3a4 4 0 0 1-3 2V5ZM12 11v5m-4 4h8"/></svg><span>Sự kiện</span></a>'+
+      '<a data-public-tab="ranking" href="'+ranking+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V9h4v9m2 0V5h4v13m2 0v-6h3v6"/></svg><span>BXH</span></a>'+
+      '<a data-public-tab="admin" href="'+admin+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.2-7 8-7s8 2.5 8 7"/></svg><span>Quản trị</span></a>';
     document.body.appendChild(dock);
-    const syncPublicDock=()=>{
-      const hash=location.hash;
-      const path=location.pathname;
+    const sync=()=>{
+      const path=location.pathname,hash=location.hash;
       $$(".public-mobile-dock a",dock).forEach(a=>a.classList.remove("active"));
-      if(path.includes("ranking"))dock.querySelector('a[href*="ranking"]')?.classList.add("active");
-      else if(hash==="#live")dock.querySelector('a[href$="#live"]')?.classList.add("active");
-      else if(hash==="#tournaments")dock.querySelector('a[href$="#tournaments"]')?.classList.add("active");
-      else dock.querySelector("a")?.classList.add("active");
+      let key="home";
+      if(path.includes("ranking"))key="ranking";
+      else if(path.includes("login"))key="admin";
+      else if(hash==="#community")key="community";
+      else if(hash==="#tournaments"||hash==="#live"||hash==="#bracket")key="events";
+      dock.querySelector('[data-public-tab="'+key+'"]')?.classList.add("active");
     };
-    dock.addEventListener("click",e=>{if(e.target.closest("a"))setTimeout(syncPublicDock,0)});
-    addEventListener("hashchange",syncPublicDock);
-    syncPublicDock();
+    dock.addEventListener("click",e=>{if(e.target.closest("a"))setTimeout(sync,0)});
+    addEventListener("hashchange",sync);sync();
   }
 
   function buildProgress(){
