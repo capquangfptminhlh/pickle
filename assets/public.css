@@ -533,3 +533,16 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   font-size:10px;
   box-shadow:0 7px 20px rgba(17,42,29,.035);
 }
+
+
+/* Tournament Network home — generated visuals only, no fake event photography */
+.hero-pickle-visual{position:absolute;inset:0;overflow:hidden;border-radius:inherit;background:linear-gradient(145deg,#0d6847,#10241b 62%,#1b3227)}
+.hero-pickle-visual:before{content:"";position:absolute;inset:18% -10% -25% 30%;border:2px solid rgba(223,255,105,.25);transform:perspective(360px) rotateX(56deg) rotateZ(-8deg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.hero-ball{position:absolute;right:14%;top:13%;width:104px;height:104px;border-radius:50%;background:#dfff69;box-shadow:0 16px 38px rgba(0,0,0,.23),0 0 0 22px rgba(223,255,105,.06)}
+.hero-ball:after{content:"";position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 25% 25%,#0b6041 0 3px,transparent 4px),radial-gradient(circle at 60% 18%,#0b6041 0 3px,transparent 4px),radial-gradient(circle at 78% 52%,#0b6041 0 3px,transparent 4px),radial-gradient(circle at 35% 65%,#0b6041 0 3px,transparent 4px),radial-gradient(circle at 58% 82%,#0b6041 0 3px,transparent 4px)}
+.hero-paddle{position:absolute;right:32%;bottom:12%;width:92px;height:126px;display:grid;place-items:center;border-radius:42% 42% 30% 30%;background:linear-gradient(145deg,#161d19,#0a0d0b);color:#dfff69;font-size:34px;font-weight:950;transform:rotate(-16deg);box-shadow:0 20px 40px rgba(0,0,0,.3)}
+.hero-paddle:after{content:"";position:absolute;width:28px;height:62px;bottom:-48px;border-radius:0 0 12px 12px;background:#151a17}
+.hero-court-line{position:absolute;left:8%;right:8%;bottom:19%;height:2px;background:rgba(255,255,255,.22);transform:rotate(-7deg)}
+.tour-media-real{min-height:138px;background:linear-gradient(145deg,#0c6d49,#0f2d20)}
+.tour-pickle-art{position:absolute;inset:0;overflow:hidden}.tour-pickle-art i{position:absolute;right:18px;top:16px;width:70px;height:70px;border-radius:50%;background:#dfff69;box-shadow:0 0 0 15px rgba(223,255,105,.06)}.tour-pickle-art b{position:absolute;right:72px;bottom:7px;font-size:44px;transform:rotate(-16deg);filter:drop-shadow(0 8px 14px rgba(0,0,0,.2))}
+@media(max-width:760px){.hero-ball{width:78px;height:78px}.hero-paddle{right:28%;width:68px;height:94px;font-size:25px}.tour-media-real{min-height:118px}}
