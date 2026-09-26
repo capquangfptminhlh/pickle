@@ -1,25 +1,31 @@
 <!doctype html>
-<html lang="vi"><head>
+<html lang="vi">
+<head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b7a4b">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml"><title>Chi tiết giải | Pickle Tour</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
+<title>Chi tiết giải | Pickle Tour</title>
 <meta name="description" content="Lịch thi đấu, live score, bảng xếp hạng và bracket giải pickleball.">
 <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/public.css">
-</head><body class="public-body">
-<header class="public-header"><div class="public-container public-nav">
-<a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
-<nav><a href="index.html">Trang chủ</a><a href="ranking.html">Ranking</a><a href="about.html">Giới thiệu</a></nav><a class="btn primary" href="login.html">Đăng nhập quản trị</a>
+</head>
+<body class="public-body community-public tournament-app-page">
+<header class="public-header community-appbar"><div class="public-container public-nav">
+<a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>CỘNG ĐỒNG PICKLEBALL</small></span></a>
+<nav><a href="index.html#community">Cộng đồng</a><a href="index.html#tournaments">Giải đấu</a><a href="ranking.html">BXH</a><a href="index.html#connect">Người chơi</a></nav><a class="btn primary" href="login.html">Đăng nhập quản trị</a>
 </div></header>
-<main>
-<section class="tournament-visual-hero"><img src="https://images.pexels.com/photos/29439333/pexels-photo-29439333.jpeg?cs=srgb&dl=pexels-anhleephoto-29439333.jpg&fm=jpg" alt="Hình ảnh giải đấu pickleball"><div class="tournament-visual-overlay"></div><div class="public-container tournament-visual-copy"><span class="eyebrow">TOURNAMENT</span><h1 id="tourName">Đang tải...</h1><p id="tourMeta"></p></div></section>
-<section class="public-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">SCHEDULE</span><h2>Lịch & Live Score</h2></div></div><div id="tourMatches" class="public-match-grid"></div></div></section>
-<section class="public-section soft-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div></div></section>
-<section class="public-section"><div class="public-container"><div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div></div><div id="tourBracket"></div></div></section>
+<main class="tournament-app-main">
+<section class="public-container tournament-app-hero">
+  <div class="tournament-app-kicker">🏆 SỰ KIỆN • GIẢI ĐẤU</div>
+  <h1 id="tourName">Đang tải...</h1><p id="tourMeta"></p>
+  <div class="tournament-app-tags"><span>Live score</span><span>BXH</span><span>Bracket</span></div>
+  <div class="tournament-app-ball" aria-hidden="true"></div>
+</section>
+<nav class="public-container tournament-tabs"><a href="#schedule">Lịch đấu</a><a href="#standings">Bảng xếp hạng</a><a href="#knockout">Bracket</a></nav>
+<section id="schedule" class="public-section community-section"><div class="public-container"><div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div></div><div id="tourMatches" class="public-match-grid app-match-list"></div></div></section>
+<section id="standings" class="public-section community-section"><div class="public-container"><div class="app-section-head"><div><span>THI ĐẤU</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div></div></section>
+<section id="knockout" class="public-section community-section"><div class="public-container"><div class="app-section-head"><div><span>KNOCKOUT</span><h2>Bracket</h2></div></div><div id="tourBracket"></div></div></section>
 </main>
 <footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
-<script src="preview-api.js"></script>
-  <script src="../assets/bracket-ui.js"></script><script src="../assets/tournament.js"></script>
-  <script src="../assets/ui-motion.js"></script>
-  <script src="preview-pwa.js"></script>
+<script src="preview-api.js"></script><script src="../assets/bracket-ui.js"></script><script src="../assets/tournament.js"></script><script src="../assets/ui-motion.js"></script><script src="preview-pwa.js"></script>
 </body></html>
