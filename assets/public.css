@@ -439,3 +439,36 @@
   .community-public .player-stat-grid{grid-template-columns:repeat(3,1fr);gap:7px}.community-public .player-stat{padding:10px;border-radius:16px}.community-public .player-stat strong{font-size:18px}
   .community-public .player-panel{border-radius:20px}
 }
+
+
+/* COMMUNITY BRAND HERO */
+.community-welcome-card{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:center;gap:18px;margin-top:10px;padding:24px;border-radius:28px;background:
+  radial-gradient(circle at 86% 12%,rgba(224,255,111,.22),transparent 28%),
+  linear-gradient(145deg,#0f2219,#0b3e2d 55%,#0b704a);color:#fff;box-shadow:0 20px 48px rgba(14,61,43,.18)}
+.community-welcome-copy{position:relative;z-index:2}.community-welcome-copy>span{color:#bfe1cf;font-size:8px;font-weight:950;letter-spacing:.14em}.community-welcome-copy h1{margin:7px 0 9px;font-size:32px;line-height:1;letter-spacing:-.045em}.community-welcome-copy p{max-width:520px;margin:0;color:#c9ddd2;font-size:10px;line-height:1.55}
+.community-welcome-copy>div{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.community-welcome-copy a{padding:9px 12px;border-radius:999px;background:#e4ff72;color:#0c3d2a;text-decoration:none;font-size:9px;font-weight:950}.community-welcome-copy a+a{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.12)}
+.community-welcome-art{position:relative;height:150px}.community-welcome-art:before{content:"";position:absolute;width:132px;height:132px;right:12px;top:9px;border-radius:50%;background:#dfff67;box-shadow:0 0 0 22px rgba(223,255,103,.07)}
+.community-welcome-art:after{content:"";position:absolute;right:42px;top:28px;width:72px;height:72px;border-radius:50%;background:
+radial-gradient(circle at 20% 20%,#0c6e49 0 3px,transparent 4px),
+radial-gradient(circle at 52% 18%,#0c6e49 0 3px,transparent 4px),
+radial-gradient(circle at 78% 34%,#0c6e49 0 3px,transparent 4px),
+radial-gradient(circle at 30% 58%,#0c6e49 0 3px,transparent 4px),
+radial-gradient(circle at 66% 66%,#0c6e49 0 3px,transparent 4px),
+radial-gradient(circle at 50% 86%,#0c6e49 0 3px,transparent 4px)}
+.community-welcome-art b{position:absolute;right:0;bottom:0;z-index:2;font-size:62px;filter:drop-shadow(0 10px 18px rgba(0,0,0,.2));transform:rotate(-12deg)}
+
+.community-public .app-empty-card,.community-public .featured-empty{border:1px solid #e8eeea;background:linear-gradient(145deg,#ffffff,#f7faf8);box-shadow:0 7px 20px rgba(17,42,29,.035)}
+.community-public #publicBracket>.empty,.community-public #publicBracket>.app-empty-card{margin:0}
+
+@media(max-width:760px){
+  .community-welcome-card{grid-template-columns:minmax(0,1fr) 88px;gap:8px;margin-top:8px;padding:18px 16px;min-height:182px;border-radius:24px}
+  .community-welcome-copy h1{font-size:25px}.community-welcome-copy p{max-width:245px;font-size:9px}.community-welcome-copy>div{margin-top:13px}.community-welcome-copy a{padding:8px 10px;font-size:8px}
+  .community-welcome-art{height:124px}.community-welcome-art:before{width:88px;height:88px;right:-12px;top:14px;box-shadow:0 0 0 17px rgba(223,255,103,.06)}.community-welcome-art:after{right:9px;top:30px;width:48px;height:48px;background:
+  radial-gradient(circle at 20% 20%,#0c6e49 0 2px,transparent 3px),
+  radial-gradient(circle at 52% 18%,#0c6e49 0 2px,transparent 3px),
+  radial-gradient(circle at 78% 34%,#0c6e49 0 2px,transparent 3px),
+  radial-gradient(circle at 30% 58%,#0c6e49 0 2px,transparent 3px),
+  radial-gradient(circle at 66% 66%,#0c6e49 0 2px,transparent 3px),
+  radial-gradient(circle at 50% 86%,#0c6e49 0 2px,transparent 3px)}
+  .community-welcome-art b{font-size:38px;right:-6px;bottom:12px}
+}
