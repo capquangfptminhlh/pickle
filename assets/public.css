@@ -516,3 +516,20 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   .tournament-app-ball{right:-8px;top:72px;width:90px;height:90px;box-shadow:0 0 0 20px rgba(223,255,104,.06)}.tournament-app-ball:after{inset:14px}
   .tournament-tabs{top:calc(62px + var(--safe-top));margin-top:9px}.tournament-tabs a{padding:9px 4px;font-size:8px}
 }
+
+
+/* Normalize empty bracket states with the rest of the app */
+.community-public #publicBracket>.empty,
+.community-public #tourBracket>.empty{
+  min-height:104px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  border:1px solid #e8eeea;
+  border-radius:20px;
+  background:linear-gradient(145deg,#fff,#f7faf8);
+  color:#78847c;
+  font-size:10px;
+  box-shadow:0 7px 20px rgba(17,42,29,.035);
+}
