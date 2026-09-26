@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v14-mobile-fixes-20260926";
+const VERSION="pickle-tour-v15-responsive-unified-20260926";
 const STATIC=[
   "/offline.html",
   "/assets/styles.css",
