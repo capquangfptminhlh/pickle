@@ -249,7 +249,7 @@ if(rankingOverflow)failures.push({label:"preview mobile ranking",errors:["rankin
 await shot.screenshot({path:"ui-artifacts/mobile-ranking.png",fullPage:true});
 
 await shot.goto(preview+"/admin.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
-const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(250);
+const dash=shot.locator('[data-page="dashboard"]');if(await dash.count())await dash.evaluate(el=>el.click());await shot.waitForTimeout(500);
 if(!(await shot.locator(".mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile admin",errors:["admin mobile dock missing"]});
 if(await shot.locator("#sidebar").evaluate(el=>el.classList.contains("open")).catch(()=>false))failures.push({label:"preview mobile admin",errors:["admin drawer unexpectedly open on dashboard"]});
 if(await shot.locator("#sidebar").isVisible().catch(()=>false))failures.push({label:"preview mobile admin",errors:["closed admin drawer is still visible"]});
