@@ -202,8 +202,9 @@ button{cursor:pointer}
   body.app-drawer-open{overflow:hidden;touch-action:none}
   .app-shell{display:block}
   .main{min-height:100dvh}
-  .sidebar{position:fixed;left:0;top:0;width:min(84vw,328px);height:100dvh;padding:calc(14px + var(--safe-top)) 12px calc(14px + var(--safe-bottom));border-radius:0 26px 26px 0;transform:translateX(-110%);visibility:hidden;pointer-events:none;transition:transform .24s var(--ease),visibility 0s linear .24s;box-shadow:26px 0 70px rgba(5,15,9,.28);will-change:transform}
-  .sidebar.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .24s var(--ease),visibility 0s}
+  .sidebar{display:none;position:fixed;left:0;top:0;width:min(84vw,328px);height:100dvh;padding:calc(14px + var(--safe-top)) 12px calc(14px + var(--safe-bottom));border-radius:0 26px 26px 0;box-shadow:26px 0 70px rgba(5,15,9,.28)}
+  .sidebar.open{display:flex;animation:drawerEnter .24s var(--ease) both}
+  @keyframes drawerEnter{from{opacity:.2;transform:translateX(-22px)}to{opacity:1;transform:none}}
   .topbar{height:calc(64px + var(--safe-top));padding:calc(8px + var(--safe-top)) 12px 8px;background:rgba(246,247,247,.92);border-bottom:0}
   .mobile-menu{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:14px;background:#fff;box-shadow:0 5px 18px rgba(15,28,20,.07);font-size:0}
   .mobile-menu:before{content:"";width:18px;height:12px;background:linear-gradient(currentColor 0 0) 0 0/18px 2px,linear-gradient(currentColor 0 0) 0 5px/13px 2px,linear-gradient(currentColor 0 0) 0 10px/18px 2px;background-repeat:no-repeat}
