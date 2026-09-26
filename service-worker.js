@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v22-image-vision-verified";
+const VERSION="pickle-tour-v23-gender-sync";
 const STATIC=[
   "/assets/home-mobile.css",
   "/offline.html",

@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-v22-image-vision-verified";
+const VERSION="pickle-pages-v23-gender-sync";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",

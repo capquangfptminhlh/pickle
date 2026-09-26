@@ -54,10 +54,7 @@ async function load(){
   players=[];
  }
  if(!players||!players.length){
-  const localState=JSON.parse(localStorage.getItem("pickle-local-state-v1")||"null");
-  if(localState?.players?.length){
-   players=localState.players;
-  }else if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+  if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
    players=window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
     id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
     full_name:r.fullName||r.name,
@@ -68,6 +65,11 @@ async function load(){
     club_city:"TP.HCM",
     nickname:r.role!=="Thành viên"?r.role:""
    }));
+  }else{
+   const localState=JSON.parse(localStorage.getItem("pickle-local-state-v1")||"null");
+   if(localState?.players?.length){
+    players=localState.players;
+   }
   }
  }
  const clubs=[...new Set(players.map(p=>p.club_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"vi"));
