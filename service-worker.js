@@ -10,7 +10,7 @@ const STATIC=[
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
-  "/assets/icon-192.png",
+  "/assets/app-icon-v2.svg",
   "/assets/app-icon-v2.svg",
   "/assets/pickleup-logo-v2.svg"
 ];
