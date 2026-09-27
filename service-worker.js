@@ -1,4 +1,4 @@
-const VERSION="pickleup-v1-brand-pwa";
+const VERSION="pickleup-v2-launcher-icon";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -10,6 +10,7 @@ const STATIC=[
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
+  "/assets/icon-192.png",
   "/assets/app-icon.svg",
   "/assets/pickleup-logo.svg"
 ];
