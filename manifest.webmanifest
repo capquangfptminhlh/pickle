@@ -8,68 +8,18 @@
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
+  "display_override": ["standalone","minimal-ui"],
   "orientation": "any",
   "background_color": "#0b1513",
   "theme_color": "#0b1513",
-  "categories": [
-    "sports",
-    "social"
-  ],
+  "categories": ["sports","social"],
   "icons": [
-    {
-      "src": "/assets/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/assets/app-icon-v2.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    {"src": "/assets/app-icon-v2.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}
   ],
   "shortcuts": [
-    {
-      "name": "Live Score",
-      "short_name": "Live",
-      "url": "/#live",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Bảng xếp hạng",
-      "short_name": "BXH",
-      "url": "/ranking.html",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Cộng đồng",
-      "short_name": "Cộng đồng",
-      "url": "/#news",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    }
+    {"name":"Live Score","short_name":"Live","url":"/#live","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"Bảng xếp hạng","short_name":"BXH","url":"/ranking.html","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"Cộng đồng","short_name":"Cộng đồng","url":"/#news","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]}
   ],
   "prefer_related_applications": false
 }
