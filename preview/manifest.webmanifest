@@ -1,8 +1,8 @@
 {
   "id":"./",
-  "name":"Pickle Tour",
-  "short_name":"Pickle Tour",
-  "description":"Pickle Tour tournament operations.",
+  "name":"Pickleup.vn",
+  "short_name":"Pickleup.vn",
+  "description":"Pickleup.vn tournament operations.",
   "lang":"vi",
   "start_url":"./index.html?source=pwa",
   "scope":"./",
