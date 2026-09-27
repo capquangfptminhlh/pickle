@@ -1,10 +1,11 @@
-const VERSION="pickleup-pages-v2-launcher-icon";
+const VERSION="pickleup-pages-v3-ui";
 const CORE=[
   "./",
   "./index.html",
   "./offline.html",
   "./manifest.webmanifest",
   "./assets/styles.css",
+  "./assets/pickleup-ui.css",
   "./assets/public.css",
   "./assets/home-mobile.css",
   "./assets/submit-mobile.css",
