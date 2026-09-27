@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v23-gender-sync";
+const VERSION="pickle-pages-root-v6-premium-home";
 const STATIC=[
   "/assets/home-mobile.css",
   "/offline.html",
