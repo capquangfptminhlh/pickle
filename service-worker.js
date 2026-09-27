@@ -1,4 +1,4 @@
-const VERSION="pickle-pages-root-v6-premium-home";
+const VERSION="pickle-pages-root-v7-submit-ui";
 const STATIC=[
   "/assets/home-mobile.css",
   "/offline.html",
