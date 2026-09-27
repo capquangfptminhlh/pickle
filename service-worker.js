@@ -1,4 +1,4 @@
-const VERSION="pickleup-v2-launcher-icon";
+const VERSION="pickleup-v2-full-brand-20260927";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -11,8 +11,8 @@ const STATIC=[
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
   "/assets/icon-192.png",
-  "/assets/app-icon.svg",
-  "/assets/pickleup-logo.svg"
+  "/assets/app-icon-v2.svg",
+  "/assets/pickleup-logo-v2.svg"
 ];
 
 async function cacheCore(){
