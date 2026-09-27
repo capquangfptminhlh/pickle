@@ -21,6 +21,12 @@
   ],
   "icons": [
     {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/assets/app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
@@ -34,9 +40,9 @@
       "url": "/#live",
       "icons": [
         {
-          "src": "/assets/app-icon.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -46,9 +52,9 @@
       "url": "/ranking.html",
       "icons": [
         {
-          "src": "/assets/app-icon.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -58,9 +64,9 @@
       "url": "/#news",
       "icons": [
         {
-          "src": "/assets/app-icon.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }
