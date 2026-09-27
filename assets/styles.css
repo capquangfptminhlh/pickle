@@ -584,3 +584,8 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
 
 /* Pickleup.vn brand mark */
 .brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important;box-shadow:none!important;overflow:hidden!important}
+
+/* Pickleup.vn logo assets */
+.brand-mark-img{display:block!important;object-fit:cover!important;padding:0!important;overflow:hidden}
+.login-brand .brand-mark-img{width:46px!important;height:46px!important;border-radius:14px!important}
+.sidebar .brand .brand-mark-img{width:44px!important;height:44px!important;border-radius:14px!important;flex:0 0 44px}
