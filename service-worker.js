@@ -1,5 +1,6 @@
-const VERSION="pickle-tour-v21-premium-home";
+const VERSION="pickle-tour-v22-submit-ui";
 const STATIC=[
+  "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
   "/offline.html",
   "/manifest.webmanifest",
