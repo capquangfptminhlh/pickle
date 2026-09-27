@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v1-brand-pwa";
+const VERSION="pickleup-pages-v2-launcher-icon";
 const CORE=[
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const CORE=[
   "./assets/home-mobile.css",
   "./assets/submit-mobile.css",
   "./assets/ui-motion.js",
+  "./assets/icon-192.png",
   "./assets/app-icon.svg",
   "./assets/pickleup-logo.svg",
   "./preview-api.js",
