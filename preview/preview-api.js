@@ -21,7 +21,7 @@
     registrations:[],
     sponsors:[],
     posts:[],
-    branding:{name:"Pickle Tour",primaryColor:"#0a8b55",accentColor:"#dfff69",logoUrl:""},
+    branding:{name:"Pickleup.vn",primaryColor:"#0a8b55",accentColor:"#dfff69",logoUrl:""},
     bookings:[],
     clubEvents:[],
     clubAttendance:{},
@@ -31,6 +31,7 @@
     audit:[]
   });
   let state=JSON.parse(localStorage.getItem(KEY)||"null")||emptyState();
+  if(state.branding?.name==="Pickle Tour"){state.branding.name="Pickleup.vn";localStorage.setItem(KEY,JSON.stringify(state));}
   state.clubEvents||=[];state.clubAttendance||={};state.clubTransactions||=[];
   state.ratingProcessedKeys||=[];
   const avatarMigration=state.players?.some(p=>!p.avatar_url);

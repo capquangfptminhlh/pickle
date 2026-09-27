@@ -1,24 +1,23 @@
 {
   "id": "/",
-  "name": "Pickle Tour",
-  "short_name": "Pickle Tour",
-  "description": "Tournament operations, live scoring and player app for pickleball.",
+  "name": "Pickleup.vn",
+  "short_name": "Pickleup.vn",
+  "description": "Cộng đồng pickleball, giải đấu, live score, bảng xếp hạng và người chơi.",
   "lang": "vi",
   "dir": "ltr",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": [
-    "window-controls-overlay",
     "standalone",
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#0d2118",
-  "theme_color": "#0d2118",
+  "background_color": "#0b1513",
+  "theme_color": "#0b1513",
   "categories": [
     "sports",
-    "productivity"
+    "social"
   ],
   "icons": [
     {
@@ -42,8 +41,8 @@
       ]
     },
     {
-      "name": "Xếp hạng VĐV",
-      "short_name": "VĐV",
+      "name": "Bảng xếp hạng",
+      "short_name": "BXH",
       "url": "/ranking.html",
       "icons": [
         {
@@ -54,9 +53,9 @@
       ]
     },
     {
-      "name": "Quản trị",
-      "short_name": "Admin",
-      "url": "/admin",
+      "name": "Cộng đồng",
+      "short_name": "Cộng đồng",
+      "url": "/#news",
       "icons": [
         {
           "src": "/assets/app-icon.svg",

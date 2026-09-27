@@ -1,4 +1,4 @@
-/* Pickle Tour mobile home — premium sports/community UI */
+/* Pickleup.vn mobile home — premium sports/community UI */
 @media (max-width:760px){
   body.home-screen{
     --bg:#f7f8f7;
@@ -184,3 +184,5 @@
   .home-screen .public-mobile-dock svg{width:17px!important;height:17px!important}
 }
 @media (min-width:761px){.mobile-admin-link{display:none!important}}
+
+@media(max-width:760px){.home-screen .public-brand .brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}.home-screen .mobile-app-badge{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}

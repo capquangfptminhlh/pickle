@@ -1326,7 +1326,7 @@ app.get("/api/settings/branding",authRequired,allow("super_admin","organizer"),w
 }));
 app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const raw=req.body||{};
-  const name=String(raw.name||"Pickle Tour").trim();
+  const name=String(raw.name||"Pickleup.vn").trim();
   const primaryColor=String(raw.primaryColor||"#0a8b55"),accentColor=String(raw.accentColor||"#dfff69");
   const logoUrl=raw.logoUrl?String(raw.logoUrl):"";
   if(!name||name.length>80)return res.status(400).json({error:"INVALID_BRAND_NAME"});
@@ -1856,4 +1856,4 @@ app.use((err,req,res,next)=>{
   const error=status>=500?"SERVER_ERROR":(err.message||"REQUEST_FAILED");
   res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{})});
 });
-server.listen(port,()=>console.log(`Pickle Tour listening on :${port}`));
+server.listen(port,()=>console.log(`Pickleup.vn listening on :${port}`));

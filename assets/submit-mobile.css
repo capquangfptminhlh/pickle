@@ -1,4 +1,4 @@
-/* Pickle Tour — focused submit tournament flow */
+/* Pickleup.vn — focused submit tournament flow */
 .submit-screen{background:#f6f8f7;color:#121a16}
 .submit-screen .public-mobile-dock{display:none!important}
 .submit-screen main{padding:18px 0 40px!important}
@@ -268,3 +268,5 @@
     box-shadow:none!important;
   }
 }
+
+@media(max-width:760px){.submit-screen .public-brand .brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}

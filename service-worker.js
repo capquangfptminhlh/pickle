@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v22-submit-ui";
+const VERSION="pickleup-v1-brand-pwa";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -10,7 +10,8 @@ const STATIC=[
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
-  "/assets/app-icon.svg"
+  "/assets/app-icon.svg",
+  "/assets/pickleup-logo.svg"
 ];
 
 async function cacheCore(){

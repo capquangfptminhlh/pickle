@@ -581,3 +581,6 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
   .table tbody td:last-child>.mini,
   .table tbody td:last-child>a.mini{flex:0 1 auto;max-width:100%}
 }
+
+/* Pickleup.vn brand mark */
+.brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important;box-shadow:none!important;overflow:hidden!important}
