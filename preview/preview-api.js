@@ -21,7 +21,7 @@
     registrations:[],
     sponsors:[],
     posts:[],
-    branding:{name:"Pickle Tour",primaryColor:"#0a8b55",accentColor:"#dfff69",logoUrl:""},
+    branding:{name:"Pickleup.vn",primaryColor:"#0a8b55",accentColor:"#dfff69",logoUrl:""},
     bookings:[],
     clubEvents:[],
     clubAttendance:{},
@@ -31,41 +31,13 @@
     audit:[]
   });
   let state=JSON.parse(localStorage.getItem(KEY)||"null")||emptyState();
+  if(state.branding?.name==="Pickle Tour"){state.branding.name="Pickleup.vn";localStorage.setItem(KEY,JSON.stringify(state));}
   state.clubEvents||=[];state.clubAttendance||={};state.clubTransactions||=[];
   state.ratingProcessedKeys||=[];
   const avatarMigration=state.players?.some(p=>!p.avatar_url);
   if(avatarMigration){
     state.players.forEach(p=>{if(!p.avatar_url)p.avatar_url=svgAvatar(p.full_name||"Player")});
     localStorage.setItem(KEY,JSON.stringify(state));
-  }
-  if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
-    const memberMap=new Map(window.PICKLE_BINH_LOI_MEMBERS.map(m=>[m.fullName.toLowerCase().trim(),m]));
-    const zaloMap=new Map(window.PICKLE_BINH_LOI_MEMBERS.filter(m=>m.zaloId).map(m=>[String(m.zaloId),m]));
-    let stateChanged=false;
-    if(state.players&&state.players.length){
-      for(const p of state.players){
-        const cleanId=String(p.id||"").replace(/^zl-/,"");
-        const m=zaloMap.get(cleanId)||memberMap.get((p.full_name||"").toLowerCase().trim());
-        if(m){
-          if(p.gender!==m.gender){
-            p.gender=m.gender;
-            stateChanged=true;
-          }
-          const expectedRating=Number(m.rating)||(m.gender==="female"?2.0:2.5);
-          if(!state.ratingHistory?.[p.id]?.length&&p.rating!==expectedRating){
-            p.rating=expectedRating;
-            stateChanged=true;
-          }
-          if(m.avatarUrl&&p.avatar_url!==m.avatarUrl){
-            p.avatar_url=m.avatarUrl;
-            stateChanged=true;
-          }
-        }
-      }
-      if(stateChanged){
-        localStorage.setItem(KEY,JSON.stringify(state));
-      }
-    }
   }
   const recomputeStats=()=>{
     const stats=new Map(state.teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
@@ -187,40 +159,20 @@
     submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
     adminState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
     publicPlayers:async()=>{
-      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
-        const memberMap=new Map(window.PICKLE_BINH_LOI_MEMBERS.map(m=>[m.fullName.toLowerCase().trim(),m]));
-        const zaloMap=new Map(window.PICKLE_BINH_LOI_MEMBERS.filter(m=>m.zaloId).map(m=>[String(m.zaloId),m]));
-        const pMap=new Map((state.players||[]).map(p=>[p.id,p]));
-        const pNameMap=new Map((state.players||[]).map(p=>[(p.full_name||"").toLowerCase().trim(),p]));
-        const list=window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>{
-          const pid=r.zaloId?("zl-"+r.zaloId):("p-"+i);
-          const sp=pMap.get(pid)||pNameMap.get((r.fullName||r.name||"").toLowerCase().trim());
-          const baseRating=Number(r.rating)||(r.gender==="female"?2.0:2.5);
-          const currentRating=(sp&&state.ratingHistory?.[sp.id]?.length)?Number(sp.rating):baseRating;
-          return {
-            id:sp?.id||pid,
-            full_name:r.fullName||r.name,
-            nickname:r.nickname||sp?.nickname||"",
-            gender:r.gender||"male",
-            avatar_url:r.avatarUrl||r.avatar_url||sp?.avatar_url||"",
-            rating:currentRating,
-            club_name:r.club||sp?.club_name||"CLB Pickleball Bình Lợi",
-            club_city:state.clubs.find(c=>c.id===sp?.club_id)?.city||"TP.HCM"
-          };
-        });
-        if(state.players&&state.players.length){
-          for(const p of state.players){
-            const cleanId=String(p.id||"").replace(/^zl-/,"");
-            const matched=zaloMap.has(cleanId)||memberMap.has((p.full_name||"").toLowerCase().trim());
-            if(!matched){
-              list.push({...clone(p),club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""});
-            }
-          }
-        }
-        return list;
-      }
       if(state.players&&state.players.length){
         return clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""})));
+      }
+      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+        return window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
+          id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
+          full_name:r.fullName||r.name,
+          nickname:r.nickname||"",
+          gender:r.gender||"male",
+          avatar_url:r.avatarUrl||r.avatar_url||"",
+          rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
+          club_name:r.club||"CLB Pickleball Bình Lợi",
+          club_city:"TP.HCM"
+        }));
       }
       return [];
     },
@@ -232,20 +184,11 @@
     confirmCheckin:async token=>{const r=state.registrations.find(x=>x.id===token);if(!r)throw Object.assign(new Error("NOT_FOUND"),{status:404});r.checked_in_at=new Date().toISOString();persist();return clone(r)},
     publicPlayer:async id=>{
       let p=state.players.find(x=>x.id===id||x.id===("zl-"+id)||("zl-"+x.id)===id);
-      let zl=null;
-      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
+      if(!p&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
         const cleanId=String(id||"").replace(/^zl-/,"");
-        zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>String(m.zaloId)===cleanId||("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id||(p&&m.fullName.toLowerCase().trim()===(p.full_name||"").toLowerCase().trim()));
-      }
-      if(zl){
-        if(!p){
+        const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>String(m.zaloId)===cleanId||("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);
+        if(zl){
           p={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_name:zl.club||"CLB Pickleball Bình Lợi"};
-        }else{
-          p.gender=zl.gender||p.gender;
-          if(!state.ratingHistory?.[p.id]?.length){
-            p.rating=Number(zl.rating)||(zl.gender==="female"?2.0:2.5);
-          }
-          if(zl.avatarUrl)p.avatar_url=zl.avatarUrl;
         }
       }
       if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});

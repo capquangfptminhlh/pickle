@@ -1,18 +1,62 @@
 {
-  "id":"./",
-  "name":"Pickle Tour",
-  "short_name":"Pickle Tour",
-  "description":"Pickle Tour tournament operations.",
-  "lang":"vi",
-  "start_url":"./index.html?source=pwa",
-  "scope":"./",
-  "display":"standalone",
-  "background_color":"#0d2118",
-  "theme_color":"#0d2118",
-  "icons":[{"src":"assets/app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
-  "shortcuts":[
-    {"name":"Live Score","url":"./index.html#live"},
-    {"name":"Ranking","url":"./ranking.html"},
-    {"name":"Đăng nhập quản trị","url":"./login.html"}
+  "id": "./",
+  "name": "Pickleup.vn",
+  "short_name": "Pickleup.vn",
+  "description": "Cộng đồng pickleball, giải đấu, live score, bảng xếp hạng và người chơi.",
+  "lang": "vi",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1513",
+  "theme_color": "#0b1513",
+  "categories": [
+    "sports",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Score",
+      "short_name": "Live",
+      "url": "./#live",
+      "icons": [
+        {
+          "src": "assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Bảng xếp hạng",
+      "short_name": "BXH",
+      "url": "./ranking.html",
+      "icons": [
+        {
+          "src": "assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Cộng đồng",
+      "short_name": "Cộng đồng",
+      "url": "./#news",
+      "icons": [
+        {
+          "src": "assets/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ]
 }
