@@ -1,0 +1,44 @@
+/* Pickleup UI v2 — shared visual system */
+:root{
+ --pu-bg:#f4f7f5;--pu-surface:#fff;--pu-ink:#10201b;--pu-muted:#6f7d76;--pu-line:#dfe7e2;
+ --pu-green:#087a4c;--pu-green2:#0b9660;--pu-dark:#0b1713;--pu-lime:#dfff4f;
+ --pu-r:22px;--pu-rs:15px;--pu-shadow:0 10px 32px rgba(13,39,29,.07);
+ --bg:var(--pu-bg);--surface:var(--pu-surface);--text:var(--pu-ink);--muted:var(--pu-muted);--line:var(--pu-line);
+ --brand:var(--pu-green);--brand-2:var(--pu-green2);--accent:var(--pu-lime);--dark:var(--pu-dark);
+}
+html{background:var(--pu-bg)}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--pu-ink);background:var(--pu-bg);font-size:15px}
+.public-container{width:min(1240px,calc(100% - 40px))}
+.public-header{background:rgba(255,255,255,.94)!important;border-bottom:1px solid var(--pu-line)!important;backdrop-filter:blur(18px) saturate(160%)}
+.public-nav{height:72px!important}
+.public-brand{gap:11px!important}.public-brand .brand-mark,.brand .brand-mark,.login-brand .brand-mark{width:42px!important;height:42px!important;border-radius:13px!important;background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important;box-shadow:none!important}
+.public-brand b{font-size:15px!important;letter-spacing:-.015em!important}.public-brand small{font-size:8px!important;letter-spacing:.13em!important;margin-top:3px!important}
+.public-nav nav{padding:5px!important;gap:3px!important}.public-nav nav a{font-size:12px!important;padding:9px 13px!important}
+.btn{min-height:44px!important;padding:0 17px!important;border-radius:13px!important;font-size:13px!important}.btn.primary{background:var(--pu-dark)!important}
+.eyebrow,.app-section-head span,.ranking-app-title>div>span{font-size:10px!important;letter-spacing:.1em!important;font-weight:900!important;color:var(--pu-green)!important}
+.public-section{padding:56px 0!important}.section-title{margin-bottom:22px!important}.section-title h2,.app-section-head h2{font-size:32px!important;line-height:1.05!important;letter-spacing:-.045em!important}.section-title p{font-size:13px!important}
+.panel,.kpi,.metric-card,.tour-card,.public-match,.public-standings,.public-bracket-card,.top-player-card,.news-card,.ranking-list-card,.ranking-search-panel{border:1px solid var(--pu-line)!important;box-shadow:var(--pu-shadow)!important}
+.field{font-size:12px!important;gap:8px!important}.field input,.field select,.field textarea,.filters input,.filters select{min-height:46px!important;border-radius:13px!important;background:#fbfcfb!important;font-size:14px!important}
+.public-footer{font-size:12px!important}
+.ranking-app-main,.tournament-app-main{min-height:calc(100vh - 72px)}
+.ranking-app-shell{padding-top:34px!important;padding-bottom:64px!important}.ranking-app-title h1{font-size:42px!important;letter-spacing:-.05em!important}.ranking-app-title p{font-size:14px!important}
+.ranking-tabs{gap:8px!important}.ranking-tabs button{min-height:42px!important;padding:0 18px!important;font-size:13px!important;border-radius:999px!important}
+.tournament-app-hero{margin-top:28px!important;border-radius:28px!important;padding:38px!important;box-shadow:0 22px 60px rgba(5,43,27,.15)!important}.tournament-app-hero h1{font-size:clamp(34px,5vw,58px)!important;letter-spacing:-.055em!important}.tournament-app-hero p{font-size:14px!important}
+.tournament-tabs{top:72px!important;background:rgba(244,247,245,.94)!important;backdrop-filter:blur(16px);padding:12px 0!important}.tournament-tabs a{font-size:12px!important;min-height:40px!important;display:flex!important;align-items:center!important;padding:0 14px!important}
+.app-section-head{margin-bottom:20px!important}.app-count-pill{font-size:11px!important}
+.submit-screen main{padding-top:38px!important}.submit-screen #submitForm{box-shadow:0 16px 50px rgba(13,39,29,.08)!important;border:1px solid var(--pu-line)!important}.submit-screen #submitForm>div{padding-bottom:24px;border-bottom:1px solid #edf1ef}.submit-screen #submitForm>div:last-child{border-bottom:0}
+.app-shell{grid-template-columns:280px minmax(0,1fr)!important}.sidebar{background:#0b1513!important;padding:20px 15px!important}.sidebar .brand strong{font-size:15px!important}.sidebar .brand span{font-size:8px!important}.nav-btn{min-height:48px!important;font-size:13px!important;border-radius:14px!important}.topbar{height:76px!important;background:rgba(244,247,245,.94)!important}.topbar h1{font-size:24px!important}.topbar p{font-size:11px!important}.content{padding:26px 28px 56px!important}.kpi .label,.metric-card>span{font-size:10px!important}.kpi strong,.metric-card>strong{font-size:32px!important}
+.login-card{border-radius:28px!important;padding:32px!important}.login-card h1{font-size:32px!important;letter-spacing:-.04em}.login-form label{font-size:13px!important}.login-form input{min-height:48px!important;border-radius:13px!important}
+@media(max-width:760px){
+ body{font-size:16px!important}.public-container{width:100%!important;padding-left:18px!important;padding-right:18px!important}
+ .public-nav{height:64px!important;padding:0 18px!important}.public-brand .brand-mark{width:38px!important;height:38px!important;border-radius:12px!important}.public-brand b{font-size:14px!important}.public-brand small{font-size:7px!important}
+ .public-nav nav,.public-nav>.btn{display:none!important}
+ .public-section{padding:38px 0!important}.section-title{align-items:flex-end!important;margin-bottom:18px!important}.section-title h2,.app-section-head h2{font-size:28px!important}.section-title p{font-size:12px!important}
+ .public-match-grid,.top-player-grid,.news-grid,.page-grid,.grid-2{grid-template-columns:1fr!important}
+ .panel,.tour-card,.public-match,.public-standings,.top-player-card,.news-card,.ranking-list-card{border-radius:20px!important}
+ .ranking-app-shell{padding-top:24px!important;padding-bottom:100px!important}.ranking-app-title h1{font-size:34px!important}.ranking-tabs{overflow:auto!important;scrollbar-width:none}.ranking-tabs button{white-space:nowrap!important}
+ .tournament-app-hero{width:calc(100% - 28px)!important;margin:14px auto 0!important;padding:28px 22px!important;border-radius:24px!important}.tournament-app-hero h1{font-size:36px!important}.tournament-tabs{top:64px!important;width:100%!important;padding:9px 14px!important;overflow:auto!important;gap:6px!important}.tournament-tabs a{white-space:nowrap!important}
+ .submit-screen main{padding-top:22px!important}.submit-screen main>.public-container{max-width:none!important}.submit-screen #submitForm{padding:20px!important;border-radius:22px!important;gap:20px!important}.submit-screen #submitForm h3{font-size:18px!important}.form-grid{grid-template-columns:1fr!important}.field.full{grid-column:auto!important}
+ .app-shell{display:block!important}.sidebar{width:min(86vw,320px)!important;position:fixed!important;left:-340px!important;top:0!important;z-index:100!important;transition:left .22s ease!important}.sidebar.open{left:0!important}.topbar{height:68px!important;padding:10px 14px!important}.topbar h1{font-size:20px!important}.topbar p{display:none!important}.top-actions .mini,.top-actions .live-pill{display:none!important}.content{padding:18px 14px 96px!important}.kpis,.module-metrics{grid-template-columns:1fr 1fr!important}.kpi,.metric-card{border-radius:18px!important}.kpi strong,.metric-card>strong{font-size:28px!important}
+ .login-card{padding:24px!important;border-radius:24px!important}.login-card h1{font-size:28px!important}
+}
