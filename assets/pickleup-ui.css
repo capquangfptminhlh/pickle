@@ -42,3 +42,21 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,
  .app-shell{display:block!important}.sidebar{width:min(86vw,320px)!important;position:fixed!important;left:-340px!important;top:0!important;z-index:100!important;transition:left .22s ease!important}.sidebar.open{left:0!important}.topbar{height:68px!important;padding:10px 14px!important}.topbar h1{font-size:20px!important}.topbar p{display:none!important}.top-actions .mini,.top-actions .live-pill{display:none!important}.content{padding:18px 14px 96px!important}.kpis,.module-metrics{grid-template-columns:1fr 1fr!important}.kpi,.metric-card{border-radius:18px!important}.kpi strong,.metric-card>strong{font-size:28px!important}
  .login-card{padding:24px!important;border-radius:24px!important}.login-card h1{font-size:28px!important}
 }
+
+
+/* BRAND LOGO FIX V3 — visible on GitHub Pages light header */
+.public-brand .brand-logo{
+  display:block!important;
+  width:220px!important;
+  max-width:32vw!important;
+  height:48px!important;
+  object-fit:contain!important;
+  object-position:left center!important;
+  flex:0 0 auto!important;
+}
+.checkin-brand .brand-logo{width:230px!important;max-width:70vw!important}
+.mobile-app-badge img{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;border-radius:inherit!important}
+@media(max-width:760px){
+  .public-brand .brand-logo{width:166px!important;max-width:58vw!important;height:40px!important}
+  .checkin-brand .brand-logo{width:180px!important;max-width:70vw!important}
+}
