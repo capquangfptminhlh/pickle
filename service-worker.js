@@ -1,4 +1,4 @@
-const VERSION="pickleup-v3-sport-brand-20260928";
+const VERSION="pickleup-v4-sport-brand-20260928-1157";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -10,9 +10,9 @@ const STATIC=[
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
-  "/assets/app-icon-v2.svg",
-  "/assets/app-icon.svg",
-  "/assets/pickleup-logo-v2.svg"
+  "/assets/app-icon-sport-v3.svg",
+  "/assets/app-icon-sport-v3.svg",
+  "/assets/pickleup-logo-sport-v3.svg"
 ];
 
 async function cacheCore(){
