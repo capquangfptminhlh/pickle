@@ -26,11 +26,9 @@
 <!-- crisp wordmark, no blur/filter/shadow -->
 <g transform="translate(330 45) skewX(-8)">
   <text x="0" y="101" font-family="Arial Black,Segoe UI,Arial,sans-serif"
-        font-size="94" font-weight="900" letter-spacing="-6" fill="#10211C">Pickle</text>
-  <text x="329" y="101" font-family="Arial Black,Segoe UI,Arial,sans-serif"
-        font-size="94" font-weight="900" letter-spacing="-6" fill="#38C900">up</text>
-  <text x="465" y="101" font-family="Arial Black,Segoe UI,Arial,sans-serif"
-        font-size="62" font-weight="900" letter-spacing="-3" fill="#243B34">.vn</text>
+        font-size="94" font-weight="900" letter-spacing="-6">
+    <tspan fill="#10211C">Pickle</tspan><tspan fill="#38C900">up</tspan><tspan fill="#243B34" font-size="62" letter-spacing="-3">.vn</tspan>
+  </text>
 </g>
 <path d="M332 166h485c45 0 91-5 142-18l-93 30H332Z" fill="url(#g)"/>
 </svg>
