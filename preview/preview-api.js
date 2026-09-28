@@ -444,6 +444,62 @@
     reportOverview:async()=>{const income=state.clubTransactions.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0),expense=state.clubTransactions.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0),today=new Date().toDateString();return {players:state.players.filter(p=>p.active!==false).length,members:state.players.filter(p=>p.active!==false).length,registrations:state.registrations.length,checked_in:state.registrations.filter(r=>r.checked_in_at).length,paid_count:state.registrations.filter(r=>r.payment_status==="paid").length,revenue:state.registrations.filter(r=>r.payment_status==="paid").reduce((a,r)=>a+Number(r.amount||0),0),matches:state.matches.length,live:state.matches.filter(m=>m.status==="live").length,completed:state.matches.filter(m=>m.status==="done").length,attendanceToday:Object.values(state.clubAttendance).flat().filter(a=>a.status==="attended"&&a.checked_in_at&&new Date(a.checked_in_at).toDateString()===today).length,upcomingActivities:state.clubEvents.filter(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date()).length,clubIncome:income,clubExpense:expense,clubBalance:income-expense}},
     addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}}
   };
+  // VISIBLE_16_PAIR_DEMO_V1 — one-time GitHub Pages demo upgrade requested by owner.
+  // Keeps real/production backend untouched. If the currently viewed static demo has exactly
+  // four untouched teams, expand that same division to 16 pairs, draw 4 pools, play the
+  // group stage with deterministic demo scores, and generate the 8-team bracket to the final.
+  const ensureVisible16PairDemo=()=>{
+    if(typeof location==="undefined"||!location.hostname.endsWith(".github.io"))return;
+    if(state.demo16Version===1)return;
+    const params=new URLSearchParams(location.search||"");
+    const currentTournamentId=params.get("id");
+    const candidateDivisions=(state.divisions||[]).filter(d=>d.active!==false&&d.format==="pool_to_knockout")
+      .sort((a,b)=>{
+        const ac=a.tournamentId===currentTournamentId?0:1,bc=b.tournamentId===currentTournamentId?0:1;
+        return ac-bc;
+      });
+    const d=candidateDivisions.find(d=>{
+      const teams=(state.teams||[]).filter(t=>t.divisionId===d.id&&t.status!=="withdrawn");
+      const matches=(state.matches||[]).filter(m=>m.divisionId===d.id);
+      const started=matches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length||(m.current?.[0]||m.current?.[1]));
+      return teams.length===4&&!started;
+    });
+    if(!d)return;
+    const t=state.tournaments.find(x=>x.id===d.tournamentId);if(!t)return;
+
+    // Keep the four existing pairs and add 12 more to this exact tournament.
+    let teams=(state.teams||[]).filter(x=>x.divisionId===d.id&&x.status!=="withdrawn");
+    for(let i=teams.length+1;i<=16;i++){
+      const teamId=uid();
+      const team={id:teamId,divisionId:d.id,name:"Cặp "+String(i).padStart(2,"0"),club:"CLB Pickleball Bình Lợi",clubId:null,group:"A",seed:i,status:"active",w:0,l:0,pf:0,pa:0};
+      state.teams.push(team);state.teamPlayers[teamId]=[];
+      for(let k=0;k<2;k++){
+        const n=(i-1)*2+k+1,name="VĐV "+String(n).padStart(2,"0");
+        const p={id:uid(),full_name:name,nickname:"",gender:null,rating:Math.round((2+((n*7)%17)/10)*100)/100,phone:"",club_id:null,club_name:"CLB Pickleball Bình Lợi",active:true,avatar_url:svgAvatar(name)};
+        state.players.push(p);state.teamPlayers[teamId].push(p.id);
+      }
+      state.registrations.push({id:uid(),status:"approved",payment_status:"unpaid",amount:0,team_name:team.name,division_name:d.name,tournament_name:t.name,checked_in_at:null,payment_id:null,payment_review_status:null});
+    }
+
+    // Remove only untouched schedule for this demo division, then run the real draw methods.
+    state.matches=(state.matches||[]).filter(m=>m.divisionId!==d.id);
+    teams=(state.teams||[]).filter(x=>x.divisionId===d.id&&x.status!=="withdrawn");
+    teams.forEach((x,i)=>{x.seed=i+1;x.group="A";x.w=0;x.l=0;x.sw=0;x.sl=0;x.pf=0;x.pa=0});
+    api.autoSeedGroups(d.id,4);
+    api.generateRoundRobin(d.id);
+
+    // Finish all 24 group matches so the Top 2 and knockout bracket are visible immediately.
+    const gm=state.matches.filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+    gm.forEach((m,i)=>api.quickScore(m.id,{sets:[[11,5+(i%4)],[11,6+(i%3)]]}));
+    api.generateBracket(d.id);
+
+    t.name=t.name.includes("16 CẶP")?t.name:t.name+" • TEST 16 CẶP";
+    t.teams=16;
+    state.demo16Version=1;
+    persist();
+  };
+  ensureVisible16PairDemo();
+
   window.PickleAPI=api;
   window.io=()=>({on:(event,cb)=>window.addEventListener("pickle-preview-update",e=>{if(event==="public:state"||event==="match:update")cb(clone(e.detail))})});
   window.addEventListener("storage",e=>{if(e.key===KEY&&e.newValue){state=JSON.parse(e.newValue);window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}))}});
