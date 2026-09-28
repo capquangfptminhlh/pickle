@@ -343,7 +343,7 @@
     generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
     generateBracket:async did=>{
       const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
-      if(state.matches.some(m=>m.divisionId===did&&m.bracketSlot))throw new Error("BRACKET_ALREADY_EXISTS");
+      const existingBracket=state.matches.filter(m=>m.divisionId===did&&m.bracketSlot);if(existingBracket.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length))throw new Error("BRACKET_ALREADY_STARTED");if(existingBracket.length)state.matches=state.matches.filter(m=>!(m.divisionId===did&&m.bracketSlot));
       const teams=knockoutTeamsFor(did);
       if(teams.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
       if(d.format==="round_robin")throw new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT");
