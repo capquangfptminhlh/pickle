@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v4-sport-brand-20260928";
+const VERSION="pickleup-pages-v5-logo-fix-20260928";
 const CORE=[
   "./",
   "./index.html",
@@ -10,8 +10,8 @@ const CORE=[
   "./assets/home-mobile.css",
   "./assets/submit-mobile.css",
   "./assets/ui-motion.js",
-  "./assets/app-icon.svg",
-  "./assets/pickleup-logo.svg",
+  "./assets/app-icon-v4.svg",
+  "./assets/pickleup-logo-v4.svg",
   "./preview-api.js",
   "./preview-public.js",
   "./preview-pwa.js"
