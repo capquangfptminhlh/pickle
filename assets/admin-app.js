@@ -219,9 +219,9 @@ async function openTournamentDetail(tournamentId){
 
   document.querySelectorAll("[data-auto-draw]").forEach(btn=>btn.onclick=async()=>{
     const did=btn.dataset.autoDraw,n=Number(btn.dataset.teamCount||0);
-    if(n<2)return toast("Cần ít nhất 2 cặp/đội.");
-    const groupCount=n<=4?1:Math.ceil(n/4);
-    if(!confirm(`Tự động chia ${n} cặp/đội thành ${groupCount} bảng và tạo toàn bộ cặp đấu vòng bảng?`))return;
+    if(n<4)return toast("Cần ít nhất 4 cặp/đội để bốc thăm vòng bảng.");
+    const groupCount=Math.max(1,Math.floor(n/4));
+    if(!confirm(`Tự động chia ${n} cặp/đội thành ${groupCount} bảng (tối thiểu 4 đội/bảng) và tạo toàn bộ cặp đấu vòng bảng?`))return;
     try{
       await API.autoSeedGroups(did,groupCount);
       const rr=await API.generateRoundRobin(did);

@@ -1188,3 +1188,29 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
   }
   .public-mobile-dock svg{width:18px!important;height:18px!important}
 }
+
+
+/* Tournament roster clarity V12 */
+.tournament-team-card{grid-template-columns:42px minmax(0,1fr) auto!important;align-items:flex-start!important;gap:12px!important;padding:15px!important}
+.team-seed{width:40px!important;height:40px!important;border-radius:13px!important;font-size:12px!important}
+.tour-team-main{min-width:0}
+.tour-team-title{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap}
+.tour-team-title>b{font-size:13px!important;line-height:1.3!important;white-space:normal!important;overflow:visible!important}
+.tour-team-title>span{display:inline-flex;padding:4px 7px;border-radius:999px;background:#eef8f2;color:#117650;font-size:9px;font-weight:900}
+.tour-team-meta{font-size:9px!important;margin-top:4px!important;white-space:normal!important}
+.tour-athlete-list{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+.tour-athlete-chip{display:flex;align-items:center;gap:9px;min-width:150px}
+.tour-athlete-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #dfe8e3;background:#eef3f0;flex:0 0 48px}
+.tour-athlete-fallback{display:grid;place-items:center;background:#dfff69;color:#10281d;font-size:12px;font-weight:950}
+.tour-athlete-copy{min-width:0}.tour-athlete-copy b{display:block!important;font-size:12px!important;line-height:1.25!important;white-space:normal!important;overflow:visible!important}
+.tour-athlete-copy small{display:block!important;margin-top:3px!important;color:#66766d!important;font-size:10px!important;white-space:normal!important}
+.tour-athlete-copy small strong{color:#0b8155;font-size:11px}
+.tournament-group-badge{align-self:flex-start!important;padding:8px 10px!important;border-radius:11px!important;background:#0d7f55!important;color:#fff!important;font-size:10px!important;font-weight:950!important;letter-spacing:.05em!important;line-height:1!important}
+.tour-no-athlete{display:block;margin-top:9px;color:#8a9790}
+@media(max-width:760px){
+ .tournament-team-card{grid-template-columns:44px minmax(0,1fr) auto!important;padding:16px!important;border-radius:22px!important}
+ .tour-athlete-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important}
+ .tour-athlete-chip{min-width:0}
+ .tour-athlete-avatar{width:46px;height:46px;flex-basis:46px}
+ .tournament-group-badge{font-size:10px!important;padding:8px 9px!important}
+}

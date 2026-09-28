@@ -39,6 +39,33 @@
     state.players.forEach(p=>{if(!p.avatar_url)p.avatar_url=svgAvatar(p.full_name||"Player")});
     localStorage.setItem(KEY,JSON.stringify(state));
   }
+  const normalizeLegacySmallGroups=()=>{
+    let changed=false;
+    for(const d of (state.divisions||[])){
+      const teams=(state.teams||[]).filter(t=>t.divisionId===d.id&&t.status!=="withdrawn");
+      if(teams.length<4)continue;
+      const target=Math.max(1,Math.floor(teams.length/4));
+      const labels=[...new Set(teams.map(t=>t.group).filter(Boolean))];
+      const groupMatches=(state.matches||[]).filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+      const started=groupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length||(m.current?.[0]||m.current?.[1]));
+      const tooSmall=labels.some(g=>teams.filter(t=>t.group===g).length<4);
+      if(started||(!tooSmall&&labels.length===target))continue;
+      state.matches=(state.matches||[]).filter(m=>!(m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng ")));
+      const ordered=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
+      ordered.forEach((t,i)=>{t.group=String.fromCharCode(65+(i%target));t.seed=i+1});
+      let created=0;
+      for(let gi=0;gi<target;gi++){
+        const g=String.fromCharCode(65+gi),arr=ordered.filter(t=>t.group===g);
+        for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){
+          const court=(state.courts||[])[created%Math.max(1,(state.courts||[]).length)];
+          state.matches.push({id:uid(),divisionId:d.id,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++;
+        }
+      }
+      changed=true;
+    }
+    if(changed)localStorage.setItem(KEY,JSON.stringify(state));
+  };
+  normalizeLegacySmallGroups();
   const recomputeStats=()=>{
     const stats=new Map(state.teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
     const isGroupMatch=m=>!m.bracketSlot&&((m.stage&&m.stage.startsWith("Bảng"))||/bảng|group|vòng bảng/i.test(m.stage||"")||!/chung kết|bán kết|tứ kết/i.test(m.stage||""));
