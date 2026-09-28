@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v7-tight-wordmark-20260928";
+const VERSION="pickleup-pages-v8-wordmark-v5-20260928";
 const CORE=[
   "./",
   "./index.html",
@@ -11,7 +11,7 @@ const CORE=[
   "./assets/submit-mobile.css",
   "./assets/ui-motion.js",
   "./assets/app-icon-v4.svg",
-  "./assets/pickleup-logo-v4.svg",
+  "./assets/pickleup-logo-v5.svg",
   "./preview-api.js",
   "./preview-public.js",
   "./preview-pwa.js"
