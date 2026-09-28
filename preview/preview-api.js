@@ -78,13 +78,12 @@
     const gm=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
     if(groups.length&&gm.length){
       if(gm.some(m=>!(m.status==="done"||m.status==="completed")||!m.winner))throw new Error("GROUP_STAGE_NOT_COMPLETE");
-      const winners=[],runners=[];
+      const q=[];
       for(const g of groups){
         const r=rankGroupFor(did,g);
-        if(r[0])winners.push(r[0]);
-        if(r[1])runners.push(r[1]);
+        if(r[0])q.push({...r[0],qualifierGroup:g,qualifierPlace:1});
+        if(r[1])q.push({...r[1],qualifierGroup:g,qualifierPlace:2});
       }
-      const q=[...winners,...runners];
       if(q.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
       return q;
     }
