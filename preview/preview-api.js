@@ -57,6 +57,56 @@
       Object.assign(t,{...s,diffSet:s.sw-s.sl,diffPts:s.pf-s.pa});
     });
   };
+  const groupMatchesFor=(did,g)=>state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g)));
+  const rankGroupFor=(did,g)=>{
+    const gm=groupMatchesFor(did,g).filter(m=>(m.status==="done"||m.status==="completed")&&m.winner);
+    const teams=state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn");
+    return [...teams].sort((a,b)=>{
+      if((b.w||0)!==(a.w||0))return (b.w||0)-(a.w||0);
+      const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+      if(sdB!==sdA)return sdB-sdA;
+      const h2h=gm.find(m=>((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
+      if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1}
+      const pdA=(a.pf||0)-(a.pa||0),pdB=(b.pf||0)-(b.pa||0);
+      return pdB-pdA||(b.pf||0)-(a.pf||0)||(a.seed||999)-(b.seed||999);
+    });
+  };
+  const knockoutTeamsFor=did=>{
+    recomputeStats();
+    const active=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");
+    const groups=[...new Set(active.map(t=>t.group).filter(Boolean))].sort();
+    const gm=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+    if(groups.length&&gm.length){
+      if(gm.some(m=>!(m.status==="done"||m.status==="completed")||!m.winner))throw new Error("GROUP_STAGE_NOT_COMPLETE");
+      const winners=[],runners=[];
+      for(const g of groups){
+        const r=rankGroupFor(did,g);
+        if(r[0])winners.push(r[0]);
+        if(r[1])runners.push(r[1]);
+      }
+      const q=[...winners,...runners];
+      if(q.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
+      return q;
+    }
+    return [...active].sort((a,b)=>(a.seed||999)-(b.seed||999));
+  };
+  const progressSingleElim=did=>{
+    const ms=state.matches.filter(m=>m.divisionId===did&&(m.bracketSlot||"").startsWith("SE-"));
+    if(!ms.length)return;
+    let changed=true,guard=0;
+    while(changed&&guard++<32){
+      changed=false;
+      for(const m of ms){
+        const x=(m.bracketSlot||"").match(/^SE-R(\d+)-M(\d+)$/);
+        if(!x||!(m.status==="done"||m.status==="completed")||!m.winner)continue;
+        const round=Number(x[1]),num=Number(x[2]);
+        const target=ms.find(n=>n.bracketSlot===`SE-R${round+1}-M${Math.ceil(num/2)}`);
+        if(!target)continue;
+        const side=num%2===1?"a":"b";
+        if(target[side]!==m.winner){target[side]=m.winner;target.status="wait";target.version=(target.version||0)+1;changed=true}
+      }
+    }
+  };
   const evaluateTournamentRatings=()=>{
     state.ratingProcessedKeys||=[];
     const ensurePlayer=pid=>{
@@ -260,16 +310,48 @@
     createMatch:async(did,p)=>{const court=state.courts.find(c=>c.id===p.courtId);const m={id:uid(),divisionId:did,stage:p.stage||"Vòng bảng",court:court?.sortOrder||court?.name||"—",courtId:p.courtId||null,time:p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—",a:p.teamAId,b:p.teamBId,status:"wait",sets:[],current:[0,0],winner:null,version:1,refereeId:p.refereeUserId||null};state.matches.push(m);persist();return clone(m)},
     autoSeedGroups:async(did,groupCount)=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn").map(t=>{const ps=(state.teamPlayers[t.id]||[]).map(id=>state.players.find(p=>p.id===id)).filter(Boolean);return {...t,avg:ps.length?ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length:0}}).sort((a,b)=>b.avg-a.avg||(a.seed||999)-(b.seed||999));if(teams.length<groupCount)throw new Error("MORE_GROUPS_THAN_TEAMS");const groups=Array.from({length:groupCount},(_,i)=>({label:String.fromCharCode(65+i),teams:[]}));const max=Math.ceil(teams.length/groupCount);teams.forEach((t,i)=>{const cycle=Math.floor(i/groupCount),pos=i%groupCount,pref=cycle%2===0?pos:groupCount-1-pos;const choices=[pref,...groups.map((_,j)=>j).filter(j=>j!==pref)].filter(j=>groups[j].teams.length<max).sort((a,b)=>{const as=t.clubId&&groups[a].teams.some(x=>x.clubId===t.clubId)?1:0,bs=t.clubId&&groups[b].teams.some(x=>x.clubId===t.clubId)?1:0;return as-bs||groups[a].teams.length-groups[b].teams.length});const g=groups[choices[0]??pref];g.teams.push(t);const real=state.teams.find(x=>x.id===t.id);real.group=g.label;real.seed=i+1});persist();return {groupCount,assignments:clone(groups)}},
     generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
-    generateBracket:async did=>{const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");if(state.matches.some(m=>m.divisionId===did&&m.bracketSlot))throw new Error("BRACKET_ALREADY_EXISTS");const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn").sort((a,b)=>(a.seed||999)-(b.seed||999));if(teams.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");if(d.format==="double_elimination"&&![4,8].includes(teams.length))throw new Error("DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS");if(d.format==="round_robin")throw new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT");if(d.format==="double_elimination"){const order=teams.length===4?[teams[0],teams[3],teams[1],teams[2]]:[teams[0],teams[7],teams[3],teams[4],teams[1],teams[6],teams[2],teams[5]];const add=(stage,slot,a=null,b=null)=>{const m={id:uid(),divisionId:did,stage,bracketSlot:slot,court:1,courtId:state.courts[0]?.id||null,time:"--:--",a:a?.id||a||"TBD",b:b?.id||b||"TBD",status:"wait",sets:[],current:[0,0],winner:null,version:1};state.matches.push(m);return m};if(teams.length===4){add("Nhánh thắng - Vòng 1","DE-W-R1-M1",order[0],order[1]);add("Nhánh thắng - Vòng 1","DE-W-R1-M2",order[2],order[3]);add("Nhánh thắng - Chung kết","DE-W-F");add("Nhánh thua - Vòng 1","DE-L-R1-M1");add("Nhánh thua - Chung kết","DE-L-F");add("Chung kết tổng","DE-GF");persist();return {format:"double_elimination",created:6}}for(let i=0;i<4;i++)add("Nhánh thắng - Tứ kết","DE-W-QF-M"+(i+1),order[i*2],order[i*2+1]);add("Nhánh thắng - Bán kết 1","DE-W-SF-M1");add("Nhánh thắng - Bán kết 2","DE-W-SF-M2");add("Nhánh thắng - Chung kết","DE-W-F");add("Nhánh thua - Vòng 1","DE-L-R1-M1");add("Nhánh thua - Vòng 1","DE-L-R1-M2");add("Nhánh thua - Vòng 2","DE-L-R2-M1");add("Nhánh thua - Vòng 2","DE-L-R2-M2");add("Nhánh thua - Bán kết","DE-L-SF");add("Nhánh thua - Chung kết","DE-L-F");add("Chung kết tổng","DE-GF");persist();return {format:"double_elimination",created:14}}let size=2;while(size<teams.length)size*=2;let order=[1,2];for(let n=4;n<=size;n*=2){const next=[];for(const seed of order)next.push(seed,n+1-seed);order=next}const slots=order.map(n=>teams[n-1]||null),rounds=Math.log2(size);let created=0;for(let r=0;r<rounds;r++){const count=size/(2**(r+1));for(let i=0;i<count;i++){const a=r===0?slots[i*2]:null,b=r===0?slots[i*2+1]:null;state.matches.push({id:uid(),divisionId:did,stage:count===1?"Chung kết":count===2?"Bán kết "+(i+1):count===4?"Tứ kết "+(i+1):"Knockout R"+(r+1)+" - Trận "+(i+1),bracketSlot:"SE-R"+(r+1)+"-M"+(i+1),court:1,courtId:state.courts[0]?.id||null,time:"--:--",a:a?.id||"TBD",b:b?.id||"TBD",status:(a&&!b)||(!a&&b)?"done":"wait",sets:[],current:[0,0],winner:(a&&!b)?a.id:(!a&&b?b.id:null),resultReason:(a&&!b)||(!a&&b)?"bye":null,version:1});created++}}persist();return {format:d.format,bracketSize:size,created}},
+    generateBracket:async did=>{
+      const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
+      if(state.matches.some(m=>m.divisionId===did&&m.bracketSlot))throw new Error("BRACKET_ALREADY_EXISTS");
+      const teams=knockoutTeamsFor(did);
+      if(teams.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
+      if(d.format==="round_robin")throw new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT");
+      if(d.format==="double_elimination"&&![4,8].includes(teams.length))throw new Error("DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS");
+      const add=(stage,slot,a=null,b=null)=>{
+        const m={id:uid(),divisionId:did,stage,bracketSlot:slot,court:1,courtId:state.courts[0]?.id||null,time:"--:--",a:a?.id||a||"TBD",b:b?.id||b||"TBD",status:"wait",sets:[],current:[0,0],winner:null,version:1};
+        state.matches.push(m);return m;
+      };
+      if(d.format==="double_elimination"){
+        const order=teams.length===4?[teams[0],teams[3],teams[1],teams[2]]:[teams[0],teams[7],teams[3],teams[4],teams[1],teams[6],teams[2],teams[5]];
+        if(teams.length===4){
+          add("Nhánh thắng - Vòng 1","DE-W-R1-M1",order[0],order[1]);add("Nhánh thắng - Vòng 1","DE-W-R1-M2",order[2],order[3]);add("Nhánh thắng - Chung kết","DE-W-F");add("Nhánh thua - Vòng 1","DE-L-R1-M1");add("Nhánh thua - Chung kết","DE-L-F");add("Chung kết tổng","DE-GF");persist();return {format:"double_elimination",created:6,qualifiers:clone(teams)}
+        }
+        for(let i=0;i<4;i++)add("Nhánh thắng - Tứ kết","DE-W-QF-M"+(i+1),order[i*2],order[i*2+1]);
+        add("Nhánh thắng - Bán kết 1","DE-W-SF-M1");add("Nhánh thắng - Bán kết 2","DE-W-SF-M2");add("Nhánh thắng - Chung kết","DE-W-F");add("Nhánh thua - Vòng 1","DE-L-R1-M1");add("Nhánh thua - Vòng 1","DE-L-R1-M2");add("Nhánh thua - Vòng 2","DE-L-R2-M1");add("Nhánh thua - Vòng 2","DE-L-R2-M2");add("Nhánh thua - Bán kết","DE-L-SF");add("Nhánh thua - Chung kết","DE-L-F");add("Chung kết tổng","DE-GF");persist();return {format:"double_elimination",created:14,qualifiers:clone(teams)}
+      }
+      let size=2;while(size<teams.length)size*=2;
+      let order=[1,2];for(let n=4;n<=size;n*=2){const next=[];for(const seed of order)next.push(seed,n+1-seed);order=next}
+      const slots=order.map(n=>teams[n-1]||null),rounds=Math.log2(size);let created=0;
+      for(let r=0;r<rounds;r++){
+        const count=size/(2**(r+1));
+        for(let i=0;i<count;i++){
+          const a=r===0?slots[i*2]:null,b=r===0?slots[i*2+1]:null;
+          const m=add(count===1?"Chung kết":count===2?"Bán kết "+(i+1):count===4?"Tứ kết "+(i+1):"Knockout R"+(r+1)+" - Trận "+(i+1),"SE-R"+(r+1)+"-M"+(i+1),a,b);
+          if(r===0&&((a&&!b)||(!a&&b))){m.status="done";m.winner=(a||b).id;m.resultReason="bye"}
+          created++;
+        }
+      }
+      progressSingleElim(did);persist();return {format:d.format,bracketSize:size,created,qualifiers:clone(teams)}
+    },
 
     assignMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(p.courtId!==undefined){const ct=p.courtId?state.courts.find(x=>x.id===p.courtId):null;m.courtId=p.courtId||null;m.court=ct?.sortOrder||ct?.name||"—"}if(p.refereeUserId!==undefined)m.refereeId=p.refereeUserId||null;if(p.scheduledAt!==undefined)m.time=p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";m.version++;persist();return clone(m)},
     updateMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);Object.assign(m,p);if(p.scheduledAt)m.time=new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});m.version++;persist();return clone(m)},
     deleteMatch:async id=>{const m=state.matches.find(x=>x.id===id);if(m.status==="done")throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});if(m.status==="wait"&&!m.sets.length&&!(m.current?.[0]||m.current?.[1])){state.matches=state.matches.filter(x=>x.id!==id);persist();return {mode:"deleted"}}m.status="cancelled";persist();return {mode:"cancelled",entity:clone(m)}},
     point:async(id,p)=>{const m=state.matches.find(x=>x.id===id),i=p.side==="A"?0:1;m.current[i]=Math.max(0,m.current[i]+Number(p.delta));m.status="live";m.version++;persist();return clone(m)},
     finishSet:async id=>{const m=state.matches.find(x=>x.id===id);m.sets.push([...m.current]);m.current=[0,0];m.version++;persist();return clone(m)},
-    finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;persist();return clone(m)},
-    quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;persist();return clone(m)},
-    specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;persist();return clone(m)},
+    finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
+    quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
+    specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),createReferee:async p=>{const r={id:uid(),email:p.email,display_name:p.name,active:true};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active});persist();return clone(r)},
     registrations:async()=>clone(state.registrations),
