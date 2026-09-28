@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v12-auto-draw-top2-20260928";
+const VERSION="pickleup-pages-v13-opposite-half-bracket-20260928";
 const CORE=[
   "./",
   "./index.html",
