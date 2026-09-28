@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v20-min-4-pools-20260928";
+const VERSION="pickleup-pages-v21-correct-pool-sizing-20260928";
 const CORE=[
   "./",
   "./index.html",
