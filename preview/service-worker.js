@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v15-min-4-pools-20260928";
+const VERSION="pickleup-preview-v16-correct-pool-sizing-20260928";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
