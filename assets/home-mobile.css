@@ -185,4 +185,4 @@
 }
 @media (min-width:761px){.mobile-admin-link{display:none!important}}
 
-@media(max-width:760px){.home-screen .public-brand .brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}.home-screen .mobile-app-badge{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}
+@media(max-width:760px){.home-screen .public-brand .brand-mark{background:#0b1513 url("app-icon-sport-v3.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}.home-screen .mobile-app-badge{background:#0b1513 url("app-icon-sport-v3.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}
