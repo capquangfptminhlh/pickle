@@ -169,6 +169,13 @@ await goto(ppage,preview+"/index.html","preview public");
 if(!(await ppage.locator('a[href="login.html"]').count()))failures.push({label:"preview public",errors:["safe admin login entry missing"]});
 await goto(ppage,preview+"/login.html","preview safe login");
 if(!(await ppage.locator("body").innerText()).includes("GitHub Pages chỉ là giao diện public"))failures.push({label:"preview safe login",errors:["static admin security boundary missing"]});
+await ppage.locator("#email").fill("admin@pickle.test");
+await ppage.locator("#password").fill("ci-password-123");
+await Promise.all([
+  ppage.waitForURL(/\/preview\/admin\.html$/),
+  ppage.locator("#loginForm button[type=submit]").click()
+]);
+await ppage.waitForLoadState("domcontentloaded");
 
 await goto(ppage,preview+"/ranking.html","preview ranking");
 const link=ppage.locator('a[href^="player.html?id="]').first();
