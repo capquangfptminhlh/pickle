@@ -836,7 +836,7 @@ $("#saveQuickScore")?.addEventListener("click",saveQuickScore);
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");
 $("#changePasswordBtn")?.addEventListener("click",openPasswordModal);
 $("#quickTournament").onclick=()=>canManage()?openTournamentModal():toast("Bạn không có quyền tạo giải.");
-$("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href=location.pathname.includes("/preview/")?"index.html":"/login"};
+$("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href="login.html"};
 
 (async function boot(){
   try{
@@ -849,5 +849,5 @@ $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href
       socket.on("public:state",async()=>{if(!busy)await refresh({keepDialog:true})});
       socket.on("match:update",async()=>{if(!busy)await refresh({keepDialog:true})});
     }
-  }catch(e){console.error(e)}
+  }catch(e){console.error(e);if(e?.status===401||e?.message==="AUTH_REQUIRED")location.href="login.html"}
 })();
