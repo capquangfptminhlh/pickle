@@ -44,12 +44,15 @@
     for(const d of (state.divisions||[])){
       const teams=(state.teams||[]).filter(t=>t.divisionId===d.id&&t.status!=="withdrawn");
       if(teams.length<4)continue;
-      const target=Math.min(teams.length,Math.max(4,Math.ceil(teams.length/4)));
+      const target=Math.max(1,Math.floor(teams.length/4));
       const labels=[...new Set(teams.map(t=>t.group).filter(Boolean))];
       const groupMatches=(state.matches||[]).filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
       const started=groupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length||(m.current?.[0]||m.current?.[1]));
-      const tooSmall=labels.length<target;
-      if(started||(!tooSmall&&labels.length===target))continue;
+      const desiredSizes=Array.from({length:target},(_,i)=>Math.floor(teams.length/target)+(i<teams.length%target?1:0));
+      const actualSizes=labels.map(g=>teams.filter(t=>t.group===g).length).sort((a,b)=>b-a);
+      const expectedSizes=[...desiredSizes].sort((a,b)=>b-a);
+      const needsRebalance=labels.length!==target||actualSizes.length!==expectedSizes.length||actualSizes.some((n,i)=>n!==expectedSizes[i]);
+      if(started||!needsRebalance)continue;
       state.matches=(state.matches||[]).filter(m=>!(m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng ")));
       const ordered=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
       ordered.forEach((t,i)=>{t.group=String.fromCharCode(65+(i%target));t.seed=i+1});
