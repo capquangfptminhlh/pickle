@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v22-path-logo-20260928";
+const VERSION="pickleup-pages-v24-tournament-control-20260928";
 const CORE=[
   "./",
   "./index.html",
