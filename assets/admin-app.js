@@ -169,8 +169,45 @@ function tournamentCard(t){
 }
 function tournaments(){
   setHeader("Giải đấu","Chọn một giải để xem VĐV đăng ký, bốc thăm chia bảng và tạo nhánh tự động");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
+  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-test-16>🧪 Test 16 cặp</button><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
+}
+async function create16PairTestTournament(){
+  const existing=state.tournaments.find(t=>String(t.name||"").startsWith("TEST 16 CẶP"));
+  if(existing){await openTournamentDetail(existing.id);toast("Đã mở giải test 16 cặp hiện có.");return}
+  if(!confirm("Tạo giải TEST 16 CẶP, quay 4 bảng × 4 cặp và sinh sơ đồ Tứ kết → Bán kết → Chung kết?"))return;
+  const overlay=document.createElement("div");overlay.className="draw-wheel-overlay";
+  overlay.innerHTML='<div class="draw-wheel-card"><div class="draw-wheel"><div class="draw-wheel-ring"></div><strong>16</strong></div><h3>Đang tạo 16 cặp VĐV...</h3><p>Tạo VĐV → quay 4 bảng → 24 trận vòng bảng → Top 8 → sơ đồ Chung kết.</p></div>';
+  document.body.appendChild(overlay);
+  try{
+    const created=await API.createTournament({name:"TEST 16 CẶP – AUTO DRAW",venue:"Sân Demo Pickleup",eventType:"doubles"});
+    const tid=created.tournament.id,did=created.division.id;
+    await API.updateDivisionFull(did,{name:"Đôi 16 cặp",eventType:"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true});
+    for(let i=1;i<=4;i++)await API.createCourt(tid,{name:"Sân "+i});
+    for(let i=1;i<=16;i++){
+      const team=await API.createTeam(did,{name:"Cặp "+String(i).padStart(2,"0"),club:"Test Pickleup",group:"A",seed:i});
+      const p1=await API.createPlayer({fullName:"VĐV "+String(i*2-1).padStart(2,"0"),rating:2+((i*7)%16)/10});
+      const p2=await API.createPlayer({fullName:"VĐV "+String(i*2).padStart(2,"0"),rating:2+((i*11)%16)/10});
+      await API.addTeamPlayer(team.id,p1.id);await API.addTeamPlayer(team.id,p2.id);
+      await API.createRegistration(did,{teamId:team.id,amount:0});
+    }
+    overlay.querySelector("h3").textContent="🎡 Đang quay số chia 4 bảng...";
+    await API.autoSeedGroups(did,4);
+    const rr=await API.generateRoundRobin(did);
+    let snapshot=await API.adminState();
+    const gm=snapshot.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+    for(let i=0;i<gm.length;i++){
+      const a=11,b=5+(i%5);
+      await API.quickScore(gm[i].id,{sets:[[a,b],[a,Math.min(9,b+1)]]});
+    }
+    const ko=await API.generateBracket(did);
+    overlay.querySelector("h3").textContent="✅ Test 16 cặp hoàn tất";
+    overlay.querySelector("p").textContent="4 bảng × 4 cặp • "+rr.created+" trận vòng bảng • "+ko.created+" trận knockout.";
+    await new Promise(r=>setTimeout(r,900));
+    overlay.remove();await refresh();await openTournamentDetail(tid);
+    setTimeout(()=>document.querySelector(".tournament-bracket-preview")?.scrollIntoView({behavior:"smooth",block:"center"}),120);
+    toast("Đã tạo 16 cặp, chia 4 bảng và sinh sơ đồ đến Chung kết.");
+  }catch(e){overlay.remove();toast("Test 16 cặp lỗi: "+e.message)}
 }
 async function openTournamentDetail(tournamentId){
   const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
@@ -423,6 +460,7 @@ function applyMatchFilters(){
   const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
 }
 function bindDynamic(){
+  document.querySelector("[data-test-16]")?.addEventListener("click",create16PairTestTournament);
   document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{if(e.target.closest("button,a,select,input"))return;openTournamentDetail(card.dataset.openTournament)});
   document.querySelectorAll("[data-tournament-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTournamentDetail(b.dataset.tournamentRoster)});
   document.querySelectorAll("[data-tournament-draw]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentDraw);setTimeout(()=>document.querySelector("[data-auto-draw]")?.click(),30)});
