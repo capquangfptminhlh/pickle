@@ -3,15 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Pickleup.vn">
-  <link rel="apple-touch-icon" href="../assets/app-icon-v2.svg">
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#10281d">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="../assets/app-icon-v2.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/app-icon-v4.svg" type="image/svg+xml">
   <title>Đăng nhập quản trị | Pickleup.vn</title>
   <link rel="stylesheet" href="../assets/styles.css">
   <style>
@@ -24,20 +19,24 @@
     .security-state{margin-top:16px;padding:13px;border-radius:14px;background:#f1f6f3;color:#52635a;font-size:11px;line-height:1.55}
     .security-state b{display:block;color:#173324;margin-bottom:4px}
   </style>
+  <link rel="stylesheet" href="../assets/pickleup-ui.css?v=4">
 </head>
 <body>
   <main class="login-card">
-    <div class="login-brand"><img class="brand-mark brand-mark-img" src="../assets/app-icon-v2.svg" alt="Pickleup.vn"><div><b>PICKLEUP.VN</b><small>SECURE ADMIN</small></div></div>
+    <div class="login-brand"><img src="../assets/pickleup-logo-v5.svg" alt="Pickleup.vn" width="270" height="61" style="display:block;width:min(270px,82vw);height:auto"></div>
     <h1>Đăng nhập quản trị</h1>
-    <p>Tài khoản được xác thực ở máy chủ; mỗi vai trò chỉ thấy và thao tác đúng phần được phân quyền.</p>
-    <form class="login-form" onsubmit="return false">
-      <label>Email<input type="email" autocomplete="username" disabled placeholder="admin@..."></label>
-      <label>Mật khẩu<input type="password" autocomplete="current-password" disabled placeholder="••••••••••••"></label>
-      <button class="btn primary" type="button" disabled>Đăng nhập</button>
+    <p>Đăng nhập quản trị hoặc tài khoản trọng tài demo trên GitHub Pages.</p>
+    <form id="loginForm" class="login-form">
+      <label>Email<input id="email" type="email" autocomplete="username" required value="admin@pickle.test"></label>
+      <label>Mật khẩu<input id="password" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu"></label>
+      <div id="error" class="login-error" style="min-height:18px;color:#b32b37;font-size:12px"></div>
+      <button class="btn primary" type="submit">Đăng nhập</button>
     </form>
-    <div class="security-state"><b>GitHub Pages chỉ là giao diện public</b>Đăng nhập thật, tài khoản con, phân quyền và dữ liệu dùng chung chỉ hoạt động khi kết nối backend bảo mật. Trang này không lưu mật khẩu trên trình duyệt.</div>
+    <div class="security-state"><b>GitHub Pages chỉ là giao diện public</b><span style="display:block;margin-bottom:7px;opacity:.8">Bản này dùng dữ liệu demo cục bộ để kiểm tra giao diện và luồng trọng tài.</span><b>Tài khoản demo GitHub Pages</b>Email: <strong>admin@pickle.test</strong><br>Mật khẩu: <strong>ci-password-123</strong><br><span style="opacity:.8">Đây là tài khoản demo cục bộ, không phải tài khoản production.</span></div>
     <a class="mini" href="index.html" style="display:inline-block;margin-top:14px;text-decoration:none">← Về trang công khai</a>
   </main>
+  <script src="preview-api.js"></script>
+  <script src="../assets/login.js"></script>
   <script src="../assets/ui-motion.js"></script>
 </body>
 </html>
