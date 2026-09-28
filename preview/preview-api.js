@@ -308,7 +308,39 @@
     deleteTeam:async id=>{const t=state.teams.find(x=>x.id===id);const used=state.matches.some(m=>m.a===id||m.b===id)||state.registrations.some(r=>r.team_name===t?.name);if(used){t.status="withdrawn";persist();return {mode:"withdrawn",entity:clone(t)}}state.teams=state.teams.filter(x=>x.id!==id);delete state.teamPlayers[id];persist();return {mode:"deleted"}},
     updateDivision:async(id,p)=>{Object.assign(state.divisions.find(x=>x.id===id),p);persist();return {}},
     createMatch:async(did,p)=>{const court=state.courts.find(c=>c.id===p.courtId);const m={id:uid(),divisionId:did,stage:p.stage||"Vòng bảng",court:court?.sortOrder||court?.name||"—",courtId:p.courtId||null,time:p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—",a:p.teamAId,b:p.teamBId,status:"wait",sets:[],current:[0,0],winner:null,version:1,refereeId:p.refereeUserId||null};state.matches.push(m);persist();return clone(m)},
-    autoSeedGroups:async(did,groupCount)=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn").map(t=>{const ps=(state.teamPlayers[t.id]||[]).map(id=>state.players.find(p=>p.id===id)).filter(Boolean);return {...t,avg:ps.length?ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length:0}}).sort((a,b)=>b.avg-a.avg||(a.seed||999)-(b.seed||999));if(teams.length<groupCount)throw new Error("MORE_GROUPS_THAN_TEAMS");const groups=Array.from({length:groupCount},(_,i)=>({label:String.fromCharCode(65+i),teams:[]}));const max=Math.ceil(teams.length/groupCount);teams.forEach((t,i)=>{const cycle=Math.floor(i/groupCount),pos=i%groupCount,pref=cycle%2===0?pos:groupCount-1-pos;const choices=[pref,...groups.map((_,j)=>j).filter(j=>j!==pref)].filter(j=>groups[j].teams.length<max).sort((a,b)=>{const as=t.clubId&&groups[a].teams.some(x=>x.clubId===t.clubId)?1:0,bs=t.clubId&&groups[b].teams.some(x=>x.clubId===t.clubId)?1:0;return as-bs||groups[a].teams.length-groups[b].teams.length});const g=groups[choices[0]??pref];g.teams.push(t);const real=state.teams.find(x=>x.id===t.id);real.group=g.label;real.seed=i+1});persist();return {groupCount,assignments:clone(groups)}},
+    autoSeedGroups:async(did,groupCount)=>{
+      groupCount=Math.max(1,Math.min(26,Number(groupCount)||1));
+      const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn").map(t=>{
+        const ps=(state.teamPlayers[t.id]||[]).map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+        return {...t,avg:ps.length?ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length:0};
+      }).sort((a,b)=>b.avg-a.avg||(a.seed||999)-(b.seed||999));
+      if(!teams.length)throw new Error("NO_TEAMS");
+      if(teams.length<groupCount)throw new Error("MORE_GROUPS_THAN_TEAMS");
+      const groups=Array.from({length:groupCount},(_,i)=>({label:String.fromCharCode(65+i),teams:[]}));
+      const rnd=max=>{
+        if(max<=1)return 0;
+        if(globalThis.crypto?.getRandomValues){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%max}
+        return Math.floor(Math.random()*max);
+      };
+      const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+      for(let p=0;p<teams.length;p+=groupCount){
+        const pot=shuffle(teams.slice(p,p+groupCount));
+        for(const t of pot){
+          const minSize=Math.min(...groups.map(g=>g.teams.length));
+          const candidates=groups.filter(g=>g.teams.length<=minSize+1).sort((a,b)=>{
+            const ac=t.clubId&&a.teams.some(x=>x.clubId===t.clubId)?1:0;
+            const bc=t.clubId&&b.teams.some(x=>x.clubId===t.clubId)?1:0;
+            return ac-bc||a.teams.length-b.teams.length||(rnd(3)-1);
+          });
+          const g=candidates[0]||groups[0];
+          g.teams.push(t);
+          const real=state.teams.find(x=>x.id===t.id);real.group=g.label;
+        }
+      }
+      let seed=1;
+      for(const g of groups)for(const t of g.teams){const real=state.teams.find(x=>x.id===t.id);real.seed=seed++}
+      persist();return {groupCount,assignments:clone(groups)}
+    },
     generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
     generateBracket:async did=>{
       const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
