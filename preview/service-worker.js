@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v11-public-avatar-logo-hotfix-20260928";
+const VERSION="pickleup-preview-v12-fresh-assets-20260928";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
@@ -51,14 +51,9 @@ self.addEventListener("fetch",event=>{
   }
 
   if(req.destination==="image"){
-    event.respondWith(
-      caches.match(req).then(cached=>{
-        const refresh=fetch(req).then(async res=>{
-          if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
-          return res;
-        }).catch(()=>cached);
-        return cached||refresh;
-      })
-    );
+    event.respondWith(fetch(req).then(async res=>{
+      if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
+      return res;
+    }).catch(()=>caches.match(req)));
   }
 });
