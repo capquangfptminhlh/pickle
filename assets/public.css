@@ -1234,3 +1234,9 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
 }
 
 .tournament-group-empty{padding:22px 16px;text-align:center;color:#8a9790;font-size:11px;font-weight:700;background:#fbfcfb}
+
+/* TOURNAMENT HERO ACTIONS V24 */
+.tournament-hero-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tournament-hero-actions a{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border-radius:12px;background:#fff;color:#10251b;border:1px solid #dfe8e3;text-decoration:none;font-size:11px;font-weight:900;box-shadow:0 6px 18px rgba(16,37,27,.05)}
+.tournament-hero-actions a:nth-child(2){background:#0d7f55;color:#fff;border-color:#0d7f55}
+@media(max-width:760px){.tournament-hero-actions{display:grid;grid-template-columns:1fr 1fr}.tournament-hero-actions a{justify-content:center;text-align:center}.tournament-hero-actions a:last-child{grid-column:1/-1}}
