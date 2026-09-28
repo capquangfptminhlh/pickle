@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/assets/app-icon-v2.svg" sizes="192x192">
 <title>Chi tiết giải | Pickleup.vn</title>
 <meta name="description" content="Thông tin giải, nội dung thi đấu, đội tham dự, lịch, live score, bảng xếp hạng và bracket.">
-<link rel="stylesheet" href="assets/styles.css"><link rel="stylesheet" href="assets/public.css">
+<link rel="stylesheet" href="assets/styles.css?v=24"><link rel="stylesheet" href="assets/public.css?v=24">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=2">
 </head>
 <body class="public-body community-public tournament-app-page">
@@ -27,10 +27,15 @@
   <div id="tourStatus" class="tournament-status-chip"></div>
   <h1 id="tourName">Đang tải...</h1><p id="tourMeta"></p>
   <div id="tourHeroStats" class="tournament-hero-stats"></div>
+  <div class="tournament-hero-actions">
+    <a href="#participants">👥 VĐV đăng ký</a>
+    <a href="#schedule">🔴 Live / Lịch đấu</a>
+    <a href="#knockout">🧩 Sơ đồ đến Chung kết</a>
+  </div>
   <div class="tournament-app-ball" aria-hidden="true"></div>
 </section>
 <nav class="public-container tournament-tabs">
-  <a href="#overview">Tổng quan</a><a href="#participants">Tham dự</a><a href="#schedule">Lịch đấu</a><a href="#standings">BXH</a><a href="#knockout">Bracket</a>
+  <a href="#overview">Tổng quan</a><a href="#participants">VĐV đăng ký</a><a href="#schedule">Live / Lịch</a><a href="#standings">BXH</a><a href="#knockout">Bracket</a>
 </nav>
 <section id="overview" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THÔNG TIN GIẢI</span><h2>Nội dung thi đấu</h2></div></div>
@@ -55,5 +60,5 @@
 </div></section>
 </main>
 <footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
-<script src="/socket.io/socket.io.js"></script><script src="assets/members-binh-loi-data.js"></script><script src="assets/api.js"></script><script src="assets/bracket-ui.js"></script><script src="assets/tournament.js"></script><script src="assets/ui-motion.js"></script><script src="/assets/pwa.js"></script>
+<script src="/socket.io/socket.io.js"></script><script src="assets/members-binh-loi-data.js"></script><script src="assets/api.js"></script><script src="assets/bracket-ui.js"></script><script src="assets/tournament.js?v=24"></script><script src="assets/ui-motion.js"></script><script src="/assets/pwa.js"></script>
 </body></html>
