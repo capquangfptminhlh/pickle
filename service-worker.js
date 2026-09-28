@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v25-referee-live-20260928";
+const VERSION="pickleup-pages-v26-visible-bracket-20260928";
 const CORE=[
   "./",
   "./index.html",
