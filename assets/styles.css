@@ -607,3 +607,5 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
 .draw-wheel-card h3{margin:0;font-size:22px}.draw-wheel-card p{margin:7px 0 0;color:#748078;font-size:12px}
 @keyframes drawWheelSpin{to{transform:rotate(360deg)}}
 @media(max-width:760px){.tournament-ops-grid{grid-template-columns:1fr}.tournament-control-actions .btn{flex:1 1 calc(50% - 8px);padding:0 10px;font-size:11px}.draw-wheel{width:200px;height:200px}.draw-wheel-ring span{transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-78px) rotate(calc(-360deg/var(--n)*var(--i)))}}
+
+.tournament-live-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.tournament-live-row .mini:first-child{min-width:0}.tournament-live-row .mini:last-child{white-space:nowrap}@media(max-width:760px){.tournament-live-row{grid-template-columns:1fr}.tournament-live-row .mini:last-child{justify-content:center}}
