@@ -44,11 +44,11 @@
     for(const d of (state.divisions||[])){
       const teams=(state.teams||[]).filter(t=>t.divisionId===d.id&&t.status!=="withdrawn");
       if(teams.length<4)continue;
-      const target=Math.max(1,Math.floor(teams.length/4));
+      const target=Math.min(teams.length,Math.max(4,Math.ceil(teams.length/4)));
       const labels=[...new Set(teams.map(t=>t.group).filter(Boolean))];
       const groupMatches=(state.matches||[]).filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
       const started=groupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length||(m.current?.[0]||m.current?.[1]));
-      const tooSmall=labels.some(g=>teams.filter(t=>t.group===g).length<4);
+      const tooSmall=labels.length<target;
       if(started||(!tooSmall&&labels.length===target))continue;
       state.matches=(state.matches||[]).filter(m=>!(m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng ")));
       const ordered=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
