@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v17-fresh-assets-20260928";
+const VERSION="pickleup-pages-v18-grouped-pools-20260928";
 const CORE=[
   "./",
   "./index.html",
