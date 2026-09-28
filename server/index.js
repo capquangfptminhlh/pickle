@@ -1111,9 +1111,21 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
         if(h2h){if(h2h.winner_team_id===x.id)return -1;if(h2h.winner_team_id===y.id)return 1;}
         return ((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999));
       });
-      for(let place=0;place<Number(d.advance_count);place++){
+      const advanceCount=Number(d.advance_count)||2;
+      if(advanceCount===2){
+        // Keep the top two from every group on opposite bracket halves.
+        // Qualifier order A1,A2,B1,B2,... maps through standard seeding so
+        // same-group teams can only meet again in the final.
         for(const g of groups){
-          const t=rank(g)[place];if(t)qualifiers.push({...t,qualifierGroup:g,qualifierPlace:place+1});
+          const ranked=rank(g);
+          if(ranked[0])qualifiers.push({...ranked[0],qualifierGroup:g,qualifierPlace:1});
+          if(ranked[1])qualifiers.push({...ranked[1],qualifierGroup:g,qualifierPlace:2});
+        }
+      }else{
+        for(let place=0;place<advanceCount;place++){
+          for(const g of groups){
+            const t=rank(g)[place];if(t)qualifiers.push({...t,qualifierGroup:g,qualifierPlace:place+1});
+          }
         }
       }
     }else{
