@@ -14,12 +14,12 @@
   "theme_color": "#0b1513",
   "categories": ["sports","social"],
   "icons": [
-    {"src": "/assets/app-icon-v2.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}
+    {"src": "/assets/app-icon-sport-v3.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}
   ],
   "shortcuts": [
-    {"name":"Live Score","short_name":"Live","url":"/#live","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"Bảng xếp hạng","short_name":"BXH","url":"/ranking.html","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"Cộng đồng","short_name":"Cộng đồng","url":"/#news","icons":[{"src":"/assets/app-icon-v2.svg","sizes":"any","type":"image/svg+xml"}]}
+    {"name":"Live Score","short_name":"Live","url":"/#live","icons":[{"src":"/assets/app-icon-sport-v3.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"Bảng xếp hạng","short_name":"BXH","url":"/ranking.html","icons":[{"src":"/assets/app-icon-sport-v3.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"Cộng đồng","short_name":"Cộng đồng","url":"/#news","icons":[{"src":"/assets/app-icon-sport-v3.svg","sizes":"any","type":"image/svg+xml"}]}
   ],
   "prefer_related_applications": false
 }
