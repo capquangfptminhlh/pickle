@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v16-public-avatar-logo-hotfix-20260928";
+const VERSION="pickleup-pages-v17-fresh-assets-20260928";
 const CORE=[
   "./",
   "./index.html",
@@ -28,5 +28,5 @@ self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
   const url=new URL(req.url);if(url.origin!==self.location.origin)return;
   if(req.mode==="navigate"){event.respondWith(fetch(req).then(async res=>{if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}return res}).catch(async()=>await caches.match(req)||await caches.match("./offline.html")));return}
-  if(["script","style","font","image"].includes(req.destination)){event.respondWith(caches.match(req).then(cached=>{const fresh=fetch(req).then(async res=>{if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}return res}).catch(()=>cached);return cached||fresh}))}
+  if(["script","style","font","image"].includes(req.destination)){event.respondWith(fetch(req).then(async res=>{if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}return res}).catch(()=>caches.match(req)))}
 });
