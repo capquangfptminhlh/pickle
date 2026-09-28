@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 180" role="img" aria-label="Pickleup.vn" shape-rendering="geometricPrecision">
-<defs><linearGradient id="lime" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#08A650"/><stop offset=".58" stop-color="#78DD00"/><stop offset="1" stop-color="#DDFB21"/></linearGradient></defs>
-<g transform="translate(6 6)">
-<path d="M36 144 59 40c4-18 17-28 36-28h63c47 0 76 23 76 61 0 34-21 58-57 67 16 8 28 21 34 38h-51c-7-17-20-25-42-25H96l-6 25H36Zm70-60h34c24 0 38-10 38-27 0-14-12-21-34-21h-27l-11 48Z" fill="#10211C"/>
-<circle cx="121" cy="91" r="40" fill="#CFF62D" stroke="#7ACB00" stroke-width="3"/>
-<g fill="#0B6039"><circle cx="104" cy="73" r="5.5"/><circle cx="128" cy="69" r="5.5"/><circle cx="145" cy="88" r="5.5"/><circle cx="136" cy="111" r="5.5"/><circle cx="112" cy="114" r="5.5"/><circle cx="120" cy="91" r="5.5"/></g>
-<path d="M8 137c45 22 99 10 141-18 34-23 61-56 82-99l-5 38 29-18-15-45c-25 47-54 82-90 106-43 28-92 39-142 36Z" fill="url(#lime)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 930 180" role="img" aria-label="Pickleup.vn" shape-rendering="geometricPrecision">
+<defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#059a50"/><stop offset=".58" stop-color="#67d900"/><stop offset="1" stop-color="#dfff28"/></linearGradient></defs>
+<g transform="translate(8 8)">
+ <path d="M34 142 58 42c4-18 18-28 37-28h61c45 0 74 23 74 59 0 32-20 55-54 65 16 8 27 20 33 36h-49c-7-16-20-24-41-24H98l-6 24H34Zm69-59h34c23 0 37-10 37-26 0-14-12-21-33-21h-27l-11 47Z" fill="#10211c"/>
+ <circle cx="120" cy="90" r="39" fill="#d7f82d" stroke="#77c900" stroke-width="3"/>
+ <g fill="#0a6038"><circle cx="104" cy="73" r="5"/><circle cx="127" cy="69" r="5"/><circle cx="144" cy="88" r="5"/><circle cx="136" cy="110" r="5"/><circle cx="112" cy="113" r="5"/><circle cx="120" cy="91" r="5"/></g>
+ <path d="M8 136c45 21 98 10 139-18 33-22 59-54 80-96l-5 37 28-17-15-43c-24 45-52 79-87 102-42 28-91 38-140 35Z" fill="url(#g)"/>
 </g>
-<g font-family="Arial Black,Segoe UI,Arial,sans-serif" font-weight="900" font-style="italic">
-<text x="245" y="116" font-size="96" fill="#10211C" textLength="385" lengthAdjust="spacingAndGlyphs">Pickle</text>
-<text x="650" y="116" font-size="96" fill="#38C900" textLength="145" lengthAdjust="spacingAndGlyphs">up</text>
-<text x="815" y="116" font-size="64" fill="#243B34" textLength="112" lengthAdjust="spacingAndGlyphs">.vn</text>
+<g font-family="Arial,Helvetica,sans-serif" font-weight="900" font-style="italic">
+ <text x="245" y="116" font-size="84" fill="#10211c">Pickle</text>
+ <text x="570" y="116" font-size="84" fill="#31c800">up</text>
+ <text x="708" y="116" font-size="58" fill="#263b34">.vn</text>
 </g>
-<path d="M244 140h655l-86 22H244Z" fill="url(#lime)"/>
+<path d="M244 140h598l-78 21H244Z" fill="url(#g)"/>
 </svg>
