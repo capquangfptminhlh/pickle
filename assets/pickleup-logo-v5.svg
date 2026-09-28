@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 220" role="img" aria-label="Pickleup.vn" shape-rendering="geometricPrecision">
+<defs>
+  <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#08A650"/>
+    <stop offset=".55" stop-color="#69DC00"/>
+    <stop offset="1" stop-color="#D7F900"/>
+  </linearGradient>
+</defs>
+<g transform="translate(12 10)">
+  <path d="M52 178 82 38c4-18 18-28 37-28h73c56 0 90 27 90 72 0 41-25 69-67 79 19 10 33 26 39 49h-57c-7-23-23-34-50-34h-27l-8 34H52Zm81-81h43c29 0 47-13 47-34 0-19-16-28-43-28h-34l-13 62Z" fill="#10211C"/>
+  <circle cx="150" cy="106" r="49" fill="#CCF52A" stroke="#7ACB00" stroke-width="3"/>
+  <g fill="#0A5B37"><circle cx="129" cy="84" r="7"/><circle cx="158" cy="78" r="7"/><circle cx="177" cy="101" r="7"/><circle cx="165" cy="129" r="7"/><circle cx="136" cy="133" r="7"/><circle cx="148" cy="107" r="7"/></g>
+  <path d="M10 171c58 28 128 14 181-21 41-27 73-66 97-116l-7 48 35-22-20-58c-31 60-66 105-111 134-53 35-115 47-175 35Z" fill="url(#g)"/>
+  <path d="M20 159c50 14 103 2 147-27 31-20 56-47 75-81" fill="none" stroke="#DDFB21" stroke-width="5" stroke-linecap="round"/>
+</g>
+<g transform="translate(315 45) skewX(-8)">
+  <text x="0" y="101" font-family="Arial Black,Segoe UI,Arial,sans-serif" font-size="94" font-weight="900" letter-spacing="-5">
+    <tspan fill="#10211C">Pickle</tspan><tspan dx="-14" fill="#38C900">up</tspan><tspan dx="-5" fill="#243B34" font-size="62" letter-spacing="-3">.vn</tspan>
+  </text>
+</g>
+<path d="M317 166h465c44 0 88-5 136-18l-89 30H317Z" fill="url(#g)"/>
+</svg>
