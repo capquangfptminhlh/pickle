@@ -263,30 +263,31 @@ function matchesPage(scoreOnly=false){
       ${state.courts.length?state.courts.map(c=>{const m=state.matches.find(x=>x.courtId===c.id&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
     </div></div>`;
 }
-function calcGroup(g){
-  return [...state.teams.filter(t=>t.group===g)].sort((a,b)=>{
-    if(b.w!==a.w)return b.w-a.w;
-    const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
-    if(sdB!==sdA)return sdB-sdA;
-    const h2h=state.matches.find(m=>(m.status==="done"||m.status==="completed")&&((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
-    if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1;}
-    return ((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf)||((a.seed||999)-(b.seed||999));
-  });
+function calcGroup(did,g){
+  return rankTournamentGroup(did,g);
 }
 function standings(){
-  setHeader("Bảng xếp hạng","Tự động tính: Trận thắng → Hiệu số set → Đối đầu trực tiếp → Hiệu số điểm");
-  const groups=[...new Set(state.teams.map(t=>t.group).filter(Boolean))];
-  return groups.map(g=>`<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảng ${g}</h2><p>Top 2 giành quyền vào vòng Knockout / Bán kết</p></div><span class="badge blue">TOP 2 ĐI TIẾP</span></div>
-    <div class="standing-table-wrap">
-      <div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>
-      ${calcGroup(g).map((t,i)=>{
-        const rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span><small class="qualify-status">Vào vòng trong</small>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span><small class="qualify-status">Vào vòng trong</small>':`<span class="rank-badge rank-other">Hạng ${i+1}</span>`;
-        const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';
-        const diff=t.pf-t.pa;
-        return `<div class="standing-row ${qCls}"><span class="rank">${i+1}</span><span><b>${t.name}</b><small style="display:block;color:#73847b">${t.club||"Tự do"}</small></span><span>${t.w}-${t.l}</span><span>${t.sw||0}-${t.sl||0}</span><span>${t.pf}-${t.pa}</span><span><b>${diff>0?"+":""}${diff}</b></span><div>${rankTag}</div></div>`;
-      }).join("")}
-    </div>
-  </div>`).join("")||'<div class="panel empty">Chưa có bảng đấu.</div>';
+  setHeader("Bảng xếp hạng","Tự động tính sau mỗi trận: Trận thắng → Hiệu số set → Đối đầu → Hiệu số điểm");
+  const divisions=state.divisions.filter(d=>state.teams.some(t=>t.divisionId===d.id&&t.group));
+  return divisions.map(d=>{
+    const groups=[...new Set(state.teams.filter(t=>t.divisionId===d.id).map(t=>t.group).filter(Boolean))].sort();
+    const content=groups.map(g=>{
+      const gm=state.matches.filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g)));
+      const done=gm.filter(m=>m.status==="done"||m.status==="completed").length;
+      return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>${escHtml(d.name)} • Bảng ${g}</h2><p>${done}/${gm.length} trận hoàn tất • Top 2 vào vòng loại trực tiếp</p></div><span class="badge blue">TOP 2 ĐI TIẾP</span></div>
+        <div class="standing-table-wrap">
+          <div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>
+          ${calcGroup(d.id,g).map((t,i)=>{
+            const rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span><small class="qualify-status">Vào vòng trong</small>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span><small class="qualify-status">Vào vòng trong</small>':`<span class="rank-badge rank-other">Hạng ${i+1}</span>`;
+            const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';
+            const diff=(t.pf||0)-(t.pa||0);
+            return `<div class="standing-row ${qCls}"><span class="rank">${i+1}</span><span><b>${escHtml(t.name)}</b><small style="display:block;color:#73847b">${escHtml(t.club||"Tự do")}</small></span><span>${t.w||0}-${t.l||0}</span><span>${t.sw||0}-${t.sl||0}</span><span>${t.pf||0}-${t.pa||0}</span><span><b>${diff>0?"+":""}${diff}</b></span><div>${rankTag}</div></div>`;
+          }).join("")}
+        </div>
+      </div>`;
+    }).join("");
+    return content;
+  }).join("")||'<div class="panel empty">Chưa có bảng đấu.</div>';
 }
 function bracketMatch(m){if(!m)return"";return `<div class="bracket-match"><div class="bracket-team ${m.winner===m.a?"win":""}"><span>${teamName(m.a)}</span><b>${m.sets?.filter(s=>s[0]>s[1]).length||""}</b></div><div class="bracket-team ${m.winner===m.b?"win":""}"><span>${teamName(m.b)}</span><b>${m.sets?.filter(s=>s[1]>s[0]).length||""}</b></div>${m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" style="margin-top:7px" data-score-match="${m.id}">Nhập điểm</button>`:""}</div>`}
 function bracket(){
