@@ -15,7 +15,7 @@
   ],
   "icons": [
     {
-      "src": "assets/app-icon.svg",
+      "src": "assets/app-icon-v4.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -28,7 +28,7 @@
       "url": "./#live",
       "icons": [
         {
-          "src": "assets/app-icon.svg",
+          "src": "assets/app-icon-v4.svg",
           "sizes": "any",
           "type": "image/svg+xml"
         }
@@ -40,7 +40,7 @@
       "url": "./ranking.html",
       "icons": [
         {
-          "src": "assets/app-icon.svg",
+          "src": "assets/app-icon-v4.svg",
           "sizes": "any",
           "type": "image/svg+xml"
         }
@@ -52,7 +52,7 @@
       "url": "./#news",
       "icons": [
         {
-          "src": "assets/app-icon.svg",
+          "src": "assets/app-icon-v4.svg",
           "sizes": "any",
           "type": "image/svg+xml"
         }
