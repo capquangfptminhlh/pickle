@@ -1,7 +1,9 @@
-const VERSION="pickleup-pages-v8-wordmark-v5-20260928";
+const VERSION="pickleup-pages-v9-auth-fix-20260928";
 const CORE=[
   "./",
   "./index.html",
+  "./login.html",
+  "./admin.html",
   "./offline.html",
   "./manifest.webmanifest",
   "./assets/styles.css",
@@ -10,6 +12,9 @@ const CORE=[
   "./assets/home-mobile.css",
   "./assets/submit-mobile.css",
   "./assets/ui-motion.js",
+  "./assets/login.js",
+  "./assets/admin-app.js",
+  "./preview-guard.js",
   "./assets/app-icon-v4.svg",
   "./assets/pickleup-logo-v5.svg",
   "./preview-api.js",
