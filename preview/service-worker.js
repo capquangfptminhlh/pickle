@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v9-athlete-avatars-20260928";
+const VERSION="pickleup-preview-v11-public-avatar-logo-hotfix-20260928";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
