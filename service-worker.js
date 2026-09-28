@@ -1,4 +1,4 @@
-const VERSION="pickleup-v4-sport-brand-20260928-1157";
+const VERSION="pickleup-v5-tournament-control-20260928";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -50,7 +50,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.mode==="navigate"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
         return res;
       }).catch(async()=>await caches.match(req)||await caches.match("/offline.html"))
@@ -60,7 +60,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.destination==="script"||req.destination==="style"||req.destination==="font"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
         return res;
       }).catch(()=>caches.match(req))
@@ -71,7 +71,7 @@ self.addEventListener("fetch",event=>{
   if(req.destination==="image"){
     event.respondWith(
       caches.match(req).then(cached=>{
-        const refresh=fetch(req).then(async res=>{
+        const refresh=fetch(new Request(req,{cache:"reload"})).then(async res=>{
           if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
           return res;
         }).catch(()=>cached);
