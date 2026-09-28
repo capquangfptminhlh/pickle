@@ -244,6 +244,7 @@ await goto(ppage,preview+"/tournament.html?id="+encodeURIComponent(draw16.tourna
 const bracketText=(await ppage.locator("#tourBracket").innerText()).replace(/\s+/g," ");
 for(const label of ["Tứ kết","Bán kết","Chung kết"])if(!bracketText.includes(label))failures.push({label:"16-pair bracket UI",errors:["missing "+label+" in rendered bracket: "+bracketText.slice(0,500)]});
 await ppage.screenshot({path:"ui-artifacts/16-pairs-bracket.png",fullPage:true});
+await goto(ppage,preview+"/admin.html","preview admin after 16-pair bracket");
 
 await ppage.reload({waitUntil:"domcontentloaded"});await ppage.waitForTimeout(250);
 for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
