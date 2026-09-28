@@ -50,6 +50,7 @@ let user=null,page="dashboard",activeMatch=null,busy=false;
 
 const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",finance:"Thu ngân",player:"VĐV"}[r]||r);
 const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
+const escHtml=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
 const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
@@ -145,16 +146,95 @@ async function dashboard(){
     <div class="panel app-section-card"><div class="panel-head"><div><h2>Hoạt động gần đây</h2><p>Nhật ký hệ thống</p></div></div><div class="activity-feed">${state.audit.slice(0,7).map(a=>`<div class="activity-item"><i></i><div><strong>${a.action}</strong><small>${a.time} • ${a.user}</small><p>${a.detail}</p></div></div>`).join("")||'<div class="empty">Không có log quản trị trong phạm vi tài khoản.</div>'}</div></div>
   </div>`;
 }
+function rankTournamentGroup(did,g){
+  const teams=state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn");
+  const gm=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g))&&(m.status==="done"||m.status==="completed")&&m.winner);
+  return [...teams].sort((a,b)=>{
+    if((b.w||0)!==(a.w||0))return (b.w||0)-(a.w||0);
+    const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+    if(sdB!==sdA)return sdB-sdA;
+    const h2h=gm.find(m=>((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
+    if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1}
+    const pdA=(a.pf||0)-(a.pa||0),pdB=(b.pf||0)-(b.pa||0);
+    return pdB-pdA||(b.pf||0)-(a.pf||0)||(a.seed||999)-(b.seed||999);
+  });
+}
 function tournamentCard(t){
-  return `<article class="tour-card" data-tournament-card="${t.id}"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
-    <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đội</small><b>${t.teams}</b></span></div>
-    <div class="actions"><button class="mini" data-goto="matches">Lịch đấu</button><button class="mini" data-goto="standings">BXH</button><button class="mini" data-goto="bracket">Bracket</button></div>
+  const dids=state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id);
+  const teamCount=state.teams.filter(x=>dids.includes(x.divisionId)&&x.status!=="withdrawn").length;
+  return `<article class="tour-card" data-open-tournament="${t.id}" style="cursor:pointer"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
+    <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đăng ký</small><b>${teamCount} cặp/đội</b></span></div>
+    <div class="actions"><button class="mini" data-tournament-roster="${t.id}">VĐV & Bốc thăm</button><button class="mini" data-goto="matches">Lịch đấu</button><button class="mini" data-goto="standings">BXH</button><button class="mini" data-goto="bracket">Bracket</button></div>
   </div></article>`;
 }
 function tournaments(){
-  setHeader("Giải đấu","Tạo và quản lý giải pickleball");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
+  setHeader("Giải đấu","Chọn một giải để xem VĐV đăng ký, bốc thăm chia bảng và tạo nhánh tự động");
+  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
+}
+async function openTournamentDetail(tournamentId){
+  const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
+  const divisions=state.divisions.filter(d=>d.tournamentId===tournamentId&&d.active!==false);
+  const registrations=await API.registrations().catch(()=>[]);
+  const allPlayers=state.players||[];
+  const teamPlayers=state.teamPlayers||{};
+  const statusLabel=s=>({approved:"Đã duyệt",pending:"Chờ duyệt",cancelled:"Đã hủy"}[s]||s||"Đã đăng ký");
+  const divisionHtml=divisions.map(d=>{
+    const allTeams=state.teams.filter(x=>x.divisionId===d.id&&x.status!=="withdrawn");
+    const regForDivision=registrations.filter(r=>r.division_name===d.name&&r.tournament_name===t.name&&r.status!=="cancelled");
+    const registeredNames=new Set(regForDivision.map(r=>r.team_name).filter(Boolean));
+    const teams=registeredNames.size?allTeams.filter(x=>registeredNames.has(x.name)):allTeams;
+    const groups=[...new Set(teams.map(x=>x.group).filter(Boolean))].sort();
+    const groupMatches=state.matches.filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+    const completed=groupMatches.filter(m=>m.status==="done"||m.status==="completed").length;
+    const top2=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,2).map((x,i)=>({team:x,group:g,rank:i+1})));
+    const rosterRows=teams.map(team=>{
+      const ps=(teamPlayers[team.id]||[]).map(pid=>allPlayers.find(p=>p.id===pid)).filter(Boolean);
+      const rating=ps.length?(ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length).toFixed(2):"—";
+      const reg=regForDivision.find(r=>r.team_name===team.name);
+      return `<tr><td><b>${escHtml(team.name)}</b><small style="display:block;color:#73847b">${ps.map(p=>escHtml(p.full_name)).join(" • ")||"Chưa gán VĐV"}</small></td><td>${escHtml(team.club||"Tự do")}</td><td>${rating}</td><td>${team.group?'<span class="badge blue">Bảng '+escHtml(team.group)+'</span>':'<span class="badge wait">Chưa bốc thăm</span>'}</td><td>${statusLabel(reg?.status)}</td></tr>`;
+    }).join("");
+    const groupSummary=groups.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${groups.map(g=>{const r=rankTournamentGroup(d.id,g);return `<span class="badge blue">Bảng ${g}: ${r.length} đội</span>`}).join("")}</div>`:"";
+    const topHtml=top2.length?`<div style="margin-top:14px;padding:12px;border-radius:14px;background:#f5f8f6"><b style="font-size:12px">Top 2 tạm thời / chính thức</b><div style="display:grid;gap:5px;margin-top:8px">${top2.map(q=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>Bảng ${q.group} • ${q.rank===1?"Nhất":"Nhì"}</span><b>${escHtml(q.team.name)}</b></div>`).join("")}</div></div>`:"";
+    return `<section class="panel" style="box-shadow:none;margin:0 0 16px;border:1px solid #e7ece9">
+      <div class="panel-head"><div><h2>${escHtml(d.name)}</h2><p>${teams.length} cặp/đội • ${groupMatches.length?completed+"/"+groupMatches.length+" trận vòng bảng đã xong":"Chưa tạo lịch vòng bảng"}</p></div>
+      ${canManage()?`<div class="actions"><button class="btn secondary" data-auto-draw="${d.id}" data-team-count="${teams.length}">🎲 Tự động bốc thăm & tạo cặp</button><button class="btn primary" data-top2-bracket="${d.id}">🏆 Tạo nhánh Top 2</button></div>`:""}</div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Cặp / VĐV</th><th>CLB</th><th>Rating TB</th><th>Bảng</th><th>Đăng ký</th></tr></thead><tbody>${rosterRows||'<tr><td colspan="5">Chưa có VĐV/cặp đăng ký nội dung này.</td></tr>'}</tbody></table></div>
+      ${groupSummary}${topHtml}
+    </section>`;
+  }).join("");
+  $("#genericTitle").textContent=t.name+" • VĐV & Bốc thăm";
+  $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
+    <div style="padding:13px 14px;border-radius:14px;background:#0d2118;color:#fff"><b>${escHtml(t.name)}</b><div style="font-size:12px;opacity:.75;margin-top:4px">${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div><div style="font-size:11px;opacity:.7;margin-top:8px">Hệ thống tự tính: thắng/thua → hiệu số set → đối đầu → hiệu số điểm. Top 2 mỗi bảng được lấy để tạo nhánh loại trực tiếp.</div></div>
+    ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
+  </div>`;
+  $("#genericDialog").showModal();
+
+  document.querySelectorAll("[data-auto-draw]").forEach(btn=>btn.onclick=async()=>{
+    const did=btn.dataset.autoDraw,n=Number(btn.dataset.teamCount||0);
+    if(n<2)return toast("Cần ít nhất 2 cặp/đội.");
+    const groupCount=n<=4?1:Math.ceil(n/4);
+    if(!confirm(`Tự động chia ${n} cặp/đội thành ${groupCount} bảng và tạo toàn bộ cặp đấu vòng bảng?`))return;
+    try{
+      await API.autoSeedGroups(did,groupCount);
+      const rr=await API.generateRoundRobin(did);
+      await refresh();
+      await openTournamentDetail(tournamentId);
+      toast(`Đã bốc thăm ${groupCount} bảng và tạo ${rr.created} trận.`);
+    }catch(e){toast("Không thể bốc thăm: "+e.message)}
+  });
+  document.querySelectorAll("[data-top2-bracket]").forEach(btn=>btn.onclick=async()=>{
+    if(!confirm("Tạo nhánh đấu tự động từ Nhất/Nhì mỗi bảng?"))return;
+    try{
+      const r=await API.generateBracket(btn.dataset.top2Bracket);
+      await refresh();
+      await openTournamentDetail(tournamentId);
+      toast(`Đã tạo nhánh loại trực tiếp ${r.created||0} trận từ Top 2 mỗi bảng.`);
+    }catch(e){
+      const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",NOT_ENOUGH_QUALIFIERS:"Chưa đủ đội đi tiếp.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung này chỉ thi đấu vòng tròn."}[e.message]||e.message;
+      toast("Không thể tạo nhánh: "+m)
+    }
+  });
 }
 async function players(){
   setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
@@ -307,7 +387,9 @@ function applyMatchFilters(){
   const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
 }
 function bindDynamic(){
-  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.goto));
+  document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{if(e.target.closest("button,a,select,input"))return;openTournamentDetail(card.dataset.openTournament)});
+  document.querySelectorAll("[data-tournament-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTournamentDetail(b.dataset.tournamentRoster)});
+  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=e=>{e.stopPropagation();switchAdminPage(b.dataset.goto)});
   document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
