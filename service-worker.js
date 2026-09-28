@@ -1,4 +1,4 @@
-const VERSION="pickleup-v6-referee-live-20260928";
+const VERSION="pickleup-v8-visible-bracket-20260928";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
