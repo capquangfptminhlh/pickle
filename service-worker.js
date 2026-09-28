@@ -1,4 +1,4 @@
-const VERSION="pickleup-v2-full-brand-20260927";
+const VERSION="pickleup-v3-sport-brand-20260928";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -11,7 +11,7 @@ const STATIC=[
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
   "/assets/app-icon-v2.svg",
-  "/assets/app-icon-v2.svg",
+  "/assets/app-icon.svg",
   "/assets/pickleup-logo-v2.svg"
 ];
 
