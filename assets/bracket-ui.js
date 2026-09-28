@@ -60,11 +60,27 @@
       return round(title,a,team,opts);
     }).join("")+'</div>';
   }
+  const planMatch=(a,b,label)=>'<div class="bracket-match bracket-match-pro bracket-plan-match"><div class="bracket-match-meta"><span>'+esc(label||"")+'</span><span>Dự kiến</span></div><div class="bracket-team"><span>'+esc(a||"Chờ xác định")+'</span><b></b></div><div class="bracket-team"><span>'+esc(b||"Chờ xác định")+'</span><b></b></div></div>';
+  const roundName=count=>count===1?"Chung kết":count===2?"Bán kết":count===4?"Tứ kết":count===8?"Vòng 1/8":"Vòng loại trực tiếp";
+  function renderPlan(teams=[]){
+    const groups=[...new Set((teams||[]).map(t=>t.group).filter(Boolean))].sort();
+    if(!groups.length)return '<div class="bracket-plan-empty"><b>Chưa chia bảng</b><span>Bấm “Quay số chia bảng” để hệ thống tạo bảng và sơ đồ thi đấu.</span></div>';
+    const qualifiers=[];for(const g of groups)qualifiers.push("Nhất bảng "+g,"Nhì bảng "+g);
+    if(qualifiers.length===2)return '<div class="bracket-plan-wrap"><div class="bracket-section-title final"><span>SƠ ĐỒ DỰ KIẾN</span><h3>Từ vòng bảng đến Chung kết</h3></div><div class="bracket"><div class="round bracket-round-pro"><h3>Chung kết</h3>'+planMatch(qualifiers[0],qualifiers[1],"Trận Chung kết")+'</div></div><div class="bracket-plan-note">Hai đội cùng bảng chỉ gặp lại ở Chung kết.</div></div>';
+    let size=2;while(size<qualifiers.length)size*=2;
+    let order=[1,2];for(let n=4;n<=size;n*=2){const next=[];for(const seed of order)next.push(seed,n+1-seed);order=next}
+    let current=order.map(n=>qualifiers[n-1]||"BYE"),rounds=[];
+    while(current.length>=2){
+      const count=current.length/2,matches=[];for(let i=0;i<count;i++)matches.push({a:current[i*2],b:current[i*2+1],label:"Trận "+(i+1)});
+      rounds.push({title:roundName(count),matches});current=matches.map((_,i)=>"Thắng "+roundName(count)+" "+(i+1));
+    }
+    return '<div class="bracket-plan-wrap"><div class="bracket-section-title"><span>SƠ ĐỒ DỰ KIẾN</span><h3>Top 2 mỗi bảng → '+rounds.map(r=>r.title).join(" → ")+'</h3></div><div class="bracket bracket-plan">'+rounds.map(r=>'<div class="round bracket-round-pro"><h3>'+esc(r.title)+'</h3>'+r.matches.map(m=>planMatch(m.a,m.b,m.label)).join("")+'</div>').join("")+'</div><div class="bracket-plan-note">Nhất và Nhì cùng bảng nằm ở hai nửa nhánh khác nhau, chỉ có thể gặp lại ở Chung kết.</div></div>';
+  }
   function champion(matches,team){
     const final=matches.find(m=>m.bracketSlot==="DE-GF")||
       [...matches.filter(m=>(m.bracketSlot||"").startsWith("SE-"))].sort((a,b)=>(b.bracketSlot||"").localeCompare(a.bracketSlot||"",undefined,{numeric:true}))[0]||
       matches.find(m=>/chung kết/i.test(m.stage||""));
     return final?.winner?team(final.winner):"Chưa xác định";
   }
-  window.PickleBracket={render,champion};
+  window.PickleBracket={render,renderPlan,champion};
 })();
