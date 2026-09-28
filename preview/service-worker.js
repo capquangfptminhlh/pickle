@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v16-correct-pool-sizing-20260928";
+const VERSION="pickleup-preview-v17-path-logo-20260928";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
@@ -32,7 +32,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.mode==="navigate"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
         return res;
       }).catch(async()=>await caches.match(req)||await caches.match("./offline.html"))
@@ -42,7 +42,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.destination==="script"||req.destination==="style"||req.destination==="font"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
         return res;
       }).catch(()=>caches.match(req))
@@ -51,7 +51,7 @@ self.addEventListener("fetch",event=>{
   }
 
   if(req.destination==="image"){
-    event.respondWith(fetch(req).then(async res=>{
+    event.respondWith(fetch(new Request(req,{cache:"reload"})).then(async res=>{
       if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
       return res;
     }).catch(()=>caches.match(req)));
