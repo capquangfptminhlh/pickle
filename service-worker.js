@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v9-auth-fix-20260928";
+const VERSION="pickleup-pages-v10-full-audit-20260928";
 const CORE=[
   "./",
   "./index.html",
