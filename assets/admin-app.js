@@ -189,7 +189,9 @@ async function openTournamentDetail(tournamentId){
     const groupMatches=divisionMatches.filter(m=>!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
     const knockoutMatches=divisionMatches.filter(m=>m.bracketSlot);
     const liveMatches=divisionMatches.filter(m=>m.status==="live");
-    const bracketPreview=knockoutMatches.length?(window.PickleBracket?.render(divisionMatches,teamName,{admin:true})||""):"";
+    const bracketPreview=knockoutMatches.length
+      ?(window.PickleBracket?.render(divisionMatches,teamName,{admin:true})||"")
+      :(window.PickleBracket?.renderPlan(allTeams)||"");
     const completed=groupMatches.filter(m=>m.status==="done"||m.status==="completed").length;
     const top2=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,2).map((x,i)=>({team:x,group:g,rank:i+1})));
     const rosterRows=teams.map(team=>{
