@@ -196,6 +196,55 @@ await ppage.evaluate(async()=>{
   const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2});
   await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
 });
+
+// Regression: full 16-pair tournament workflow — draw 4 pools, round robin, Top 2, bracket to final.
+const draw16=await ppage.evaluate(async()=>{
+  const created=await window.PickleAPI.createTournament({name:"16 Pairs Draw Test",venue:"CI Bracket Court",eventType:"doubles"});
+  const did=created.division.id,tid=created.tournament.id;
+  await window.PickleAPI.updateDivisionFull(did,{name:"Đôi 16 cặp",eventType:"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true});
+  for(let i=1;i<=4;i++)await window.PickleAPI.createCourt(tid,{name:"Sân "+i});
+  const teams=[];
+  for(let i=1;i<=16;i++)teams.push(await window.PickleAPI.createTeam(did,{name:"Cặp "+String(i).padStart(2,"0"),group:"A",seed:i}));
+  const draw=await window.PickleAPI.autoSeedGroups(did,4);
+  const rr=await window.PickleAPI.generateRoundRobin(did);
+  let state=await window.PickleAPI.adminState();
+  const groupMatches=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+  for(const m of groupMatches)await window.PickleAPI.quickScore(m.id,{sets:[[11,7],[11,8]]});
+  const bracket=await window.PickleAPI.generateBracket(did);
+  state=await window.PickleAPI.adminState();
+  const drawn=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");
+  const groups=Object.fromEntries(["A","B","C","D"].map(g=>[g,drawn.filter(t=>t.group===g).map(t=>t.name)]));
+  const ko=state.matches.filter(m=>m.divisionId===did&&m.bracketSlot).sort((a,b)=>a.bracketSlot.localeCompare(b.bracketSlot,undefined,{numeric:true}));
+  const byId=Object.fromEntries(drawn.map(t=>[t.id,t]));
+  const qf=ko.filter(m=>(m.bracketSlot||"").startsWith("SE-R1-")).map(m=>({
+    slot:m.bracketSlot,
+    a:byId[m.a]?.name||m.a,b:byId[m.b]?.name||m.b,
+    groupA:byId[m.a]?.group||null,groupB:byId[m.b]?.group||null
+  }));
+  const halfOf=slot=>Number((slot.match(/M(\d+)$/)||[])[1]||0)<=2?"top":"bottom";
+  const groupHalves={};
+  for(const m of qf)for(const side of [["a","groupA"],["b","groupB"]]){
+    const teamName=m[side[0]],g=m[side[1]];if(!g)continue;
+    (groupHalves[g]||(groupHalves[g]=[])).push({team:teamName,half:halfOf(m.slot),slot:m.slot});
+  }
+  return {tournamentId:tid,divisionId:did,draw,rr,bracket,groups,qf,groupHalves,koSlots:ko.map(m=>m.bracketSlot)};
+});
+for(const g of ["A","B","C","D"]){
+  if((draw16.groups[g]||[]).length!==4)failures.push({label:"16-pair draw",errors:[g+" must contain exactly 4 teams: "+JSON.stringify(draw16.groups[g])]});
+  const halves=new Set((draw16.groupHalves[g]||[]).map(x=>x.half));
+  if(halves.size!==2)failures.push({label:"16-pair bracket separation",errors:[g+" qualifiers are not in opposite halves: "+JSON.stringify(draw16.groupHalves[g])]});
+}
+if(draw16.rr.created!==24)failures.push({label:"16-pair round robin",errors:["expected 24 group matches, got "+draw16.rr.created]});
+if(draw16.bracket.created!==7||draw16.bracket.bracketSize!==8)failures.push({label:"16-pair knockout",errors:["expected 8-team / 7-match bracket: "+JSON.stringify(draw16.bracket)]});
+if(draw16.qf.some(m=>m.groupA&&m.groupA===m.groupB))failures.push({label:"16-pair QF",errors:["same-group teams met in quarterfinal: "+JSON.stringify(draw16.qf)]});
+const expectedSlots=["SE-R1-M1","SE-R1-M2","SE-R1-M3","SE-R1-M4","SE-R2-M1","SE-R2-M2","SE-R3-M1"];
+if(JSON.stringify(draw16.koSlots)!==JSON.stringify(expectedSlots))failures.push({label:"16-pair bracket slots",errors:["unexpected bracket slots: "+JSON.stringify(draw16.koSlots)]});
+await mkdir("ui-artifacts",{recursive:true});
+await goto(ppage,preview+"/tournament.html?id="+encodeURIComponent(draw16.tournamentId),"preview 16-pair bracket");
+const bracketText=(await ppage.locator("#tourBracket").innerText()).replace(/\s+/g," ");
+for(const label of ["Tứ kết","Bán kết","Chung kết"])if(!bracketText.includes(label))failures.push({label:"16-pair bracket UI",errors:["missing "+label+" in rendered bracket: "+bracketText.slice(0,500)]});
+await ppage.screenshot({path:"ui-artifacts/16-pairs-bracket.png",fullPage:true});
+
 await ppage.reload({waitUntil:"domcontentloaded"});await ppage.waitForTimeout(250);
 for(const id of ["dashboard","tournaments","registrations","players","clubs","matches","scores","standings","bracket","courts","bookings","referees","accounts","payments","sponsors","content","reports","audit","settings"]){
   const b=ppage.locator('[data-page="'+id+'"]');
