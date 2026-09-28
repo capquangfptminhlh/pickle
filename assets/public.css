@@ -1240,3 +1240,14 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
 .tournament-hero-actions a{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border-radius:12px;background:#fff;color:#10251b;border:1px solid #dfe8e3;text-decoration:none;font-size:11px;font-weight:900;box-shadow:0 6px 18px rgba(16,37,27,.05)}
 .tournament-hero-actions a:nth-child(2){background:#0d7f55;color:#fff;border-color:#0d7f55}
 @media(max-width:760px){.tournament-hero-actions{display:grid;grid-template-columns:1fr 1fr}.tournament-hero-actions a{justify-content:center;text-align:center}.tournament-hero-actions a:last-child{grid-column:1/-1}}
+
+/* BRACKET PLAN V26 */
+.bracket-plan-wrap{margin-top:8px}.bracket-plan{min-width:max-content}
+.bracket-plan-match{opacity:1!important;border-style:dashed!important}
+.bracket-plan-match .bracket-team{background:#fbfdfc}
+.bracket-plan-note{margin-top:12px;padding:11px 13px;border-radius:12px;background:#eff8f3;color:#35614c;font-size:10px;font-weight:800;line-height:1.45}
+.bracket-plan-empty{display:grid;gap:5px;padding:20px;border:1px dashed #cfdad4;border-radius:18px;background:#fbfdfc}
+.bracket-plan-empty b{font-size:14px}.bracket-plan-empty span{font-size:11px;color:#74827a}
+#knockout .app-section-head h2:after{content:" • đến Chung kết";color:#0c8154}
+.tournament-bracket-help{margin:0 0 12px;color:#6e7e75;font-size:11px;font-weight:700}
+@media(max-width:760px){#tourBracket{overflow-x:auto;padding-bottom:8px}.bracket-plan-note{font-size:9px}}
