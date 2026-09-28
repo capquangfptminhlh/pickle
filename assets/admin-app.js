@@ -205,7 +205,7 @@ async function openTournamentDetail(tournamentId){
   }).join("");
   $("#genericTitle").textContent=t.name+" • VĐV & Bốc thăm";
   $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
-    <div style="padding:13px 14px;border-radius:14px;background:#0d2118;color:#fff"><b>${escHtml(t.name)}</b><div style="font-size:12px;opacity:.75;margin-top:4px">${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div><div style="font-size:11px;opacity:.7;margin-top:8px">Hệ thống tự tính: thắng/thua → hiệu số set → đối đầu → hiệu số điểm. Top 2 mỗi bảng được lấy để tạo nhánh loại trực tiếp.</div></div>
+    <div style="padding:13px 14px;border-radius:14px;background:#0d2118;color:#fff"><b>${escHtml(t.name)}</b><div style="font-size:12px;opacity:.75;margin-top:4px">${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div><div style="font-size:11px;opacity:.7;margin-top:8px">Hệ thống tự tính: thắng/thua → hiệu số set → đối đầu → hiệu số điểm. Top 2 mỗi bảng được lấy vào nhánh loại trực tiếp; Nhất và Nhì cùng một bảng luôn nằm ở hai nửa nhánh khác nhau nên chỉ có thể gặp lại ở Chung kết.</div></div>
     ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
   </div>`;
   $("#genericDialog").showModal();
@@ -231,7 +231,7 @@ async function openTournamentDetail(tournamentId){
       await openTournamentDetail(tournamentId);
       toast(`Đã tạo nhánh loại trực tiếp ${r.created||0} trận từ Top 2 mỗi bảng.`);
     }catch(e){
-      const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",NOT_ENOUGH_QUALIFIERS:"Chưa đủ đội đi tiếp.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung này chỉ thi đấu vòng tròn."}[e.message]||e.message;
+      const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",BRACKET_ALREADY_STARTED:"Nhánh đã có trận bắt đầu/kết quả nên không thể bốc lại.",NOT_ENOUGH_QUALIFIERS:"Chưa đủ đội đi tiếp.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung này chỉ thi đấu vòng tròn."}[e.message]||e.message;
       toast("Không thể tạo nhánh: "+m)
     }
   });
