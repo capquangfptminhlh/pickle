@@ -919,7 +919,7 @@ app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wra
 
 app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const groupCount=Number(req.body.groupCount||2);
-  if(!Number.isInteger(groupCount)||groupCount<2||groupCount>26)return res.status(400).json({error:"INVALID_GROUP_COUNT"});
+  if(!Number.isInteger(groupCount)||groupCount<1||groupCount>26)return res.status(400).json({error:"INVALID_GROUP_COUNT"});
   const result=await tx(async c=>{
     const d=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
     if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
