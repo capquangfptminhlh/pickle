@@ -152,9 +152,38 @@
   recomputeStats();
   evaluateTournamentRatings();
   const persist=()=>{recomputeStats();evaluateTournamentRatings();localStorage.setItem(KEY,JSON.stringify(state));window.dispatchEvent(new CustomEvent("pickle-preview-update",{detail:clone(state)}));};
+
+  const AUTH_KEY="pickle-preview-auth-v1";
+  const DEMO_EMAIL="admin@pickle.test";
+  const DEMO_PASSWORD="ci-password-123";
+  const DEMO_USER={id:"local-admin",email:DEMO_EMAIL,name:"Quản trị viên",role:"super_admin"};
+  const authError=()=>Object.assign(new Error("AUTH_REQUIRED"),{status:401});
+  const readSession=()=>{
+    try{
+      const s=JSON.parse(localStorage.getItem(AUTH_KEY)||"null");
+      return s?.user?.id?s:null;
+    }catch{return null}
+  };
+  const requireSession=()=>{
+    const s=readSession();
+    if(!s)throw authError();
+    return s;
+  };
+
   const api={
-    me:async()=>({user:{id:"local-admin",email:"",name:"Quản trị viên",role:"super_admin"}}),
-    logout:async()=>({ok:true}),changePassword:async()=>({ok:true}),
+    login:async(email,password)=>{
+      const normalized=String(email||"").trim().toLowerCase();
+      if(normalized!==DEMO_EMAIL||String(password||"")!==DEMO_PASSWORD){
+        throw Object.assign(new Error("INVALID_CREDENTIALS"),{status:401});
+      }
+      const session={user:DEMO_USER,createdAt:new Date().toISOString()};
+      localStorage.setItem(AUTH_KEY,JSON.stringify(session));
+      return clone(session);
+    },
+    session:async()=>clone(requireSession()),
+    me:async()=>clone(requireSession()),
+    logout:async()=>{localStorage.removeItem(AUTH_KEY);return {ok:true}},
+    changePassword:async()=>{throw Object.assign(new Error("PREVIEW_DEMO_ACCOUNT"),{status:400})},
     publicState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
     submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
     adminState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
