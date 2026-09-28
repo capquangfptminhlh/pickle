@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v6-crisp-logo-20260928";
+const VERSION="pickleup-pages-v7-tight-wordmark-20260928";
 const CORE=[
   "./",
   "./index.html",
