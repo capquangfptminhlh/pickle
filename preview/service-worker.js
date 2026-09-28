@@ -1,11 +1,11 @@
-const VERSION="pickleup-pages-v24-sport-brand";
+const VERSION="pickleup-pages-v25-sport-brand-20260928-1157";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
   "../assets/styles.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
-  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-v2.svg","../assets/app-icon.svg","../assets/pickleup-logo-v2.svg"
+  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-sport-v3.svg","../assets/app-icon-sport-v3.svg","../assets/pickleup-logo-sport-v3.svg"
 ];
 
 self.addEventListener("install",event=>{
