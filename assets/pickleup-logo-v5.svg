@@ -1,22 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 220" role="img" aria-label="Pickleup.vn" shape-rendering="geometricPrecision">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 300" role="img" aria-label="Pickleup.vn" shape-rendering="geometricPrecision">
 <defs>
-  <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
-    <stop offset="0" stop-color="#08A650"/>
-    <stop offset=".55" stop-color="#69DC00"/>
-    <stop offset="1" stop-color="#D7F900"/>
+  <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset=".32" stop-color="#f2f6f4"/>
+    <stop offset=".58" stop-color="#bfc9c5"/>
+    <stop offset=".82" stop-color="#ffffff"/>
+    <stop offset="1" stop-color="#86958f"/>
   </linearGradient>
+  <linearGradient id="lime" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#00a94f"/>
+    <stop offset=".35" stop-color="#05c92c"/>
+    <stop offset=".68" stop-color="#a8f000"/>
+    <stop offset="1" stop-color="#edff32"/>
+  </linearGradient>
+  <radialGradient id="ball" cx=".32" cy=".23" r=".82">
+    <stop offset="0" stop-color="#faff8d"/>
+    <stop offset=".38" stop-color="#e8ff2d"/>
+    <stop offset=".72" stop-color="#86ec00"/>
+    <stop offset="1" stop-color="#1ca645"/>
+  </radialGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset=".25" stop-color="#879a94"/>
+    <stop offset=".55" stop-color="#1a2925"/>
+    <stop offset=".8" stop-color="#dce6e2"/>
+    <stop offset="1" stop-color="#5e716a"/>
+  </linearGradient>
+  <pattern id="carbon" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(28)">
+    <rect width="14" height="14" fill="#0b1512"/>
+    <rect width="7" height="14" fill="#17241f" opacity=".72"/>
+  </pattern>
 </defs>
-<g transform="translate(12 10)">
-  <path d="M52 178 82 38c4-18 18-28 37-28h73c56 0 90 27 90 72 0 41-25 69-67 79 19 10 33 26 39 49h-57c-7-23-23-34-50-34h-27l-8 34H52Zm81-81h43c29 0 47-13 47-34 0-19-16-28-43-28h-34l-13 62Z" fill="#10211C"/>
-  <circle cx="150" cy="106" r="49" fill="#CCF52A" stroke="#7ACB00" stroke-width="3"/>
-  <g fill="#0A5B37"><circle cx="129" cy="84" r="7"/><circle cx="158" cy="78" r="7"/><circle cx="177" cy="101" r="7"/><circle cx="165" cy="129" r="7"/><circle cx="136" cy="133" r="7"/><circle cx="148" cy="107" r="7"/></g>
-  <path d="M10 171c58 28 128 14 181-21 41-27 73-66 97-116l-7 48 35-22-20-58c-31 60-66 105-111 134-53 35-115 47-175 35Z" fill="url(#g)"/>
-  <path d="M20 159c50 14 103 2 147-27 31-20 56-47 75-81" fill="none" stroke="#DDFB21" stroke-width="5" stroke-linecap="round"/>
+
+<!-- sporty paddle / ball emblem -->
+<g transform="translate(18 10) rotate(-5 170 145)">
+  <path d="M88 222 130 54c6-25 26-41 51-41h92c67 0 109 32 109 86 0 43-25 75-68 90 22 13 37 35 43 67h-68c-8-31-28-47-61-47h-37l-12 47H88Zm115-106h54c34 0 55-16 55-41 0-22-18-33-51-33h-42l-16 74Z" fill="url(#carbon)" stroke="url(#rim)" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M100 215 139 58c4-17 18-28 35-28h93" fill="none" stroke="url(#lime)" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="218" cy="134" r="62" fill="url(#ball)" stroke="#e5ff43" stroke-width="4"/>
+  <g fill="#073e2a" stroke="#5ad000" stroke-width="1.5">
+    <ellipse cx="191" cy="100" rx="10" ry="14" transform="rotate(-24 191 100)"/>
+    <ellipse cx="229" cy="92" rx="10" ry="14" transform="rotate(10 229 92)"/>
+    <ellipse cx="255" cy="124" rx="10" ry="14" transform="rotate(30 255 124)"/>
+    <ellipse cx="241" cy="165" rx="10" ry="14" transform="rotate(10 241 165)"/>
+    <ellipse cx="201" cy="170" rx="10" ry="14" transform="rotate(-18 201 170)"/>
+    <ellipse cx="180" cy="137" rx="10" ry="14" transform="rotate(-36 180 137)"/>
+    <circle cx="218" cy="134" r="11"/>
+  </g>
+  <path d="M18 220c75 37 163 20 230-25 50-33 89-79 117-138l-8 59 41-26-24-70c-37 72-80 125-134 161-64 43-140 57-222 39Z" fill="url(#lime)"/>
+  <path d="M31 205c64 18 132 2 188-35 38-25 68-57 91-99" fill="none" stroke="#efff3f" stroke-width="5" stroke-linecap="round"/>
+  <g transform="translate(118 220) rotate(10)">
+    <rect width="55" height="68" rx="17" fill="#0b1110" stroke="#91a49d" stroke-width="3"/>
+    <path d="M7 14h41M6 31h43M6 48h43" stroke="#43dc18" stroke-width="4"/>
+  </g>
 </g>
-<g transform="translate(315 45) skewX(-8)">
-  <text x="0" y="101" font-family="Arial Black,Segoe UI,Arial,sans-serif" font-size="94" font-weight="900" letter-spacing="-5">
-    <tspan fill="#10211C">Pickle</tspan><tspan dx="-14" fill="#38C900">up</tspan><tspan dx="-5" fill="#243B34" font-size="62" letter-spacing="-3">.vn</tspan>
-  </text>
+
+<!-- wordmark: intentionally separated, never touching -->
+<g transform="skewX(-8)">
+  <text x="395" y="184" font-family="Arial Black,Segoe UI,Arial,sans-serif" font-size="126" font-weight="900" letter-spacing="-5" fill="url(#silver)" stroke="#13201d" stroke-width="2" paint-order="stroke">Pickle</text>
+  <text x="805" y="184" font-family="Arial Black,Segoe UI,Arial,sans-serif" font-size="126" font-weight="900" letter-spacing="-4" fill="url(#lime)" stroke="#0b6a37" stroke-width="2" paint-order="stroke">up</text>
+  <text x="1000" y="184" font-family="Arial Black,Segoe UI,Arial,sans-serif" font-size="80" font-weight="900" letter-spacing="-2" fill="url(#silver)" stroke="#13201d" stroke-width="1.5" paint-order="stroke">.vn</text>
 </g>
-<path d="M317 166h465c44 0 88-5 136-18l-89 30H317Z" fill="url(#g)"/>
+
+<!-- speed underline -->
+<path d="M375 224h575c49 0 100-6 158-19l-113 34H375Z" fill="url(#lime)"/>
+<path d="M413 246h440c37 0 73-4 114-12l-72 22H413Z" fill="#079d49" opacity=".72"/>
 </svg>
