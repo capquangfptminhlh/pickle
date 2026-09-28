@@ -252,10 +252,14 @@
   const api={
     login:async(email,password)=>{
       const normalized=String(email||"").trim().toLowerCase();
-      if(normalized!==DEMO_EMAIL||String(password||"")!==DEMO_PASSWORD){
-        throw Object.assign(new Error("INVALID_CREDENTIALS"),{status:401});
+      let user=null;
+      if(normalized===DEMO_EMAIL&&String(password||"")===DEMO_PASSWORD)user=DEMO_USER;
+      if(!user){
+        const ref=(state.referees||[]).find(r=>r.active!==false&&String(r.email||"").toLowerCase()===normalized&&String(r.password||"")===String(password||""));
+        if(ref)user={id:ref.id,email:ref.email,name:ref.display_name,role:"referee"};
       }
-      const session={user:DEMO_USER,createdAt:new Date().toISOString()};
+      if(!user)throw Object.assign(new Error("INVALID_CREDENTIALS"),{status:401});
+      const session={user,createdAt:new Date().toISOString()};
       localStorage.setItem(AUTH_KEY,JSON.stringify(session));
       return clone(session);
     },
@@ -265,7 +269,7 @@
     changePassword:async()=>{throw Object.assign(new Error("PREVIEW_DEMO_ACCOUNT"),{status:400})},
     publicState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
     submitTournament:async(payload)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free"};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
-    adminState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
+    adminState:async()=>{recomputeStats();evaluateTournamentRatings();const s=requireSession();if(s.user.role!=="referee")return clone(state);const matches=(state.matches||[]).filter(m=>m.refereeId===s.user.id);const dids=new Set(matches.map(m=>m.divisionId));const tids=new Set((state.divisions||[]).filter(d=>dids.has(d.id)).map(d=>d.tournamentId));const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(Boolean));return clone({...state,tournaments:(state.tournaments||[]).filter(t=>tids.has(t.id)),divisions:(state.divisions||[]).filter(d=>dids.has(d.id)),courts:(state.courts||[]).filter(c=>tids.has(c.tournamentId)),teams:(state.teams||[]).filter(t=>teamIds.has(t.id)),matches,referees:[]})},
     publicPlayers:async()=>{
       if(state.players&&state.players.length){
         return clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""})));
@@ -414,7 +418,7 @@
     quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
-    referees:async()=>clone(state.referees),createReferee:async p=>{const r={id:uid(),email:p.email,display_name:p.name,active:true};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active});persist();return clone(r)},
+    referees:async()=>clone(state.referees),createReferee:async p=>{if(!p.password||String(p.password).length<12)throw new Error("PASSWORD_TOO_SHORT");const r={id:uid(),email:p.email,display_name:p.name,active:true,password:String(p.password)};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active,...(p.password?{password:String(p.password)}:{})});persist();return clone(r)},
     registrations:async()=>clone(state.registrations),
     createRegistration:async(did,p)=>{const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId);const r={id:uid(),status:"approved",payment_status:"unpaid",amount:p.amount||null,team_name:team?.name||"",division_name:d?.name||"",tournament_name:t?.name||"",checked_in_at:null,payment_id:null,payment_review_status:null};state.registrations.push(r);persist();return clone(r)},
     updateRegistration:async(id,p)=>{const r=state.registrations.find(x=>x.id===id);Object.assign(r,{status:p.status??r.status,payment_status:p.paymentStatus??r.payment_status,amount:p.amount??r.amount});persist();return clone(r)},
