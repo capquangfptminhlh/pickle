@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v27-visible-test16-20260928";
+const VERSION="pickleup-pages-v28-visible-16-demo-20260928";
 const CORE=[
   "./",
   "./index.html",
