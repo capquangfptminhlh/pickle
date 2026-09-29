@@ -777,6 +777,7 @@ app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(r
 }));
 app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
+  if(req.user.role==="organizer"&&!(await canEditPlayer(req.user,playerId)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
   await pool.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[req.params.id,playerId]);res.status(201).json({ok:true});
 }));
 
@@ -807,7 +808,7 @@ app.post("/api/import/players",authRequired,allow("super_admin","organizer"),wra
         if(avatarUrl)await c.query("update players set avatar_url=coalesce($1,avatar_url) where id=$2",[avatarUrl,existing.id]);
         pId=existing.id;
       }else{
-        const p=(await c.query("insert into players(full_name,nickname,gender,rating,phone,club_id,avatar_url,active) values($1,$2,$3,$4,$5,$6,$7,true) returning id",[fullName,String(raw.nickname||"").trim()||null,gender,rating,String(raw.phone||"").trim()||null,clubId,avatarUrl])).rows[0];
+        const p=(await c.query("insert into players(full_name,nickname,gender,rating,phone,club_id,avatar_url,active,created_by_user_id) values($1,$2,$3,$4,$5,$6,$7,true,$8) returning id",[fullName,String(raw.nickname||"").trim()||null,gender,rating,String(raw.phone||"").trim()||null,clubId,avatarUrl,req.user.sub])).rows[0];
         pId=p.id;
       }
       ids.push(pId);created++;
@@ -841,7 +842,7 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
       ids.push(t.id);created++;
       for(const person of [raw.player1,raw.player2,raw.player3,raw.player4].map(x=>String(x||"").trim()).filter(Boolean)){
         let p=(await c.query("select id from players where lower(full_name)=lower($1) and active=true order by created_at limit 1",[person])).rows[0];
-        if(!p)p=(await c.query("insert into players(full_name,rating,club_id,active) values($1,3,$2,true) returning id",[person,clubId])).rows[0];
+        if(!p)p=(await c.query("insert into players(full_name,rating,club_id,active,created_by_user_id) values($1,3,$2,true,$3) returning id",[person,clubId,req.user.sub])).rows[0];
         await c.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[t.id,p.id]);linkedPlayers++;
       }
     }
