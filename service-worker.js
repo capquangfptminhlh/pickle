@@ -1,4 +1,4 @@
-const VERSION="pickleup-v16-auto-draw-courts-realtime-20260929";
+const VERSION="pickleup-v17-roles-roster-share-20260929";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
