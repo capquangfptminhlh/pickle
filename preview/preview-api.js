@@ -374,7 +374,66 @@
       for(const g of groups)for(const t of g.teams){const real=state.teams.find(x=>x.id===t.id);real.seed=seed++}
       persist();return {groupCount,assignments:clone(groups)}
     },
-    generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
+    generateRoundRobin:async did=>{
+      const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
+      const tournament=state.tournaments.find(x=>x.id===d.tournamentId);
+      const courts=state.courts.filter(c=>c.tournamentId===d.tournamentId&&c.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      if(!courts.length)throw new Error("NO_ACTIVE_COURTS");
+      const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");
+      const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))].sort();
+      if(!groups.length)throw new Error("NO_GROUPS");
+      const rounds=[];
+      for(const g of groups){
+        let ids=teams.filter(t=>t.group===g).sort((a,b)=>(a.seed||999)-(b.seed||999)).map(t=>t.id);
+        if(ids.length<2)continue;
+        if(ids.length%2===1)ids=[...ids,null];
+        const n=ids.length;let arr=[...ids];
+        for(let round=0;round<n-1;round++){
+          const pairs=[];
+          for(let i=0;i<n/2;i++){const a=arr[i],b=arr[n-1-i];if(a&&b)pairs.push({a,b,group:g,round})}
+          (rounds[round]||(rounds[round]=[])).push(...pairs);
+          arr=[arr[0],arr[n-1],...arr.slice(1,n-1)];
+        }
+      }
+      const start=tournament?.startAt?new Date(tournament.startAt):null;
+      const fmt=min=>{if(!start||Number.isNaN(start.getTime()))return "--:--";const x=new Date(start.getTime()+min*60000);return x.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})};
+      let created=0,slot=0;
+      for(const pairs of rounds){
+        if(!pairs?.length)continue;
+        for(let i=0;i<pairs.length;i++){
+          const p=pairs[i];
+          if(state.matches.some(m=>m.divisionId===did&&((m.a===p.a&&m.b===p.b)||(m.a===p.b&&m.b===p.a))))continue;
+          const batch=Math.floor(i/courts.length),court=courts[i%courts.length];
+          state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+p.group,court:court.sortOrder||court.name||1,courtId:court.id,time:fmt((slot+batch)*35),a:p.a,b:p.b,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null,roundNo:p.round+1});
+          created++;
+        }
+        slot+=Math.max(1,Math.ceil(pairs.length/courts.length))+1;
+      }
+      persist();return {created,courts:courts.length,slots:slot}
+    },
+    autoScheduleCourts:async did=>{
+      const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
+      const tournament=state.tournaments.find(x=>x.id===d.tournamentId);
+      const courts=state.courts.filter(c=>c.tournamentId===d.tournamentId&&c.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      if(!courts.length)throw new Error("NO_ACTIVE_COURTS");
+      const pending=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng ")&&m.status==="wait"&&!(m.sets||[]).length);
+      if(!pending.length)throw new Error("NO_UNSTARTED_MATCHES");
+      const slots=[];
+      const ordered=[...pending].sort((a,b)=>(a.roundNo||999)-(b.roundNo||999)||String(a.stage).localeCompare(String(b.stage),"vi"));
+      for(const m of ordered){
+        let si=0;
+        while(true){
+          const s=slots[si]||(slots[si]={matches:[],teams:new Set()});
+          if(s.matches.length<courts.length&&!s.teams.has(m.a)&&!s.teams.has(m.b)){s.matches.push(m);s.teams.add(m.a);s.teams.add(m.b);break}
+          si++;
+        }
+      }
+      const start=tournament?.startAt?new Date(tournament.startAt):null;
+      const fmt=min=>{if(!start||Number.isNaN(start.getTime()))return "--:--";const x=new Date(start.getTime()+min*60000);return x.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})};
+      let updated=0;
+      slots.forEach((s,si)=>s.matches.forEach((m,i)=>{const court=courts[i%courts.length];m.court=court.sortOrder||court.name||1;m.courtId=court.id;m.time=fmt(si*35);updated++}));
+      persist();return {updated,courts:courts.length,slots:slots.length}
+    },
     generateBracket:async did=>{
       const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
       const existingBracket=state.matches.filter(m=>m.divisionId===did&&m.bracketSlot);if(existingBracket.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length))throw new Error("BRACKET_ALREADY_STARTED");if(existingBracket.length)state.matches=state.matches.filter(m=>!(m.divisionId===did&&m.bracketSlot));
