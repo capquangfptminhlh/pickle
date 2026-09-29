@@ -57,6 +57,7 @@
     publicState:API.publicState.bind(API),publicPlayers:API.publicPlayers.bind(API),
     publicSponsors:API.publicSponsors?.bind(API),publicPosts:API.publicPosts?.bind(API),
     adminState:API.adminState.bind(API),players:API.players.bind(API),
+    importPlayers:API.importPlayers?.bind(API),importTeams:API.importTeams?.bind(API),
     createPlayer:API.createPlayer.bind(API),updatePlayer:API.updatePlayer.bind(API),
     deactivatePlayer:API.deactivatePlayer.bind(API),uploadPlayerAvatar:API.uploadPlayerAvatar.bind(API),
     adjustRating:API.adjustRating.bind(API),
@@ -69,6 +70,7 @@
     point:API.point.bind(API),finishSet:API.finishSet.bind(API),finishMatch:API.finishMatch.bind(API),quickScore:API.quickScore.bind(API),specialResult:API.specialResult.bind(API),undo:API.undo.bind(API),
     referees:API.referees.bind(API),createReferee:API.createReferee.bind(API),updateReferee:API.updateReferee.bind(API),
     registrations:API.registrations.bind(API),createRegistration:API.createRegistration.bind(API),updateRegistration:API.updateRegistration?.bind(API),deleteRegistration:API.deleteRegistration?.bind(API),
+    checkin:API.checkin?.bind(API),undoCheckin:API.undoCheckin?.bind(API),checkinQr:API.checkinQr?.bind(API),
     addPayment:API.addPayment?.bind(API),reviewPayment:API.reviewPayment?.bind(API)
   };
 
@@ -228,6 +230,23 @@
 
   API.adminState=async()=>filterState(await raw.adminState(),needUser());
   API.players=async()=>filterState(await raw.publicState(),needUser()).players;
+  if(raw.importPlayers)API.importPlayers=async rows=>{
+    const u=needUser();if(!["super_admin","organizer"].includes(u.role))throw forbidden();
+    const out=await raw.importPlayers(rows),after=await raw.publicState();
+    for(const row of (rows||[])){
+      const name=String(row.fullName||row.name||"").trim().toLowerCase();if(!name)continue;
+      const p=after.players.find(x=>String(x.full_name||"").trim().toLowerCase()===name);
+      if(p&&!meta.playerOwners[p.id])meta.playerOwners[p.id]=u.id;
+    }
+    saveMeta();return out;
+  };
+  if(raw.importTeams)API.importTeams=async(did,rows)=>{
+    const u=needUser();await ensureDivision(did);
+    const before=await raw.publicState(),beforeIds=new Set(before.players.map(p=>p.id));
+    const out=await raw.importTeams(did,rows),after=await raw.publicState();
+    after.players.filter(p=>!beforeIds.has(p.id)).forEach(p=>meta.playerOwners[p.id]=u.id);
+    saveMeta();return out;
+  };
   API.createPlayer=async p=>{
     const u=needUser();if(!["super_admin","organizer"].includes(u.role))throw forbidden();
     const x=await raw.createPlayer(p);meta.playerOwners[x.id]=u.id;saveMeta();return x;
@@ -302,6 +321,8 @@
   };
   API.createReferee=async p=>{
     const u=needUser(),s=await raw.publicState();
+    const email=normalEmail(p.email),existing=await raw.referees();
+    if(meta.accounts.some(a=>normalEmail(a.email)===email)||existing.some(r=>normalEmail(r.email)===email))throw Object.assign(new Error("EMAIL_EXISTS"),{status:409});
     let tid=p.tournamentId||null;
     if(u.role==="organizer"){
       if(!tid||!tournamentIdsFor(u,s).includes(tid))throw forbidden("TOURNAMENT_SCOPE_FORBIDDEN");
@@ -363,6 +384,20 @@
 
   API.registrations=async()=>filterState({...await raw.publicState(),registrations:await raw.registrations()},needUser()).registrations||[];
   if(raw.createRegistration)API.createRegistration=async(did,p)=>{await ensureDivision(did);return raw.createRegistration(did,p)};
+  const ensureRegistration=async id=>{
+    const u=needUser();if(u.role==="super_admin")return true;
+    const rows=await API.registrations();if(!rows.some(r=>r.id===id))throw forbidden("TOURNAMENT_SCOPE_FORBIDDEN");return true;
+  };
+  if(raw.checkin)API.checkin=async id=>{await ensureRegistration(id);return raw.checkin(id)};
+  if(raw.undoCheckin)API.undoCheckin=async id=>{await ensureRegistration(id);return raw.undoCheckin(id)};
+  if(raw.checkinQr)API.checkinQr=async id=>{await ensureRegistration(id);return raw.checkinQr(id)};
+  if(raw.addPayment)API.addPayment=async(id,p)=>{await ensureRegistration(id);return raw.addPayment(id,p)};
+  if(raw.reviewPayment)API.reviewPayment=async(pid,status)=>{
+    const u=needUser();if(u.role!=="super_admin"){
+      const rows=await API.registrations();if(!rows.some(r=>r.payment_id===pid))throw forbidden("TOURNAMENT_SCOPE_FORBIDDEN");
+    }
+    return raw.reviewPayment(pid,status);
+  };
   if(raw.updateRegistration)API.updateRegistration=async(id,p)=>{
     const regs=await API.registrations();if(!regs.some(r=>r.id===id)&&user()?.role!=="super_admin")throw forbidden();
     return raw.updateRegistration(id,p);
