@@ -7,7 +7,7 @@
 <link rel="icon" href="assets/app-icon-v4.svg" type="image/svg+xml">
 <title>Chi tiết giải | Pickleup.vn</title>
 <meta name="description" content="Thông tin giải, nội dung thi đấu, đội tham dự, lịch, live score, bảng xếp hạng và bracket.">
-<link rel="stylesheet" href="assets/styles.css?v=28"><link rel="stylesheet" href="assets/public.css?v=28">
+<link rel="stylesheet" href="assets/styles.css?v=28"><link rel="stylesheet" href="assets/public.css?v=29">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=20260928-1530">
 </head>
 <body class="public-body community-public tournament-app-page">
@@ -28,8 +28,8 @@
   </div>
   <div class="tournament-app-ball" aria-hidden="true"></div>
 </section>
-<nav class="public-container tournament-tabs">
-  <a href="#overview">Tổng quan</a><a href="#participants">VĐV đăng ký</a><a href="#schedule">Live / Lịch</a><a href="#standings">BXH</a><a href="#knockout">Bracket</a>
+<nav class="public-container tournament-tabs tournament-focus-tabs">
+  <a href="#knockout">🏆 Sơ đồ thi đấu</a><a href="#schedule">🗓 Bảng đấu / Lịch</a><a href="#participants">👥 VĐV</a><a href="#standings">📊 BXH</a>
 </nav>
 <section id="overview" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THÔNG TIN GIẢI</span><h2>Nội dung thi đấu</h2></div></div>
@@ -39,20 +39,20 @@
   <div class="app-section-head"><div><span>VẬN ĐỘNG VIÊN</span><h2>Đội / cặp tham dự</h2></div><span id="tourTeamCount" class="app-count-pill">0 đội</span></div>
   <div id="tourTeams" class="tournament-team-grid"></div>
 </div></section>
-<section id="schedule" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill">0 live</span></div>
-  <div id="tourMatches" class="public-match-grid app-match-list"></div>
+<section id="knockout" class="public-section community-section"><div class="public-container">
+  <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Sơ đồ thi đấu</h2></div></div><div class="tournament-bracket-help">Sơ đồ tự động từ Top 2 vòng bảng đến trận Chung kết.</div><div id="tourBracket"></div>
 </div></section>
 <section id="standings" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THI ĐẤU</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div>
 </div></section>
-<section id="knockout" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Sơ đồ thi đấu</h2></div></div><div class="tournament-bracket-help">Sơ đồ tự động từ Top 2 vòng bảng đến trận Chung kết.</div><div id="tourBracket"></div>
+<section id="schedule" class="public-section community-section"><div class="public-container">
+  <div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill">0 live</span></div>
+  <div id="tourMatches" class="public-match-grid app-match-list"></div>
 </div></section>
 <section id="tourSponsorsSection" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>ĐỒNG HÀNH</span><h2>Nhà tài trợ</h2></div></div><div id="tourSponsors" class="public-sponsor-strip"></div>
 </div></section>
 </main>
 <footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
-<script src="preview-api.js?v=28"></script><script src="assets/bracket-ui.js?v=28"></script><script src="assets/tournament.js?v=28"></script><script src="assets/ui-motion.js"></script><script src="preview-pwa.js"></script>
+<script src="preview-api.js?v=28"></script><script src="assets/bracket-ui.js?v=29"></script><script src="assets/tournament.js?v=29"></script><script src="assets/ui-motion.js"></script><script src="preview-pwa.js"></script>
 </body></html>
