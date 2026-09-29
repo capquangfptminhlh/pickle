@@ -1431,3 +1431,124 @@ body.public-body main{height:auto!important;max-height:none!important;overflow:v
     box-sizing:border-box!important;
   }
 }
+
+/* BRACKET CAROUSEL + ONE-ROW GROUPS V33 */
+#tourBracket{
+  position:relative;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x mandatory!important;
+  scroll-padding-inline:12px;
+  padding:8px 2px 14px!important;
+  scrollbar-width:none;
+  touch-action:pan-x pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+#tourBracket::-webkit-scrollbar,
+#tourTeams::-webkit-scrollbar,
+#tourStandings::-webkit-scrollbar{display:none}
+#tourBracket .bracket-tree,
+#tourBracket .bracket-plan{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  align-items:stretch!important;
+  gap:18px!important;
+  width:max-content!important;
+  min-width:max-content!important;
+  padding:4px 10px 8px 2px!important;
+}
+#tourBracket .bracket-round-pro{
+  flex:0 0 260px!important;
+  min-width:260px!important;
+  max-width:260px!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:always!important;
+}
+#tourBracket .bracket-round-pro>h3{
+  position:relative!important;
+  top:auto!important;
+  margin-bottom:10px!important;
+}
+#tourBracket .bracket-match-wrap{margin:7px 0!important}
+#tourBracket .bracket-match-wrap:after{right:-19px!important;width:19px!important}
+.tournament-bracket-help{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+}
+.tournament-bracket-help:after{
+  content:"Vuốt ngang →";
+  flex:0 0 auto;
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(120,255,182,.12);
+  border:1px solid rgba(120,255,182,.24);
+  color:#8dffc1;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.02em;
+  animation:swipeHint 1.6s ease-in-out infinite;
+}
+#tourTeams.tournament-team-grid{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  gap:12px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x mandatory!important;
+  scroll-padding-inline:2px;
+  padding:2px 2px 10px!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-x pan-y!important;
+}
+#tourTeams .tournament-group-card{
+  flex:0 0 380px!important;
+  width:380px!important;
+  max-width:calc(100vw - 48px)!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:always!important;
+}
+#tourStandings.grid-2{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  gap:12px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x mandatory!important;
+  scroll-padding-inline:2px;
+  padding:2px 2px 10px!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-x pan-y!important;
+}
+#tourStandings>.public-standings{
+  flex:0 0 560px!important;
+  width:560px!important;
+  max-width:calc(100vw - 48px)!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:always!important;
+}
+@keyframes swipeHint{0%,100%{transform:translateX(0);opacity:.72}50%{transform:translateX(4px);opacity:1}}
+@media(max-width:760px){
+  #tourBracket{margin:0!important;padding-left:0!important;padding-right:0!important}
+  #tourBracket .bracket-tree,
+  #tourBracket .bracket-plan{gap:12px!important;padding-right:24px!important}
+  #tourBracket .bracket-round-pro{
+    flex-basis:min(78vw,278px)!important;
+    min-width:min(78vw,278px)!important;
+    max-width:min(78vw,278px)!important;
+  }
+  #tourBracket .bracket-match-wrap:after{right:-13px!important;width:13px!important}
+  #tourTeams .tournament-group-card{
+    flex-basis:86vw!important;
+    width:86vw!important;
+    max-width:360px!important;
+  }
+  #tourStandings>.public-standings{
+    flex-basis:88vw!important;
+    width:88vw!important;
+    max-width:390px!important;
+  }
+  .tournament-bracket-help{font-size:10px!important}
+  .tournament-bracket-help:after{font-size:8px;padding:5px 8px}
+}
