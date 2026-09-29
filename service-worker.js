@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v38-accounts-sharing-20260929";
+const VERSION="pickleup-pages-v39-roles-sharing-20260929";
 const CORE=[
   "./",
   "./index.html",
