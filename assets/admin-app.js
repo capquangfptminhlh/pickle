@@ -162,15 +162,53 @@ function rankTournamentGroup(did,g){
 function tournamentCard(t){
   const dids=state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id);
   const teamCount=state.teams.filter(x=>dids.includes(x.divisionId)&&x.status!=="withdrawn").length;
+  const courtCount=state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length;
   return `<article class="tour-card" data-open-tournament="${t.id}" style="cursor:pointer"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
-    <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đăng ký</small><b>${teamCount} cặp/đội</b></span></div>
+    <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đăng ký</small><b>${teamCount} cặp/đội</b></span><span><small>Sân</small><b>${courtCount||6} sân</b></span></div>
     <div class="actions tournament-quick-actions"><button type="button" class="mini" data-tournament-roster="${t.id}">👥 VĐV đăng ký</button><button type="button" class="mini draw-mini" data-tournament-draw="${t.id}">🎡 Quay số</button><button type="button" class="mini" data-tournament-bracket="${t.id}">🧩 Sơ đồ</button><a class="mini" href="tournament.html?id=${encodeURIComponent(t.id)}#schedule" target="_blank" rel="noopener">🔴 Live</a></div>
   </div></article>`;
 }
 function tournaments(){
   setHeader("Giải đấu","Chọn một giải để xem VĐV đăng ký, bốc thăm chia bảng và tạo nhánh tự động");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
+  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-test-16>🧪 Test 16 cặp</button><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
+}
+async function create16PairTestTournament(){
+  const existing=state.tournaments.find(t=>String(t.name||"").startsWith("TEST 16 CẶP"));
+  if(existing){await openTournamentDetail(existing.id);toast("Đã mở giải test 16 cặp hiện có.");return}
+  if(!confirm("Tạo giải TEST 16 CẶP, quay 4 bảng × 4 cặp và sinh sơ đồ Tứ kết → Bán kết → Chung kết?"))return;
+  const overlay=document.createElement("div");overlay.className="draw-wheel-overlay";
+  overlay.innerHTML='<div class="draw-wheel-card"><div class="draw-wheel"><div class="draw-wheel-ring"></div><strong>16</strong></div><h3>Đang tạo 16 cặp VĐV...</h3><p>Tạo VĐV → quay 4 bảng → 24 trận vòng bảng → Top 8 → sơ đồ Chung kết.</p></div>';
+  document.body.appendChild(overlay);
+  try{
+    const created=await API.createTournament({name:"TEST 16 CẶP – AUTO DRAW",venue:"Sân Demo Pickleup",eventType:"doubles"});
+    const tid=created.tournament.id,did=created.division.id;
+    await API.updateDivisionFull(did,{name:"Đôi 16 cặp",eventType:"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true});
+    for(let i=1;i<=6;i++)await API.createCourt(tid,{name:"Sân "+i});
+    for(let i=1;i<=16;i++){
+      const team=await API.createTeam(did,{name:"Cặp "+String(i).padStart(2,"0"),club:"Test Pickleup",group:"A",seed:i});
+      const p1=await API.createPlayer({fullName:"VĐV "+String(i*2-1).padStart(2,"0"),rating:2+((i*7)%16)/10});
+      const p2=await API.createPlayer({fullName:"VĐV "+String(i*2).padStart(2,"0"),rating:2+((i*11)%16)/10});
+      await API.addTeamPlayer(team.id,p1.id);await API.addTeamPlayer(team.id,p2.id);
+      await API.createRegistration(did,{teamId:team.id,amount:0});
+    }
+    overlay.querySelector("h3").textContent="🎡 Đang quay số chia 4 bảng...";
+    await API.autoSeedGroups(did,4);
+    const rr=await API.generateRoundRobin(did);
+    let snapshot=await API.adminState();
+    const gm=snapshot.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
+    for(let i=0;i<gm.length;i++){
+      const a=11,b=5+(i%5);
+      await API.quickScore(gm[i].id,{sets:[[a,b],[a,Math.min(9,b+1)]]});
+    }
+    const ko=await API.generateBracket(did);
+    overlay.querySelector("h3").textContent="✅ Test 16 cặp hoàn tất";
+    overlay.querySelector("p").textContent="4 bảng × 4 cặp • "+rr.created+" trận vòng bảng • "+ko.created+" trận knockout.";
+    await new Promise(r=>setTimeout(r,900));
+    overlay.remove();await refresh();await openTournamentDetail(tid);
+    setTimeout(()=>document.querySelector(".tournament-bracket-preview")?.scrollIntoView({behavior:"smooth",block:"center"}),120);
+    toast("Đã tạo 16 cặp, chia 4 bảng và sinh sơ đồ đến Chung kết.");
+  }catch(e){overlay.remove();toast("Test 16 cặp lỗi: "+e.message)}
 }
 async function openTournamentDetail(tournamentId){
   const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
@@ -222,7 +260,7 @@ async function openTournamentDetail(tournamentId){
   }).join("");
   $("#genericTitle").textContent=t.name+" • Trung tâm điều hành";
   $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
-    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → quay số chia bảng → vòng bảng → Top 2 → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
+    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length||6} sân</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → quay số chia bảng → vòng bảng → Top 2 → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
     ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
   </div>`;
   $("#genericDialog").showModal();
@@ -255,6 +293,7 @@ async function openTournamentDetail(tournamentId){
   document.querySelector("[data-center-roster]")?.addEventListener("click",()=>document.querySelector("[data-auto-draw]")?.closest("section")?.scrollIntoView({behavior:"smooth",block:"start"}));
   document.querySelector("[data-center-bracket]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("bracket")});
   document.querySelector("[data-center-live]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("scores")});
+  document.querySelector("[data-center-courts]")?.addEventListener("click",e=>openCourtCountModal(e.currentTarget.dataset.centerCourts));
   document.querySelector("[data-center-referees]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("referees")});
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
@@ -333,8 +372,9 @@ function bracket(){
 }
 function courts(){
   setHeader("Sân thi đấu","Theo dõi và cấu hình sân theo giải");
-  const cards=state.courts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),next=state.matches.find(m=>m.courtId===c.id&&m.status==="wait");return `<div class="panel" data-court-card="${c.id}"><div class="panel-head"><h2>${c.name}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
-  return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${state.courts.length} sân</p></div>${canManage()?'<button class="btn primary" data-action="newCourt">Thêm sân</button>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
+  const activeCourts=state.courts.filter(c=>c.active!==false);
+  const cards=activeCourts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),next=state.matches.find(m=>m.courtId===c.id&&m.status==="wait");return `<div class="panel" data-court-card="${c.id}"><div class="panel-head"><h2>${c.name}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
+  return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${activeCourts.length} sân hoạt động • mặc định 6 sân / giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="courtCount">Cấu hình số sân</button><button class="btn primary" data-action="newCourt">Thêm sân</button></div>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
 }
 async function refereesPage(){
   setHeader("Trọng tài","Tài khoản, trạng thái và phân quyền nhập điểm");
@@ -423,6 +463,7 @@ function applyMatchFilters(){
   const empty=$("#matchFilterEmpty");if(empty)empty.hidden=visible!==0||cards.length===0;
 }
 function bindDynamic(){
+  document.querySelector("[data-test-16]")?.addEventListener("click",create16PairTestTournament);
   document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{if(e.target.closest("button,a,select,input"))return;openTournamentDetail(card.dataset.openTournament)});
   document.querySelectorAll("[data-tournament-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTournamentDetail(b.dataset.tournamentRoster)});
   document.querySelectorAll("[data-tournament-draw]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentDraw);setTimeout(()=>document.querySelector("[data-auto-draw]")?.click(),30)});
@@ -433,6 +474,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
   document.querySelectorAll('[data-action="newCourt"]').forEach(b=>b.onclick=openCourtModal);
+  document.querySelectorAll('[data-action="courtCount"]').forEach(b=>b.onclick=()=>openCourtCountModal());
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="autoSeed"]').forEach(b=>b.onclick=openAutoSeedModal);
   document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
@@ -666,6 +708,35 @@ function openCourtModal(){
   $("#genericDialog").showModal();
   $("#saveCourt").onclick=async()=>{try{await API.createCourt($("#cTournament").value,{name:$("#cName").value});$("#genericDialog").close();await refresh();toast("Đã thêm sân.")}catch(e){toast("Không thể thêm sân: "+e.message)}};
 }
+async function syncTournamentCourtCount(tournamentId,count){
+  count=Math.max(1,Math.min(20,Number(count)||6));
+  const active=state.courts.filter(x=>x.tournamentId===tournamentId&&x.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+  if(active.length<count){
+    for(let i=active.length+1;i<=count;i++)await API.createCourt(tournamentId,{name:"Sân "+i,sortOrder:i});
+  }else if(active.length>count){
+    const remove=[...active].sort((a,b)=>(b.sortOrder||0)-(a.sortOrder||0)).slice(0,active.length-count);
+    for(const court of remove)await API.deleteCourt(court.id);
+  }
+}
+function openCourtCountModal(tournamentId){
+  if(!state.tournaments.length)return toast("Cần tạo giải trước.");
+  const selected=tournamentId||state.tournaments[0].id;
+  const current=id=>state.courts.filter(x=>x.tournamentId===id&&x.active!==false).length||6;
+  $("#genericTitle").textContent="Cấu hình số sân";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Giải<select id="courtCountTournament">${state.tournaments.map(t=>`<option value="${t.id}" ${t.id===selected?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
+    <label class="field full">Số sân hoạt động<input id="courtCountValue" type="number" min="1" max="20" step="1" value="${current(selected)}"></label>
+    <div class="field full"><span style="font-size:11px;color:#73847b">Mặc định 6 sân. Có thể tăng/giảm từ 1–20 sân. Nếu giảm sân đã có lịch sử, sân sẽ được ẩn nhưng dữ liệu trận vẫn giữ nguyên.</span></div>
+    <div class="field full"><button type="button" class="btn primary" id="saveCourtCount">Lưu số sân</button></div>
+  </div>`;
+  const dlg=$("#genericDialog");if(!dlg.open)dlg.showModal();
+  const select=$("#courtCountTournament"),input=$("#courtCountValue");
+  select.onchange=()=>{input.value=current(select.value)};
+  $("#saveCourtCount").onclick=async()=>{
+    const tid=select.value,count=Math.max(1,Math.min(20,Number(input.value)||6));
+    try{await syncTournamentCourtCount(tid,count);dlg.close();await refresh();toast("Đã cấu hình "+count+" sân cho giải.")}catch(e){toast("Không thể cập nhật số sân: "+e.message)}
+  };
+}
 function openTournamentModal(){
   $("#genericTitle").textContent="Tạo giải mới";
   $("#genericBody").innerHTML=`<div class="form-grid">
@@ -673,10 +744,11 @@ function openTournamentModal(){
     <label class="field">Ngày giờ<input id="fDate" type="datetime-local"></label>
     <label class="field">Nội dung<select id="fType"><option value="doubles">Đôi nam/nữ</option><option value="mixed_doubles">Đôi nam nữ</option><option value="singles">Đơn</option><option value="team">Đồng đội</option></select></label>
     <label class="field full">Địa điểm<input id="fVenue" placeholder="Tên sân / CLB"></label>
+    <label class="field full">Số sân sử dụng<input id="fCourtCount" type="number" min="1" max="20" step="1" value="6"><span>Mặc định 6 sân, có thể chỉnh lại sau.</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveTournament">Tạo giải</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");try{await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});$("#genericDialog").close();await refresh();toast("Đã tạo giải.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
+  $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");const courtCount=Math.max(1,Math.min(20,Number($("#fCourtCount").value)||6));try{const created=await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});const tid=created?.tournament?.id||created?.id;if(tid)for(let i=1;i<=courtCount;i++)await API.createCourt(tid,{name:"Sân "+i,sortOrder:i});$("#genericDialog").close();await refresh();toast("Đã tạo giải với "+courtCount+" sân.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
 }
 function openCsvImportModal(){
   $("#genericTitle").textContent="Import VĐV / Hội viên (Hỗ trợ Zalo)";
