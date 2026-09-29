@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v36-auto-draw-courts-realtime-20260929";
+const VERSION="pickleup-pages-v38-accounts-sharing-20260929";
 const CORE=[
   "./",
   "./index.html",
@@ -17,7 +17,7 @@ const CORE=[
   "./preview-guard.js",
   "./assets/app-icon-v4.svg",
   "./assets/pickleup-logo-v5.svg",
-  "./preview-api.js",
+  "./preview-api.js",\n  "./pages-auth.js",
   "./preview-public.js",
   "./preview-pwa.js"
 ];
