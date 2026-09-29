@@ -1374,3 +1374,60 @@ body.player-profile-page{position:static!important;height:auto!important;min-hei
   .player-profile-page .player-match-score{gap:10px!important;flex-wrap:wrap!important}
   .player-profile-page .public-mobile-dock{left:12px!important;right:12px!important;bottom:max(8px,env(safe-area-inset-bottom,0px))!important;max-width:536px!important;margin:0 auto!important}
 }
+
+/* PUBLIC MOBILE SCROLL + ALIGN AUDIT V32 */
+html{overflow-x:hidden}
+body.public-body{
+  position:static!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-height:100vh!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:auto!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body.public-body.route-leaving{overflow-y:auto!important;touch-action:pan-y!important}
+body.public-body main{height:auto!important;max-height:none!important;overflow:visible!important}
+@media(max-width:760px){
+  body.public-body{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))!important}
+  body.public-body .public-header .public-container{
+    width:calc(100% - 24px)!important;
+    max-width:680px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  body.public-body:not(.home-screen):not(.checkin-body) main>.public-container,
+  body.public-body:not(.home-screen):not(.checkin-body) .public-section>.public-container{
+    width:calc(100% - 24px)!important;
+    max-width:680px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  body.public-body .public-mobile-dock{
+    left:12px!important;
+    right:12px!important;
+    max-width:656px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  body.public-body .public-bracket,
+  body.public-body #tourBracket,
+  body.public-body .court-board-grid,
+  body.public-body .community-chips,
+  body.public-body .ranking-tabs{
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-x pan-y!important;
+  }
+  body.public-body .panel,
+  body.public-body .player-panel,
+  body.public-body .player-match,
+  body.public-body .tour-card,
+  body.public-body .public-standings{
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+}
