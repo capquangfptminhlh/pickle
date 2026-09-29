@@ -35,7 +35,7 @@ function render(){
  $("#tourHeroStats").innerHTML=[
    ["Nội dung",divs.length],["Đội / cặp",teams.length],["Trận đấu",matches.length],["Đã xong",done.length]
  ].map(([k,v])=>'<span><b>'+v+'</b><small>'+k+'</small></span>').join("");
- $("#tourLiveCount").textContent=live.length+" live";$("#tourTeamCount").textContent=teams.length+" đội";
+ $("#tourLiveCount").textContent=(live.length?"● "+live.length+" LIVE":"0 live")+" • "+(realtimeConnected?"REALTIME":"CÔNG KHAI");$("#tourLiveCount").classList.toggle("is-realtime",realtimeConnected);$("#tourTeamCount").textContent=teams.length+" đội";
  $("#tourDivisions").innerHTML=divs.map(d=>'<article class="tournament-division-card"><div><span>'+esc(d.eventType||"Nội dung")+'</span><h3>'+esc(d.name)+'</h3><p>'+esc(d.format||"")+'</p></div><div class="division-rule-pills"><b>Best of '+esc(d.bestOf)+'</b><b>'+esc(d.pointsToWin)+' điểm</b><b>'+(d.winByTwo?"Cách 2":"Không cách 2")+'</b></div></article>').join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
  $("#tourTeams").innerHTML=(()=>{
    const sorted=[...teams].sort((a,b)=>String(a.group||"ZZ").localeCompare(String(b.group||"ZZ"),"vi")||Number(a.seed||999)-Number(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
@@ -126,5 +126,19 @@ function drawBracketConnectors(){
   tree.prepend(svg);
 }
 addEventListener("resize",()=>{clearTimeout(window.__pickleBracketResize);window.__pickleBracketResize=setTimeout(drawBracketConnectors,120)});
-async function load(){[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}load().catch(console.error);
-if(window.io){const socket=io();socket.on("public:state",s=>{state=s;render()})}
+async function load(){
+  if(realtimeRefreshBusy)return;
+  realtimeRefreshBusy=true;
+  try{[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}
+  finally{realtimeRefreshBusy=false}
+}
+load().catch(console.error);
+if(window.io){
+  const socket=io();
+  socket.on("connect",()=>{realtimeConnected=true;render()});
+  socket.on("disconnect",()=>{realtimeConnected=false;render()});
+  socket.on("public:state",s=>{realtimeConnected=true;state=s;render()});
+  socket.on("match:update",()=>{realtimeConnected=true;load().catch(console.error)});
+}
+setInterval(()=>{if(!realtimeConnected)load().catch(console.error)},10000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)load().catch(console.error)});
