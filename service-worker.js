@@ -1,4 +1,4 @@
-const VERSION="pickleup-v12-full-public-audit-20260929";
+const VERSION="pickleup-v13-dynamic-bracket-horizontal-groups-20260929";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
