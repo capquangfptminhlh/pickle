@@ -139,6 +139,94 @@ const canAccessClub=(user,clubId)=>{
 };
 async function clubEventById(id){return (await pool.query("select * from club_events where id=$1",[id])).rows[0]}
 
+async function organizerTournamentIds(user,c=pool){
+  if(user?.role==="super_admin")return null;
+  if(user?.role!=="organizer")return [];
+  const {rows}=await c.query(
+    "select id from tournaments where owner_user_id=$1 or ($2::uuid is not null and id=$2)",
+    [user.sub,user.tournamentScope||null]
+  );
+  return rows.map(r=>r.id);
+}
+async function canManageTournament(user,tournamentId,c=pool){
+  if(!tournamentId)return false;
+  if(user?.role==="super_admin")return true;
+  if(user?.role!=="organizer")return false;
+  return Boolean((await c.query(
+    "select 1 from tournaments where id=$1 and (owner_user_id=$2 or ($3::uuid is not null and id=$3))",
+    [tournamentId,user.sub,user.tournamentScope||null]
+  )).rowCount);
+}
+async function requireTournamentManage(user,tournamentId,c=pool){
+  if(await canManageTournament(user,tournamentId,c))return true;
+  throw Object.assign(new Error("TOURNAMENT_SCOPE_FORBIDDEN"),{status:403});
+}
+async function tournamentIdForDivision(id,c=pool){
+  return (await c.query("select tournament_id from divisions where id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function tournamentIdForCourt(id,c=pool){
+  return (await c.query("select tournament_id from courts where id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function tournamentIdForTeam(id,c=pool){
+  return (await c.query("select d.tournament_id from teams t join divisions d on d.id=t.division_id where t.id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function canEditPlayer(user,playerId,c=pool){
+  if(user?.role==="super_admin")return true;
+  if(user?.role==="club_manager"){
+    if(!user.clubId)return false;
+    return Boolean((await c.query("select 1 from players where id=$1 and club_id=$2",[playerId,user.clubId])).rowCount);
+  }
+  if(user?.role==="organizer"){
+    return Boolean((await c.query(`
+      select 1
+      from players p
+      where p.id=$1 and (
+        p.created_by_user_id=$2
+        or exists (
+          select 1 from team_players tp
+          join teams t on t.id=tp.team_id
+          join divisions d on d.id=t.division_id
+          join tournaments tr on tr.id=d.tournament_id
+          where tp.player_id=p.id
+            and (tr.owner_user_id=$2 or ($3::uuid is not null and tr.id=$3))
+        )
+      )
+    `,[playerId,user.sub,user.tournamentScope||null])).rowCount);
+  }
+  if(user?.role==="referee"){
+    return Boolean((await c.query(`
+      select 1
+      from team_players tp
+      join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
+      where tp.player_id=$1 and m.referee_user_id=$2
+    `,[playerId,user.sub])).rowCount);
+  }
+  return false;
+}
+function filterStateToTournamentIds(state,ids,{includeAudit=false}={}){
+  const allowed=new Set(ids||[]);
+  const divisions=state.divisions.filter(d=>allowed.has(d.tournamentId));
+  const divisionIds=new Set(divisions.map(d=>d.id));
+  const teams=state.teams.filter(t=>divisionIds.has(t.divisionId));
+  const teamIds=new Set(teams.map(t=>t.id));
+  const teamPlayers={};const playerIds=new Set();
+  for(const tid of teamIds){
+    const idsForTeam=state.teamPlayers?.[tid]||[];
+    teamPlayers[tid]=idsForTeam;
+    idsForTeam.forEach(id=>playerIds.add(id));
+  }
+  return {
+    tournaments:state.tournaments.filter(t=>allowed.has(t.id)),
+    divisions,
+    courts:state.courts.filter(c=>allowed.has(c.tournamentId)),
+    teams,
+    players:(state.players||[]).filter(p=>playerIds.has(p.id)),
+    teamPlayers,
+    matches:state.matches.filter(m=>divisionIds.has(m.divisionId)),
+    audit:includeAudit?state.audit:[]
+  };
+}
+
 async function loadState({publicOnly=false}={}){
   const tSql=publicOnly
     ?"select * from tournaments where public_visible=true order by is_featured desc, featured_rank desc, start_at desc"
@@ -232,7 +320,12 @@ async function loadState({publicOnly=false}={}){
 }
 
 async function loadAdminState(user){
-  if(["super_admin","organizer"].includes(user.role))return loadState();
+  if(user.role==="super_admin")return loadState();
+  if(user.role==="organizer"){
+    const state=await loadState();
+    const ids=await organizerTournamentIds(user);
+    return filterStateToTournamentIds(state,ids);
+  }
   if(user.role==="referee"){
     const state=await loadState();
     const matches=state.matches.filter(m=>m.refereeId===user.sub);
@@ -276,7 +369,8 @@ function validateSet(a,b,target,winByTwo){
   return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
 async function authorizeMatch(c,user,m){
-  if(["super_admin","organizer"].includes(user.role))return true;
+  if(user.role==="super_admin")return true;
+  if(user.role==="organizer")return canManageTournament(user,m.tournament_id,c);
   if(user.role==="referee"&&m.referee_user_id===user.sub)return true;
   return false;
 }
