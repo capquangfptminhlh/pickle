@@ -56,22 +56,25 @@
   }
 
   async function editPlayer(p,ctx){
-    const clubs=await API.clubs().catch(()=>[]);
+    const referee=ctx.user?.role==="referee";
+    const clubs=referee?[]:await API.clubs().catch(()=>[]);
     modal("Sửa VĐV",'<div class="form-grid">'+
       '<label class="field full">Họ tên<input id="crudPName" value="'+esc(p.full_name)+'"></label>'+
       '<label class="field">Biệt danh<input id="crudPNick" value="'+esc(p.nickname||"")+'"></label>'+
       '<label class="field">Giới tính<select id="crudPGender"><option value="">Chưa chọn</option><option value="male" '+(p.gender==="male"?"selected":"")+'>Nam</option><option value="female" '+(p.gender==="female"?"selected":"")+'>Nữ</option><option value="other" '+(p.gender==="other"?"selected":"")+'>Khác</option></select></label>'+
+      (referee?'<div class="field full security-note"><b>Quyền Trọng tài</b><span>Chỉ được sửa tên, biệt danh, giới tính và avatar của VĐV trong các trận được phân công.</span></div>':
       '<label class="field">CLB<select id="crudPClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+c.id+'" '+(c.id===p.club_id?"selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></label>'+
       '<label class="field">Điện thoại<input id="crudPPhone" value="'+esc(p.phone||"")+'"></label>'+
-      '<label class="field" style="align-content:end"><span><input id="crudPActive" type="checkbox" '+(p.active?"checked":"")+'> Hoạt động</span></label>'+
+      '<label class="field" style="align-content:end"><span><input id="crudPActive" type="checkbox" '+(p.active?"checked":"")+'> Hoạt động</span></label>')+
       '<div class="field full"><button id="crudSaveP" type="button" class="btn primary">Lưu VĐV</button></div></div>');
     $("#crudSaveP").onclick=async()=>{
       try{
-        await API.updatePlayer(p.id,{
+        const payload={
           fullName:$("#crudPName").value.trim(),nickname:$("#crudPNick").value.trim(),
-          gender:$("#crudPGender").value||null,clubId:$("#crudPClub").value||null,
-          phone:$("#crudPPhone").value.trim(),active:$("#crudPActive").checked
-        });
+          gender:$("#crudPGender").value||null
+        };
+        if(!referee)Object.assign(payload,{clubId:$("#crudPClub").value||null,phone:$("#crudPPhone").value.trim(),active:$("#crudPActive").checked});
+        await API.updatePlayer(p.id,payload);
         close();await ctx.refresh();ctx.toast("Đã cập nhật VĐV.");
       }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}
     };
@@ -134,7 +137,7 @@
   async function decorate(ctx){
     if(!ctx?.user)return;
     const full=["super_admin","organizer"].includes(ctx.user.role);
-    const rosterOnly=ctx.user.role==="club_manager"&&ctx.page==="players";
+    const rosterOnly=["club_manager","referee"].includes(ctx.user.role)&&ctx.page==="players";
     if(!full&&!rosterOnly)return;
     const page=ctx.page;
 
@@ -153,7 +156,8 @@
       roster.forEach(p=>{
         const row=document.querySelector('[data-player-row="'+p.id+'"]');if(!row)return;
         const cell=row.lastElementChild;if(!cell||cell.dataset.crud)return;cell.dataset.crud="1";
-        cell.insertAdjacentHTML("beforeend",' <button class="mini" data-crud-edit-player="'+p.id+'">Sửa</button>'+(p.active?'<button class="mini danger-mini" data-crud-disable-player="'+p.id+'">Khóa</button>':''));
+        const canDisable=ctx.user.role!=="referee";
+        cell.insertAdjacentHTML("beforeend",' <button class="mini" data-crud-edit-player="'+p.id+'">Sửa</button>'+(canDisable&&p.active?'<button class="mini danger-mini" data-crud-disable-player="'+p.id+'">Khóa</button>':''));
       });
       document.querySelectorAll("[data-crud-edit-player]").forEach(b=>b.onclick=()=>editPlayer(roster.find(p=>p.id===b.dataset.crudEditPlayer),ctx));
       document.querySelectorAll("[data-crud-disable-player]").forEach(b=>b.onclick=()=>danger("Khóa VĐV này khỏi danh sách công khai?",()=>API.deactivatePlayer(b.dataset.crudDisablePlayer),ctx));
