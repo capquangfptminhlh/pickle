@@ -438,7 +438,7 @@ app.get("/api/public/clubs",wrap(async(req,res)=>{
   const {rows}=await pool.query("select id,name,slug,city from clubs where active=true order by name");res.json(rows);
 }));
 
-app.get("/api/public/state",wrap(async(req,res)=>res.json(await loadState({publicOnly:true}))));
+app.get("/api/public/state",wrap(async(req,res)=>{res.set("Cache-Control","no-store");res.json(await loadState({publicOnly:true}))}));
 
 app.get("/api/public/posts",wrap(async(req,res)=>{
   const {rows}=await pool.query(`
@@ -986,12 +986,13 @@ app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_adm
   const result=await tx(async c=>{
     const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
     if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    const teams=(await c.query("select id,group_code from teams where division_id=$1 and status='active' order by group_code,seed nulls last,name",[d.id])).rows;
-    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by group_code,seed nulls last,name",[d.id])).rows;
+    const courts=(await c.query("select id,sort_order from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
     if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
-    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))];
+    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
     if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
-    let created=0,slot=0;
+
+    const rounds=[];
     for(const group of groups){
       let ids=teams.filter(t=>t.group_code===group).map(t=>t.id);
       if(ids.length<2)continue;
@@ -999,27 +1000,72 @@ app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_adm
       const n=ids.length;let arr=[...ids];
       for(let round=0;round<n-1;round++){
         const pairs=[];
-        for(let i=0;i<n/2;i++){const a=arr[i],b=arr[n-1-i];if(a&&b)pairs.push([a,b])}
-        for(let i=0;i<pairs.length;i++){
-          const [a,b]=pairs[i];
-          const exists=(await c.query(`select 1 from matches where division_id=$1 and ((team_a_id=$2 and team_b_id=$3) or (team_a_id=$3 and team_b_id=$2)) limit 1`,[d.id,a,b])).rowCount;
-          if(exists)continue;
-          const batch=Math.floor(i/courts.length);
-          const court=courts[i%courts.length].id;
-          const minuteOffset=(slot+batch)*35;
-          await c.query(`
-            insert into matches(division_id,court_id,team_a_id,team_b_id,stage,round_no,scheduled_at,status)
-            values($1,$2,$3,$4,$5,$6,coalesce($7,now())+($8||' minutes')::interval,'scheduled')
-          `,[d.id,court,a,b,`Bảng ${group}`,round+1,d.start_at,String(minuteOffset)]);
-          created++;
-        }
-        slot+=Math.max(1,Math.ceil(pairs.length/courts.length));
+        for(let i=0;i<n/2;i++){const a=arr[i],b=arr[n-1-i];if(a&&b)pairs.push({a,b,group,round})}
+        (rounds[round]||(rounds[round]=[])).push(...pairs);
         arr=[arr[0],arr[n-1],...arr.slice(1,n-1)];
       }
-      slot+=1;
     }
-    await audit(c,req.user,"division",d.id,"GENERATE_ROUND_ROBIN",null,{created},`${created} matches`);
-    return {created};
+
+    let created=0,slot=0;
+    for(const pairs of rounds){
+      if(!pairs?.length)continue;
+      for(let i=0;i<pairs.length;i++){
+        const {a,b,group,round}=pairs[i];
+        const exists=(await c.query(`select 1 from matches where division_id=$1 and ((team_a_id=$2 and team_b_id=$3) or (team_a_id=$3 and team_b_id=$2)) limit 1`,[d.id,a,b])).rowCount;
+        if(exists)continue;
+        const batch=Math.floor(i/courts.length);
+        const court=courts[i%courts.length].id;
+        const minuteOffset=(slot+batch)*35;
+        await c.query(`
+          insert into matches(division_id,court_id,team_a_id,team_b_id,stage,round_no,scheduled_at,status)
+          values($1,$2,$3,$4,$5,$6,coalesce($7,now())+($8||' minutes')::interval,'scheduled')
+        `,[d.id,court,a,b,`Bảng ${group}`,round+1,d.start_at,String(minuteOffset)]);
+        created++;
+      }
+      slot+=Math.max(1,Math.ceil(pairs.length/courts.length))+1;
+    }
+    await audit(c,req.user,"division",d.id,"GENERATE_ROUND_ROBIN",null,{created,courts:courts.length,slots:slot},`${created} matches across ${courts.length} courts`);
+    return {created,courts:courts.length,slots:slot};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const courts=(await c.query("select id,sort_order from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const matches=(await c.query(`
+      select id,team_a_id,team_b_id,stage,round_no
+      from matches
+      where division_id=$1 and bracket_slot is null and stage like 'Bảng %' and status='scheduled'
+      order by round_no nulls last,stage,created_at
+      for update
+    `,[d.id])).rows;
+    if(!matches.length)throw Object.assign(new Error("NO_UNSTARTED_MATCHES"),{status:409});
+
+    const slots=[];
+    for(const m of matches){
+      let si=0;
+      while(true){
+        const s=slots[si]||(slots[si]={matches:[],teams:new Set()});
+        if(s.matches.length<courts.length&&!s.teams.has(m.team_a_id)&&!s.teams.has(m.team_b_id)){
+          s.matches.push(m);s.teams.add(m.team_a_id);s.teams.add(m.team_b_id);break;
+        }
+        si++;
+      }
+    }
+    let updated=0;
+    for(let si=0;si<slots.length;si++){
+      for(let i=0;i<slots[si].matches.length;i++){
+        const m=slots[si].matches[i],court=courts[i%courts.length];
+        await c.query("update matches set court_id=$1,scheduled_at=coalesce($2,now())+($3||' minutes')::interval,version=version+1 where id=$4",[court.id,d.start_at,String(si*35),m.id]);
+        updated++;
+      }
+    }
+    await audit(c,req.user,"division",d.id,"AUTO_SCHEDULE_COURTS",null,{updated,courts:courts.length,slots:slots.length},"Conflict-free court scheduling");
+    return {updated,courts:courts.length,slots:slots.length};
   });
   await emitState();res.json(result);
 }));
