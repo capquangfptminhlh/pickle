@@ -2074,7 +2074,7 @@ app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(as
 }));
 
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  let where="where u.role='referee' and u.active=true",params=[];
+  let where="where u.role='referee'",params=[];
   if(req.user.role==="organizer"){
     const ids=await organizerTournamentIds(req.user);
     where+=" and u.tournament_id_scope=any($1::uuid[])";params=[ids];
