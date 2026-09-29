@@ -657,7 +657,7 @@ async function openMatchModal(){
     <label class="field">Vòng / Stage<input id="mStage" value="Vòng bảng"></label>
     <label class="field">Giờ đấu<input id="mTime" type="datetime-local"></label>
     <label class="field">Sân<select id="mCourt"><option value="">Chưa gán</option>${state.courts.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label>
-    <label class="field">Trọng tài<select id="mRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}">${r.display_name}</option>`).join("")}</select></label>
+    <label class="field">Trọng tài<select id="mRef"><option value="">Chưa gán</option>${refs.filter(r=>r.active).map(r=>`<option value="${r.id}">${r.display_name}</option>`).join("")}</select></label>
     <div class="field full"><button type="button" class="btn primary" id="saveMatch">Tạo trận</button></div>
   </div>`;
   const syncTeams=()=>{const did=$("#mDivision").value,ts=state.teams.filter(t=>t.divisionId===did),opts=ts.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");$("#mTeamA").innerHTML=opts;$("#mTeamB").innerHTML=opts;if(ts.length>1)$("#mTeamB").selectedIndex=1};
@@ -675,7 +675,7 @@ async function openMatchDetail(id){
   $("#genericTitle").textContent="Chi tiết trận";
   const assignment=canManage()?`<div class="form-grid">
     <label class="field">Sân<select id="detailCourt"><option value="">Chưa gán</option>${state.courts.map(x=>`<option value="${x.id}" ${x.id===m.courtId?"selected":""}>${x.name}</option>`).join("")}</select></label>
-    <label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}</option>`).join("")}</select></label>
+    <label class="field">Trọng tài<select id="detailRef"><option value="">Chưa gán</option>${refs.filter(r=>r.active||r.id===m.refereeId).map(r=>`<option value="${r.id}" ${r.id===m.refereeId?"selected":""}>${r.display_name}${r.active?"":" (đã khóa)"}</option>`).join("")}</select></label>
     <label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label>
     <div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div>
   </div>`:"";
