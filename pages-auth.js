@@ -317,12 +317,12 @@
   };
 
   API.users=async()=>{
-    const u=needUser(),refs=await enrichRefs();
+    const u=needUser(),refs=await enrichRefs(),all=await raw.publicState();
     if(u.role==="super_admin"){
-      return clone([SUPER,...meta.accounts.map(a=>({...a,club_id:null,club_name:null,tournament_name:(a.tournament_id_scope?(await raw.publicState()).tournaments.find(t=>t.id===a.tournament_id_scope)?.name:null)})),...refs]);
+      return clone([SUPER,...meta.accounts.map(a=>({...a,club_id:null,club_name:null,tournament_name:a.tournament_id_scope?all.tournaments.find(t=>t.id===a.tournament_id_scope)?.name||null:null})),...refs]);
     }
     if(u.role==="organizer"){
-      const s=await raw.publicState(),allowed=new Set(tournamentIdsFor(u,s));
+      const s=all,allowed=new Set(tournamentIdsFor(u,s));
       const self=meta.accounts.find(a=>a.id===u.id)||{id:u.id,email:u.email,display_name:u.name,role:"organizer",active:true,tournament_id_scope:u.tournamentScope||null};
       return clone([self,...refs.filter(r=>allowed.has(r.tournament_id_scope))]);
     }
