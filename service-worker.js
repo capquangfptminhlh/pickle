@@ -1,4 +1,4 @@
-const VERSION="pickleup-v9-bracket-courtboard-20260929";
+const VERSION="pickleup-v10-scroll-fix-20260929";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",

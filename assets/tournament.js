@@ -1,3 +1,15 @@
+function unlockTournamentScroll(){
+  document.documentElement.style.height="auto";
+  document.documentElement.style.overflowY="auto";
+  document.body.classList.remove("app-drawer-open","route-leaving");
+  document.body.style.position="static";
+  document.body.style.height="auto";
+  document.body.style.overflowY="auto";
+  document.body.style.touchAction="auto";
+}
+unlockTournamentScroll();
+addEventListener("pageshow",unlockTournamentScroll);
+addEventListener("visibilitychange",()=>{if(!document.hidden)unlockTournamentScroll()});
 let state=null,sponsors=[];const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const team=x=>state?.teams.find(t=>t.id===x)?.name||"Chưa xác định";

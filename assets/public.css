@@ -1322,3 +1322,24 @@ linear-gradient(145deg,#06251b,#073629 58%,#051c16);color:#fff;border:1px solid 
 @media(prefers-reduced-motion:reduce){
  #knockout .public-container:before,.bracket-match-wrap,.court-board,.court-match-card,.live-dot,.bracket-match-meta b,.bracket-match-wrap:after{animation:none!important}
 }
+
+/* TOURNAMENT MOBILE SCROLL SAFETY V30 */
+html:has(body.tournament-app-page){height:auto!important;min-height:100%!important;overflow-y:auto!important;overscroll-behavior-y:auto!important}
+body.tournament-app-page{position:static!important;height:auto!important;min-height:100vh!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:auto!important;touch-action:auto!important;-webkit-overflow-scrolling:touch!important}
+body.tournament-app-page.route-leaving{overflow-y:auto!important}
+.tournament-app-page .tournament-app-main{height:auto!important;min-height:100vh!important;overflow:visible!important}
+.tournament-app-page #knockout,.tournament-app-page #schedule,.tournament-app-page #participants,.tournament-app-page #standings{height:auto!important;max-height:none!important}
+.tournament-app-page #tourBracket,.tournament-app-page .court-board-grid{
+  max-height:none!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  overscroll-behavior-x:contain!important;
+  overscroll-behavior-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-x pan-y!important;
+}
+.tournament-app-page #tourBracket .bracket,.tournament-app-page .court-board-grid>*{touch-action:pan-x pan-y!important}
+@media(max-width:760px){
+  body.tournament-app-page{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))!important}
+  .tournament-app-page .public-section{contain:none!important}
+}
