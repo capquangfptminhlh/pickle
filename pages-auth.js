@@ -77,7 +77,11 @@
     if(u.role==="super_admin")return s.tournaments.map(t=>t.id);
     if(u.role!=="organizer")return [];
     const assigned=u.tournamentScope||u.tournament_id_scope||meta.accounts.find(a=>a.id===u.id)?.tournament_id_scope||null;
-    return s.tournaments.filter(t=>meta.tournamentOwners[t.id]===u.id||(assigned&&t.id===assigned)).map(t=>t.id);
+    let ids=s.tournaments.filter(t=>meta.tournamentOwners[t.id]===u.id||(assigned&&t.id===assigned)).map(t=>t.id);
+    if(!ids.length&&u.id===DEFAULT_OWNER.id&&s.tournaments[0]){
+      meta.tournamentOwners[s.tournaments[0].id]=u.id;saveMeta();ids=[s.tournaments[0].id];
+    }
+    return ids;
   };
   const tournamentForDivision=(s,id)=>s.divisions.find(d=>d.id===id)?.tournamentId||null;
   const tournamentForCourt=(s,id)=>s.courts.find(c=>c.id===id)?.tournamentId||null;
@@ -285,7 +289,7 @@
 
   const enrichRefs=async()=>{
     const s=await raw.publicState(),refs=await raw.referees();
-    return refs.map(r=>({...r,tournament_id_scope:meta.refereeScopes[r.id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[r.id]||null))?.name||null}));
+    return refs.map(r=>{const {password,...safe}=r;return {...safe,tournament_id_scope:meta.refereeScopes[r.id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[r.id]||null))?.name||null}});
   };
   API.referees=async()=>{
     const u=needUser(),refs=await enrichRefs();
@@ -319,7 +323,7 @@
   API.users=async()=>{
     const u=needUser(),refs=await enrichRefs(),all=await raw.publicState();
     if(u.role==="super_admin"){
-      return clone([SUPER,...meta.accounts.map(a=>({...a,club_id:null,club_name:null,tournament_name:a.tournament_id_scope?all.tournaments.find(t=>t.id===a.tournament_id_scope)?.name||null:null})),...refs]);
+      return clone([SUPER,...meta.accounts.map(a=>{const {password,...safe}=a;return {...safe,club_id:null,club_name:null,tournament_name:a.tournament_id_scope?all.tournaments.find(t=>t.id===a.tournament_id_scope)?.name||null:null}}),...refs]);
     }
     if(u.role==="organizer"){
       const s=all,allowed=new Set(tournamentIdsFor(u,s));
