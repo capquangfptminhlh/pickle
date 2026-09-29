@@ -57,8 +57,8 @@
     }
     const rounds=[...map.entries()].sort((a,b)=>a[0]-b[0]);
     return '<div class="bracket bracket-tree">'+rounds.map(([n,a],ri)=>{
-      a.sort(sortSlot);const sample=a[0]?.stage||("Vòng "+n);
-      const title=sample.replace(/\s+\d+$/,"");
+      a.sort(sortSlot);
+      const title=roundName(a.length);
       return round(title,a,team,opts,ri);
     }).join("")+'</div>';
   }
@@ -76,7 +76,7 @@
       const count=current.length/2,matches=[];for(let i=0;i<count;i++)matches.push({a:current[i*2],b:current[i*2+1],label:"Trận "+(i+1)});
       rounds.push({title:roundName(count),matches});current=matches.map((_,i)=>"Thắng "+roundName(count)+" "+(i+1));
     }
-    return '<div class="bracket-plan-wrap"><div class="bracket-section-title"><span>SƠ ĐỒ DỰ KIẾN</span><h3>Top 2 mỗi bảng → '+rounds.map(r=>r.title).join(" → ")+'</h3></div><div class="bracket bracket-plan">'+rounds.map(r=>'<div class="round bracket-round-pro"><h3>'+esc(r.title)+'</h3>'+r.matches.map(m=>planMatch(m.a,m.b,m.label)).join("")+'</div>').join("")+'</div><div class="bracket-plan-note">Nhất và Nhì cùng bảng nằm ở hai nửa nhánh khác nhau, chỉ có thể gặp lại ở Chung kết.</div></div>';
+    return '<div class="bracket-plan-wrap"><div class="bracket-section-title"><span>SƠ ĐỒ DỰ KIẾN • '+qualifiers.length+' CẶP VÀO KNOCKOUT</span><h3>'+rounds.map(r=>r.title).join(" → ")+'</h3></div><div class="bracket bracket-plan">'+rounds.map((r,ri)=>'<div class="round bracket-round-pro bracket-round-'+(ri+1)+'" style="--round-index:'+ri+'"><h3>'+esc(r.title)+'</h3>'+r.matches.map((m,i)=>'<div class="bracket-match-wrap" style="--bracket-delay:'+((ri*110)+(i*55))+'ms">'+planMatch(m.a,m.b,m.label)+'</div>').join("")+'</div>').join("")+'</div><div class="bracket-plan-note">Số vòng tự thay đổi theo số cặp vào loại trực tiếp. Nhất và Nhì cùng bảng được tách hai nửa nhánh để chỉ có thể gặp lại ở Chung kết.</div></div>';
   }
   function champion(matches,team){
     const final=matches.find(m=>m.bracketSlot==="DE-GF")||
