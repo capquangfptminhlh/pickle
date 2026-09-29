@@ -623,10 +623,28 @@ app.post("/api/public/tournaments/submit",wrap(async(req,res)=>{
 
 app.get("/api/admin/state",authRequired,allow("super_admin","organizer","referee","club_manager","finance"),wrap(async(req,res)=>res.json(await loadAdminState(req.user))));
 
-app.get("/api/players",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
-  if(req.user.role==="club_manager"&&!req.user.clubId)return res.json([]);
-  const params=req.user.role==="club_manager"?[req.user.clubId]:[];
-  const where=req.user.role==="club_manager"?"where p.club_id=$1":"";
+app.get("/api/players",authRequired,allow("super_admin","organizer","referee","club_manager"),wrap(async(req,res)=>{
+  let where="",params=[];
+  if(req.user.role==="club_manager"){
+    if(!req.user.clubId)return res.json([]);
+    where="where p.club_id=$1";params=[req.user.clubId];
+  }else if(req.user.role==="organizer"){
+    where=`where p.created_by_user_id=$1 or exists (
+      select 1 from team_players tp
+      join teams t on t.id=tp.team_id
+      join divisions d on d.id=t.division_id
+      join tournaments tr on tr.id=d.tournament_id
+      where tp.player_id=p.id and (tr.owner_user_id=$1 or ($2::uuid is not null and tr.id=$2))
+    )`;
+    params=[req.user.sub,req.user.tournamentScope||null];
+  }else if(req.user.role==="referee"){
+    where=`where exists (
+      select 1 from team_players tp
+      join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
+      where tp.player_id=p.id and m.referee_user_id=$1
+    )`;
+    params=[req.user.sub];
+  }
   const {rows}=await pool.query(`
     select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
     from players p left join clubs c on c.id=p.club_id ${where} order by p.full_name
@@ -637,27 +655,29 @@ app.post("/api/players",authRequired,allow("super_admin","organizer","club_manag
   const clubId=req.user.role==="club_manager"?req.user.clubId:(req.body.clubId||null);
   if(req.user.role==="club_manager"&&!clubId)return res.status(403).json({error:"CLUB_SCOPE_REQUIRED"});
   const rating=req.user.role==="club_manager"?3:Number(req.body.rating??3);
-  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id) values($1,$2,$3,$4,$5,$6) returning *",[fullName,nickname||null,gender||null,rating,phone||null,clubId])).rows[0];
+  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id,created_by_user_id) values($1,$2,$3,$4,$5,$6,$7) returning *",[fullName,nickname||null,gender||null,rating,phone||null,clubId,req.user.sub])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'CREATE_PLAYER',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
 }));
-app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","referee","club_manager"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from players where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  if(req.user.role==="club_manager"&&before.club_id!==req.user.clubId)return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
-  const clubId=req.user.role==="club_manager"?before.club_id:(req.body.clubId===undefined?before.club_id:(req.body.clubId||null));
+  if(!(await canEditPlayer(req.user,before.id)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
+  const referee=req.user.role==="referee";
+  const clubId=referee||req.user.role==="club_manager"?before.club_id:(req.body.clubId===undefined?before.club_id:(req.body.clubId||null));
+  const phone=referee?null:(req.body.phone??null),active=referee?null:(req.body.active??null);
   const row=(await pool.query(`
     update players set full_name=coalesce($1,full_name),nickname=coalesce($2,nickname),gender=coalesce($3,gender),
       phone=coalesce($4,phone),club_id=$5,active=coalesce($6,active)
     where id=$7 returning *
-  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,req.body.phone??null,clubId,req.body.active??null,req.params.id])).rows[0];
+  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,phone,clubId,active,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'UPDATE_PLAYER',$3,$4)",[req.user.sub,row.id,before,row]);
   res.json(row);
 }));
-app.post("/api/players/:id/avatar",authRequired,allow("super_admin","organizer","club_manager"),avatarUpload.single("avatar"),wrap(async(req,res)=>{
+app.post("/api/players/:id/avatar",authRequired,allow("super_admin","organizer","referee","club_manager"),avatarUpload.single("avatar"),wrap(async(req,res)=>{
   if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_AVATAR"});
   const p=(await pool.query("select id,avatar_url,club_id from players where id=$1",[req.params.id])).rows[0];
   if(!p){await fs.unlink(req.file.path).catch(()=>{});return res.status(404).json({error:"NOT_FOUND"})}
-  if(req.user.role==="club_manager"&&p.club_id!==req.user.clubId){await fs.unlink(req.file.path).catch(()=>{});return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"})}
+  if(!(await canEditPlayer(req.user,p.id))){await fs.unlink(req.file.path).catch(()=>{});return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"})}
   const avatarUrl=`/uploads/avatars/${req.file.filename}`;
   await pool.query("update players set avatar_url=$1 where id=$2",[avatarUrl,p.id]);
   if(p.avatar_url?.startsWith("/uploads/avatars/")){
@@ -671,6 +691,7 @@ app.post("/api/players/:id/rating-adjust",authRequired,allow("super_admin","orga
   const delta=Number(req.body.delta),reason=String(req.body.reason||"").trim();
   if(!Number.isFinite(delta)||Math.abs(delta)>1||!reason)return res.status(400).json({error:"DELTA_AND_REASON_REQUIRED"});
   const row=await tx(async c=>{
+    if(!(await canEditPlayer(req.user,req.params.id,c)))throw Object.assign(new Error("PLAYER_SCOPE_FORBIDDEN"),{status:403});
     const p=(await c.query("select * from players where id=$1 for update",[req.params.id])).rows[0];
     if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     const before=Number(p.rating||0),after=Math.max(0,before+delta);
@@ -1882,20 +1903,31 @@ app.delete("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wra
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'booking',$2,'CANCEL_BOOKING',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"cancelled",entity:after});
 }));
 
-app.get("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+app.get("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  let where="",params=[];
+  if(req.user.role==="organizer"){
+    const ids=await organizerTournamentIds(req.user);
+    where="where u.id=$1 or (u.role='referee' and u.tournament_id_scope=any($2::uuid[]))";
+    params=[req.user.sub,ids];
+  }
   const {rows}=await pool.query(`
-    select u.id,u.email,u.display_name,u.role,u.active,u.created_at,u.club_id,c.name club_name
-    from app_users u left join clubs c on c.id=u.club_id
+    select u.id,u.email,u.display_name,u.role,u.active,u.created_at,u.club_id,c.name club_name,
+      u.tournament_id_scope,tr.name tournament_name
+    from app_users u
+    left join clubs c on c.id=u.club_id
+    left join tournaments tr on tr.id=u.tournament_id_scope
+    ${where}
     order by case when u.role='super_admin' then 0 else 1 end,u.display_name
-  `);
+  `,params);
   res.json(rows);
 }));
-app.post("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+app.post("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const email=String(req.body.email||"").toLowerCase().trim(),name=String(req.body.name||"").trim();
   const password=String(req.body.password||""),role=String(req.body.role||"");
   if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
   if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
   if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(req.user.role==="organizer"&&role!=="referee")return res.status(403).json({error:"ORGANIZER_CAN_ONLY_CREATE_REFEREE"});
   if(!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
   if(!validPassword(password))return res.status(400).json({error:"PASSWORD_POLICY"});
   if((await pool.query("select 1 from app_users where email=$1",[email])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
@@ -1903,22 +1935,43 @@ app.post("/api/users",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const clubId=scopedRole?(req.body.clubId||null):null;
   if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
+  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId||null):null;
+  if(req.user.role==="organizer"){
+    if(!tournamentId)return res.status(400).json({error:"TOURNAMENT_REQUIRED"});
+    if(!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
   const h=await hashPassword(password);
-  const row=(await pool.query("insert into app_users(email,display_name,role,password_hash,club_id) values($1,$2,$3,$4,$5) returning id,email,display_name,role,active,created_at,club_id",[email,name,role,h,clubId])).rows[0];
+  const row=(await pool.query(`
+    insert into app_users(email,display_name,role,password_hash,club_id,tournament_id_scope)
+    values($1,$2,$3,$4,$5,$6)
+    returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
+  `,[email,name,role,h,clubId,tournamentId])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_CHILD_ACCOUNT',$3)",[req.user.sub,row.id,row]);
   res.status(201).json(row);
 }));
-app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   if(req.params.id===req.user.sub&&req.body.active===false)return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
-  const before=(await pool.query("select id,email,display_name,role,active,club_id from app_users where id=$1",[req.params.id])).rows[0];
+  const before=(await pool.query("select id,email,display_name,role,active,club_id,tournament_id_scope from app_users where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="organizer"){
+    if(before.role!=="referee")return res.status(403).json({error:"ORGANIZER_CAN_ONLY_EDIT_REFEREE"});
+    if(!before.tournament_id_scope||!(await canManageTournament(req.user,before.tournament_id_scope)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
   if(before.role==="super_admin"&&before.id!==req.user.sub)return res.status(403).json({error:"OWNER_ACCOUNT_PROTECTED"});
-  const role=before.role==="super_admin"?"super_admin":(req.body.role===undefined?before.role:String(req.body.role));
+  const role=req.user.role==="organizer"?"referee":(before.role==="super_admin"?"super_admin":(req.body.role===undefined?before.role:String(req.body.role)));
   if(before.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
   const scopedRole=["club_manager","finance"].includes(role);
   let clubId=scopedRole?(req.body.clubId??before.club_id??null):null;
   if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
+  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId??before.tournament_id_scope??null):null;
+  if(req.user.role==="organizer"){
+    if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
   let passwordHash=null;
   if(req.body.password){
     if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
@@ -1932,30 +1985,58 @@ app.patch("/api/users/:id",authRequired,allow("super_admin"),wrap(async(req,res)
   const duplicate=(await pool.query("select 1 from app_users where email=$1 and id<>$2",[email,req.params.id])).rowCount;
   if(duplicate)return res.status(409).json({error:"EMAIL_EXISTS"});
   const after=(await pool.query(`
-    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash),club_id=$6,
+    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash),club_id=$6,tournament_id_scope=$7,
       auth_version=auth_version+case when $5::text is null then 0 else 1 end
-    where id=$7 returning id,email,display_name,role,active,created_at,club_id
-  `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,clubId,req.params.id])).rows[0];
+    where id=$8 returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
+  `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,clubId,tournamentId,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_CHILD_ACCOUNT',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
   res.json(after);
 }));
 
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const {rows}=await pool.query("select id,email,display_name,active from app_users where role='referee' and active=true order by display_name");res.json(rows);
+  let where="where u.role='referee' and u.active=true",params=[];
+  if(req.user.role==="organizer"){
+    const ids=await organizerTournamentIds(req.user);
+    where+=" and u.tournament_id_scope=any($1::uuid[])";params=[ids];
+  }
+  const {rows}=await pool.query(`
+    select u.id,u.email,u.display_name,u.active,u.tournament_id_scope,tr.name tournament_name
+    from app_users u left join tournaments tr on tr.id=u.tournament_id_scope
+    ${where} order by u.display_name
+  `,params);res.json(rows);
 }));
-app.post("/api/users/referees",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+app.post("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const {email,name,password}=req.body;if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  const normalized=String(email).toLowerCase().trim();
+  const normalized=String(email).toLowerCase().trim(),tournamentId=req.body.tournamentId||null;
   if(!validEmail(normalized))return res.status(400).json({error:"INVALID_EMAIL"});
   if(String(name).trim().length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   if(!validPassword(String(password)))return res.status(400).json({error:"PASSWORD_POLICY"});
   if((await pool.query("select 1 from app_users where email=$1",[normalized])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  if(req.user.role==="organizer"){
+    if(!tournamentId)return res.status(400).json({error:"TOURNAMENT_REQUIRED"});
+    if(!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
   const h=await hashPassword(String(password));
-  const r=(await pool.query("insert into app_users(email,display_name,role,password_hash) values($1,$2,'referee',$3) returning id,email,display_name,role,active",[normalized,String(name).trim(),h])).rows[0];res.status(201).json(r);
+  const row=(await pool.query(`
+    insert into app_users(email,display_name,role,password_hash,tournament_id_scope)
+    values($1,$2,'referee',$3,$4)
+    returning id,email,display_name,role,active,tournament_id_scope
+  `,[normalized,String(name).trim(),h,tournamentId])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_REFEREE',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
 }));
-app.patch("/api/users/referees/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
-  const before=(await pool.query("select id,email,display_name,role,active from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
+app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select id,email,display_name,role,active,tournament_id_scope from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="organizer"&&(!before.tournament_id_scope||!(await canManageTournament(req.user,before.tournament_id_scope))))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  let tournamentId=req.body.tournamentId??before.tournament_id_scope??null;
+  if(req.user.role==="organizer"){
+    if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
   let passwordHash=null;
   if(req.body.password!==undefined){
     if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
@@ -1965,11 +2046,14 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin"),wrap(async
   const nextName=req.body.name===undefined?null:String(req.body.name).trim();
   if(nextEmail&&!validEmail(nextEmail))return res.status(400).json({error:"INVALID_EMAIL"});
   if(nextName&&nextName.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(nextEmail&&(await pool.query("select 1 from app_users where email=$1 and id<>$2",[nextEmail,req.params.id])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
   const after=(await pool.query(`
     update app_users set display_name=coalesce($1,display_name),email=coalesce($2,email),active=coalesce($3,active),
-      password_hash=coalesce($4,password_hash),auth_version=auth_version+case when $4::text is null then 0 else 1 end
-    where id=$5 and role='referee' returning id,email,display_name,role,active
-  `,[nextName,nextEmail,req.body.active??null,passwordHash,req.params.id])).rows[0];
+      password_hash=coalesce($4,password_hash),tournament_id_scope=$5,
+      auth_version=auth_version+case when $4::text is null then 0 else 1 end
+    where id=$6 and role='referee'
+    returning id,email,display_name,role,active,tournament_id_scope
+  `,[nextName,nextEmail,req.body.active??null,passwordHash,tournamentId,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_REFEREE',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
   res.json(after);
 }));
