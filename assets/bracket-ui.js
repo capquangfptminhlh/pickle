@@ -13,7 +13,11 @@
       '<div class="bracket-team '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.status==="done"?setWins(m,"B"):"")+'</b></div>'+
       special+action+'</div>';
   };
-  const round=(title,matches,team,opts,idx=0)=>'<div class="round bracket-round-pro bracket-round-'+(idx+1)+'" style="--round-index:'+idx+'"><h3>'+esc(title)+'</h3>'+matches.map((m,i)=>'<div class="bracket-match-wrap" style="--bracket-delay:'+((idx*110)+(i*55))+'ms">'+match(m,team,opts)+'</div>').join("")+'</div>';
+  const round=(title,matches,team,opts,idx=0)=>{
+    const isFinal=/chung kết|grand final/i.test(title||"");
+    const titleHtml=isFinal?'<span class="final-cup" aria-hidden="true">🏆</span><span>'+esc(title)+'</span>':esc(title);
+    return '<div class="round bracket-round-pro bracket-round-'+(idx+1)+(isFinal?' is-final-round':'')+'" data-round-index="'+idx+'" data-round-title="'+esc(title)+'" style="--round-index:'+idx+'"><h3>'+titleHtml+'</h3>'+matches.map((m,i)=>'<div class="bracket-match-wrap" data-match-index="'+i+'" style="--bracket-delay:'+((idx*110)+(i*55))+'ms">'+match(m,team,opts)+'</div>').join("")+'</div>';
+  };
   const sortSlot=(a,b)=>(a.bracketSlot||"").localeCompare(b.bracketSlot||"",undefined,{numeric:true});
   function render(matches,team,opts={}){
     const ko=matches.filter(m=>m.bracketSlot);
@@ -76,7 +80,7 @@
       const count=current.length/2,matches=[];for(let i=0;i<count;i++)matches.push({a:current[i*2],b:current[i*2+1],label:"Trận "+(i+1)});
       rounds.push({title:roundName(count),matches});current=matches.map((_,i)=>"Thắng "+roundName(count)+" "+(i+1));
     }
-    return '<div class="bracket-plan-wrap"><div class="bracket-section-title"><span>SƠ ĐỒ DỰ KIẾN • '+qualifiers.length+' CẶP VÀO KNOCKOUT</span><h3>'+rounds.map(r=>r.title).join(" → ")+'</h3></div><div class="bracket bracket-plan">'+rounds.map((r,ri)=>'<div class="round bracket-round-pro bracket-round-'+(ri+1)+'" style="--round-index:'+ri+'"><h3>'+esc(r.title)+'</h3>'+r.matches.map((m,i)=>'<div class="bracket-match-wrap" style="--bracket-delay:'+((ri*110)+(i*55))+'ms">'+planMatch(m.a,m.b,m.label)+'</div>').join("")+'</div>').join("")+'</div><div class="bracket-plan-note">Số vòng tự thay đổi theo số cặp vào loại trực tiếp. Nhất và Nhì cùng bảng được tách hai nửa nhánh để chỉ có thể gặp lại ở Chung kết.</div></div>';
+    return '<div class="bracket-plan-wrap"><div class="bracket-section-title"><span>SƠ ĐỒ DỰ KIẾN • '+qualifiers.length+' CẶP VÀO KNOCKOUT</span><h3>'+rounds.map(r=>r.title).join(" → ")+'</h3></div><div class="bracket bracket-plan">'+rounds.map((r,ri)=>{const isFinal=/chung kết/i.test(r.title);return '<div class="round bracket-round-pro bracket-round-'+(ri+1)+(isFinal?' is-final-round':'')+'" data-round-index="'+ri+'" data-round-title="'+esc(r.title)+'" style="--round-index:'+ri+'"><h3>'+(isFinal?'<span class="final-cup" aria-hidden="true">🏆</span><span>'+esc(r.title)+'</span>':esc(r.title))+'</h3>'+r.matches.map((m,i)=>'<div class="bracket-match-wrap" data-match-index="'+i+'" style="--bracket-delay:'+((ri*110)+(i*55))+'ms">'+planMatch(m.a,m.b,m.label)+'</div>').join("")+'</div>'}).join("")+'</div><div class="bracket-plan-note">Số vòng tự thay đổi theo số cặp vào loại trực tiếp. Nhất và Nhì cùng bảng được tách hai nửa nhánh để chỉ có thể gặp lại ở Chung kết.</div></div>';
   }
   function champion(matches,team){
     const final=matches.find(m=>m.bracketSlot==="DE-GF")||
