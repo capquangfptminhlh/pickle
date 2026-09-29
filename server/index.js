@@ -940,7 +940,7 @@ app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organi
   const {courtId,refereeUserId,scheduledAt}=req.body;
   const before=await getMatch(pool,req.params.id,false);
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  if(refereeUserId&&!(await validRefereeForTournament(req.user,refereeUserId,before.tournament_id)))return res.status(400).json({error:"INVALID_REFEREE_SCOPE"});
+  if(refereeUserId&&refereeUserId!==before.referee_user_id&&!(await validRefereeForTournament(req.user,refereeUserId,before.tournament_id)))return res.status(400).json({error:"INVALID_REFEREE_SCOPE"});
   if(courtId){
     const courtTid=await tournamentIdForCourt(courtId);
     if(courtTid!==before.tournament_id)return res.status(400).json({error:"COURT_TOURNAMENT_MISMATCH"});
