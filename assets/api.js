@@ -144,6 +144,7 @@
     updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
     generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
+    autoScheduleCourts:(divisionId)=>request(`/api/divisions/${divisionId}/auto-schedule-courts`,{method:"POST",body:"{}"}),
     autoSeedGroups:(divisionId,groupCount)=>request(`/api/divisions/${divisionId}/auto-seed-groups`,{method:"POST",body:JSON.stringify({groupCount})}),
     generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
