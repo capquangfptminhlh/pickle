@@ -258,15 +258,31 @@
     });
   }
 
+  function enforcePublicScrollSafety(){
+    if(!document.body.classList.contains("public-body"))return;
+    document.body.classList.remove("app-drawer-open","route-leaving");
+    document.documentElement.style.height="auto";
+    document.documentElement.style.minHeight="100%";
+    document.documentElement.style.overflowX="hidden";
+    document.documentElement.style.overflowY="auto";
+    document.body.style.position="static";
+    document.body.style.height="auto";
+    document.body.style.minHeight="100vh";
+    document.body.style.maxHeight="none";
+    document.body.style.overflowX="hidden";
+    document.body.style.overflowY="auto";
+    document.body.style.touchAction="pan-y";
+  }
+
   function init(){
     document.documentElement.classList.add("motion-ready");
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
-    normalizeProjectLinks();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    enforcePublicScrollSafety();normalizeProjectLinks();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     document.addEventListener("pointerdown",ripple,{passive:true});
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
-    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});addEventListener("pageshow",enforcePublicScrollSafety);addEventListener("focus",enforcePublicScrollSafety);document.addEventListener("visibilitychange",()=>{if(!document.hidden)enforcePublicScrollSafety()});
     document.addEventListener("click",e=>{
       const score=e.target.closest("[data-score]");
       if(score&&navigator.vibrate)navigator.vibrate(score.dataset.delta==="1"?7:4);
