@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v34-mockup-bracket-connectors-20260929";
+const VERSION="pickleup-pages-v35-six-courts-20260929";
 const CORE=[
   "./",
   "./index.html",
