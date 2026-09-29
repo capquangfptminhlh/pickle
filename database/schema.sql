@@ -348,3 +348,9 @@ alter table tournaments add column if not exists poster_url text;
 alter table tournaments add column if not exists sponsor_package text default 'free';
 create index if not exists idx_tournaments_featured on tournaments(is_featured desc, featured_rank desc, start_at desc);
 
+
+
+-- Ownership/scoping for delegated tournament operations.
+alter table players add column if not exists created_by_user_id uuid references app_users(id) on delete set null;
+create index if not exists idx_players_created_by on players(created_by_user_id);
+create index if not exists idx_app_users_tournament_scope on app_users(tournament_id_scope);
