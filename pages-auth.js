@@ -388,9 +388,9 @@
       v:1,createdAt:new Date().toISOString(),
       state:{
         tournaments:[{...t,publicVisible:true}],divisions:clone(divs),
-        courts:clone(s.courts.filter(c=>c.tournamentId===tid)),
+        courts:[],
         teams:clone(teams),teamPlayers,players:safePlayers,
-        matches:clone(s.matches.filter(m=>dids.has(m.divisionId))),audit:[]
+        matches:[],audit:[]
       }
     };
     return encodeShare(snap);
