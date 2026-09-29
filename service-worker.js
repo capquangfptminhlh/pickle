@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v30-scroll-fix-20260929";
+const VERSION="pickleup-pages-v31-player-scroll-align-20260929";
 const CORE=[
   "./",
   "./index.html",
