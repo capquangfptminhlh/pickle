@@ -1,3 +1,22 @@
+function unlockPlayerScroll(){
+  document.documentElement.style.height="auto";
+  document.documentElement.style.minHeight="100%";
+  document.documentElement.style.overflowX="hidden";
+  document.documentElement.style.overflowY="auto";
+  document.body.classList.remove("app-drawer-open","route-leaving");
+  document.body.style.position="static";
+  document.body.style.inset="auto";
+  document.body.style.height="auto";
+  document.body.style.minHeight="100vh";
+  document.body.style.maxHeight="none";
+  document.body.style.overflowX="hidden";
+  document.body.style.overflowY="auto";
+  document.body.style.touchAction="pan-y";
+}
+unlockPlayerScroll();
+addEventListener("pageshow",unlockPlayerScroll);
+addEventListener("focus",unlockPlayerScroll);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)unlockPlayerScroll()});
 const $=s=>document.querySelector(s);
 const id=new URLSearchParams(location.search).get('id');
 const esc=s=>String(s??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
