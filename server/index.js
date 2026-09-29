@@ -33,6 +33,13 @@ const receiptDir=path.join(uploadRoot,"receipts");
 await fs.mkdir(avatarDir,{recursive:true});
 await fs.mkdir(mediaDir,{recursive:true});
 await fs.mkdir(receiptDir,{recursive:true});
+async function ensureAuthorizationSchema(){
+  await pool.query("alter table app_users add column if not exists tournament_id_scope uuid references tournaments(id) on delete set null");
+  await pool.query("alter table players add column if not exists created_by_user_id uuid references app_users(id) on delete set null");
+  await pool.query("create index if not exists idx_app_users_tournament_scope on app_users(tournament_id_scope)");
+  await pool.query("create index if not exists idx_players_created_by on players(created_by_user_id)");
+}
+await ensureAuthorizationSchema();
 const imageMimeExt={ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" };
 const avatarUpload=multer({
   storage:multer.diskStorage({
