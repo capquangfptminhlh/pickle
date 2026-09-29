@@ -1553,31 +1553,31 @@ app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organiz
   res.json(updated);
 }));
 
-app.get("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/sponsors",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {rows}=await pool.query("select * from sponsors order by sort_order,name");res.json(rows);
 }));
-app.post("/api/sponsors",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/sponsors",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {tournamentId,name,logoUrl,websiteUrl,tier,sortOrder=0}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   if(!validAssetUrl(logoUrl)||!validHttpsUrl(websiteUrl))return res.status(400).json({error:"INVALID_URL"});
   const row=(await pool.query("insert into sponsors(tournament_id,name,logo_url,website_url,tier,sort_order) values($1,$2,$3,$4,$5,$6) returning *",[tournamentId||null,name,logoUrl||null,websiteUrl||null,tier||null,sortOrder])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'sponsor',$2,'CREATE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
 }));
-app.patch("/api/sponsors/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/sponsors/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from sponsors where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(req.body.logoUrl!==undefined&&!validAssetUrl(req.body.logoUrl))return res.status(400).json({error:"INVALID_URL"});
   if(req.body.websiteUrl!==undefined&&!validHttpsUrl(req.body.websiteUrl))return res.status(400).json({error:"INVALID_URL"});
   const row=(await pool.query("update sponsors set name=coalesce($1,name),logo_url=coalesce($2,logo_url),website_url=coalesce($3,website_url),tier=coalesce($4,tier),sort_order=coalesce($5,sort_order),tournament_id=coalesce($6,tournament_id) where id=$7 returning *",[req.body.name??null,req.body.logoUrl??null,req.body.websiteUrl??null,req.body.tier??null,req.body.sortOrder??null,req.body.tournamentId??null,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'sponsor',$2,'UPDATE_SPONSOR',$3,$4)",[req.user.sub,row.id,before,row]);res.json(row);
 }));
-app.delete("/api/sponsors/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/sponsors/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const row=(await pool.query("delete from sponsors where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'sponsor',$2,'DELETE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.json({ok:true});
 }));
 
-app.get("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/posts",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {rows}=await pool.query("select * from content_posts order by created_at desc");res.json(rows);
 }));
-app.post("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/posts",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {title,excerpt,body,coverUrl,status="draft",tournamentId}=req.body;if(!title)return res.status(400).json({error:"TITLE_REQUIRED"});
   if(!validAssetUrl(coverUrl))return res.status(400).json({error:"INVALID_URL"});
   let slug=slugify(title);if((await pool.query("select 1 from content_posts where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
@@ -1585,7 +1585,7 @@ app.post("/api/posts",authRequired,allow("super_admin","organizer"),wrap(async(r
   const row=(await pool.query("insert into content_posts(tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[tournamentId||null,title,slug,excerpt||null,body||null,coverUrl||null,status,publishedAt,req.user.sub])).rows[0];
   res.status(201).json(row);
 }));
-app.patch("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/posts/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from content_posts where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(req.body.coverUrl!==undefined&&!validAssetUrl(req.body.coverUrl))return res.status(400).json({error:"INVALID_URL"});
   const status=req.body.status??before.status;
@@ -1593,14 +1593,14 @@ app.patch("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(as
   const row=(await pool.query("update content_posts set title=coalesce($1,title),excerpt=coalesce($2,excerpt),body=coalesce($3,body),cover_url=coalesce($4,cover_url),status=$5,published_at=$6,tournament_id=coalesce($7,tournament_id),updated_at=now() where id=$8 returning *",[req.body.title??null,req.body.excerpt??null,req.body.body??null,req.body.coverUrl??null,status,publishedAt,req.body.tournamentId??null,req.params.id])).rows[0];
   await audit(pool,req.user,"post",row.id,"UPDATE_POST",before,row,status);res.json(row);
 }));
-app.delete("/api/posts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/posts/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const row=(await pool.query("delete from content_posts where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json({ok:true});
 }));
 
-app.get("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/settings/branding",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];res.json(row?.value||{});
 }));
-app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.put("/api/settings/branding",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const raw=req.body||{};
   const name=String(raw.name||"Pickleup.vn").trim();
   const primaryColor=String(raw.primaryColor||"#0a8b55"),accentColor=String(raw.accentColor||"#dfff69");
@@ -1618,7 +1618,7 @@ app.put("/api/settings/branding",authRequired,allow("super_admin","organizer"),w
 }));
 
 
-app.get("/api/club-events",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+app.get("/api/club-events",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
   const scope=clubScope(req.user,req.query.clubId||null);
   if(req.user.role==="club_manager"&&!scope)return res.json([]);
   const {rows}=await pool.query(`
@@ -1633,7 +1633,7 @@ app.get("/api/club-events",authRequired,allow("super_admin","organizer","club_ma
   `,[scope]);
   res.json(rows);
 }));
-app.post("/api/club-events",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.post("/api/club-events",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const clubId=clubScope(req.user,req.body.clubId||null);
   if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const title=String(req.body.title||"").trim(),startAt=req.body.startAt,endAt=req.body.endAt||null;
@@ -1648,7 +1648,7 @@ app.post("/api/club-events",authRequired,allow("super_admin","organizer","club_m
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'club_event',$2,'CREATE_CLUB_EVENT',$3)",[req.user.sub,row.id,row]);
   res.status(201).json(row);
 }));
-app.patch("/api/club-events/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.patch("/api/club-events/:id",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const title=String(req.body.title??before.title).trim();
@@ -1664,14 +1664,14 @@ app.patch("/api/club-events/:id",authRequired,allow("super_admin","organizer","c
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'UPDATE_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
   res.json(after);
 }));
-app.delete("/api/club-events/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.delete("/api/club-events/:id",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const after=(await pool.query("update club_events set status='cancelled',updated_at=now() where id=$1 returning *",[before.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'CANCEL_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
   res.json({mode:"cancelled",entity:after});
 }));
-app.get("/api/club-events/:id/attendance",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.get("/api/club-events/:id/attendance",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
   if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const {rows}=await pool.query(`
@@ -1680,7 +1680,7 @@ app.get("/api/club-events/:id/attendance",authRequired,allow("super_admin","orga
     where a.event_id=$1 order by p.full_name
   `,[event.id]);res.json(rows);
 }));
-app.post("/api/club-events/:id/attendance",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.post("/api/club-events/:id/attendance",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
   if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const playerId=req.body.playerId;
@@ -1692,7 +1692,7 @@ app.post("/api/club-events/:id/attendance",authRequired,allow("super_admin","org
     returning *
   `,[event.id,player.id])).rows[0];res.status(201).json(row);
 }));
-app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
   const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
   if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const status=String(req.body.status||"");
@@ -1706,7 +1706,7 @@ app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_
   res.json(row);
 }));
 
-app.get("/api/club-transactions",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+app.get("/api/club-transactions",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
   const scope=clubScope(req.user,req.query.clubId||null);
   if(req.user.role==="club_manager"&&!scope)return res.json([]);
   const {rows}=await pool.query(`
@@ -1716,7 +1716,7 @@ app.get("/api/club-transactions",authRequired,allow("super_admin","organizer","c
     order by x.occurred_at desc,x.created_at desc limit 1000
   `,[scope]);res.json(rows);
 }));
-app.post("/api/club-transactions",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+app.post("/api/club-transactions",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
   const clubId=clubScope(req.user,req.body.clubId||null);
   if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
   const direction=String(req.body.direction||""),amount=Number(req.body.amount);
@@ -1729,14 +1729,14 @@ app.post("/api/club-transactions",authRequired,allow("super_admin","organizer","
   res.status(201).json(row);
 }));
 
-app.get("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/bookings",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {rows}=await pool.query(`
     select b.*,c.name court_name,t.name tournament_name from court_bookings b
     join courts c on c.id=b.court_id join tournaments t on t.id=c.tournament_id
     order by b.start_at desc limit 500
   `);res.json(rows);
 }));
-app.post("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/bookings",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {courtId,title,contactName,contactPhone,startAt,endAt,notes}=req.body;
   if(!courtId||!title||!startAt||!endAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
   const startMs=Date.parse(startAt),endMs=Date.parse(endAt);
@@ -1745,11 +1745,11 @@ app.post("/api/bookings",authRequired,allow("super_admin","organizer"),wrap(asyn
   if(clash)return res.status(409).json({error:"BOOKING_CONFLICT"});
   const row=(await pool.query("insert into court_bookings(court_id,title,contact_name,contact_phone,start_at,end_at,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[courtId,title,contactName||null,contactPhone||null,startAt,endAt,notes||null,req.user.sub])).rows[0];res.status(201).json(row);
 }));
-app.patch("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/bookings/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const row=(await pool.query("update court_bookings set title=coalesce($1,title),contact_name=coalesce($2,contact_name),contact_phone=coalesce($3,contact_phone),status=coalesce($4,status),notes=coalesce($5,notes) where id=$6 returning *",[req.body.title??null,req.body.contactName??null,req.body.contactPhone??null,req.body.status??null,req.body.notes??null,req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
 }));
 
-app.get("/api/reports/overview",authRequired,allow("super_admin","organizer","finance","club_manager"),wrap(async(req,res)=>{
+app.get("/api/reports/overview",authRequired,allow("super_admin","finance","club_manager"),wrap(async(req,res)=>{
   let reg={registrations:0,checked_in:0,paid_count:0,revenue:0},mat={matches:0,live:0,completed:0};
   if(req.user.role==="finance"&&req.user.clubId){
     reg=(await pool.query(`
@@ -1794,7 +1794,7 @@ app.get("/api/reports/overview",authRequired,allow("super_admin","organizer","fi
   const clubIncome=Number(clubStats.club_income||0),clubExpense=Number(clubStats.club_expense||0);
   res.json({...reg,...mat,players,members:players,upcomingActivities:Number(clubStats.upcoming_activities||0),attendanceToday:Number(clubStats.attendance_today||0),clubIncome,clubExpense,clubBalance:clubIncome-clubExpense});
 }));
-app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+app.get("/api/reports/export.csv",authRequired,allow("super_admin","finance"),wrap(async(req,res)=>{
   const financeClub=req.user.role==="finance"?req.user.clubId:null;
   const rows=(await pool.query(`
     select tr.name tournament,d.name division,t.name team,r.status registration_status,r.payment_status,r.amount,r.checked_in_at
@@ -1977,7 +1977,7 @@ app.delete("/api/registrations/:id",authRequired,allow("super_admin","organizer"
   await pool.query("delete from registrations where id=$1",[before.id]);await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'registration',$2,'DELETE_REGISTRATION',$3)",[req.user.sub,before.id,before]);res.json({mode:"deleted"});
 }));
 
-app.delete("/api/bookings/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/bookings/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from court_bookings where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const after=(await pool.query("update court_bookings set status='cancelled' where id=$1 returning *",[before.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'booking',$2,'CANCEL_BOOKING',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"cancelled",entity:after});
@@ -2138,7 +2138,7 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"
   res.json(after);
 }));
 
-app.get("/api/audit",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/audit",authRequired,allow("super_admin"),wrap(async(req,res)=>{
   const {rows}=await pool.query("select * from audit_logs order by created_at desc limit 500");res.json(rows);
 }));
 
