@@ -1552,3 +1552,32 @@ body.public-body main{height:auto!important;max-height:none!important;overflow:v
   .tournament-bracket-help{font-size:10px!important}
   .tournament-bracket-help:after{font-size:8px;padding:5px 8px}
 }
+
+/* MOCKUP BRACKET POLISH V34 */
+#tourBracket .bracket-tree,#tourBracket .bracket-plan{position:relative!important;isolation:isolate}
+#tourBracket .bracket-connectors{position:absolute;inset:0;z-index:0;overflow:visible;pointer-events:none}
+#tourBracket .bracket-connector-glow,
+#tourBracket .bracket-connector-line{fill:none;stroke-linecap:round;stroke-linejoin:round}
+#tourBracket .bracket-connector-glow{stroke:#51ffb8;stroke-width:7;opacity:.14;filter:drop-shadow(0 0 7px rgba(81,255,184,.9))}
+#tourBracket .bracket-connector-line{stroke:#6fffc2;stroke-width:2.25;opacity:.95;filter:drop-shadow(0 0 3px rgba(72,255,174,.85));stroke-dasharray:8 8;animation:bracketLineFlow 1.8s linear infinite}
+#tourBracket .bracket-round-pro{position:relative;z-index:2}
+#tourBracket .bracket-match-wrap:after{display:none!important}
+#tourBracket .bracket-round-pro>h3{display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;min-height:42px!important;border:1px solid rgba(104,255,185,.35)!important;background:linear-gradient(180deg,rgba(22,142,91,.9),rgba(10,101,68,.88))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 22px rgba(0,0,0,.16)!important}
+#tourBracket .bracket-round-pro.is-final-round>h3{background:linear-gradient(135deg,#6c4b00,#c38a13 55%,#ffcf4c)!important;border-color:#ffd85c!important;color:#fff8d9!important;box-shadow:0 0 0 1px rgba(255,220,112,.18),0 0 26px rgba(255,190,38,.32)!important}
+#tourBracket .final-cup{display:inline-grid!important;place-items:center!important;width:28px;height:28px;border-radius:50%;background:rgba(255,247,206,.14);font-size:19px;filter:drop-shadow(0 0 6px rgba(255,218,83,.8));animation:cupFloat 1.9s ease-in-out infinite}
+#tourBracket .is-final-round .bracket-match-pro{border-color:#f5cd67!important;background:linear-gradient(155deg,#fffdf2,#fff3c2)!important;box-shadow:0 12px 30px rgba(104,72,0,.2),0 0 24px rgba(255,207,65,.17)!important}
+#tourBracket .is-final-round .bracket-match-pro:before{content:"♛";position:absolute;right:12px;top:7px;color:#d59a11;font-size:17px;opacity:.55}
+#tourBracket .is-final-round .bracket-match-meta b{background:#fff0b9!important;color:#9a6c00!important}
+#tourBracket .bracket-match-pro{transition:transform .2s ease,box-shadow .2s ease!important}
+#tourBracket .bracket-match-pro:active{transform:scale(.985)!important}
+#tourBracket .bracket-team{min-height:34px!important}
+#tourBracket .bracket-plan-match .bracket-team span{color:#53655c!important}
+#tourBracket .bracket-round-pro:not(:first-child){padding-top:0!important}
+#tourBracket .bracket-plan-note{position:relative;z-index:3}
+@keyframes bracketLineFlow{to{stroke-dashoffset:-32}}
+@keyframes cupFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2px) rotate(2deg)}}
+@media(max-width:760px){
+  #tourBracket .bracket-round-pro{flex-basis:min(82vw,292px)!important;min-width:min(82vw,292px)!important;max-width:min(82vw,292px)!important}
+  #tourBracket .bracket-match-pro{border-radius:16px!important}
+  #tourBracket .bracket-round-pro>h3{min-height:40px!important;border-radius:13px!important}
+}
