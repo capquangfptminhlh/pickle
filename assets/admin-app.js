@@ -63,7 +63,7 @@ const canReferees=()=>["super_admin","organizer"].includes(user?.role);
 const canAccounts=()=>["super_admin","organizer"].includes(user?.role)&&!location.pathname.includes("/preview/");
 const visibleNav=()=>{
   if(user?.role==="super_admin")return NAV.filter(n=>n[0]!=="accounts"||canAccounts());
-  if(user?.role==="organizer")return NAV.filter(n=>n[0]!=="audit");
+  if(user?.role==="organizer")return NAV.filter(n=>["dashboard","tournaments","registrations","players","matches","scores","standings","bracket","courts","referees","accounts","payments"].includes(n[0]));
   if(user?.role==="referee")return NAV.filter(n=>["dashboard","players","matches","scores","standings","bracket","courts"].includes(n[0]));
   if(user?.role==="club_manager")return NAV.filter(n=>["dashboard","club_events","players","clubs","club_attendance","treasury"].includes(n[0]));
   if(user?.role==="finance")return NAV.filter(n=>["dashboard","treasury","payments","reports"].includes(n[0]));
@@ -112,7 +112,7 @@ function matchCard(m){
 }
 async function dashboard(){
   const live=state.matches.filter(m=>m.status==="live").length,done=state.matches.filter(m=>m.status==="done").length;
-  const clubRole=["super_admin","organizer","finance","club_manager"].includes(user?.role);
+  const clubRole=["super_admin","finance","club_manager"].includes(user?.role);
   const [report,events]=clubRole?await Promise.all([API.reportOverview().catch(()=>({})),API.clubEvents().catch(()=>[])]):[{},[]];
   const nextMatch=state.matches.find(m=>m.status!=="done"),nextEvent=events.find(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date());
   setHeader("Trang chủ","Lịch, thành viên, điểm danh, thu chi và thi đấu trong một màn hình");
