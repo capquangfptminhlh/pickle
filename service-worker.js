@@ -1,4 +1,4 @@
-const VERSION="pickleup-pages-v29-bracket-courtboard-20260929";
+const VERSION="pickleup-pages-v30-scroll-fix-20260929";
 const CORE=[
   "./",
   "./index.html",

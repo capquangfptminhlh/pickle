@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v22-visible-test16-20260928";
+const VERSION="pickleup-preview-v24-scroll-fix-20260929";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
