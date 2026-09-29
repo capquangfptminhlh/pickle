@@ -1251,3 +1251,74 @@ radial-gradient(circle at 46% 92%,#0b714a 0 3px,transparent 4px)}
 #knockout .app-section-head h2:after{content:" • đến Chung kết";color:#0c8154}
 .tournament-bracket-help{margin:0 0 12px;color:#6e7e75;font-size:11px;font-weight:700}
 @media(max-width:760px){#tourBracket{overflow-x:auto;padding-bottom:8px}.bracket-plan-note{font-size:9px}}
+
+/* TOURNAMENT BRACKET + COURTBOARD V29 */
+.tournament-focus-tabs{grid-template-columns:repeat(4,1fr)!important;background:rgba(5,28,20,.94)!important;border-color:rgba(62,255,174,.2)!important;box-shadow:0 14px 36px rgba(0,38,24,.16)!important}
+.tournament-focus-tabs a{color:#b8d3c8!important;font-size:10px!important;transition:.25s ease!important}
+.tournament-focus-tabs a:first-child,.tournament-focus-tabs a:hover{background:linear-gradient(135deg,#00a86b,#14e58d)!important;color:#fff!important;box-shadow:0 0 24px rgba(20,229,141,.3)!important;transform:translateY(-1px)}
+#knockout{padding-top:30px}
+#knockout .public-container{position:relative;overflow:hidden;padding:20px;border-radius:28px;background:
+radial-gradient(circle at 78% 12%,rgba(116,255,178,.12),transparent 25%),
+linear-gradient(145deg,#06251b,#073629 58%,#051c16);color:#fff;border:1px solid rgba(74,255,176,.45);box-shadow:0 24px 60px rgba(0,54,35,.22)}
+#knockout .public-container:before{content:"";position:absolute;inset:-40% -10%;background:linear-gradient(110deg,transparent 36%,rgba(94,255,180,.08) 49%,transparent 62%);animation:neonSweep 6s linear infinite;pointer-events:none}
+#knockout .app-section-head{position:relative;z-index:2;margin-bottom:4px}
+#knockout .app-section-head span{color:#78ffb6!important}#knockout .app-section-head h2{color:#fff!important;font-size:26px!important}
+#knockout .tournament-bracket-help{position:relative;z-index:2;color:#98b9aa!important;margin-bottom:14px!important}
+#tourBracket{position:relative;z-index:2;overflow-x:auto;padding:8px 4px 16px;scroll-snap-type:x proximity;scrollbar-color:#19d982 #09291f}
+#tourBracket .bracket{display:flex;align-items:stretch;gap:42px;min-width:max-content;padding:8px 16px 12px 4px}
+#tourBracket .bracket-round-pro{position:relative;display:flex;flex-direction:column;justify-content:space-around;min-width:222px;scroll-snap-align:start}
+#tourBracket .bracket-round-pro>h3{position:sticky;top:0;z-index:6;margin:0 0 14px;padding:9px 12px;border-radius:12px;background:linear-gradient(135deg,#0b7750,#0aa169);color:#fff;text-align:center;font-size:11px;letter-spacing:.04em;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+#tourBracket .bracket-round-pro:last-child>h3{background:linear-gradient(135deg,#c97700,#ff9d00);color:#fff5d9}
+#tourBracket .bracket-match-wrap{position:relative;margin:8px 0;animation:bracketCardIn .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--bracket-delay)}
+#tourBracket .bracket-match-wrap:after{content:"";position:absolute;right:-43px;top:50%;width:43px;height:2px;background:linear-gradient(90deg,#2df39a,#40ffc4);box-shadow:0 0 9px #28ee96;animation:connectorFlow 1.8s ease-in-out infinite}
+#tourBracket .bracket-round-pro:last-child .bracket-match-wrap:after{display:none}
+#tourBracket .bracket-match-pro{position:relative;min-height:98px;padding:9px!important;border:1px solid rgba(128,255,197,.28)!important;border-radius:14px!important;background:linear-gradient(155deg,rgba(255,255,255,.96),rgba(226,255,242,.92))!important;color:#10251c!important;box-shadow:0 10px 24px rgba(0,0,0,.18),0 0 0 1px rgba(30,255,154,.04)!important;overflow:hidden;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+#tourBracket .bracket-match-pro:hover{transform:translateY(-3px) scale(1.01);border-color:#4dffae!important;box-shadow:0 14px 34px rgba(0,0,0,.24),0 0 24px rgba(54,255,168,.16)!important}
+#tourBracket .bracket-match-pro.is-live{border-color:#ff8a3d!important;box-shadow:0 0 0 1px rgba(255,117,26,.18),0 0 26px rgba(255,117,26,.2)!important}
+#tourBracket .bracket-match-meta{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px!important;color:#72837a!important;font-size:8px!important}
+#tourBracket .bracket-match-meta b{font-size:7px;padding:4px 6px;border-radius:999px;background:#e7f7ee;color:#0a7a4d;letter-spacing:.05em}
+#tourBracket .is-live .bracket-match-meta b{background:#ffede1;color:#f15c00;animation:livePulse 1.2s ease-in-out infinite}
+#tourBracket .bracket-team{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;border-top:1px solid rgba(12,72,47,.08)!important;background:transparent!important;font-size:10px!important}
+#tourBracket .bracket-team.win{background:linear-gradient(90deg,#e5fff0,#f7fffa)!important;color:#08764b!important;font-weight:950!important}
+#tourBracket .bracket-team b{font-size:14px!important}
+#tourBracket .public-champion{margin-top:14px;border-color:#ffbd31!important;background:linear-gradient(135deg,#3d2a00,#7a4f00)!important;color:#fff!important;box-shadow:0 0 28px rgba(255,176,28,.22)!important}
+#schedule{padding-top:34px}
+#schedule .public-container{padding:20px;border-radius:28px;background:linear-gradient(145deg,#061d17,#082b21);color:#fff;border:1px solid rgba(55,255,170,.28);box-shadow:0 20px 50px rgba(0,48,31,.17)}
+#schedule .app-section-head span{color:#78ffb6!important}#schedule .app-section-head h2{color:#fff!important}
+#schedule .app-count-pill{background:#ff4b3f!important;color:#fff!important;box-shadow:0 0 20px rgba(255,75,63,.24)}
+#schedule #tourMatches.public-match-grid{display:block!important}
+.court-board-grid{display:grid;grid-template-columns:repeat(4,minmax(235px,1fr));gap:12px;overflow-x:auto;padding:8px 2px 10px;scroll-snap-type:x proximity}
+.court-board{min-width:235px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.04);overflow:hidden;scroll-snap-align:start;animation:courtRise .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--court-delay)}
+.court-board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;background:linear-gradient(135deg,#00a86b,#0dd887);border-bottom:1px solid rgba(255,255,255,.08)}
+.court-tone-2 .court-board-head{background:linear-gradient(135deg,#0a72e8,#18a0ff)}.court-tone-3 .court-board-head{background:linear-gradient(135deg,#e86a00,#ff962d)}.court-tone-4 .court-board-head{background:linear-gradient(135deg,#6e35d6,#a45cff)}
+.court-board-head span{display:block;font-size:7px;font-weight:950;letter-spacing:.12em;opacity:.72}.court-board-head h3{margin:1px 0 0;font-size:15px}.court-board-head>b{font-size:8px;padding:5px 7px;border-radius:999px;background:rgba(0,0,0,.2);color:#fff}
+.court-match-stack{display:grid}
+.court-match-card{position:relative;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);animation:matchSlideUp .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--match-delay);transition:background .2s ease,transform .2s ease}
+.court-match-card:last-child{border-bottom:0}.court-match-card:hover{background:rgba(255,255,255,.055);transform:translateY(-1px)}
+.court-match-card.is-live{background:linear-gradient(90deg,rgba(255,91,54,.13),rgba(255,255,255,.035))}
+.court-match-card.is-live:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#ff633a;box-shadow:0 0 15px #ff633a;animation:livePulse 1.2s ease-in-out infinite}
+.court-match-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:8px;color:#a8bdb3}.court-match-meta b{color:#fff;font-size:11px}
+.court-match-card .badge{font-size:7px!important}
+.court-team-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:7px;padding:5px 0}
+.court-team-row img,.court-team-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.28);background:#17372b;display:grid;place-items:center;color:#92b9a7;font-size:7px;font-weight:900}
+.court-team-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:9px}.court-team-row strong{min-width:22px;text-align:center;color:#dfff69;font-size:16px}
+.court-match-card footer{margin-top:6px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.08);color:#95aa9f;font-size:8px}
+.live-dot{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:#ff513f;box-shadow:0 0 0 0 rgba(255,81,63,.6);animation:liveDot 1.4s infinite}
+@keyframes neonSweep{from{transform:translateX(-20%)}to{transform:translateX(20%)}}
+@keyframes bracketCardIn{from{opacity:0;transform:translateX(-18px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes connectorFlow{0%,100%{opacity:.45;filter:brightness(.9)}50%{opacity:1;filter:brightness(1.45)}}
+@keyframes courtRise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes matchSlideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livePulse{0%,100%{opacity:.72}50%{opacity:1;box-shadow:0 0 18px currentColor}}
+@keyframes liveDot{0%{box-shadow:0 0 0 0 rgba(255,81,63,.5)}70%{box-shadow:0 0 0 8px rgba(255,81,63,0)}100%{box-shadow:0 0 0 0 rgba(255,81,63,0)}}
+@media(max-width:760px){
+ .tournament-focus-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow:visible!important}.tournament-focus-tabs a{min-width:0!important;flex:auto!important}
+ #knockout .public-container,#schedule .public-container{width:calc(100% - 20px);padding:14px;border-radius:22px}
+ #tourBracket{margin:0 -4px}.court-board-grid{grid-template-columns:repeat(4,82vw);gap:10px}
+ #tourBracket .bracket{gap:34px}.court-board{min-width:82vw}
+ #tourBracket .bracket-round-pro{min-width:198px}
+ #tourBracket .bracket-match-wrap:after{right:-35px;width:35px}
+}
+@media(prefers-reduced-motion:reduce){
+ #knockout .public-container:before,.bracket-match-wrap,.court-board,.court-match-card,.live-dot,.bracket-match-meta b,.bracket-match-wrap:after{animation:none!important}
+}

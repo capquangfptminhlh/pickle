@@ -5,13 +5,15 @@
     const ready=m.a&&m.b&&m.a!=="TBD"&&m.b!=="TBD";
     const special=m.resultReason?'<small class="bracket-reason">'+esc(m.resultReason.replaceAll("_"," "))+'</small>':"";
     const action=admin&&m.status!=="done"&&ready?'<button class="mini" data-score-match="'+esc(m.id)+'">Nhập điểm</button>':"";
-    return '<div class="bracket-match bracket-match-pro" data-bracket-match="'+esc(m.id)+'">'+
-      '<div class="bracket-match-meta"><span>'+esc(m.time||"")+'</span><span>Sân '+esc(m.court||"—")+'</span></div>'+
+    const statusLabel=m.status==="live"?"LIVE":(m.status==="done"||m.status==="completed"?"KẾT THÚC":"SẮP ĐẤU");
+    const statusClass=m.status==="live"?"is-live":(m.status==="done"||m.status==="completed"?"is-done":"is-wait");
+    return '<div class="bracket-match bracket-match-pro '+statusClass+'" data-bracket-match="'+esc(m.id)+'">'+
+      '<div class="bracket-match-meta"><span>'+esc(m.time||"")+' • Sân '+esc(m.court||"—")+'</span><b>'+statusLabel+'</b></div>'+
       '<div class="bracket-team '+(m.winner===m.a?"win":"")+'"><span>'+esc(team(m.a))+'</span><b>'+(m.status==="done"?setWins(m,"A"):"")+'</b></div>'+
       '<div class="bracket-team '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.status==="done"?setWins(m,"B"):"")+'</b></div>'+
       special+action+'</div>';
   };
-  const round=(title,matches,team,opts)=>'<div class="round bracket-round-pro"><h3>'+esc(title)+'</h3>'+matches.map(m=>match(m,team,opts)).join("")+'</div>';
+  const round=(title,matches,team,opts,idx=0)=>'<div class="round bracket-round-pro bracket-round-'+(idx+1)+'" style="--round-index:'+idx+'"><h3>'+esc(title)+'</h3>'+matches.map((m,i)=>'<div class="bracket-match-wrap" style="--bracket-delay:'+((idx*110)+(i*55))+'ms">'+match(m,team,opts)+'</div>').join("")+'</div>';
   const sortSlot=(a,b)=>(a.bracketSlot||"").localeCompare(b.bracketSlot||"",undefined,{numeric:true});
   function render(matches,team,opts={}){
     const ko=matches.filter(m=>m.bracketSlot);
@@ -54,10 +56,10 @@
       if(!map.has(n))map.set(n,[]);map.get(n).push(m);
     }
     const rounds=[...map.entries()].sort((a,b)=>a[0]-b[0]);
-    return '<div class="bracket">'+rounds.map(([n,a])=>{
+    return '<div class="bracket bracket-tree">'+rounds.map(([n,a],ri)=>{
       a.sort(sortSlot);const sample=a[0]?.stage||("Vòng "+n);
       const title=sample.replace(/\s+\d+$/,"");
-      return round(title,a,team,opts);
+      return round(title,a,team,opts,ri);
     }).join("")+'</div>';
   }
   const planMatch=(a,b,label)=>'<div class="bracket-match bracket-match-pro bracket-plan-match"><div class="bracket-match-meta"><span>'+esc(label||"")+'</span><span>Dự kiến</span></div><div class="bracket-team"><span>'+esc(a||"Chờ xác định")+'</span><b></b></div><div class="bracket-team"><span>'+esc(b||"Chờ xác định")+'</span><b></b></div></div>';
