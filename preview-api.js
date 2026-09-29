@@ -444,6 +444,17 @@
     reportOverview:async()=>{const income=state.clubTransactions.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0),expense=state.clubTransactions.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0),today=new Date().toDateString();return {players:state.players.filter(p=>p.active!==false).length,members:state.players.filter(p=>p.active!==false).length,registrations:state.registrations.length,checked_in:state.registrations.filter(r=>r.checked_in_at).length,paid_count:state.registrations.filter(r=>r.payment_status==="paid").length,revenue:state.registrations.filter(r=>r.payment_status==="paid").reduce((a,r)=>a+Number(r.amount||0),0),matches:state.matches.length,live:state.matches.filter(m=>m.status==="live").length,completed:state.matches.filter(m=>m.status==="done").length,attendanceToday:Object.values(state.clubAttendance).flat().filter(a=>a.status==="attended"&&a.checked_in_at&&new Date(a.checked_in_at).toDateString()===today).length,upcomingActivities:state.clubEvents.filter(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date()).length,clubIncome:income,clubExpense:expense,clubBalance:income-expense}},
     addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}}
   };
+  // DEFAULT_SIX_COURTS_V1 — existing static demo tournaments start with six courts.
+  // This runs once only; after that admins can freely change the court count.
+  if(state.courtDefaultsVersion!==1){
+    for(const t of (state.tournaments||[])){
+      const active=(state.courts||[]).filter(c=>c.tournamentId===t.id&&c.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      for(let i=active.length+1;i<=6;i++)state.courts.push({id:uid(),tournamentId:t.id,name:"Sân "+i,sortOrder:i,active:true});
+    }
+    state.courtDefaultsVersion=1;
+    persist();
+  }
+
   // VISIBLE_16_PAIR_DEMO_V1 — one-time GitHub Pages demo upgrade requested by owner.
   // Keeps real/production backend untouched. If the currently viewed static demo has exactly
   // four untouched teams, expand that same division to 16 pairs, draw 4 pools, play the
