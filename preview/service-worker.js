@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v25-full-public-audit-20260929";
+const VERSION="pickleup-preview-v26-dynamic-bracket-horizontal-groups-20260929";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
