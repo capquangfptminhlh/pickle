@@ -375,6 +375,60 @@ async function authorizeMatch(c,user,m){
   return false;
 }
 
+const tournamentManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"&&!(await canManageTournament(req.user,req.params.id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  next();
+});
+const divisionManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForDivision(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const courtManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForCourt(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const teamManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForTeam(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const matchManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const m=await getMatch(pool,req.params.id,false);
+    if(!m||!(await canManageTournament(req.user,m.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const registrationManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const row=(await pool.query(`
+      select d.tournament_id from registrations r join divisions d on d.id=r.division_id where r.id=$1
+    `,[req.params.id])).rows[0];
+    if(!row||!(await canManageTournament(req.user,row.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const paymentManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const row=(await pool.query(`
+      select d.tournament_id from payment_records p
+      join registrations r on r.id=p.registration_id
+      join divisions d on d.id=r.division_id
+      where p.id=$1
+    `,[req.params.id])).rows[0];
+    if(!row||!(await canManageTournament(req.user,row.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+
 const loginAttempts=new Map(),loginIpAttempts=new Map();
 const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_ATTEMPTS=6,LOGIN_IP_MAX_ATTEMPTS=30;
 function loginKey(req,email){return String(req.ip||"")+"|"+email}
@@ -713,7 +767,7 @@ app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(r
   let slug=slugify(name);if((await pool.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-4)}`;
   const row=(await pool.query("insert into clubs(name,slug,city) values($1,$2,$3) returning *",[name,slug,req.body.city||null])).rows[0];res.status(201).json(row);
 }));
-app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
   await pool.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[req.params.id,playerId]);res.status(201).json({ok:true});
 }));
@@ -756,7 +810,7 @@ app.post("/api/import/players",authRequired,allow("super_admin","organizer"),wra
   res.status(201).json(result);
 }));
 
-app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const rows=Array.isArray(req.body.rows)?req.body.rows:[];
   if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
   const result=await tx(async c=>{
@@ -809,7 +863,7 @@ app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(a
 }));
 
 
-app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
   const {name,eventType="doubles",format="pool_to_knockout",bestOf=3,pointsToWin=11,winByTwo=true,advanceCount=2}=req.body;
   if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
@@ -822,7 +876,7 @@ app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","orga
   await emitState();res.status(201).json(row);
 }));
 
-app.post("/api/tournaments/:id/courts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/tournaments/:id/courts",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
   const name=String(req.body.name||"").trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   const sortOrder=req.body.sortOrder??Number((await pool.query("select coalesce(max(sort_order),0)+1 n from courts where tournament_id=$1",[req.params.id])).rows[0].n);
   const row=(await pool.query("insert into courts(tournament_id,name,sort_order,active) values($1,$2,$3,true) returning *",[req.params.id,name,sortOrder])).rows[0];
@@ -830,12 +884,12 @@ app.post("/api/tournaments/:id/courts",authRequired,allow("super_admin","organiz
   await emitState();res.status(201).json(row);
 }));
 
-app.patch("/api/courts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/courts/:id",authRequired,allow("super_admin","organizer"),courtManageParam,wrap(async(req,res)=>{
   const row=(await pool.query("update courts set name=coalesce($1,name),active=coalesce($2,active),sort_order=coalesce($3,sort_order) where id=$4 returning *",[req.body.name??null,req.body.active??null,req.body.sortOrder??null,req.params.id])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});await emitState();res.json(row);
 }));
 
-app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
   const fields=["name","venue_name","start_at","end_at","status","public_visible","is_featured","featured_rank","sponsor_package"];const vals=[];const sets=[];
   for(const f of fields){const key=f==="venue_name"?"venue":f==="start_at"?"startAt":f==="end_at"?"endAt":f==="public_visible"?"publicVisible":f==="is_featured"?"isFeatured":f==="featured_rank"?"featuredRank":f==="sponsor_package"?"sponsorPackage":f;if(req.body[key]!==undefined){vals.push(req.body[key]);sets.push(`${f}=$${vals.length}`)}}
   if(!sets.length)return res.status(400).json({error:"NO_CHANGES"});
@@ -847,7 +901,7 @@ app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),w
   await emitState();res.json(after);
 }));
 
-app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const {name,club,clubId:requestedClubId,group="A",seed}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   const row=await tx(async c=>{
     let clubId=null;
@@ -866,7 +920,7 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
   await emitState();res.status(201).json(row);
 }));
 
-app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
   const {courtId,refereeUserId,scheduledAt}=req.body;
   const before=(await pool.query("select * from matches where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
@@ -1044,7 +1098,7 @@ app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
 }));
 
 
-app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const bestOf=req.body.bestOf??before.best_of,points=req.body.pointsToWin??before.points_to_win,winByTwo=req.body.winByTwo??before.win_by_two,advance=req.body.advanceCount??before.advance_count;
@@ -1055,7 +1109,7 @@ app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wra
 }));
 
 
-app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const groupCount=Number(req.body.groupCount||2);
   if(!Number.isInteger(groupCount)||groupCount<1||groupCount>26)return res.status(400).json({error:"INVALID_GROUP_COUNT"});
   const result=await tx(async c=>{
@@ -1097,7 +1151,7 @@ app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin",
   await emitState();res.json(result);
 }));
 
-app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
     if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1145,7 +1199,7 @@ app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_adm
   await emitState();res.json(result);
 }));
 
-app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
     if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1185,7 +1239,7 @@ app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_adm
   await emitState();res.json(result);
 }));
 
-app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const d=(await c.query(`
       select d.*,t.start_at,t.id tournament_id
@@ -1365,7 +1419,7 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
   await emitState();res.json(result);
 }));
 
-app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const {teamAId,teamBId,courtId,stage="Vòng bảng",scheduledAt,refereeUserId}=req.body;
   if(!teamAId||!teamBId||teamAId===teamBId)return res.status(400).json({error:"INVALID_TEAMS"});
   const validTeams=Number((await pool.query("select count(*)::int n from teams where division_id=$1 and id=any($2::uuid[])",[req.params.id,[teamAId,teamBId]])).rows[0].n);
@@ -1391,7 +1445,7 @@ app.get("/api/registrations",authRequired,allow("super_admin","organizer","finan
     order by r.created_at desc
   `,[financeClub]);res.json(rows);
 }));
-app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
   const teamCheck=await pool.query("select id from teams where id=$1 and division_id=$2",[teamId,req.params.id]);
   if(!teamCheck.rowCount)return res.status(400).json({error:"TEAM_DIVISION_MISMATCH"});
@@ -1399,7 +1453,7 @@ app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","or
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'registration',$2,'CREATE_REGISTRATION',$3)",[req.user.sub,row.id,row]);
   res.status(201).json(row);
 }));
-app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),registrationManageParam,wrap(async(req,res)=>{
   const reg=(await pool.query(`
     select r.id,t.club_id from registrations r left join teams t on t.id=r.team_id where r.id=$1
   `,[req.params.id])).rows[0];
@@ -1409,7 +1463,7 @@ app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","orga
   const row=(await pool.query("insert into payment_records(registration_id,method,reference_code,receipt_url,status) values($1,$2,$3,$4,'pending') returning *",[req.params.id,method||"bank_transfer",referenceCode||null,receiptUrl||null])).rows[0];
   await pool.query("update registrations set payment_status='pending' where id=$1",[req.params.id]);res.status(201).json(row);
 }));
-app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer","finance"),paymentManageParam,wrap(async(req,res)=>{
   if(!["approved","rejected","refunded"].includes(req.body.status))return res.status(400).json({error:"INVALID_STATUS"});
   const row=await tx(async c=>{
     const before=(await c.query(`
@@ -1437,7 +1491,7 @@ app.post("/api/uploads/receipt",authRequired,allow("super_admin","organizer","fi
   res.status(201).json({url:`/uploads/receipts/${req.file.filename}`,mime:req.file.mimetype,size:req.file.size});
 }));
 
-app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
   const row=await tx(async c=>{
     const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1447,7 +1501,7 @@ app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","orga
   });
   res.json(row);
 }));
-app.post("/api/registrations/:id/undo-checkin",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.post("/api/registrations/:id/undo-checkin",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
   const row=await tx(async c=>{
     const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1456,7 +1510,7 @@ app.post("/api/registrations/:id/undo-checkin",authRequired,allow("super_admin",
     return after;
   });res.json(row);
 }));
-app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
   const row=(await pool.query("select id,checkin_token from registrations where id=$1",[req.params.id])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});
   const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
@@ -1729,7 +1783,7 @@ app.get("/api/reports/export.csv",authRequired,allow("super_admin","organizer","
 }));
 
 
-app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=(await c.query("select * from tournaments where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1750,7 +1804,7 @@ app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),
   await emitState();res.json(result);
 }));
 
-app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const next={
@@ -1775,7 +1829,7 @@ app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"
   await emitState();res.json(after);
 }));
 
-app.delete("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1792,7 +1846,7 @@ app.delete("/api/divisions/:id",authRequired,allow("super_admin","organizer"),wr
   await emitState();res.json(result);
 }));
 
-app.delete("/api/courts/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/courts/:id",authRequired,allow("super_admin","organizer"),courtManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=(await c.query("select * from courts where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
@@ -1835,7 +1889,7 @@ app.delete("/api/players/:id",authRequired,allow("super_admin","organizer","club
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'DEACTIVATE_PLAYER',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"deactivated",entity:after});
 }));
 
-app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from teams where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   let clubId=before.club_id;
   if(req.body.clubId!==undefined)clubId=req.body.clubId||null;
@@ -1844,7 +1898,7 @@ app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(as
   `,[String(req.body.name??before.name).trim(),clubId,req.body.group??before.group_code,req.body.seed??before.seed,req.body.status??before.status,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'team',$2,'UPDATE_TEAM',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
 }));
-app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=(await c.query("select * from teams where id=$1 for update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     const deps=Number((await c.query("select ((select count(*) from matches where team_a_id=$1 or team_b_id=$1)+(select count(*) from registrations where team_id=$1))::int n",[before.id])).rows[0].n);
@@ -1856,7 +1910,7 @@ app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),wrap(a
   });await emitState();res.json(result);
 }));
 
-app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from matches where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(before.status==="completed"&&req.body.status&&req.body.status!=="completed")return res.status(409).json({error:"COMPLETED_MATCH_LOCKED"});
   const status=req.body.status??before.status;
@@ -1866,7 +1920,7 @@ app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(
   `,[req.body.stage??before.stage,req.body.scheduledAt??before.scheduled_at,req.body.courtId??before.court_id,req.body.refereeUserId??before.referee_user_id,status,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'match',$2,'UPDATE_MATCH',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
 }));
-app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=await getMatch(c,req.params.id,true);if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     if(before.status==="completed")throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});
@@ -1879,7 +1933,7 @@ app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),wrap
   });await emitState();res.json(result);
 }));
 
-app.patch("/api/registrations/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.patch("/api/registrations/:id",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const status=req.body.status??before.status,paymentStatus=req.body.paymentStatus??before.payment_status;
   if(!["pending","approved","waitlist","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
@@ -1887,7 +1941,7 @@ app.patch("/api/registrations/:id",authRequired,allow("super_admin","organizer")
   const after=(await pool.query("update registrations set status=$1,payment_status=$2,amount=$3 where id=$4 returning *",[status,paymentStatus,req.body.amount??before.amount,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'registration',$2,'UPDATE_REGISTRATION',$3,$4)",[req.user.sub,after.id,before,after]);res.json(after);
 }));
-app.delete("/api/registrations/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+app.delete("/api/registrations/:id",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
   const hasPayment=Number((await pool.query("select count(*)::int n from payment_records where registration_id=$1",[before.id])).rows[0].n);
   if(hasPayment||before.checked_in_at){
