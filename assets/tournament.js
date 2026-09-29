@@ -76,8 +76,48 @@ function render(){
    :(window.PickleBracket?.renderPlan(teams)||empty("🏆","Chưa có sơ đồ","BTC chưa chia bảng."));
  const champ=window.PickleBracket?.champion(matches,team);
  $("#tourBracket").innerHTML=bracketHtml+(champ&&champ!=="Chưa xác định"?'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>':"");
+ requestAnimationFrame(()=>{requestAnimationFrame(drawBracketConnectors)});
  const relevant=sponsors.filter(s=>!s.tournament_id||s.tournament_id===t.id);
  $("#tourSponsors").innerHTML=relevant.map(s=>'<a class="public-sponsor" href="'+esc(safeHttps(s.website_url))+'" '+(safeHttps(s.website_url)!=="#"?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có nhà tài trợ công khai.</span>';
 }
+function drawBracketConnectors(){
+  const host=document.querySelector("#tourBracket");
+  if(!host)return;
+  const tree=host.querySelector(".bracket-tree,.bracket-plan");
+  if(!tree)return;
+  tree.querySelector(".bracket-connectors")?.remove();
+  const rounds=[...tree.querySelectorAll(":scope > .bracket-round-pro")];
+  if(rounds.length<2)return;
+  const ns="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(ns,"svg");
+  svg.setAttribute("class","bracket-connectors");
+  svg.setAttribute("aria-hidden","true");
+  const width=Math.max(tree.scrollWidth,tree.offsetWidth),height=Math.max(tree.scrollHeight,tree.offsetHeight);
+  svg.setAttribute("width",width);svg.setAttribute("height",height);svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  const base=tree.getBoundingClientRect();
+  const point=(el,side)=>{
+    const r=el.getBoundingClientRect();
+    return {x:(side==="right"?r.right:r.left)-base.left+tree.scrollLeft,y:r.top-base.top+r.height/2};
+  };
+  const addPath=(d,cls)=>{
+    const p=document.createElementNS(ns,"path");p.setAttribute("d",d);p.setAttribute("class",cls);svg.appendChild(p);
+  };
+  for(let ri=0;ri<rounds.length-1;ri++){
+    const source=[...rounds[ri].querySelectorAll(":scope > .bracket-match-wrap")];
+    const target=[...rounds[ri+1].querySelectorAll(":scope > .bracket-match-wrap")];
+    target.forEach((to,j)=>{
+      const dst=point(to,"left");
+      [source[j*2],source[j*2+1]].filter(Boolean).forEach(from=>{
+        const src=point(from,"right");
+        const mid=src.x+Math.max(16,(dst.x-src.x)*.5);
+        const d=`M ${src.x} ${src.y} H ${mid} Q ${mid+6} ${src.y} ${mid+6} ${src.y+6} V ${dst.y-6} Q ${mid+6} ${dst.y} ${mid+12} ${dst.y} H ${dst.x}`;
+        addPath(d,"bracket-connector-glow");
+        addPath(d,"bracket-connector-line");
+      });
+    });
+  }
+  tree.prepend(svg);
+}
+addEventListener("resize",()=>{clearTimeout(window.__pickleBracketResize);window.__pickleBracketResize=setTimeout(drawBracketConnectors,120)});
 async function load(){[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}load().catch(console.error);
 if(window.io){const socket=io();socket.on("public:state",s=>{state=s;render()})}
