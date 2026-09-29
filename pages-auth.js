@@ -289,7 +289,7 @@
 
   const enrichRefs=async()=>{
     const s=await raw.publicState(),refs=await raw.referees();
-    return refs.map(r=>{const {password,...safe}=r;return {...safe,tournament_id_scope:meta.refereeScopes[r.id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[r.id]||null))?.name||null}});
+    return refs.map(r=>{const {password,...safe}=r;return {...safe,role:"referee",tournament_id_scope:meta.refereeScopes[r.id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[r.id]||null))?.name||null}});
   };
   API.referees=async()=>{
     const u=needUser(),refs=await enrichRefs();
@@ -307,7 +307,7 @@
       if(!tid||!tournamentIdsFor(u,s).includes(tid))throw forbidden("TOURNAMENT_SCOPE_FORBIDDEN");
     }else if(u.role!=="super_admin")throw forbidden();
     const r=await raw.createReferee(p);meta.refereeScopes[r.id]=tid;saveMeta();
-    return {...r,tournament_id_scope:tid,tournament_name:s.tournaments.find(t=>t.id===tid)?.name||null};
+    return {...r,role:"referee",tournament_id_scope:tid,tournament_name:s.tournaments.find(t=>t.id===tid)?.name||null};
   };
   API.updateReferee=async(id,p)=>{
     const u=needUser(),s=await raw.publicState(),cur=meta.refereeScopes[id]||null;
@@ -317,7 +317,7 @@
     }else if(u.role!=="super_admin")throw forbidden();
     const r=await raw.updateReferee(id,p);
     if(p.tournamentId!==undefined)meta.refereeScopes[id]=p.tournamentId||null;
-    saveMeta();return {...r,tournament_id_scope:meta.refereeScopes[id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[id]||null))?.name||null};
+    saveMeta();return {...r,role:"referee",tournament_id_scope:meta.refereeScopes[id]||null,tournament_name:s.tournaments.find(t=>t.id===(meta.refereeScopes[id]||null))?.name||null};
   };
 
   API.users=async()=>{
