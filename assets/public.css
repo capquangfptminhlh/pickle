@@ -1585,3 +1585,6 @@ body.public-body main{height:auto!important;max-height:none!important;overflow:v
 /* COURT COUNT V35 */
 .court-empty-slot{min-height:132px;display:grid;place-items:center;align-content:center;gap:5px;padding:18px;text-align:center;color:#92aa9f}
 .court-empty-slot span{font-size:24px;opacity:.8}.court-empty-slot b{color:#d8ebe1;font-size:11px}.court-empty-slot small{font-size:8px;color:#789187}
+
+/* REALTIME PUBLIC V36 */
+#tourLiveCount.is-realtime{background:#ff4b3f!important;color:#fff!important;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 22px rgba(255,75,63,.3)!important;animation:livePulse 1.4s ease-in-out infinite}
