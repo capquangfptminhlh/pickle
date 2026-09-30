@@ -65,6 +65,8 @@ assert(mgrPlayers.every(p=>p.club_id===clubA.id),"club manager roster scoped");
 const managerMade=(await raw("/api/players",{method:"POST",token:manager.token,body:{fullName:"Manager Made "+stamp,clubId:clubB.id,rating:4.8}})).data;
 assert(managerMade.club_id===clubA.id&&Number(managerMade.rating)===3,"club manager cannot escape club/rating scope");
 await raw("/api/players/"+pB.id,{method:"PATCH",token:manager.token,body:{nickname:"blocked"},ok:[403]});
+await raw("/api/clubs/"+clubA.id,{method:"PATCH",token:manager.token,body:{city:"HCMC"}});
+await raw("/api/clubs/"+clubB.id,{method:"PATCH",token:manager.token,body:{city:"blocked"},ok:[403]});
 await raw("/api/tournaments",{method:"POST",token:manager.token,body:{name:"Blocked"},ok:[403]});
 await raw("/api/users",{token:manager.token,ok:[403]});
 await raw("/api/club-transactions",{method:"POST",token:manager.token,body:{clubId:clubB.id,direction:"income",amount:100000},ok:[201]});
@@ -77,6 +79,7 @@ assert(finUser.role==="finance"&&finUser.clubId===clubA.id,"finance created with
 const finance=(await raw("/api/auth/login",{method:"POST",body:{email:finEmail,password:userPassword}})).data;
 const financeRegs=(await raw("/api/registrations",{token:finance.token})).data;
 assert(financeRegs.some(x=>x.id===regA.id)&&!financeRegs.some(x=>x.id===regB.id),"finance registrations scoped");
+await raw("/api/clubs/"+clubA.id,{method:"PATCH",token:finance.token,body:{city:"blocked"},ok:[403]});
 await raw("/api/registrations/"+regB.id+"/payment",{method:"POST",token:finance.token,body:{method:"cash"},ok:[403]});
 await raw("/api/registrations/"+regA.id+"/payment",{method:"POST",token:finance.token,body:{method:"cash"}});
 const report=(await raw("/api/reports/overview",{token:finance.token})).data;
