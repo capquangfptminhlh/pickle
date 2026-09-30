@@ -35,7 +35,12 @@
 			"database_id": "decaa17e-877f-42d6-a8cd-19d38d875bff"
 		}
 	],
-	// R2 will be added as the MEDIA binding after R2 is activated for this account.
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "pickleup-media"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
