@@ -11,8 +11,46 @@
   const form = $("#submitForm");
   const successBox = $("#submitSuccess");
   const submitBtn = $("#submitBtn");
+  const bannerInput = $("#tourBanner");
+  const bannerPreviewWrap = $("#tourBannerPreviewWrap");
+  const bannerPreview = $("#tourBannerPreview");
+  const bannerRemove = $("#tourBannerRemove");
+  const bannerUpload = document.querySelector(".tournament-banner-upload");
+  let bannerObjectUrl = "";
 
   if (!form) return;
+
+  const resetBanner = () => {
+    if (bannerObjectUrl) URL.revokeObjectURL(bannerObjectUrl);
+    bannerObjectUrl = "";
+    if (bannerInput) bannerInput.value = "";
+    if (bannerPreview) bannerPreview.removeAttribute("src");
+    if (bannerPreviewWrap) bannerPreviewWrap.hidden = true;
+    bannerUpload?.classList.remove("has-preview");
+  };
+  const validateBanner = file => {
+    if (!file) return true;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
+      toast("Banner chỉ hỗ trợ JPG, PNG hoặc WebP.");
+      return false;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast("Banner tối đa 5MB. Vui lòng chọn ảnh nhẹ hơn.");
+      return false;
+    }
+    return true;
+  };
+  bannerInput?.addEventListener("change", () => {
+    const file = bannerInput.files?.[0];
+    if (!file) return resetBanner();
+    if (!validateBanner(file)) return resetBanner();
+    if (bannerObjectUrl) URL.revokeObjectURL(bannerObjectUrl);
+    bannerObjectUrl = URL.createObjectURL(file);
+    if (bannerPreview) bannerPreview.src = bannerObjectUrl;
+    if (bannerPreviewWrap) bannerPreviewWrap.hidden = false;
+    bannerUpload?.classList.add("has-preview");
+  });
+  bannerRemove?.addEventListener("click", resetBanner);
 
   // Package selector radio logic
   document.querySelectorAll(".package-card").forEach(card => {
@@ -41,6 +79,7 @@
     const contactPhone = $("#contactPhone").value.trim();
     const contactEmail = $("#contactEmail").value.trim();
     const sponsorPackage = document.querySelector("input[name=sponsorPackage]:checked")?.value || "free";
+    const bannerFile = bannerInput?.files?.[0] || null;
 
     if (!name || name.length < 3) {
       toast("Vui lòng nhập tên giải đấu (tối thiểu 3 ký tự).");
@@ -57,6 +96,7 @@
       $("#contactName").focus();
       return;
     }
+    if (bannerFile && !validateBanner(bannerFile)) return;
 
     submitBtn.disabled = true;
     submitBtn.textContent = "Đang xử lý...";
@@ -80,13 +120,21 @@
 
       let res;
       if (window.PickleAPI?.submitTournament) {
-        res = await PickleAPI.submitTournament(payload);
+        res = await PickleAPI.submitTournament(payload, bannerFile);
       } else {
-        const r = await fetch("/api/public/tournaments/submit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
+        const options = {method:"POST"};
+        if (bannerFile) {
+          const fd = new FormData();
+          Object.entries(payload).forEach(([key,value]) => {
+            if (value !== null && value !== undefined) fd.append(key, String(value));
+          });
+          fd.append("banner", bannerFile);
+          options.body = fd;
+        } else {
+          options.headers = {"Content-Type":"application/json"};
+          options.body = JSON.stringify(payload);
+        }
+        const r = await fetch("/api/public/tournaments/submit", options);
         res = await r.json();
         if (!r.ok) throw new Error(res.error || "Lỗi đăng ký");
       }
@@ -99,6 +147,10 @@
         if (tourLink && res.tournament?.id) {
           tourLink.href = `tournament.html?id=${encodeURIComponent(res.tournament.id)}`;
         }
+      }
+      if (bannerObjectUrl) {
+        URL.revokeObjectURL(bannerObjectUrl);
+        bannerObjectUrl = "";
       }
       toast("Đăng giải thành công!");
     } catch (err) {
