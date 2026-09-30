@@ -57,7 +57,7 @@ jobs:
             exit 1
           fi
           node scripts/smoke.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
-          node scripts/permissions.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node scripts/permissions-v2.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate
