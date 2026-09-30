@@ -1,16 +1,6 @@
 name: Preview on GitHub Pages
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "preview/**"
-      - "assets/styles.css"
-      - "assets/public.css"
-      - "assets/admin-app.js"
-      - "assets/tournament.js"
-      - "assets/ranking.js"
-      - ".github/workflows/preview-pages.yml"
   workflow_dispatch:
 
 permissions:

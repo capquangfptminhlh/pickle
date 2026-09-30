@@ -1,4 +1,4 @@
-const VERSION="pickle-tour-v23-gender-sync";
+const VERSION="pickle-tour-v25-banner-ocr";
 const STATIC=[
   "/assets/home-mobile.css",
   "/offline.html",
@@ -9,6 +9,7 @@ const STATIC=[
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
+  "/assets/zalo-tournaments-data.js",
   "/assets/app-icon.svg"
 ];
 

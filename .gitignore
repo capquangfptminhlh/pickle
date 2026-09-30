@@ -7,3 +7,6 @@ backups/
 *.sql.gz
 .DS_Store
 npm-debug.log*
+scratch/
+__pycache__/
+*.pyc

@@ -206,10 +206,32 @@
       radial-gradient(circle at 82% 10%,rgba(217,255,87,.28),transparent 28%),
       linear-gradient(135deg,#0c7f52,#0b4d35)
   }
-  .tour-media img{display:none!important}
-  .tour-media-shade{display:none}
+  .tour-media img{display:none}
+  .tour-media img.tour-cover-img{
+    display:block!important;
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    z-index:1;
+    filter:brightness(0.85);
+    transition:transform .3s ease;
+  }
+  .tour-card:hover .tour-media img.tour-cover-img{
+    transform:scale(1.05);
+  }
+  .tour-media.has-cover .tour-pickle-art{display:none}
+  .tour-media-shade{
+    display:none;
+    position:absolute;
+    inset:0;
+    background:linear-gradient(to top, rgba(8,30,18,0.85) 0%, rgba(8,30,18,0.2) 60%, rgba(8,30,18,0.5) 100%);
+    z-index:2;
+  }
+  .tour-media.has-cover .tour-media-shade{display:block}
   .tour-cover{
-    position:absolute;inset:0;height:auto;padding:14px;background:transparent;color:#fff
+    position:absolute;inset:0;height:auto;padding:14px;background:transparent;color:#fff;z-index:3;
   }
   .tour-cover small{display:block;color:#bfe7d1;margin-bottom:4px}
   .tour-cover strong{display:block;font-size:15px}

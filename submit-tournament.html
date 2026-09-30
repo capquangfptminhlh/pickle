@@ -45,6 +45,24 @@
         </div>
       </div>
 
+      <!-- Zalo CRM Auto-fill Assistant -->
+      <div id="zaloCrmBox" class="panel" style="background: linear-gradient(135deg, #072b1b 0%, #0d4428 100%); color: #fff; padding: 20px 24px; border-radius: 24px; margin-bottom: 24px; border: 1px solid rgba(37,211,102,0.3); box-shadow: 0 12px 32px rgba(7,43,27,0.25)">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px">
+              <span class="badge live" style="background: #25d366; color: #042415; font-weight: 900; font-size: 11px; padding: 3px 8px; border-radius: 6px">⚡ LHM CRM • ZALO AUTO-CRAWL</span>
+              <span id="zaloCrmCount" style="font-size: 13px; color: #9feec4; font-weight: 600">Đang tải giải Zalo...</span>
+            </div>
+            <h3 style="margin: 0; color: #fff; font-size: 17px; font-weight: 800">Gợi ý điền nhanh từ nhóm Zalo</h3>
+            <p style="margin: 2px 0 0; color: #b7e8cd; font-size: 13px; line-height: 1.45">Chọn một giải đấu vừa được AI của LHM CRM tự động trích xuất để điền toàn bộ form đăng ký trong 1 giây:</p>
+          </div>
+          <button type="button" id="btnFilterPickleOnly" class="btn ghost mini" style="color: #dfff69; border-color: rgba(223,255,105,0.4); font-size: 12px">Pickleball</button>
+        </div>
+        <div id="zaloSuggestList" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch">
+          <!-- Dynamically populated cards -->
+        </div>
+      </div>
+
       <form id="submitForm" class="panel" style="padding: 28px; border-radius: 24px; display: grid; gap: 24px">
         <!-- Section 1 -->
         <div>
@@ -201,6 +219,7 @@
     </div>
   </footer>
 
+  <script src="assets/zalo-tournaments-data.js"></script>
   <script src="preview-api.js"></script>
   <script src="assets/submit-tournament.js"></script>
   <script src="assets/ui-motion.js"></script>

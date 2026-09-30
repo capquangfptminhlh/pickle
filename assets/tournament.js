@@ -11,6 +11,14 @@ function render(){
  document.title=t.name+" | Pickle Tour";
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");
+ if(t.coverUrl&&!document.querySelector("#tourBannerSection")){
+   const sec=document.createElement("section");
+   sec.id="tourBannerSection";
+   sec.className="public-section community-section";
+   sec.innerHTML='<div class="public-container"><div class="app-section-head"><div><span style="color:#0c7f52;font-weight:900;font-size:11px">POSTER CHÍNH THỨC</span><h2>Poster & Banner giải đấu</h2></div>'+(t.isBanner?'<span class="app-count-pill" style="background:#e0f2fe;color:#0369a1;border-color:#bae6fd;font-weight:800">⚡ OCR TỪ ZALO GROUP</span>':'')+'</div><div style="background:#fff;border-radius:24px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.06);text-align:center"><img src="'+esc(t.coverUrl)+'" alt="'+esc(t.name)+'" style="max-width:100%;max-height:550px;border-radius:16px;object-fit:contain;box-shadow:0 4px 20px rgba(0,0,0,.08)"></div></div>';
+   const ov=document.querySelector("#overview");
+   if(ov)ov.parentNode.insertBefore(sec,ov);
+ }
  const divs=state.divisions.filter(d=>d.tournamentId===t.id),dids=new Set(divs.map(d=>d.id));
  const teams=state.teams.filter(x=>dids.has(x.divisionId)),matches=state.matches.filter(x=>dids.has(x.divisionId));
  const live=matches.filter(m=>m.status==="live"),done=matches.filter(m=>m.status==="done");

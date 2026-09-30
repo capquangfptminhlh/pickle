@@ -67,6 +67,61 @@
       }
     }
   }
+  if(typeof window!=="undefined"&&window.ZALO_CRAWLED_TOURNAMENTS?.length){
+    state.tournaments||=[];
+    const validZaloIds = new Set(window.ZALO_CRAWLED_TOURNAMENTS.map(t=>t.id));
+    const todayStr = "2026-09-30";
+    const initialLen = state.tournaments.length;
+    // Purge any outdated or removed zalo tournaments from local cache
+    state.tournaments = state.tournaments.filter(t => {
+      if(t.source === "zalo_crm"){
+        if(!validZaloIds.has(t.id)) return false;
+        if(t.startAt && t.startAt < todayStr) return false;
+      }
+      return true;
+    });
+    let tourChanged = (state.tournaments.length !== initialLen);
+
+    const existingTourNames=new Set(state.tournaments.map(t=>(t.name||"").toLowerCase().trim()));
+    const pickleTours=window.ZALO_CRAWLED_TOURNAMENTS.filter(t=>t.sport==="pickleball");
+    for(const zt of pickleTours.slice(0, 10)){
+      const norm=(zt.name||"").toLowerCase().trim();
+      const existing = state.tournaments.find(t=>t.id===zt.id||(t.name||"").toLowerCase().trim()===norm);
+      if(!existing){
+        state.tournaments.push({
+          id:zt.id,
+          name:zt.name,
+          date:zt.date,
+          startAt:zt.startAt,
+          endAt:zt.endAt,
+          venue:zt.venue,
+          format:zt.divisionName||"Open",
+          status:zt.status||"open",
+          publicVisible:true,
+          teams:zt.teams||16,
+          isFeatured:Boolean(zt.isFeatured),
+          featuredRank:zt.featuredRank||50,
+          sponsorPackage:zt.sponsorPackage||"free",
+          source:"zalo_crm",
+          coverUrl:zt.coverUrl||"",
+          isBanner:Boolean(zt.isBanner),
+          entryFee:zt.entryFee,
+          prizePool:zt.prizePool,
+          contactName:zt.contactName,
+          contactPhone:zt.contactPhone
+        });
+        existingTourNames.add(norm);
+        tourChanged=true;
+      } else if(zt.coverUrl && !existing.coverUrl){
+        existing.coverUrl = zt.coverUrl;
+        existing.isBanner = Boolean(zt.isBanner);
+        tourChanged=true;
+      }
+    }
+    if(tourChanged){
+      localStorage.setItem(KEY,JSON.stringify(state));
+    }
+  }
   const recomputeStats=()=>{
     const stats=new Map(state.teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
     const isGroupMatch=m=>!m.bracketSlot&&((m.stage&&m.stage.startsWith("Bảng"))||/bảng|group|vòng bảng/i.test(m.stage||"")||!/chung kết|bán kết|tứ kết/i.test(m.stage||""));
@@ -323,7 +378,93 @@
     createClubTransaction:async p=>{const x={id:uid(),club_id:p.clubId,direction:p.direction,category:p.category||"other",amount:Number(p.amount)||0,note:p.note||"",occurred_at:p.occurredAt||new Date().toISOString(),created_by_name:"Quản trị viên"};state.clubTransactions.unshift(x);persist();return clone(x)},
     bookings:async()=>clone(state.bookings),createBooking:async p=>{const court=state.courts.find(c=>c.id===p.courtId),tournament=state.tournaments.find(t=>t.id===court?.tournamentId);const x={id:uid(),court_id:p.courtId,court_name:court?.name||"Sân",tournament_name:tournament?.name||"",title:p.title,contact_name:p.contactName,contact_phone:p.contactPhone,start_at:p.startAt,end_at:p.endAt,status:"confirmed",notes:p.notes};state.bookings.unshift(x);persist();return clone(x)},updateBooking:async(id,p)=>{Object.assign(state.bookings.find(x=>x.id===id),p);persist();return {}},deleteBooking:async id=>{const x=state.bookings.find(v=>v.id===id);x.status="cancelled";persist();return {mode:"cancelled",entity:clone(x)}},
     reportOverview:async()=>{const income=state.clubTransactions.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0),expense=state.clubTransactions.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0),today=new Date().toDateString();return {players:state.players.filter(p=>p.active!==false).length,members:state.players.filter(p=>p.active!==false).length,registrations:state.registrations.length,checked_in:state.registrations.filter(r=>r.checked_in_at).length,paid_count:state.registrations.filter(r=>r.payment_status==="paid").length,revenue:state.registrations.filter(r=>r.payment_status==="paid").reduce((a,r)=>a+Number(r.amount||0),0),matches:state.matches.length,live:state.matches.filter(m=>m.status==="live").length,completed:state.matches.filter(m=>m.status==="done").length,attendanceToday:Object.values(state.clubAttendance).flat().filter(a=>a.status==="attended"&&a.checked_in_at&&new Date(a.checked_in_at).toDateString()===today).length,upcomingActivities:state.clubEvents.filter(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date()).length,clubIncome:income,clubExpense:expense,clubBalance:income-expense}},
-    addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}}
+    addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}},
+    zaloTournaments:async()=>(typeof window!=="undefined"?(window.ZALO_CRAWLED_TOURNAMENTS||[]):[]),
+    importZaloTournament:async(zaloId)=>{
+      const list=(typeof window!=="undefined"?(window.ZALO_CRAWLED_TOURNAMENTS||[]):[]);
+      const zt=list.find(t=>t.id===zaloId);
+      if(!zt)throw Object.assign(new Error("ZALO_TOURNAMENT_NOT_FOUND"),{status:404});
+      let existing=state.tournaments.find(t=>t.id===zaloId||(t.name||"").toLowerCase().trim()===(zt.name||"").toLowerCase().trim());
+      if(existing)return {tournament:existing,alreadyExisted:true};
+      const t={
+        id:zt.id||("zalo-"+Date.now()),
+        name:zt.name,
+        date:zt.date,
+        startAt:zt.startAt,
+        endAt:zt.endAt,
+        venue:zt.venue,
+        format:zt.divisionName||"Open",
+        status:"open",
+        publicVisible:true,
+        teams:zt.teams||16,
+        isFeatured:Boolean(zt.isFeatured),
+        featuredRank:zt.featuredRank||50,
+        sponsorPackage:zt.sponsorPackage||"free",
+        source:"zalo_crm",
+        coverUrl:zt.coverUrl||"",
+        isBanner:Boolean(zt.isBanner),
+        entryFee:zt.entryFee,
+        prizePool:zt.prizePool,
+        contactName:zt.contactName,
+        contactPhone:zt.contactPhone
+      };
+      state.tournaments.unshift(t);
+      const d={
+        id:uid(),
+        tournamentId:t.id,
+        name:zt.divisionName||"Open",
+        eventType:zt.eventType||"doubles",
+        format:zt.format||"pool_to_knockout",
+        bestOf:3,
+        pointsToWin:11,
+        winByTwo:true,
+        advanceCount:2,
+        active:true
+      };
+      state.divisions.push(d);
+      persist();
+      return {tournament:t,division:d,created:true};
+    },
+    syncAllZaloTournaments:async(sport="pickleball")=>{
+      const list=(typeof window!=="undefined"?(window.ZALO_CRAWLED_TOURNAMENTS||[]):[]);
+      const filtered=list.filter(t=>!sport||t.sport===sport);
+      let count=0;
+      for(const zt of filtered){
+        const norm=(zt.name||"").toLowerCase().trim();
+        const existing = state.tournaments.find(t=>t.id===zt.id||(t.name||"").toLowerCase().trim()===norm);
+        if(!existing){
+          state.tournaments.push({
+            id:zt.id,
+            name:zt.name,
+            date:zt.date,
+            startAt:zt.startAt,
+            endAt:zt.endAt,
+            venue:zt.venue,
+            format:zt.divisionName||"Open",
+            status:"open",
+            publicVisible:true,
+            teams:zt.teams||16,
+            isFeatured:Boolean(zt.isFeatured),
+            featuredRank:zt.featuredRank||50,
+            sponsorPackage:zt.sponsorPackage||"free",
+            source:"zalo_crm",
+            coverUrl:zt.coverUrl||"",
+            isBanner:Boolean(zt.isBanner),
+            entryFee:zt.entryFee,
+            prizePool:zt.prizePool,
+            contactName:zt.contactName,
+            contactPhone:zt.contactPhone
+          });
+          count++;
+        } else if(zt.coverUrl && !existing.coverUrl){
+          existing.coverUrl = zt.coverUrl;
+          existing.isBanner = Boolean(zt.isBanner);
+          count++;
+        }
+      }
+      if(count>0)persist();
+      return {syncedCount:count,total:state.tournaments.length};
+    }
   };
   window.PickleAPI=api;
   window.io=()=>({on:(event,cb)=>window.addEventListener("pickle-preview-update",e=>{if(event==="public:state"||event==="match:update")cb(clone(e.detail))})});

@@ -46,7 +46,8 @@ const ICONS={
 };
 const iconSvg=name=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.dashboard}</svg>`;
 let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[],audit:[]};
-let user=null,page="dashboard",activeMatch=null,busy=false;
+let user=null,page="dashboard",activeMatch=null,busy=false,adminZaloSportFilter="pickleball";
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 
 const roleLabel=r=>({super_admin:"Super Admin",organizer:"BTC giải",referee:"Trọng tài",club_manager:"Quản lý CLB",finance:"Thu ngân",player:"VĐV"}[r]||r);
 const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
@@ -152,8 +153,80 @@ function tournamentCard(t){
   </div></article>`;
 }
 function tournaments(){
-  setHeader("Giải đấu","Tạo và quản lý giải pickleball");
-  return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
+  setHeader("Giải đấu","Tạo và quản lý giải pickleball & đồng bộ từ Zalo CRM");
+  const zaloTours=typeof window!=="undefined"?(window.ZALO_CRAWLED_TOURNAMENTS||[]):[];
+  const pickleZalo=zaloTours.filter(t=>t.sport==="pickleball");
+  const filteredZalo=adminZaloSportFilter==="all"?zaloTours:zaloTours.filter(t=>t.sport===adminZaloSportFilter);
+  
+  const zaloPanel=zaloTours.length?`
+    <div class="panel" style="margin-bottom:20px;border-left:4px solid #25d366;background:#f8fcf9">
+      <div class="panel-head" style="flex-wrap:wrap;gap:12px">
+        <div>
+          <span class="eyebrow" style="color:#0b7a4b;font-weight:900">⚡ LHM CRM • QUÉT TỰ ĐỘNG TỪ NHÓM ZALO</span>
+          <h2>Giải đấu phát hiện từ nhóm Zalo (${zaloTours.length} giải)</h2>
+          <p>Tự động trích xuất thông tin giải qua LHM CRM. Bấm "Duyệt lên App" để đăng chính thức và mở đăng ký.</p>
+        </div>
+        ${canManage()?`<div class="actions">
+          <button class="btn secondary mini" data-action="syncAllZalo">Đồng bộ tất cả Pickleball (${pickleZalo.length})</button>
+        </div>`:""}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:700;color:#556b60">Môn thể thao:</span>
+        <button class="mini ${adminZaloSportFilter==='pickleball'?'primary':''}" data-zalo-filter="pickleball">Pickleball (${pickleZalo.length})</button>
+        <button class="mini ${adminZaloSportFilter==='tennis'?'primary':''}" data-zalo-filter="tennis">Tennis (${zaloTours.length - pickleZalo.length})</button>
+        <button class="mini ${adminZaloSportFilter==='all'?'primary':''}" data-zalo-filter="all">Tất cả (${zaloTours.length})</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Giải đấu</th>
+              <th>Môn</th>
+              <th>Thời gian</th>
+              <th>Địa điểm</th>
+              <th>Nội dung</th>
+              <th>Lệ phí / Thưởng</th>
+              <th>Liên hệ</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredZalo.slice(0, 15).map(zt=>{
+              const isImported=state.tournaments.some(t=>t.id===zt.id||(t.name||"").toLowerCase().trim()===(zt.name||"").toLowerCase().trim());
+              const feeTxt=zt.entryFee?(Number(zt.entryFee).toLocaleString("vi-VN")+" đ"):"—";
+              const prizeTxt=zt.prizePool?(Number(zt.prizePool).toLocaleString("vi-VN")+" đ"):"—";
+              return `<tr>
+                <td>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    ${zt.coverUrl?`<img src="${esc(zt.coverUrl)}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15)">`:''}
+                    <div>
+                      <strong>${esc(zt.name)}</strong>
+                      ${zt.isBanner?'<span class="badge" style="display:inline-block;background:#e0f2fe;color:#0369a1;font-size:9px;font-weight:800;margin-left:6px;padding:2px 6px">POSTER OCR</span>':''}
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge ${zt.sport==='pickleball'?'live':'blue'}">${zt.sport.toUpperCase()}</span></td>
+                <td><small>${esc(zt.date)}</small></td>
+                <td><small>${esc(zt.venue)}</small></td>
+                <td><small>${esc(zt.divisionName)}</small></td>
+                <td><small>Phí: <b>${feeTxt}</b><br>Thưởng: <b>${prizeTxt}</b></small></td>
+                <td><small>${esc(zt.contactPhone||"")}<br>${esc(zt.contactName||"")}</small></td>
+                <td>
+                  ${isImported?
+                    '<span class="badge done">ĐÃ LÊN APP</span>':
+                    (canManage()?`<button class="btn primary mini" data-approve-zalo="${zt.id}">Duyệt lên App</button>`:'<span class="badge wait">Chờ duyệt</span>')
+                  }
+                </td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `:'';
+
+  return `${zaloPanel}
+  <div class="panel-head"><div><h2>Danh sách giải chính thức</h2><p>${state.tournaments.length} giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
   <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||'<div class="empty">Chưa có giải.</div>'}</div>`;
 }
 async function players(){
@@ -333,6 +406,24 @@ function bindDynamic(){
   document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
   document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
+  document.querySelectorAll("[data-approve-zalo]").forEach(b=>b.onclick=async()=>{
+    try{
+      await API.importZaloTournament(b.dataset.approveZalo);
+      await refresh();
+      toast("✅ Đã duyệt và đưa giải lên App!");
+    }catch(e){toast("Lỗi: "+e.message)}
+  });
+  document.querySelectorAll('[data-action="syncAllZalo"]').forEach(b=>b.onclick=async()=>{
+    try{
+      const res=await API.syncAllZaloTournaments(adminZaloSportFilter==="all"?"":adminZaloSportFilter);
+      await refresh();
+      toast(`✅ Đã đồng bộ ${res.syncedCount} giải vào App!`);
+    }catch(e){toast("Lỗi đồng bộ: "+e.message)}
+  });
+  document.querySelectorAll("[data-zalo-filter]").forEach(b=>b.onclick=async()=>{
+    adminZaloSportFilter=b.dataset.zaloFilter;
+    await render();
+  });
   ["#courtFilter","#statusFilter"].forEach(s=>{const el=$(s);if(el)el.onchange=applyMatchFilters});
   applyMatchFilters();
 }
