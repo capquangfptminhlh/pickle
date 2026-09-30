@@ -125,8 +125,11 @@ async function handleApi(request,env){
     return ok({token,user:publicUser(row)},request,env);
   }
   if(path==="/api/auth/logout"&&method==="POST")return ok({ok:true},request,env);
-  if((path==="/api/auth/me"||path==="/api/auth/session")&&method==="GET"){
-    const user=await userRequired(request,env);return ok(user,request,env);
+  if(path==="/api/auth/session"&&method==="GET"){
+    const user=await authenticate(request,env);return ok({user},request,env);
+  }
+  if(path==="/api/auth/me"&&method==="GET"){
+    const user=await userRequired(request,env);return ok({user},request,env);
   }
   if(path==="/api/auth/change-password"&&method==="POST"){
     const user=await userRequired(request,env),b=await bodyJson(request);
