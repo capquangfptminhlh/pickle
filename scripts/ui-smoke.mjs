@@ -330,7 +330,7 @@ if(await pscore.count()){
 
 // UI VISUAL QA — real mobile screenshots used for design review.
 await mkdir("ui-artifacts",{recursive:true});
-const shot=await ppage.context().newPage();await shot.setViewportSize({width:390,height:844});
+const shot=ppage;await shot.setViewportSize({width:390,height:844});
 await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 if(!(await shot.locator(".public-mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["public mobile dock missing"]});
 if(await shot.locator(".public-mobile-dock a").count()!==5)failures.push({label:"preview mobile public",errors:["public bottom nav must have 5 tabs"]});
