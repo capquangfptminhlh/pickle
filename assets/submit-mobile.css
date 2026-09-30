@@ -270,3 +270,29 @@
 }
 
 @media(max-width:760px){.submit-screen .public-brand .brand-mark{background:#0b1513 url("app-icon-sport-v3.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}
+
+
+/* Tournament banner uploader */
+.submit-screen .tournament-banner-field>span{display:block;margin-bottom:8px}
+.submit-screen .tournament-banner-upload{position:relative}
+.submit-screen .tournament-banner-upload>input[type=file]{position:absolute;inline-size:1px;block-size:1px;opacity:0;pointer-events:none}
+.submit-screen .tournament-banner-picker{
+  min-height:132px;display:flex;align-items:center;justify-content:center;gap:12px;padding:18px;
+  border:1.5px dashed #cbd7d0;border-radius:16px;background:#f8fbf9;cursor:pointer;text-align:left
+}
+.submit-screen .tournament-banner-picker:hover{border-color:#0b7a50;background:#f3faf6}
+.submit-screen .tournament-banner-icon{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:12px;background:#132019;color:#dfff63;font-size:22px;font-weight:800}
+.submit-screen .tournament-banner-picker strong{display:block;color:#17211b;font-size:13px}
+.submit-screen .tournament-banner-picker small{display:block;margin-top:5px;color:#7e8983;font-size:10px;line-height:1.45}
+.submit-screen .tournament-banner-preview{position:relative;overflow:hidden;border-radius:16px;background:#102018;aspect-ratio:16/9}
+.submit-screen .tournament-banner-preview img{display:block;width:100%;height:100%;object-fit:cover}
+.submit-screen .tournament-banner-preview .mini{position:absolute;right:10px;top:10px;background:rgba(15,25,20,.82);color:#fff;border-color:rgba(255,255,255,.16);backdrop-filter:blur(8px)}
+.submit-screen .tournament-banner-upload.has-preview .tournament-banner-picker{display:none}
+
+@media(max-width:760px){
+  .submit-screen .tournament-banner-picker{min-height:108px;padding:14px;border-radius:14px}
+  .submit-screen .tournament-banner-icon{width:34px;height:34px;flex-basis:34px;border-radius:10px;font-size:19px}
+  .submit-screen .tournament-banner-picker strong{font-size:11px}
+  .submit-screen .tournament-banner-picker small{font-size:8.5px}
+  .submit-screen .tournament-banner-preview{border-radius:14px}
+}
