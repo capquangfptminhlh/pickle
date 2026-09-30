@@ -638,7 +638,7 @@ app.get("/api/checkin/:token",wrap(async(req,res)=>{
   if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
 }));
 
-app.post("/api/public/tournaments/submit",wrap(async(req,res)=>{
+app.post("/api/public/tournaments/submit",mediaUpload.single("banner"),wrap(async(req,res)=>{
   const name=String(req.body.name||"").trim();
   const venue=String(req.body.venue||req.body.venueName||"").trim();
   const contactName=String(req.body.contactName||"").trim();
@@ -648,12 +648,15 @@ app.post("/api/public/tournaments/submit",wrap(async(req,res)=>{
   const endAt=req.body.endAt||null;
   const entryFee=String(req.body.entryFee||"").trim();
   const prizePool=String(req.body.prizePool||"").trim();
-  const posterUrl=String(req.body.posterUrl||"").trim();
+  if(req.file&&req.file.size>5*1024*1024){await fs.unlink(req.file.path).catch(()=>{});return res.status(413).json({error:"BANNER_TOO_LARGE"})}
+  if(req.file&&await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_BANNER"});
+  const posterUrl=req.file?`/uploads/media/${req.file.filename}`:String(req.body.posterUrl||"").trim();
   const sponsorPackage=["free","highlight","top_sponsor"].includes(req.body.sponsorPackage)?req.body.sponsorPackage:"free";
+  const discardBanner=async()=>{if(req.file?.path)await fs.unlink(req.file.path).catch(()=>{})};
 
-  if(!name||name.length<3||name.length>120)return res.status(400).json({error:"INVALID_TOURNAMENT_NAME"});
-  if(!venue)return res.status(400).json({error:"VENUE_REQUIRED"});
-  if(!contactName||!contactPhone)return res.status(400).json({error:"CONTACT_INFO_REQUIRED"});
+  if(!name||name.length<3||name.length>120){await discardBanner();return res.status(400).json({error:"INVALID_TOURNAMENT_NAME"})}
+  if(!venue){await discardBanner();return res.status(400).json({error:"VENUE_REQUIRED"})}
+  if(!contactName||!contactPhone){await discardBanner();return res.status(400).json({error:"CONTACT_INFO_REQUIRED"})}
 
   const isFeatured=sponsorPackage==="top_sponsor"||sponsorPackage==="highlight";
   const featuredRank=sponsorPackage==="top_sponsor"?100:(sponsorPackage==="highlight"?50:0);
