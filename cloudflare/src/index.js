@@ -504,7 +504,7 @@ async function handleApi(request,env){
     }
     if(await one(env,"SELECT id FROM app_users WHERE email=?",email))return fail("EMAIL_EXISTS",request,env,409);
     const id=uid(),hash=await hashPassword(password);
-    await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?,?)")
+    await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?)")
       .bind(id,email,name,role,hash,tournamentId,clubId,nowIso(),nowIso()).run();
     const created=await one(env,"SELECT * FROM app_users WHERE id=?",id);
     await createAudit(env,user,"user",id,"CREATE_CHILD_ACCOUNT",null,publicUser(created));
