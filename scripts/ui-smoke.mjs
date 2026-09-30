@@ -330,12 +330,12 @@ if(await pscore.count()){
 
 // UI VISUAL QA — real mobile screenshots used for design review.
 await mkdir("ui-artifacts",{recursive:true});
-const shot=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+const shot=await ppage.context().newPage();await shot.setViewportSize({width:390,height:844});
 await shot.goto(preview+"/index.html",{waitUntil:"domcontentloaded"});await shot.waitForTimeout(700);
 if(!(await shot.locator(".public-mobile-dock").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["public mobile dock missing"]});
 if(await shot.locator(".public-mobile-dock a").count()!==5)failures.push({label:"preview mobile public",errors:["public bottom nav must have 5 tabs"]});
 if(!(await shot.locator(".mobile-app-dashboard").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["mobile tournament dashboard missing"]});
-if(!(await shot.locator(".public-hero").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["tournament network hero missing"]});
+if(await shot.locator(".public-hero").isVisible().catch(()=>false))failures.push({label:"preview mobile public",errors:["desktop tournament hero should be replaced by mobile dashboard"]});
 if(!(await shot.locator("#publicTours").isVisible().catch(()=>false)))failures.push({label:"preview mobile public",errors:["tournament list missing"]});
 const publicOverflow=await shot.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
 if(publicOverflow)failures.push({label:"preview mobile public",errors:["public home has horizontal overflow"]});
