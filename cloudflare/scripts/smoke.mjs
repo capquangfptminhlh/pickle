@@ -65,9 +65,10 @@ await raw("/api/matches/"+bracketMatch.id+"/assignment",{method:"PATCH",token:ad
 const refLogin=(await raw("/api/auth/login",{method:"POST",body:{email:referee.email,password:refPassword}})).data;
 assert(refLogin.token,"referee login");
 const refState=(await raw("/api/admin/state",{token:refLogin.token})).data;
-assert(refState.matches.some(m=>m.id===bracketMatch.id),"referee sees assigned match");
+const assigned=refState.matches.find(m=>m.id===bracketMatch.id);
+assert(assigned,"referee sees assigned match");
 
-let score=(await raw("/api/matches/"+bracketMatch.id+"/point",{method:"POST",token:refLogin.token,body:{side:"A",delta:1,expectedVersion:bracketMatch.version}})).data;
+let score=(await raw("/api/matches/"+bracketMatch.id+"/point",{method:"POST",token:refLogin.token,body:{side:"A",delta:1,expectedVersion:assigned.version}})).data;
 assert(score.current[0]===1,"referee point saved");
 score=(await raw("/api/matches/"+bracketMatch.id+"/undo",{method:"POST",token:refLogin.token,body:{}})).data;
 assert(score.current[0]===0,"undo restores point");
