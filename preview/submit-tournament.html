@@ -69,6 +69,20 @@
               <span>Ngày kết thúc (dự kiến)</span>
               <input id="tourEnd" type="datetime-local">
             </label>
+            <div class="field full tournament-banner-field">
+              <span>Banner / Poster giải đấu</span>
+              <div class="tournament-banner-upload">
+                <input id="tourBanner" type="file" accept="image/jpeg,image/png,image/webp">
+                <label for="tourBanner" class="tournament-banner-picker">
+                  <span class="tournament-banner-icon">＋</span>
+                  <span><strong>Chọn banner giải đấu</strong><small>Khuyên dùng tỷ lệ 16:9 • JPG, PNG hoặc WebP • tối đa 5MB</small></span>
+                </label>
+                <div id="tourBannerPreviewWrap" class="tournament-banner-preview" hidden>
+                  <img id="tourBannerPreview" alt="Xem trước banner giải đấu">
+                  <button id="tourBannerRemove" type="button" class="mini">Xóa ảnh</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
