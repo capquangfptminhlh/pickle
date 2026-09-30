@@ -168,6 +168,19 @@ await page.setViewportSize({width:1280,height:900});
 const ppage=await browser.newPage({viewport:{width:1280,height:900}});
 await goto(ppage,preview+"/index.html","preview public");
 if(!(await ppage.locator('a[href="login.html"]').count()))failures.push({label:"preview public",errors:["safe admin login entry missing"]});
+
+await goto(ppage,preview+"/submit-tournament.html","preview tournament submit");
+const submitBanner=ppage.locator("#tourBanner");
+if(!(await submitBanner.count())){
+  failures.push({label:"preview tournament banner",errors:["banner upload input missing"]});
+}else{
+  const tinyPng=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP2sAAAAASUVORK5CYII=","base64");
+  await submitBanner.setInputFiles({name:"banner.png",mimeType:"image/png",buffer:tinyPng});
+  await ppage.waitForTimeout(80);
+  if(!(await ppage.locator("#tourBannerPreviewWrap").isVisible().catch(()=>false)))failures.push({label:"preview tournament banner",errors:["banner preview did not appear"]});
+  await ppage.locator("#tourBannerRemove").click();
+  if(await ppage.locator("#tourBannerPreviewWrap").isVisible().catch(()=>false))failures.push({label:"preview tournament banner",errors:["banner preview did not clear"]});
+}
 await goto(ppage,preview+"/login.html","preview safe login");
 if(!(await ppage.locator("body").innerText()).includes("GitHub Pages chỉ là giao diện public"))failures.push({label:"preview safe login",errors:["static admin security boundary missing"]});
 await ppage.locator("#email").fill("admin@pickle.test");
