@@ -19,10 +19,10 @@ async function assertDivision(env,user,id){
   const tid=await tournamentForDivision(env,id);if(!tid)throw httpError("NOT_FOUND",404);await assertTournament(env,user,tid);return tid;
 }
 async function registrationWithTournament(env,id){
-  return one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",id);
+  return one(env,"SELECT r.*,d.tournament_id,t.club_id AS team_club_id FROM registrations r JOIN divisions d ON d.id=r.division_id LEFT JOIN teams t ON t.id=r.team_id WHERE r.id=?",id);
 }
 async function paymentWithTournament(env,id){
-  return one(env,"SELECT p.*,d.tournament_id FROM payment_records p JOIN registrations r ON r.id=p.registration_id JOIN divisions d ON d.id=r.division_id WHERE p.id=?",id);
+  return one(env,"SELECT p.*,d.tournament_id,t.club_id AS team_club_id FROM payment_records p JOIN registrations r ON r.id=p.registration_id JOIN divisions d ON d.id=r.division_id LEFT JOIN teams t ON t.id=r.team_id WHERE p.id=?",id);
 }
 async function emit(env,event,payload={},room="public"){
   try{await broadcast(env,event,payload,room)}catch{}
@@ -51,8 +51,9 @@ async function scopeRegistration(env,user,r){
   return false;
 }
 async function scopeClub(user,clubId){
-  if(user.role==="super_admin"||user.role==="organizer")return true;
-  if(["club_manager","finance"].includes(user.role))return Boolean(user.clubId&&user.clubId===clubId);
+  if(user.role==="super_admin")return true;
+  if(user.role==="club_manager")return Boolean(user.clubId&&user.clubId===clubId);
+  if(user.role==="finance")return !user.clubId||user.clubId===clubId;
   return false;
 }
 async function eventWithClub(env,id){return one(env,"SELECT * FROM club_events WHERE id=?",id)}
@@ -201,14 +202,26 @@ export async function handleOperations(request,env){
   }
 
   if(path==="/api/club-events"&&method==="GET"){
-    const user=await userRequired(request,env),clubId=url.searchParams.get("clubId")||user.clubId||null;
-    if(clubId&&!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager","finance"))return fail("FORBIDDEN",request,env,403);
+    let clubId=url.searchParams.get("clubId")||null;
+    if(user.role==="club_manager"){
+      if(!user.clubId)return ok([],request,env);
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }else if(user.role==="finance"&&user.clubId){
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }
     const data=clubId?await rows(env,"SELECT * FROM club_events WHERE club_id=? ORDER BY start_at DESC",clubId):await rows(env,"SELECT * FROM club_events ORDER BY start_at DESC");
     return ok(data,request,env);
   }
   if(path==="/api/club-events"&&method==="POST"){
-    const user=await userRequired(request,env),b=await bodyJson(request),clubId=b.clubId||user.clubId||null;if(!clubId)return fail("CLUB_REQUIRED",request,env,400);
-    if(!hasRole(user,"super_admin","organizer","club_manager")||!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager"))return fail("FORBIDDEN",request,env,403);
+    const b=await bodyJson(request),clubId=user.role==="club_manager"?user.clubId:(b.clubId||null);
+    if(!clubId)return fail("CLUB_REQUIRED",request,env,400);
+    if(!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
     const title=String(b.title||"").trim(),start=String(b.startAt||"");if(!title||!start)return fail("FIELDS_REQUIRED",request,env,400);
     if(b.endAt&&new Date(b.endAt)<=new Date(start))return fail("INVALID_EVENT_TIME",request,env,400);
     const id=uid();await env.DB.prepare("INSERT INTO club_events(id,club_id,title,event_type,venue,start_at,end_at,max_participants,fee,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
@@ -217,9 +230,14 @@ export async function handleOperations(request,env){
   }
   p=route(path,"/api/club-events/:id");
   if(p&&["PATCH","DELETE"].includes(method)){
-    const user=await userRequired(request,env),before=await eventWithClub(env,p.id);if(!before)return fail("NOT_FOUND",request,env,404);
-    if(!hasRole(user,"super_admin","organizer","club_manager")||!(await scopeClub(user,before.club_id)))return fail("FORBIDDEN",request,env,403);
-    if(method==="DELETE"){await env.DB.prepare("DELETE FROM club_events WHERE id=?").bind(p.id).run();return ok({ok:true},request,env)}
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager"))return fail("FORBIDDEN",request,env,403);
+    const before=await eventWithClub(env,p.id);if(!before)return fail("NOT_FOUND",request,env,404);
+    if(!(await scopeClub(user,before.club_id)))return fail("FORBIDDEN",request,env,403);
+    if(method==="DELETE"){
+      await env.DB.prepare("UPDATE club_events SET status='cancelled',updated_at=? WHERE id=?").bind(nowIso(),p.id).run();
+      return ok({mode:"cancelled",entity:await eventWithClub(env,p.id)},request,env);
+    }
     const b=await bodyJson(request),start=b.startAt??before.start_at,end=b.endAt===undefined?before.end_at:b.endAt;if(end&&new Date(end)<=new Date(start))return fail("INVALID_EVENT_TIME",request,env,400);
     await env.DB.prepare("UPDATE club_events SET title=?,event_type=?,venue=?,start_at=?,end_at=?,max_participants=?,fee=?,status=?,updated_at=? WHERE id=?")
       .bind(String(b.title??before.title),b.eventType??before.event_type,String(b.venue??before.venue??""),start,end,b.maxParticipants===undefined?before.max_participants:(b.maxParticipants?Number(b.maxParticipants):null),Number(b.fee??before.fee),b.status??before.status,nowIso(),p.id).run();
@@ -227,30 +245,52 @@ export async function handleOperations(request,env){
   }
   p=route(path,"/api/club-events/:id/attendance");
   if(p&&method==="GET"){
-    const user=await userRequired(request,env),event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager"))return fail("FORBIDDEN",request,env,403);
+    const event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
     return ok(await rows(env,"SELECT a.*,p.full_name,p.avatar_url,p.rating FROM club_event_attendance a JOIN players p ON p.id=a.player_id WHERE a.event_id=? ORDER BY p.full_name",p.id),request,env);
   }
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager"))return fail("FORBIDDEN",request,env,403);
+    const event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),playerId=String(b.playerId||"");if(!playerId)return fail("PLAYER_REQUIRED",request,env,400);
-    await env.DB.prepare("INSERT INTO club_event_attendance(event_id,player_id,status,created_at) VALUES(?,?,'registered',?) ON CONFLICT(event_id,player_id) DO UPDATE SET status='registered'").bind(p.id,playerId,nowIso()).run();
+    const player=await one(env,"SELECT id,club_id FROM players WHERE id=? AND active=1",playerId);
+    if(!player||player.club_id!==event.club_id)return fail("PLAYER_CLUB_MISMATCH",request,env,400);
+    await env.DB.prepare("INSERT INTO club_event_attendance(event_id,player_id,status,created_at) VALUES(?,?,'registered',?) ON CONFLICT(event_id,player_id) DO UPDATE SET status='registered',checked_in_at=NULL,checked_in_by=NULL").bind(p.id,playerId,nowIso()).run();
     return ok({ok:true},request,env,201);
   }
   p=route(path,"/api/club-events/:id/attendance/:playerId");
   if(p&&method==="PATCH"){
-    const user=await userRequired(request,env),event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager"))return fail("FORBIDDEN",request,env,403);
+    const event=await eventWithClub(env,p.id);if(!event)return fail("NOT_FOUND",request,env,404);if(!(await scopeClub(user,event.club_id)))return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),status=String(b.status||"");if(!["registered","attended","absent","cancelled"].includes(status))return fail("INVALID_STATUS",request,env,400);
     await env.DB.prepare("UPDATE club_event_attendance SET status=?,checked_in_at=?,checked_in_by=? WHERE event_id=? AND player_id=?").bind(status,status==="attended"?nowIso():null,status==="attended"?user.id:null,p.id,p.playerId).run();
     return ok({ok:true},request,env);
   }
 
   if(path==="/api/club-transactions"&&method==="GET"){
-    const user=await userRequired(request,env),clubId=url.searchParams.get("clubId")||user.clubId||null;if(clubId&&!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager","finance"))return fail("FORBIDDEN",request,env,403);
+    let clubId=url.searchParams.get("clubId")||null;
+    if(user.role==="club_manager"){
+      if(!user.clubId)return ok([],request,env);
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }else if(user.role==="finance"&&user.clubId){
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }
     const data=clubId?await rows(env,"SELECT * FROM club_transactions WHERE club_id=? ORDER BY occurred_at DESC",clubId):await rows(env,"SELECT * FROM club_transactions ORDER BY occurred_at DESC");
     return ok(data,request,env);
   }
   if(path==="/api/club-transactions"&&method==="POST"){
-    const user=await userRequired(request,env),b=await bodyJson(request),clubId=b.clubId||user.clubId||null;if(!clubId||!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
+    const user=await userRequired(request,env);
+    if(!hasRole(user,"super_admin","club_manager","finance"))return fail("FORBIDDEN",request,env,403);
+    const b=await bodyJson(request);
+    const clubId=user.role==="club_manager"?user.clubId:(user.role==="finance"&&user.clubId?user.clubId:(b.clubId||null));
+    if(!clubId||!(await scopeClub(user,clubId)))return fail("FORBIDDEN",request,env,403);
     if(!["income","expense"].includes(b.direction)||!(Number(b.amount)>0))return fail("INVALID_TRANSACTION",request,env,400);
     const id=uid();await env.DB.prepare("INSERT INTO club_transactions(id,club_id,direction,category,amount,note,occurred_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)")
       .bind(id,clubId,b.direction,String(b.category||"other"),Number(b.amount),String(b.note||""),b.occurredAt||nowIso(),user.id,nowIso()).run();
@@ -316,6 +356,7 @@ export async function handleOperations(request,env){
     const user=await userRequired(request,env),r=await registrationWithTournament(env,p.id);if(!r)return fail("NOT_FOUND",request,env,404);
     if(!hasRole(user,"super_admin","organizer","finance"))return fail("FORBIDDEN",request,env,403);
     if(user.role==="organizer"&&!(await canManageTournament(env,user,r.tournament_id)))return fail("FORBIDDEN",request,env,403);
+    if(user.role==="finance"&&user.clubId&&r.team_club_id!==user.clubId)return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),id=uid();
     await env.DB.prepare("INSERT INTO payment_records(id,registration_id,method,reference_code,receipt_url,status,created_at) VALUES(?,?,?,?,?,'pending',?)")
       .bind(id,p.id,b.method||"bank_transfer",b.referenceCode||null,b.receiptUrl||null,nowIso()).run();
@@ -327,6 +368,7 @@ export async function handleOperations(request,env){
     const user=await userRequired(request,env),pay=await paymentWithTournament(env,p.id);if(!pay)return fail("NOT_FOUND",request,env,404);
     if(!hasRole(user,"super_admin","organizer","finance"))return fail("FORBIDDEN",request,env,403);
     if(user.role==="organizer"&&!(await canManageTournament(env,user,pay.tournament_id)))return fail("FORBIDDEN",request,env,403);
+    if(user.role==="finance"&&user.clubId&&pay.team_club_id!==user.clubId)return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),status=String(b.status||"");if(!["approved","rejected","refunded"].includes(status))return fail("INVALID_STATUS",request,env,400);
     await env.DB.prepare("UPDATE payment_records SET status=?,reviewed_by=?,reviewed_at=? WHERE id=?").bind(status,user.id,nowIso(),p.id).run();
     await env.DB.prepare("UPDATE registrations SET payment_status=? WHERE id=?").bind(status==="approved"?"paid":status==="refunded"?"refunded":"unpaid",pay.registration_id).run();
