@@ -57,26 +57,39 @@
 
   async function editPlayer(p,ctx){
     const referee=ctx.user?.role==="referee";
-    const clubs=referee?[]:await API.clubs().catch(()=>[]);
+    const clubManager=ctx.user?.role==="club_manager";
+    const canChangeClub=!referee&&!clubManager;
+    const canCorrectRating=["super_admin","organizer"].includes(ctx.user?.role);
+    const clubs=canChangeClub?await API.clubs().catch(()=>[]):[];
     modal("Sửa VĐV",'<div class="form-grid">'+
       '<label class="field full">Họ tên<input id="crudPName" value="'+esc(p.full_name)+'"></label>'+
       '<label class="field">Biệt danh<input id="crudPNick" value="'+esc(p.nickname||"")+'"></label>'+
       '<label class="field">Giới tính<select id="crudPGender"><option value="">Chưa chọn</option><option value="male" '+(p.gender==="male"?"selected":"")+'>Nam</option><option value="female" '+(p.gender==="female"?"selected":"")+'>Nữ</option><option value="other" '+(p.gender==="other"?"selected":"")+'>Khác</option></select></label>'+
       (referee?'<div class="field full security-note"><b>Quyền Trọng tài</b><span>Chỉ được sửa tên, biệt danh, giới tính và avatar của VĐV trong các trận được phân công.</span></div>':
-      '<label class="field">CLB<select id="crudPClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+c.id+'" '+(c.id===p.club_id?"selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></label>'+
+      (canChangeClub?'<label class="field">CLB<select id="crudPClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+c.id+'" '+(c.id===p.club_id?"selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></label>':
+      '<div class="field security-note"><b>CLB được giao</b><span>'+esc(p.club_name||"CLB hiện tại")+'</span></div>')+
       '<label class="field">Điện thoại<input id="crudPPhone" value="'+esc(p.phone||"")+'"></label>'+
-      '<label class="field" style="align-content:end"><span><input id="crudPActive" type="checkbox" '+(p.active?"checked":"")+'> Hoạt động</span></label>')+
+      '<label class="field" style="align-content:end"><span><input id="crudPActive" type="checkbox" '+(p.active?"checked":"")+'> Hoạt động</span></label>'+
+      (canCorrectRating?'<label class="field">Rating<input id="crudPRating" type="number" min="0" step="0.1" value="'+Number(p.rating||0)+'"></label><label class="field full">Lý do đổi rating <small>(bắt buộc khi thay đổi)</small><textarea id="crudPRatingReason" rows="2"></textarea></label>':''))+
       '<div class="field full"><button id="crudSaveP" type="button" class="btn primary">Lưu VĐV</button></div></div>');
     $("#crudSaveP").onclick=async()=>{
       try{
+        const fullName=$("#crudPName").value.trim();
+        if(!fullName)return ctx.toast("Họ tên VĐV không được để trống.");
         const payload={
-          fullName:$("#crudPName").value.trim(),nickname:$("#crudPNick").value.trim(),
-          gender:$("#crudPGender").value||null
+          fullName,nickname:$("#crudPNick").value.trim(),
+          gender:$("#crudPGender").value||"other"
         };
-        if(!referee)Object.assign(payload,{clubId:$("#crudPClub").value||null,phone:$("#crudPPhone").value.trim(),active:$("#crudPActive").checked});
+        if(!referee)Object.assign(payload,{phone:$("#crudPPhone").value.trim(),active:$("#crudPActive").checked});
+        if(canChangeClub)payload.clubId=$("#crudPClub").value||null;
+        if(canCorrectRating){
+          const rating=Number($("#crudPRating").value),ratingReason=$("#crudPRatingReason").value.trim();
+          if(Math.abs(rating-Number(p.rating||0))>1e-9&&!ratingReason)return ctx.toast("Nhập lý do khi thay đổi rating.");
+          Object.assign(payload,{rating,ratingReason});
+        }
         await API.updatePlayer(p.id,payload);
         close();await ctx.refresh();ctx.toast("Đã cập nhật VĐV.");
-      }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}
+      }catch(e){ctx.toast({INVALID_CLUB:"CLB không hợp lệ hoặc đã khóa.",INVALID_GENDER:"Giới tính không hợp lệ.",INVALID_RATING:"Rating phải là số không âm.",RATING_REASON_REQUIRED:"Nhập lý do khi thay đổi rating."}[e.message]||("Không thể cập nhật: "+e.message))}
     };
   }
 
@@ -154,10 +167,10 @@
     if(page==="players"){
       const roster=await API.players().catch(()=>[]);
       roster.forEach(p=>{
-        const row=document.querySelector('[data-player-row="'+p.id+'"]');if(!row)return;
-        const cell=row.lastElementChild;if(!cell||cell.dataset.crud)return;cell.dataset.crud="1";
-        const canDisable=ctx.user.role!=="referee";
-        cell.insertAdjacentHTML("beforeend",' <button class="mini" data-crud-edit-player="'+p.id+'">Sửa</button>'+(canDisable&&p.active?'<button class="mini danger-mini" data-crud-disable-player="'+p.id+'">Khóa</button>':''));
+        const row=document.querySelector('[data-player-row="'+p.id+'"]'),cell=row?.lastElementChild;
+        if(ctx.user.role!=="referee"&&p.active&&cell&&!cell.querySelector("[data-crud-disable-player]")){
+          cell.insertAdjacentHTML("beforeend",'<button class="mini danger-mini" data-crud-disable-player="'+p.id+'">Khóa</button>');
+        }
       });
       document.querySelectorAll("[data-crud-edit-player]").forEach(b=>b.onclick=()=>editPlayer(roster.find(p=>p.id===b.dataset.crudEditPlayer),ctx));
       document.querySelectorAll("[data-crud-disable-player]").forEach(b=>b.onclick=()=>danger("Khóa VĐV này khỏi danh sách công khai?",()=>API.deactivatePlayer(b.dataset.crudDisablePlayer),ctx));
