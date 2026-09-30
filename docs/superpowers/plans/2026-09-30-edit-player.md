@@ -198,7 +198,7 @@ const clubs=canChangeClub?await API.clubs().catch(()=>[]):[];
 Render the existing basic fields for everyone, club selection only when `canChangeClub`, phone and active status for non-referees, and these fields for rating-capable roles:
 
 ```js
-'<label class="field">Rating<input id="crudPRating" type="number" min="0" step="0.1" value="'+Number(p.rating||0)+'"></label>'+ 
+'<label class="field">Rating<input id="crudPRating" type="number" min="0" step="0.1" value="'+Number(p.rating||0)+'"></label>'+
 '<label class="field full">Lý do đổi rating <small>(bắt buộc khi thay đổi)</small><textarea id="crudPRatingReason" rows="2"></textarea></label>'
 ```
 
