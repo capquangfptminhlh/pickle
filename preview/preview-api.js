@@ -316,14 +316,41 @@
     },
     players:async()=>clone(state.players),clubs:async()=>clone(state.clubs),
     importPlayers:async rows=>{let created=0;const playerMap=new Map(state.players.map(x=>[x.full_name.toLowerCase(),x])),clubMap=new Map(state.clubs.map(c=>[c.name.toLowerCase(),c]));for(const r of rows){const name=String(r.fullName||r.name||"").trim();if(!name)continue;const avatar=String(r.avatarUrl||r.avatar_url||r.avatar||"").trim(),lName=name.toLowerCase();let p=playerMap.get(lName);if(p){if(avatar)p.avatar_url=avatar;created++;continue;}const cName=String(r.club||"").trim();let club=cName?clubMap.get(cName.toLowerCase()):null;if(!club&&cName){club={id:uid(),name:cName,city:"",active:true};state.clubs.push(club);clubMap.set(cName.toLowerCase(),club)}const newP={id:uid(),full_name:name,nickname:r.nickname||"",gender:["male","female","other"].includes(r.gender)?r.gender:null,rating:Number(r.rating)||3,phone:r.phone||"",club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:avatar||svgAvatar(name)};state.players.push(newP);playerMap.set(lName,newP);created++}persist();return {created}},
-    importTeams:async(did,rows)=>{let created=0,linkedPlayers=0;for(const r of rows){const name=String(r.name||"").trim();if(!name)continue;let club=state.clubs.find(c=>c.name.toLowerCase()===String(r.club||"").trim().toLowerCase());if(!club&&r.club){club={id:uid(),name:r.club,city:"",active:true};state.clubs.push(club)}const id=uid(),t={id,divisionId:did,name,club:club?.name||"Tự do",clubId:club?.id||null,group:r.group||"A",seed:Number(r.seed)||null,status:"active",w:0,l:0,pf:0,pa:0};state.teams.push(t);state.teamPlayers[id]=[];for(const pn of [r.player1,r.player2,r.player3,r.player4].filter(Boolean)){let p=state.players.find(x=>x.full_name.toLowerCase()===String(pn).trim().toLowerCase());if(!p){p={id:uid(),full_name:String(pn).trim(),nickname:"",gender:null,rating:3,club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(String(pn).trim())};state.players.push(p)}state.teamPlayers[id].push(p.id);linkedPlayers++}created++}persist();return {created,linkedPlayers}},
+    importTeams:async(did,rows)=>{
+      const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
+      const required=d.eventType==="singles"?1:d.eventType==="team"?4:2,prepared=[],used=new Set();
+      const ready=x=>x?.active&&String(x.full_name||"").trim()&&Number(x.rating)>0&&String(x.avatar_url||"").trim();
+      for(const r of rows){
+        const names=[r.player1,r.player2,r.player3,r.player4].map(x=>String(x||"").trim()).filter(Boolean);
+        if(names.length!==required)throw new Error("IMPORT_ROSTER_SIZE_MISMATCH");
+        const players=names.map(name=>state.players.find(x=>x.full_name.toLowerCase()===name.toLowerCase()));
+        if(players.some(x=>!x))throw new Error("PLAYER_MUST_EXIST_FIRST");
+        if(players.some(x=>!ready(x)))throw new Error("PLAYER_PROFILE_INCOMPLETE");
+        for(const p of players){
+          if(used.has(p.id))throw new Error("PLAYER_DUPLICATED_IN_IMPORT");
+          const occupied=state.teams.some(t=>t.divisionId===did&&t.status!=="withdrawn"&&(state.teamPlayers[t.id]||[]).includes(p.id));
+          if(occupied)throw new Error("PLAYER_ALREADY_IN_DIVISION");
+          used.add(p.id);
+        }
+        prepared.push({r,players});
+      }
+      let created=0,linkedPlayers=0;
+      for(const item of prepared){
+        const r=item.r,name=String(r.name||item.players.map(p=>p.full_name).join(" / ")).trim();
+        let club=state.clubs.find(c=>c.name.toLowerCase()===String(r.club||"").trim().toLowerCase());
+        if(!club&&r.club){club={id:uid(),name:r.club,city:"",active:true};state.clubs.push(club)}
+        const id=uid(),t={id,divisionId:did,name,club:club?.name||"Tự do",clubId:club?.id||null,group:r.group||"A",seed:Number(r.seed)||null,status:"active",w:0,l:0,pf:0,pa:0};
+        state.teams.push(t);state.teamPlayers[id]=item.players.map(p=>p.id);created++;linkedPlayers+=item.players.length;
+      }
+      persist();return {created,linkedPlayers}
+    },
     uploadReceipt:async file=>({url:await fileData(file)}),
     uploadImage:async file=>({url:await fileData(file)}),
     uploadPlayerAvatar:async(id,file)=>{const x=state.players.find(v=>v.id===id);x.avatar_url=await fileData(file);persist();return {avatarUrl:x.avatar_url}},
     createClub:async p=>{const x={id:uid(),name:p.name,city:p.city||"",active:true};state.clubs.push(x);persist();return clone(x)},
     updateClub:async(id,p)=>{const x=state.clubs.find(v=>v.id===id);Object.assign(x,p);state.players.filter(v=>v.club_id===id).forEach(v=>v.club_name=x.name);persist();return clone(x)},
     deleteClub:async id=>{const x=state.clubs.find(v=>v.id===id);const used=state.players.some(v=>v.club_id===id)||state.teams.some(t=>t.clubId===id);if(used){x.active=false;persist();return {mode:"archived",entity:clone(x)}}state.clubs=state.clubs.filter(v=>v.id!==id);persist();return {mode:"deleted"}},
-    createPlayer:async p=>{const club=state.clubs.find(c=>c.id===p.clubId);const x={id:uid(),full_name:p.fullName,nickname:p.nickname||"",gender:p.gender||null,rating:Number(p.rating||3),phone:p.phone||"",club_id:p.clubId||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(p.fullName||"P")};state.players.push(x);persist();return clone(x)},
+    createPlayer:async p=>{const club=state.clubs.find(c=>c.id===p.clubId);const x={id:uid(),full_name:p.fullName,nickname:p.nickname||"",gender:p.gender||null,rating:Number(p.rating||3),phone:p.phone||"",club_id:p.clubId||null,club_name:club?.name||"Tự do",active:true,avatar_url:""};state.players.push(x);persist();return clone(x)},
     updatePlayer:async(id,p)=>{const x=state.players.find(v=>v.id===id);const club=state.clubs.find(c=>c.id===p.clubId);Object.assign(x,{full_name:p.fullName??x.full_name,nickname:p.nickname??x.nickname,gender:p.gender??x.gender,phone:p.phone??x.phone,club_id:p.clubId===undefined?x.club_id:(p.clubId||null),club_name:p.clubId===undefined?x.club_name:(club?.name||"Tự do"),active:p.active??x.active});persist();return clone(x)},
     deactivatePlayer:async id=>{const x=state.players.find(v=>v.id===id);x.active=false;persist();return {mode:"deactivated",entity:clone(x)}},
     adjustRating:async(id,p)=>{let x=state.players.find(v=>v.id===id);if(!x&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);if(zl){x={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_id:null,club_name:zl.club||"CLB Pickleball Bình Lợi",active:true};state.players.push(x)}}if(!x)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});const before=Number(x.rating||0);x.rating=Math.round(Math.max(0,before+Number(p.delta||0))*100)/100;(state.ratingHistory[id]||(state.ratingHistory[id]=[])).unshift({before_rating:before,delta:Number(p.delta||0),after_rating:x.rating,reason:p.reason||"",created_at:new Date().toISOString()});persist();return clone(x)},
@@ -336,7 +363,21 @@
     createCourt:async(tid,p)=>{const x={id:uid(),tournamentId:tid,name:p.name,sortOrder:state.courts.filter(c=>c.tournamentId===tid).length+1,active:true};state.courts.push(x);persist();return clone(x)},
     updateCourt:async(id,p)=>{Object.assign(state.courts.find(x=>x.id===id),p);persist();return {}},
     deleteCourt:async id=>{const x=state.courts.find(c=>c.id===id);const used=state.matches.some(m=>m.courtId===id)||state.bookings.some(b=>b.court_id===id);if(used){x.active=false;persist();return {mode:"archived",entity:clone(x)}}state.courts=state.courts.filter(c=>c.id!==id);persist();return {mode:"deleted"}},
-    createTeam:async(did,p)=>{const id=uid();const club=state.clubs.find(c=>c.id===p.clubId);const t={id,divisionId:did,name:p.name,club:club?.name||p.club||"Tự do",clubId:p.clubId||club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};state.teams.push(t);state.teamPlayers[id]=[];persist();return clone(t)},
+    createTeam:async(did,p)=>{
+      const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("DIVISION_NOT_FOUND");
+      const required=d.eventType==="singles"?1:d.eventType==="team"?4:2;
+      const ids=[...new Set((Array.isArray(p.playerIds)?p.playerIds:[]).filter(Boolean))];
+      if(ids.length!==required)throw new Error("ROSTER_SIZE_MISMATCH");
+      const players=ids.map(id=>state.players.find(x=>x.id===id));
+      if(players.some(x=>!x))throw new Error("PLAYER_NOT_FOUND");
+      const ready=x=>x.active&&String(x.full_name||"").trim()&&Number(x.rating)>0&&String(x.avatar_url||"").trim();
+      if(players.some(x=>!ready(x)))throw new Error("PLAYER_PROFILE_INCOMPLETE");
+      const occupied=new Set(state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn").flatMap(t=>state.teamPlayers[t.id]||[]));
+      if(ids.some(id=>occupied.has(id)))throw new Error("PLAYER_ALREADY_IN_DIVISION");
+      const id=uid(),club=state.clubs.find(c=>c.id===p.clubId),name=String(p.name||players.map(x=>x.full_name).join(" / ")).trim();
+      const t={id,divisionId:did,name,club:club?.name||"Tự do",clubId:p.clubId||club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};
+      state.teams.push(t);state.teamPlayers[id]=ids;persist();return clone({...t,playerIds:ids})
+    },
     updateTeam:async(id,p)=>{const t=state.teams.find(x=>x.id===id);const club=state.clubs.find(c=>c.id===p.clubId);Object.assign(t,{name:p.name??t.name,clubId:p.clubId===undefined?t.clubId:(p.clubId||null),club:p.clubId===undefined?t.club:(club?.name||"Tự do"),group:p.group??t.group,seed:p.seed??t.seed,status:p.status??t.status});persist();return clone(t)},
     deleteTeam:async id=>{const t=state.teams.find(x=>x.id===id);const used=state.matches.some(m=>m.a===id||m.b===id)||state.registrations.some(r=>r.team_name===t?.name);if(used){t.status="withdrawn";persist();return {mode:"withdrawn",entity:clone(t)}}state.teams=state.teams.filter(x=>x.id!==id);delete state.teamPlayers[id];persist();return {mode:"deleted"}},
     updateDivision:async(id,p)=>{Object.assign(state.divisions.find(x=>x.id===id),p);persist();return {}},
@@ -420,7 +461,18 @@
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),createReferee:async p=>{if(!p.password||String(p.password).length<12)throw new Error("PASSWORD_TOO_SHORT");const r={id:uid(),email:p.email,display_name:p.name,active:true,password:String(p.password)};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active,...(p.password?{password:String(p.password)}:{})});persist();return clone(r)},
     registrations:async()=>clone(state.registrations),
-    createRegistration:async(did,p)=>{const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId);const r={id:uid(),status:"approved",payment_status:"unpaid",amount:p.amount||null,team_name:team?.name||"",division_name:d?.name||"",tournament_name:t?.name||"",checked_in_at:null,payment_id:null,payment_review_status:null};state.registrations.push(r);persist();return clone(r)},
+    createRegistration:async(did,p)=>{
+      const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId&&x.divisionId===did&&x.status!=="withdrawn");
+      if(!d||!team)throw new Error("TEAM_DIVISION_MISMATCH");
+      const required=d.eventType==="singles"?1:d.eventType==="team"?4:2,ids=state.teamPlayers[team.id]||[];
+      const players=ids.map(id=>state.players.find(x=>x.id===id));
+      const ready=x=>x?.active&&String(x.full_name||"").trim()&&Number(x.rating)>0&&String(x.avatar_url||"").trim();
+      if(ids.length!==required)throw new Error("ROSTER_SIZE_MISMATCH");
+      if(players.some(x=>!ready(x)))throw new Error("PLAYER_PROFILE_INCOMPLETE");
+      if(state.registrations.some(r=>r.division_id===did&&r.team_id===team.id&&r.status!=="cancelled"))throw new Error("REGISTRATION_EXISTS");
+      const r={id:uid(),team_id:team.id,division_id:did,status:"approved",payment_status:"unpaid",amount:p.amount||null,team_name:team.name,division_name:d.name,tournament_name:t?.name||"",checked_in_at:null,payment_id:null,payment_review_status:null};
+      state.registrations.push(r);persist();return clone(r)
+    },
     updateRegistration:async(id,p)=>{const r=state.registrations.find(x=>x.id===id);Object.assign(r,{status:p.status??r.status,payment_status:p.paymentStatus??r.payment_status,amount:p.amount??r.amount});persist();return clone(r)},
     deleteRegistration:async id=>{const r=state.registrations.find(x=>x.id===id);if(r.checked_in_at||r.payment_id){r.status="cancelled";persist();return {mode:"cancelled",entity:clone(r)}}state.registrations=state.registrations.filter(x=>x.id!==id);persist();return {mode:"deleted"}},
     checkin:async id=>{const r=state.registrations.find(x=>x.id===id);r.checked_in_at=new Date().toISOString();persist();return clone(r)},
@@ -442,7 +494,15 @@
     createClubTransaction:async p=>{const x={id:uid(),club_id:p.clubId,direction:p.direction,category:p.category||"other",amount:Number(p.amount)||0,note:p.note||"",occurred_at:p.occurredAt||new Date().toISOString(),created_by_name:"Quản trị viên"};state.clubTransactions.unshift(x);persist();return clone(x)},
     bookings:async()=>clone(state.bookings),createBooking:async p=>{const court=state.courts.find(c=>c.id===p.courtId),tournament=state.tournaments.find(t=>t.id===court?.tournamentId);const x={id:uid(),court_id:p.courtId,court_name:court?.name||"Sân",tournament_name:tournament?.name||"",title:p.title,contact_name:p.contactName,contact_phone:p.contactPhone,start_at:p.startAt,end_at:p.endAt,status:"confirmed",notes:p.notes};state.bookings.unshift(x);persist();return clone(x)},updateBooking:async(id,p)=>{Object.assign(state.bookings.find(x=>x.id===id),p);persist();return {}},deleteBooking:async id=>{const x=state.bookings.find(v=>v.id===id);x.status="cancelled";persist();return {mode:"cancelled",entity:clone(x)}},
     reportOverview:async()=>{const income=state.clubTransactions.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0),expense=state.clubTransactions.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0),today=new Date().toDateString();return {players:state.players.filter(p=>p.active!==false).length,members:state.players.filter(p=>p.active!==false).length,registrations:state.registrations.length,checked_in:state.registrations.filter(r=>r.checked_in_at).length,paid_count:state.registrations.filter(r=>r.payment_status==="paid").length,revenue:state.registrations.filter(r=>r.payment_status==="paid").reduce((a,r)=>a+Number(r.amount||0),0),matches:state.matches.length,live:state.matches.filter(m=>m.status==="live").length,completed:state.matches.filter(m=>m.status==="done").length,attendanceToday:Object.values(state.clubAttendance).flat().filter(a=>a.status==="attended"&&a.checked_in_at&&new Date(a.checked_in_at).toDateString()===today).length,upcomingActivities:state.clubEvents.filter(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date()).length,clubIncome:income,clubExpense:expense,clubBalance:income-expense}},
-    addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}}
+    addTeamPlayer:async(teamId,playerId)=>{
+      const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");
+      const d=state.divisions.find(x=>x.id===team.divisionId),required=d?.eventType==="singles"?1:d?.eventType==="team"?4:2;
+      if(!(player.active&&String(player.full_name||"").trim()&&Number(player.rating)>0&&String(player.avatar_url||"").trim()))throw new Error("PLAYER_PROFILE_INCOMPLETE");
+      const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(arr.includes(playerId))return {ok:true};
+      if(arr.length>=required)throw new Error("TEAM_ROSTER_FULL");
+      if(state.teams.some(t=>t.id!==teamId&&t.divisionId===team.divisionId&&t.status!=="withdrawn"&&(state.teamPlayers[t.id]||[]).includes(playerId)))throw new Error("PLAYER_ALREADY_IN_DIVISION");
+      arr.push(playerId);persist();return {ok:true}
+    }
   };
   window.PickleAPI=api;
   window.io=()=>({on:(event,cb)=>window.addEventListener("pickle-preview-update",e=>{if(event==="public:state"||event==="match:update")cb(clone(e.detail))})});
