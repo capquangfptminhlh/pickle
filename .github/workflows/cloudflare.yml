@@ -1,15 +1,6 @@
 name: Cloudflare Worker
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "cloudflare/**"
-      - "assets/**"
-      - "*.html"
-      - "manifest.webmanifest"
-      - "service-worker.js"
-      - ".github/workflows/cloudflare.yml"
   workflow_dispatch:
 
 permissions:
