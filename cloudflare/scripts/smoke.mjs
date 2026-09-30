@@ -104,7 +104,8 @@ bannerForm.append("banner",new Blob([png],{type:"image/png"}),"banner.png");
 const bannerRes=await fetch(base+"/api/public/tournaments/submit",{method:"POST",body:bannerForm});
 const bannerData=await bannerRes.json();
 assert(bannerRes.status===201&&bannerData.tournament?.posterUrl,"public banner submission created");
-const storedBanner=await fetch(bannerData.tournament.posterUrl);
+const storedBannerPath=new URL(bannerData.tournament.posterUrl).pathname;
+const storedBanner=await fetch(base+storedBannerPath);
 assert(storedBanner.ok&&storedBanner.headers.get("content-type")==="image/png","stored banner is publicly readable");
 
 console.log("CLOUDFLARE_SMOKE_OK",JSON.stringify({
