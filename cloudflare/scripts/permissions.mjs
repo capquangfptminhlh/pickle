@@ -19,6 +19,25 @@ const clubA=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm 
 const clubB=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm Club B "+stamp,city:"HCMC"}})).data;
 const pA=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player A "+stamp,clubId:clubA.id,rating:3.2}})).data;
 const pB=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player B "+stamp,clubId:clubB.id,rating:3.4}})).data;
+const adminEdited=(await raw("/api/players/"+pA.id,{
+  method:"PATCH",token:admin,
+  body:{
+    fullName:"Perm Player A Edited "+stamp,
+    nickname:"Ace",
+    gender:"female",
+    clubId:clubB.id,
+    phone:"0900000000",
+    active:true,
+    rating:3.7,
+    ratingReason:"Hiệu chỉnh hồ sơ kiểm thử"
+  }
+})).data;
+assert(adminEdited.full_name.includes("Edited"),"admin edits player name");
+assert(adminEdited.club_id===clubB.id,"admin moves player to another club");
+assert(Number(adminEdited.rating)===3.7,"admin edits rating");
+assert(adminEdited.ratingHistoryRecorded===true,"rating edit records history");
+await raw("/api/players/"+pA.id,{method:"PATCH",token:admin,body:{rating:3.8},ok:[400]});
+await raw("/api/players/"+pA.id,{method:"PATCH",token:admin,body:{clubId:"missing-club"},ok:[400]});
 
 const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Permission Tournament "+stamp,venue:"CI"}})).data;
 let state=(await raw("/api/admin/state",{token:admin})).data;
@@ -64,6 +83,14 @@ const mgrPlayers=(await raw("/api/players",{token:manager.token})).data;
 assert(mgrPlayers.every(p=>p.club_id===clubA.id),"club manager roster scoped");
 const managerMade=(await raw("/api/players",{method:"POST",token:manager.token,body:{fullName:"Manager Made "+stamp,clubId:clubB.id,rating:4.8}})).data;
 assert(managerMade.club_id===clubA.id&&Number(managerMade.rating)===3,"club manager cannot escape club/rating scope");
+const managerEdited=(await raw("/api/players/"+managerMade.id,{
+  method:"PATCH",token:manager.token,
+  body:{nickname:"Manager edit",clubId:clubB.id,rating:4.9,phone:"0911111111",active:false}
+})).data;
+assert(managerEdited.nickname==="Manager edit","club manager edits basic player data");
+assert(managerEdited.club_id===clubA.id,"club manager cannot move player");
+assert(Number(managerEdited.rating)===3,"club manager cannot edit rating");
+assert(managerEdited.phone==="0911111111"&&managerEdited.active===0,"club manager edits allowed operational fields");
 await raw("/api/players/"+pB.id,{method:"PATCH",token:manager.token,body:{nickname:"blocked"},ok:[403]});
 await raw("/api/clubs/"+clubA.id,{method:"PATCH",token:manager.token,body:{city:"HCMC"}});
 await raw("/api/clubs/"+clubB.id,{method:"PATCH",token:manager.token,body:{city:"blocked"},ok:[403]});
