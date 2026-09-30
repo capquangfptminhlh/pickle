@@ -7,7 +7,8 @@
     "enabled": true
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080"
+    "ALLOWED_ORIGINS": "https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
+    "PUBLIC_APP_URL": "https://capquangfptminhlh.github.io/pickle"
   },
   "d1_databases": [
     {
