@@ -65,6 +65,28 @@ async function nextTournamentSlug(env,name){
   while(await one(env,"SELECT id FROM tournaments WHERE slug=?",s))s=base+"-"+n++;
   return s;
 }
+async function parseTournamentSubmission(request){
+  const contentType=String(request.headers.get("content-type")||"");
+  if(!contentType.toLowerCase().includes("multipart/form-data"))return {body:await bodyJson(request),banner:null};
+  const form=await request.formData(),body={};
+  for(const [key,value] of form.entries())if(typeof value==="string")body[key]=value;
+  const candidate=form.get("banner");
+  const banner=candidate&&typeof candidate==="object"&&typeof candidate.arrayBuffer==="function"&&Number(candidate.size||0)>0?candidate:null;
+  return {body,banner};
+}
+async function validateTournamentBanner(file){
+  if(!file)return null;
+  if(Number(file.size||0)>5*1024*1024)throw httpError("BANNER_TOO_LARGE",413);
+  const type=String(file.type||"").toLowerCase();
+  const extByType={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
+  const ext=extByType[type];if(!ext)throw httpError("INVALID_BANNER_TYPE",400);
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const png=bytes.length>=8&&[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a].every((v,i)=>bytes[i]===v);
+  const jpg=bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
+  const webp=bytes.length>=12&&String.fromCharCode(...bytes.slice(0,4))==="RIFF"&&String.fromCharCode(...bytes.slice(8,12))==="WEBP";
+  if((type==="image/png"&&!png)||(type==="image/jpeg"&&!jpg)||(type==="image/webp"&&!webp))throw httpError("INVALID_BANNER_CONTENT",400);
+  return {bytes,type,ext,originalName:String(file.name||"banner")};
+}
 async function matchView(env,id){
   const m=await one(env,"SELECT * FROM matches WHERE id=?",id);if(!m)return null;
   const ss=await rows(env,"SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no",id);
@@ -389,13 +411,32 @@ export async function handleOperations(request,env){
   }
 
   if(path==="/api/public/tournaments/submit"&&method==="POST"){
-    const b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
-    const id=uid(),slug=await nextTournamentSlug(env,name);
-    await env.DB.prepare("INSERT INTO tournaments(id,name,slug,venue_name,start_at,end_at,status,public_visible,contact_name,contact_phone,contact_email,prize_pool,entry_fee,poster_url,sponsor_package,created_at,updated_at) VALUES(?,?,?,?,?,?,'draft',0,?,?,?,?,?,?,?,?,?)")
-      .bind(id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,String(b.contactName||""),String(b.contactPhone||""),String(b.contactEmail||""),String(b.prizePool||""),String(b.entryFee||""),b.posterUrl||null,b.sponsorPackage||"free",nowIso(),nowIso()).run();
-    const did=uid();await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,3,11,1,2,1,?)")
-      .bind(did,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",nowIso()).run();
-    return ok({ok:true,id,status:"submitted"},request,env,201);
+    const {body:b,banner}=await parseTournamentSubmission(request);
+    const name=String(b.name||"").trim(),venue=String(b.venue||b.venueName||"").trim();
+    const contactName=String(b.contactName||"").trim(),contactPhone=String(b.contactPhone||"").trim();
+    if(name.length<3||name.length>120)return fail("INVALID_TOURNAMENT_NAME",request,env,400);
+    if(!venue)return fail("VENUE_REQUIRED",request,env,400);
+    if(!contactName||!contactPhone)return fail("CONTACT_INFO_REQUIRED",request,env,400);
+    const sponsorPackage=["free","highlight","top_sponsor"].includes(String(b.sponsorPackage||""))?String(b.sponsorPackage):"free";
+    const id=uid(),slug=await nextTournamentSlug(env,name),did=uid();
+    let posterUrl=String(b.posterUrl||"").trim()||null,bannerKey=null;
+    if(banner){
+      if(!env.MEDIA)throw httpError("MEDIA_STORAGE_UNAVAILABLE",503);
+      const image=await validateTournamentBanner(banner);
+      bannerKey="tournament-banners/"+id+"."+image.ext;
+      await env.MEDIA.put(bannerKey,image.bytes,{httpMetadata:{contentType:image.type},customMetadata:{originalName:image.originalName}});
+      posterUrl=new URL(request.url).origin+"/api/media/"+encodeURIComponent(bannerKey);
+    }
+    try{
+      await env.DB.prepare("INSERT INTO tournaments(id,name,slug,venue_name,start_at,end_at,status,public_visible,contact_name,contact_phone,contact_email,prize_pool,entry_fee,poster_url,sponsor_package,created_at,updated_at) VALUES(?,?,?,?,?,?,'draft',0,?,?,?,?,?,?,?,?,?)")
+        .bind(id,name,slug,venue,b.startAt||null,b.endAt||null,contactName,contactPhone,String(b.contactEmail||""),String(b.prizePool||""),String(b.entryFee||""),posterUrl,sponsorPackage,nowIso(),nowIso()).run();
+      await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,3,11,1,2,1,?)")
+        .bind(did,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",nowIso()).run();
+    }catch(error){
+      if(bannerKey&&env.MEDIA)await env.MEDIA.delete(bannerKey).catch(()=>{});
+      throw error;
+    }
+    return ok({success:true,status:"submitted",tournament:{id,name,posterUrl},division:{id:did}},request,env,201);
   }
 
   p=route(path,"/api/divisions/:id/generate-bracket");
