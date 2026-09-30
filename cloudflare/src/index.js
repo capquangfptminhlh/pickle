@@ -209,15 +209,34 @@ async function handleApi(request,env){
     const before=await one(env,"SELECT * FROM players WHERE id=?",p.id);if(!before)return fail("NOT_FOUND",request,env,404);
     const b=await bodyJson(request);
     const referee=user.role==="referee";
-    const fullName=String(b.fullName??before.full_name).trim(),nickname=String(b.nickname??before.nickname??"");
-    const gender=String(b.gender??before.gender??"other");
-    const rating=(referee||user.role==="club_manager")?before.rating:Number(b.rating??before.rating??3);
-    const phone=referee?before.phone:String(b.phone??before.phone??"");
+    const clubManager=user.role==="club_manager";
+    const canCorrectRating=["super_admin","organizer"].includes(user.role);
+    const fullName=String(b.fullName??before.full_name).trim();
+    if(!fullName)return fail("NAME_REQUIRED",request,env,400);
+    const nickname=String(b.nickname??before.nickname??"").trim();
+    const gender=b.gender==null?String(before.gender||"other"):String(b.gender);
+    if(!["male","female","other"].includes(gender))return fail("INVALID_GENDER",request,env,400);
+    const requestedClub=b.clubId===undefined?before.club_id:(b.clubId||null);
+    const clubId=(referee||clubManager)?before.club_id:requestedClub;
+    if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
+    const phone=referee?before.phone:String(b.phone??before.phone??"").trim();
     const active=referee?before.active:(b.active===undefined?before.active:(asBool(b.active)?1:0));
-    await env.DB.prepare("UPDATE players SET full_name=?,nickname=?,gender=?,rating=?,phone=?,active=?,updated_at=? WHERE id=?")
-      .bind(fullName,nickname,gender,rating,phone,active,nowIso(),p.id).run();
+    const oldRating=Number(before.rating||0);
+    const rating=canCorrectRating&&b.rating!==undefined?Number(b.rating):oldRating;
+    if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
+    const ratingChanged=Math.abs(rating-oldRating)>1e-9;
+    const ratingReason=String(b.ratingReason||"").trim();
+    if(ratingChanged&&!ratingReason)return fail("RATING_REASON_REQUIRED",request,env,400);
+    const changedAt=nowIso();
+    const statements=[env.DB.prepare(
+      "UPDATE players SET club_id=?,full_name=?,nickname=?,gender=?,rating=?,phone=?,active=?,updated_at=? WHERE id=?"
+    ).bind(clubId,fullName,nickname,gender,rating,phone,active,changedAt,p.id)];
+    if(ratingChanged)statements.push(env.DB.prepare(
+      "INSERT INTO rating_history(id,player_id,before_rating,delta,after_rating,reason,created_at) VALUES(?,?,?,?,?,?,?)"
+    ).bind(uid(),p.id,oldRating,rating-oldRating,rating,ratingReason,changedAt));
+    await env.DB.batch(statements);
     const after=await one(env,"SELECT * FROM players WHERE id=?",p.id);await createAudit(env,user,"player",p.id,"UPDATE",before,after);
-    return ok(after,request,env);
+    return ok({...after,ratingHistoryRecorded:ratingChanged},request,env);
   }
   if(p&&method==="DELETE"){
     const user=await userRequired(request,env);if(!(await canEditPlayer(env,user,p.id))||user.role==="referee")return fail("FORBIDDEN",request,env,403);
