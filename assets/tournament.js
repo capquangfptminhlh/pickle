@@ -28,6 +28,12 @@ function render(){
  document.title=t.name+" | Pickle Tour";
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");
+ const banner=$("#tourBannerImage"),hero=document.querySelector(".tournament-app-hero");
+ if(banner&&t.posterUrl){
+   banner.src=t.posterUrl;banner.alt="Banner "+t.name;banner.hidden=false;hero?.classList.add("has-banner");
+ }else if(banner){
+   banner.removeAttribute("src");banner.hidden=true;hero?.classList.remove("has-banner");
+ }
  const divs=state.divisions.filter(d=>d.tournamentId===t.id),dids=new Set(divs.map(d=>d.id));
  const teams=state.teams.filter(x=>dids.has(x.divisionId)),matches=state.matches.filter(x=>dids.has(x.divisionId));
  const live=matches.filter(m=>m.status==="live"),done=matches.filter(m=>m.status==="done");
