@@ -1588,3 +1588,34 @@ body.public-body main{height:auto!important;max-height:none!important;overflow:v
 
 /* REALTIME PUBLIC V36 */
 #tourLiveCount.is-realtime{background:#ff4b3f!important;color:#fff!important;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 22px rgba(255,75,63,.3)!important;animation:livePulse 1.4s ease-in-out infinite}
+
+
+/* Real tournament artwork */
+.tour-media img.tour-poster-image{
+  display:block!important;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0
+}
+.tour-poster-image + .tour-pickle-art{display:none}
+.tour-poster-image ~ .tour-media-shade{
+  display:block;position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(8,20,14,.08),rgba(8,20,14,.58))
+}
+.tour-media .tour-cover{z-index:2}
+.tour-featured-badge{z-index:4}
+.tournament-hero-banner{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;
+  filter:brightness(.48) saturate(.92)
+}
+.tournament-app-hero.has-banner{
+  background:#10241b
+}
+.tournament-app-hero.has-banner .tournament-app-ball{display:none}
+.tournament-app-hero.has-banner .tournament-app-kicker,
+.tournament-app-hero.has-banner .tournament-status-chip,
+.tournament-app-hero.has-banner h1,
+.tournament-app-hero.has-banner p,
+.tournament-app-hero.has-banner .tournament-hero-stats,
+.tournament-app-hero.has-banner .tournament-hero-actions{position:relative;z-index:2}
+
+@media(max-width:760px){
+  .tour-media img.tour-poster-image{object-position:center}
+  .tournament-hero-banner{object-position:center}
+}
