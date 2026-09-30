@@ -1,9 +1,18 @@
 (() => {
+  const TOKEN_KEY="pickle-api-token-v1";
+  let API_BASE=String(window.PICKLE_API_BASE||localStorage.getItem("pickle-api-base")||"").replace(/\/+$/,"");
+  const apiUrl=url=>/^https?:\/\//i.test(url)?url:(API_BASE?API_BASE+url:url);
+  const token=()=>localStorage.getItem(TOKEN_KEY)||"";
+  const authHeaders=extra=>{const t=token();return {...(t?{Authorization:"Bearer "+t}:{}),...(extra||{})}};
   async function request(url, options={}){
-    const res=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});
+    const headers=authHeaders({"Content-Type":"application/json",...(options.headers||{})});
+    const res=await fetch(apiUrl(url),{credentials:API_BASE?"omit":"include",...options,headers});
     const data=await res.json().catch(()=>({}));
-    if(res.status===401&&location.pathname!="/login"&&!location.pathname.endsWith("login.html")){
-      location.href="login.html"; throw new Error("AUTH_REQUIRED");
+    if(res.status===401){
+      localStorage.removeItem(TOKEN_KEY);
+      if(location.pathname!="/login"&&!location.pathname.endsWith("login.html")){
+        location.href="login.html"; throw new Error("AUTH_REQUIRED");
+      }
     }
     if(!res.ok){
       const err=new Error(data.error||"REQUEST_FAILED");
@@ -11,10 +20,21 @@
     }
     return data;
   }
+  async function login(email,password){
+    const data=await request("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})});
+    if(data?.token)localStorage.setItem(TOKEN_KEY,data.token);
+    return data;
+  }
+  async function logout(){
+    try{return await request("/api/auth/logout",{method:"POST"})}
+    finally{localStorage.removeItem(TOKEN_KEY)}
+  }
   window.PickleAPI={
     request,
-    login:(email,password)=>request("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})}),
-    logout:()=>request("/api/auth/logout",{method:"POST"}),
+    apiBase:()=>API_BASE,
+    setApiBase:value=>{API_BASE=String(value||"").replace(/\/+$/,"");API_BASE?localStorage.setItem("pickle-api-base",API_BASE):localStorage.removeItem("pickle-api-base")},
+    login,
+    logout,
     changePassword:(currentPassword,newPassword)=>request("/api/auth/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})}),
     me:()=>request("/api/auth/me"),
     session:()=>request("/api/auth/session"),
@@ -63,7 +83,16 @@
     publicBranding:()=>request("/api/public/branding"),
     publicCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}`),
     confirmCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}/confirm`,{method:"POST",body:"{}"}),
-    submitTournament:payload=>request("/api/public/tournaments/submit",{method:"POST",body:JSON.stringify(payload)}),
+    submitTournament:async(payload,bannerFile=null)=>{
+      if(!bannerFile)return request("/api/public/tournaments/submit",{method:"POST",body:JSON.stringify(payload)});
+      const form=new FormData();
+      Object.entries(payload||{}).forEach(([key,value])=>{if(value!==null&&value!==undefined)form.append(key,String(value))});
+      form.append("banner",bannerFile);
+      const res=await fetch(apiUrl("/api/public/tournaments/submit"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"SUBMIT_TOURNAMENT_FAILED"),{status:res.status,data});
+      return data;
+    },
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
     importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
@@ -72,21 +101,21 @@
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
     uploadReceipt:async(file)=>{
       const form=new FormData();form.append("receipt",file);
-      const res=await fetch("/api/uploads/receipt",{method:"POST",body:form,credentials:"include"});
+      const res=await fetch(apiUrl("/api/uploads/receipt"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
       return data;
     },
     uploadImage:async(file)=>{
       const form=new FormData();form.append("image",file);
-      const res=await fetch("/api/uploads/image",{method:"POST",body:form,credentials:"include"});
+      const res=await fetch(apiUrl("/api/uploads/image"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
       return data;
     },
     uploadPlayerAvatar:async(playerId,file)=>{
       const form=new FormData();form.append("avatar",file);
-      const res=await fetch(`/api/players/${encodeURIComponent(playerId)}/avatar`,{method:"POST",body:form,credentials:"include"});
+      const res=await fetch(apiUrl(`/api/players/${encodeURIComponent(playerId)}/avatar`),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
       return data;
@@ -144,6 +173,7 @@
     updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
     generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
+    autoScheduleCourts:(divisionId)=>request(`/api/divisions/${divisionId}/auto-schedule-courts`,{method:"POST",body:"{}"}),
     autoSeedGroups:(divisionId,groupCount)=>request(`/api/divisions/${divisionId}/auto-seed-groups`,{method:"POST",body:JSON.stringify({groupCount})}),
     generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
@@ -164,4 +194,27 @@
     addPayment:(registrationId,payload)=>request(`/api/registrations/${registrationId}/payment`,{method:"POST",body:JSON.stringify(payload)}),
     reviewPayment:(paymentId,status)=>request(`/api/payment-records/${paymentId}`,{method:"PATCH",body:JSON.stringify({status})})
   };
+  if(!window.io&&API_BASE){
+    window.io=()=>{
+      const listeners=new Map();
+      let ws=null,closed=false,retry=null;
+      const emitLocal=(event,payload)=>{for(const cb of listeners.get(event)||[]){try{cb(payload)}catch(e){console.error(e)}}};
+      const connect=()=>{
+        if(closed)return;
+        try{
+          const base=API_BASE.replace(/^http/i,"ws");
+          ws=new WebSocket(base+"/api/realtime?room=public");
+          ws.onopen=()=>emitLocal("connect");
+          ws.onclose=()=>{emitLocal("disconnect");if(!closed)retry=setTimeout(connect,1500)};
+          ws.onerror=()=>{};
+          ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m?.event)emitLocal(m.event,m.payload)}catch{}};
+        }catch{retry=setTimeout(connect,2000)}
+      };
+      connect();
+      return {
+        on:(event,cb)=>{if(!listeners.has(event))listeners.set(event,[]);listeners.get(event).push(cb);return this},
+        disconnect:()=>{closed=true;if(retry)clearTimeout(retry);try{ws?.close()}catch{}}
+      };
+    };
+  }
 })();
