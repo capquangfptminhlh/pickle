@@ -8,22 +8,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pickleup.vn">
   <meta name="theme-color" content="#0b7a4b">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="assets/app-icon-v4.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="assets/app-icon-v4.svg">
-  <title>Đăng giải đấu & Quảng bá | Pickleup.vn Preview</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/app-icon-v2.svg" sizes="192x192">
+  <title>Đăng giải đấu & Quảng bá | Pickleup.vn</title>
   <meta name="description" content="Đăng ký đưa giải đấu pickleball lên hệ thống Pickleup.vn, tiếp cận hàng ngàn VĐV và đưa giải lên vị trí nổi bật.">
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/public.css?v=32">
   <link rel="stylesheet" href="assets/submit-mobile.css?v=20260927-1220">
-  <link rel="stylesheet" href="assets/pickleup-ui.css?v=4">
+  <link rel="stylesheet" href="assets/pickleup-ui.css?v=2">
 </head>
 <body class="public-body submit-screen">
   <header class="public-header">
     <div class="public-container public-nav">
-      <a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-v5.svg" alt="Pickleup.vn" width="220" height="50" style="display:block;width:min(220px,58vw);height:auto;object-fit:contain"></a>
-      <nav><a href="index.html#tournaments">Giải đấu</a><a href="index.html#live">Live Score</a><a href="ranking.html">Ranking</a><a href="about.html">Giới thiệu</a></nav>
-      <a class="btn primary" href="login.html">Đăng nhập quản trị</a>
+      <a class="public-brand" href="/" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-v2.svg" alt="Pickleup.vn"></a>
+      <nav><a href="/#tournaments">Giải đấu</a><a href="/#live">Live Score</a><a href="/ranking.html">Ranking</a><a href="/about.html">Giới thiệu</a></nav>
+      <a class="btn primary" href="/login">Đăng nhập quản trị</a>
     </div>
   </header>
 
@@ -42,26 +42,8 @@
         <h2 style="margin: 0 0 8px">Đăng giải thành công!</h2>
         <p style="color: var(--muted); margin: 0 0 20px">Giải đấu <strong id="successTourName"></strong> đã được ghi nhận trên hệ thống Pickleup.vn.</p>
         <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap">
-          <a id="successTourLink" href="index.html" class="btn primary">Xem trang giải đấu</a>
-          <a href="index.html" class="btn ghost">Về trang chủ</a>
-        </div>
-      </div>
-
-      <!-- Zalo CRM Auto-fill Assistant -->
-      <div id="zaloCrmBox" class="panel" style="background: linear-gradient(135deg, #072b1b 0%, #0d4428 100%); color: #fff; padding: 20px 24px; border-radius: 24px; margin-bottom: 24px; border: 1px solid rgba(37,211,102,0.3); box-shadow: 0 12px 32px rgba(7,43,27,0.25)">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px">
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px">
-              <span class="badge live" style="background: #25d366; color: #042415; font-weight: 900; font-size: 11px; padding: 3px 8px; border-radius: 6px">⚡ LHM CRM • ZALO AUTO-CRAWL</span>
-              <span id="zaloCrmCount" style="font-size: 13px; color: #9feec4; font-weight: 600">Đang tải giải Zalo...</span>
-            </div>
-            <h3 style="margin: 0; color: #fff; font-size: 17px; font-weight: 800">Gợi ý điền nhanh từ nhóm Zalo</h3>
-            <p style="margin: 2px 0 0; color: #b7e8cd; font-size: 13px; line-height: 1.45">Chọn một giải đấu vừa được AI của LHM CRM tự động trích xuất để điền toàn bộ form đăng ký trong 1 giây:</p>
-          </div>
-          <button type="button" id="btnFilterPickleOnly" class="btn ghost mini" style="color: #dfff69; border-color: rgba(223,255,105,0.4); font-size: 12px">Pickleball</button>
-        </div>
-        <div id="zaloSuggestList" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch">
-          <!-- Dynamically populated cards -->
+          <a id="successTourLink" href="/" class="btn primary">Xem trang giải đấu</a>
+          <a href="/" class="btn ghost">Về trang chủ</a>
         </div>
       </div>
 
@@ -89,6 +71,20 @@
               <span>Ngày kết thúc (dự kiến)</span>
               <input id="tourEnd" type="datetime-local">
             </label>
+            <div class="field full tournament-banner-field">
+              <span>Banner / Poster giải đấu</span>
+              <div class="tournament-banner-upload">
+                <input id="tourBanner" type="file" accept="image/jpeg,image/png,image/webp">
+                <label for="tourBanner" class="tournament-banner-picker">
+                  <span class="tournament-banner-icon">＋</span>
+                  <span><strong>Chọn banner giải đấu</strong><small>Khuyên dùng tỷ lệ 16:9 • JPG, PNG hoặc WebP • tối đa 5MB</small></span>
+                </label>
+                <div id="tourBannerPreviewWrap" class="tournament-banner-preview" hidden>
+                  <img id="tourBannerPreview" alt="Xem trước banner giải đấu">
+                  <button id="tourBannerRemove" type="button" class="mini">Xóa ảnh</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -208,7 +204,7 @@
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px">
-          <a href="index.html" class="btn ghost" style="text-decoration: none">Hủy bỏ</a>
+          <a href="/" class="btn ghost" style="text-decoration: none">Hủy bỏ</a>
           <button id="submitBtn" type="submit" class="btn primary" style="padding: 12px 28px; font-size: 15px">Gửi thông tin đăng giải</button>
         </div>
       </form>
@@ -221,10 +217,9 @@
     </div>
   </footer>
 
-  <script src="assets/zalo-tournaments-data.js"></script>
-  <script src="preview-api.js"></script>
+  <script src="assets/api.js"></script>
   <script src="assets/submit-tournament.js"></script>
   <script src="assets/ui-motion.js?v=32"></script>
-  <script src="preview-pwa.js"></script>
+  <script src="/assets/pwa.js"></script>
 </body>
 </html>
