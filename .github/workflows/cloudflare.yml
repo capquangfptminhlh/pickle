@@ -87,6 +87,9 @@ jobs:
           test -n "$PICKLE_SESSION_SECRET"
           test -n "$PICKLE_ADMIN_EMAIL"
           test -n "$PICKLE_ADMIN_PASSWORD"
+      - name: Ensure media bucket exists
+        working-directory: cloudflare
+        run: npx wrangler r2 bucket create pickleup-media || true
       - name: Provision bindings and deploy Worker
         working-directory: cloudflare
         run: npx wrangler deploy
