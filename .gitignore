@@ -9,3 +9,5 @@ backups/
 npm-debug.log*
 scratch/
 cloudflare/.wrangler-dist/
+cloudflare/.wrangler/
+cloudflare/public/
