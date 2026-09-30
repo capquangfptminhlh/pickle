@@ -11,3 +11,4 @@ scratch/
 cloudflare/.wrangler-dist/
 cloudflare/.wrangler/
 cloudflare/public/
+.worktrees/
