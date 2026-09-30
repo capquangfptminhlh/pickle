@@ -43,6 +43,11 @@ function genderValue(v){
   if(s==="other")return "other";
   return "other";
 }
+function requiredRosterSize(eventType){return eventType==="singles"?1:eventType==="team"?4:2}
+function playerProfileReady(p){
+  const rating=Number(p?.rating);
+  return Boolean(p&&p.active&&String(p.full_name||"").trim()&&Number.isFinite(rating)&&rating>0&&String(p.avatar_url||"").trim());
+}
 function dataSvg(svg){return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)}
 async function scopeRegistration(env,user,r){
   if(!r)return false;
@@ -123,28 +128,36 @@ export async function handleOperations(request,env){
 
   p=route(path,"/api/divisions/:id/import-teams");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),items=Array.isArray(b.rows)?b.rows:[];
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),body=await bodyJson(request),items=Array.isArray(body.rows)?body.rows:[];
     if(!items.length||items.length>5000)return fail("INVALID_IMPORT_SIZE",request,env,400);
-    let created=0,linkedPlayers=0;
+    const division=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",p.id);
+    const required=requiredRosterSize(division?.event_type);
+    const prepared=[],used=new Set();
     for(const r of items){
-      const name=String(r.name||r.team||"").trim();if(!name)continue;
+      const rawNames=[r.player1,r.player2,r.player3,r.player4].map(x=>String(x||"").trim()).filter(Boolean);
+      if(rawNames.length!==required)return fail("IMPORT_ROSTER_SIZE_MISMATCH",request,env,400);
+      const players=[];
+      for(const playerName of rawNames){
+        const pl=await one(env,"SELECT * FROM players WHERE lower(full_name)=lower(?) AND active=1 ORDER BY created_at LIMIT 1",playerName);
+        if(!pl)return fail("PLAYER_MUST_EXIST_FIRST",request,env,400);
+        if(!playerProfileReady(pl))return fail("PLAYER_PROFILE_INCOMPLETE",request,env,400);
+        if(used.has(pl.id))return fail("PLAYER_DUPLICATED_IN_IMPORT",request,env,409);
+        const occupied=await one(env,"SELECT t.id FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE tp.player_id=? AND t.division_id=? AND t.status<>'withdrawn' LIMIT 1",pl.id,p.id);
+        if(occupied)return fail("PLAYER_ALREADY_IN_DIVISION",request,env,409);
+        used.add(pl.id);players.push(pl);
+      }
+      prepared.push({raw:r,players});
+    }
+    let created=0,linkedPlayers=0;
+    for(const item of prepared){
+      const r=item.raw,name=String(r.name||r.team||item.players.map(x=>x.full_name).join(" / ")).trim();
       const club=r.clubId?await one(env,"SELECT * FROM clubs WHERE id=?",r.clubId):await getOrCreateClub(env,r.club);
       const teamId=uid();
-      await env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
-        .bind(teamId,p.id,name,club?.id||null,Number(r.seed)||null,String(r.group||"A"),nowIso()).run();
-      for(const rawName of [r.player1,r.player2,r.player3,r.player4].filter(Boolean)){
-        const playerName=String(rawName).trim();if(!playerName)continue;
-        let pl=await one(env,"SELECT * FROM players WHERE lower(full_name)=lower(?) LIMIT 1",playerName);
-        if(!pl){
-          const playerId=uid();
-          await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,gender,rating,active,created_at,updated_at) VALUES(?,?,?,?,?,3,1,?,?)")
-            .bind(playerId,club?.id||null,user.id,playerName,"other",nowIso(),nowIso()).run();
-          pl=await one(env,"SELECT * FROM players WHERE id=?",playerId);
-        }
-        await env.DB.prepare("INSERT OR IGNORE INTO team_players(team_id,player_id) VALUES(?,?)").bind(teamId,pl.id).run();
-        linkedPlayers++;
-      }
-      created++;
+      const statements=[env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
+        .bind(teamId,p.id,name,club?.id||null,Number(r.seed)||null,String(r.group||"A"),nowIso())];
+      for(const pl of item.players)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(teamId,pl.id));
+      await env.DB.batch(statements);
+      created++;linkedPlayers+=item.players.length;
     }
     await emit(env,"public:state",{tournamentId:tid});
     return ok({created,linkedPlayers},request,env,201);
