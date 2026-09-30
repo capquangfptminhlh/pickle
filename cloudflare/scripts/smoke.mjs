@@ -92,6 +92,21 @@ assert(regs.find(x=>x.id===reg.id)?.checked_in_at,"public checkin confirmed");
 const pub=(await raw("/api/public/state")).data;
 assert(pub.tournaments.some(t=>t.id===tournament.id),"public state shared");
 
+// Public tournament submission accepts a real banner and stores it in MEDIA.
+const bannerForm=new FormData();
+bannerForm.append("name","CF Banner Tournament "+stamp);
+bannerForm.append("venue","Banner Court");
+bannerForm.append("contactName","Banner Organizer");
+bannerForm.append("contactPhone","0900000000");
+bannerForm.append("divisionName","Open");
+const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP2sAAAAASUVORK5CYII=","base64");
+bannerForm.append("banner",new Blob([png],{type:"image/png"}),"banner.png");
+const bannerRes=await fetch(base+"/api/public/tournaments/submit",{method:"POST",body:bannerForm});
+const bannerData=await bannerRes.json();
+assert(bannerRes.status===201&&bannerData.tournament?.posterUrl,"public banner submission created");
+const storedBanner=await fetch(bannerData.tournament.posterUrl);
+assert(storedBanner.ok&&storedBanner.headers.get("content-type")==="image/png","stored banner is publicly readable");
+
 console.log("CLOUDFLARE_SMOKE_OK",JSON.stringify({
   tournament:tournament.id,
   players:imported.created,
@@ -99,5 +114,6 @@ console.log("CLOUDFLARE_SMOKE_OK",JSON.stringify({
   bracket:bracket.created,
   referee:referee.id,
   realtimeBackend:"Durable Objects",
-  qr:true
+  qr:true,
+  banner:true
 }));
