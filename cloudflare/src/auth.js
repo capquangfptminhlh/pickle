@@ -84,11 +84,11 @@ export async function authenticate(request,env){
 }
 
 export async function ensureBootstrapAdmin(env){
-  const row=await env.DB.prepare("SELECT COUNT(*) AS n FROM app_users").first();
-  if(Number(row?.n||0)>0)return;
   const email=String(env.BOOTSTRAP_ADMIN_EMAIL||"").trim().toLowerCase();
   const password=String(env.BOOTSTRAP_ADMIN_PASSWORD||"");
   if(!email||password.length<12)return;
+  const existing=await env.DB.prepare("SELECT id FROM app_users WHERE lower(email)=? LIMIT 1").bind(email).first();
+  if(existing)return;
   const hash=await hashPassword(password);
   await env.DB.prepare(
     "INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?)"
