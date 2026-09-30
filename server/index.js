@@ -375,6 +375,30 @@ function validateSet(a,b,target,winByTwo){
   const hi=Math.max(a,b),lo=Math.min(a,b);
   return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
+function requiredRosterSize(eventType){return eventType==="singles"?1:eventType==="team"?4:2}
+function playerProfileReady(p){
+  const rating=Number(p?.rating);
+  return Boolean(p&&p.active&&String(p.full_name||"").trim()&&Number.isFinite(rating)&&rating>0&&String(p.avatar_url||"").trim());
+}
+async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null}={}){
+  const division=(await c.query("select id,event_type from divisions where id=$1",[divisionId])).rows[0];
+  if(!division)throw Object.assign(new Error("DIVISION_NOT_FOUND"),{status:404});
+  const ids=[...new Set((Array.isArray(playerIds)?playerIds:[]).map(x=>String(x||"").trim()).filter(Boolean))];
+  if(ids.length!==requiredRosterSize(division.event_type))throw Object.assign(new Error("ROSTER_SIZE_MISMATCH"),{status:400});
+  const players=[];
+  for(const id of ids){
+    const p=(await c.query("select * from players where id=$1",[id])).rows[0];
+    if(!p)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
+    if(!playerProfileReady(p))throw Object.assign(new Error("PLAYER_PROFILE_INCOMPLETE"),{status:400});
+    const duplicate=(await c.query(
+      "select t.id from team_players tp join teams t on t.id=tp.team_id where tp.player_id=$1 and t.division_id=$2 and t.status<>'withdrawn' and ($3::uuid is null or t.id<>$3) limit 1",
+      [id,divisionId,currentTeamId]
+    )).rows[0];
+    if(duplicate)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    players.push(p);
+  }
+  return {division,ids,players};
+}
 async function authorizeMatch(c,user,m){
   if(user.role==="super_admin")return true;
   if(user.role==="organizer")return canManageTournament(user,m.tournament_id,c);
@@ -786,9 +810,17 @@ app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(r
   const row=(await pool.query("insert into clubs(name,slug,city) values($1,$2,$3) returning *",[name,slug,req.body.city||null])).rows[0];res.status(201).json(row);
 }));
 app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
-  const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
-  if(req.user.role==="organizer"&&!(await canEditPlayer(req.user,playerId)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
-  await pool.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[req.params.id,playerId]);res.status(201).json({ok:true});
+  const playerId=String(req.body.playerId||"");if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
+  const team=(await pool.query("select t.id,t.division_id,d.event_type from teams t join divisions d on d.id=t.division_id where t.id=$1",[req.params.id])).rows[0];
+  if(!team)return res.status(404).json({error:"NOT_FOUND"});
+  const player=(await pool.query("select * from players where id=$1",[playerId])).rows[0];
+  if(!player)return res.status(404).json({error:"PLAYER_NOT_FOUND"});
+  if(!playerProfileReady(player))return res.status(400).json({error:"PLAYER_PROFILE_INCOMPLETE"});
+  if((await pool.query("select 1 from team_players where team_id=$1 and player_id=$2",[team.id,playerId])).rowCount)return res.json({ok:true});
+  const count=Number((await pool.query("select count(*)::int n from team_players where team_id=$1",[team.id])).rows[0].n);
+  if(count>=requiredRosterSize(team.event_type))return res.status(409).json({error:"TEAM_ROSTER_FULL"});
+  if((await pool.query("select 1 from team_players tp join teams t on t.id=tp.team_id where tp.player_id=$1 and t.division_id=$2 and t.id<>$3 and t.status<>'withdrawn' limit 1",[playerId,team.division_id,team.id])).rowCount)return res.status(409).json({error:"PLAYER_ALREADY_IN_DIVISION"});
+  await pool.query("insert into team_players(team_id,player_id) values($1,$2)",[team.id,playerId]);res.status(201).json({ok:true});
 }));
 
 app.post("/api/import/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
@@ -833,11 +865,25 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
   const rows=Array.isArray(req.body.rows)?req.body.rows:[];
   if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
   const result=await tx(async c=>{
-    const d=(await c.query("select id from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    let created=0,linkedPlayers=0;
-    const ids=[];
+    const d=(await c.query("select id,event_type from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const required=requiredRosterSize(d.event_type),prepared=[],used=new Set();
     for(const raw of rows){
-      const name=String(raw.name||"").trim();if(!name)continue;
+      const names=[raw.player1,raw.player2,raw.player3,raw.player4].map(x=>String(x||"").trim()).filter(Boolean);
+      if(names.length!==required)throw Object.assign(new Error("IMPORT_ROSTER_SIZE_MISMATCH"),{status:400});
+      const players=[];
+      for(const person of names){
+        const p=(await c.query("select * from players where lower(full_name)=lower($1) and active=true order by created_at limit 1",[person])).rows[0];
+        if(!p)throw Object.assign(new Error("PLAYER_MUST_EXIST_FIRST"),{status:400});
+        if(!playerProfileReady(p))throw Object.assign(new Error("PLAYER_PROFILE_INCOMPLETE"),{status:400});
+        if(used.has(p.id))throw Object.assign(new Error("PLAYER_DUPLICATED_IN_IMPORT"),{status:409});
+        if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where tp.player_id=$1 and t.division_id=$2 and t.status<>'withdrawn' limit 1",[p.id,d.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+        used.add(p.id);players.push(p);
+      }
+      prepared.push({raw,players});
+    }
+    let created=0,linkedPlayers=0;const ids=[];
+    for(const item of prepared){
+      const raw=item.raw,name=String(raw.name||item.players.map(p=>p.full_name).join(" / ")).trim();
       let clubId=null;
       const clubName=String(raw.club||raw.clubName||"").trim();
       if(clubName){
@@ -850,11 +896,7 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
       }
       const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed,status) values($1,$2,$3,$4,$5,'active') returning id",[d.id,name,clubId,String(raw.group||"A").trim()||"A",Number(raw.seed)||null])).rows[0];
       ids.push(t.id);created++;
-      for(const person of [raw.player1,raw.player2,raw.player3,raw.player4].map(x=>String(x||"").trim()).filter(Boolean)){
-        let p=(await c.query("select id from players where lower(full_name)=lower($1) and active=true order by created_at limit 1",[person])).rows[0];
-        if(!p)p=(await c.query("insert into players(full_name,rating,club_id,active,created_by_user_id) values($1,3,$2,true,$3) returning id",[person,clubId,req.user.sub])).rows[0];
-        await c.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[t.id,p.id]);linkedPlayers++;
-      }
+      for(const p of item.players){await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,p.id]);linkedPlayers++}
     }
     await audit(c,req.user,"team_import",d.id,"IMPORT_TEAMS",null,{created,linkedPlayers,ids},`${created} teams`);
     return {created,linkedPlayers,ids};
@@ -921,8 +963,11 @@ app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),t
 }));
 
 app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
-  const {name,club,clubId:requestedClubId,group="A",seed}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const {club,clubId:requestedClubId,group="A",seed}=req.body;
   const row=await tx(async c=>{
+    const roster=await validateDivisionRoster(c,req.params.id,req.body.playerIds);
+    const name=String(req.body.name||roster.players.map(p=>p.full_name).join(" / ")).trim();
+    if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
     let clubId=null;
     if(requestedClubId){
       const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
@@ -934,7 +979,9 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
       clubId=cr.id;
     }
     const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed) values($1,$2,$3,$4,$5) returning *",[req.params.id,name,clubId,group,seed||null])).rows[0];
-    await audit(c,req.user,"team",t.id,"CREATE_TEAM",null,t,name);return t;
+    for(const playerId of roster.ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);
+    await audit(c,req.user,"team",t.id,"CREATE_TEAM_WITH_ROSTER",null,{...t,playerIds:roster.ids},name);
+    return {...t,playerIds:roster.ids};
   });
   await emitState();res.status(201).json(row);
 }));
@@ -1476,10 +1523,16 @@ app.get("/api/registrations",authRequired,allow("super_admin","organizer","finan
 }));
 app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
-  const teamCheck=await pool.query("select id from teams where id=$1 and division_id=$2",[teamId,req.params.id]);
-  if(!teamCheck.rowCount)return res.status(400).json({error:"TEAM_DIVISION_MISMATCH"});
-  const row=(await pool.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'registration',$2,'CREATE_REGISTRATION',$3)",[req.user.sub,row.id,row]);
+  const row=await tx(async c=>{
+    const team=(await c.query("select id from teams where id=$1 and division_id=$2 and status<>'withdrawn'",[teamId,req.params.id])).rows[0];
+    if(!team)throw Object.assign(new Error("TEAM_DIVISION_MISMATCH"),{status:400});
+    const linked=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[teamId])).rows.map(x=>x.player_id);
+    await validateDivisionRoster(c,req.params.id,linked,{currentTeamId:teamId});
+    if((await c.query("select 1 from registrations where division_id=$1 and team_id=$2 and status<>'cancelled' limit 1",[req.params.id,teamId])).rowCount)throw Object.assign(new Error("REGISTRATION_EXISTS"),{status:409});
+    const reg=(await c.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
+    await audit(c,req.user,"registration",reg.id,"CREATE_REGISTRATION",null,reg);
+    return reg;
+  });
   res.status(201).json(row);
 }));
 app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),registrationManageParam,wrap(async(req,res)=>{
