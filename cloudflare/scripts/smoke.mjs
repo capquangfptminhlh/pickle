@@ -32,18 +32,26 @@ const courtA=(await raw("/api/tournaments/"+tournament.id+"/courts",{method:"POS
 await raw("/api/tournaments/"+tournament.id+"/courts",{method:"POST",token:admin,body:{name:"Sân 2",sortOrder:2}});
 
 const imported=(await raw("/api/import/players",{method:"POST",token:admin,body:{rows:[
-  {fullName:"CF Player 1 "+stamp,gender:"male",rating:3.1},
-  {fullName:"CF Player 2 "+stamp,gender:"male",rating:3.0},
-  {fullName:"CF Player 3 "+stamp,gender:"female",rating:2.9},
-  {fullName:"CF Player 4 "+stamp,gender:"female",rating:2.8}
+  {fullName:"CF Player 1 "+stamp,gender:"male",rating:3.1,avatarUrl:"https://example.com/cf-player-1.png"},
+  {fullName:"CF Player 2 "+stamp,gender:"male",rating:3.0,avatarUrl:"https://example.com/cf-player-2.png"},
+  {fullName:"CF Player 3 "+stamp,gender:"female",rating:2.9,avatarUrl:"https://example.com/cf-player-3.png"},
+  {fullName:"CF Player 4 "+stamp,gender:"female",rating:2.8,avatarUrl:"https://example.com/cf-player-4.png"},
+  {fullName:"CF Player 5 "+stamp,gender:"male",rating:3.2,avatarUrl:"https://example.com/cf-player-5.png"},
+  {fullName:"CF Player 6 "+stamp,gender:"male",rating:3.0,avatarUrl:"https://example.com/cf-player-6.png"},
+  {fullName:"CF Player 7 "+stamp,gender:"female",rating:2.9,avatarUrl:"https://example.com/cf-player-7.png"},
+  {fullName:"CF Player 8 "+stamp,gender:"female",rating:2.7,avatarUrl:"https://example.com/cf-player-8.png"}
 ]}})).data;
-assert(imported.created===4&&imported.ids.length===4,"players imported");
+assert(imported.created===8&&imported.ids.length===8,"players imported");
 
 const teams=[];
 for(let i=0;i<4;i++){
-  const t=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"CF Team "+(i+1)+" "+stamp,group:i<2?"A":"B",seed:i+1}})).data;
+  const t=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{
+    name:"CF Team "+(i+1)+" "+stamp,
+    group:i<2?"A":"B",
+    seed:i+1,
+    playerIds:[imported.ids[i*2],imported.ids[i*2+1]]
+  }})).data;
   teams.push(t);
-  await raw("/api/teams/"+t.id+"/players",{method:"POST",token:admin,body:{playerId:imported.ids[i]}});
 }
 await raw("/api/divisions/"+division.id+"/auto-seed-groups",{method:"POST",token:admin,body:{groupCount:2}});
 const rr=(await raw("/api/divisions/"+division.id+"/generate-round-robin",{method:"POST",token:admin,body:{}})).data;
