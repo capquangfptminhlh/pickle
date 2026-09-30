@@ -10,7 +10,7 @@ function unlockTournamentScroll(){
 unlockTournamentScroll();
 addEventListener("pageshow",unlockTournamentScroll);
 addEventListener("visibilitychange",()=>{if(!document.hidden)unlockTournamentScroll()});
-let state=null,sponsors=[];const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
+let state=null,sponsors=[],realtimeConnected=false,realtimeRefreshBusy=false;const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const team=x=>state?.teams.find(t=>t.id===x)?.name||"Chưa xác định";
 const teamPlayers=id=>(state?.teamPlayers?.[id]||[]).map(pid=>state?.players?.find(p=>p.id===pid)).filter(Boolean);
