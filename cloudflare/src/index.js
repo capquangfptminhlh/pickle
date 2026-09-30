@@ -664,6 +664,14 @@ async function handleApi(request,env){
 export default {
   async fetch(request,env){
     try{
+      const url=new URL(request.url);
+      if(url.protocol==="http:"){
+        url.protocol="https:";
+        return Response.redirect(url.toString(),308);
+      }
+      if(url.pathname!=="/api"&&!url.pathname.startsWith("/api/")&&env.ASSETS){
+        return env.ASSETS.fetch(request);
+      }
       return await handleApi(request,env);
     }catch(e){
       const status=Number(e?.status||500),code=status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED");

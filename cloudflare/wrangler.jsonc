@@ -19,10 +19,9 @@
 	],
 	"assets": {
 		"directory": "./public",
+		"binding": "ASSETS",
 		"not_found_handling": "none",
-		"run_worker_first": [
-			"/api/*"
-		]
+		"run_worker_first": true
 	},
 	"vars": {
 		"ALLOWED_ORIGINS": "https://pickleup.vn,https://www.pickleup.vn,https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
