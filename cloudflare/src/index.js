@@ -2,6 +2,8 @@ import {corsHeaders,ok,fail,bodyJson,route,uid,slugify,nowIso,audit,safeJsonPars
 import {authenticate,ensureBootstrapAdmin,hashPassword,verifyPassword,signSession,requireRole,canManageTournament,tournamentForDivision,tournamentForTeam,tournamentForCourt,canEditPlayer} from "./auth.js";
 import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./state.js";
 import {TournamentRoom,broadcast} from "./realtime.js";
+import {handleOperations} from "./operations.js";
+import {advanceBracket} from "./bracket.js";
 
 export {TournamentRoom};
 
@@ -97,6 +99,8 @@ async function handleApi(request,env){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
 
   if(method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(request,env)});
+  const extra=await handleOperations(request,env);
+  if(extra)return extra;
   if(path==="/api/health"&&method==="GET"){
     const probe=await one(env,"SELECT 1 AS ok");
     return ok({ok:Boolean(probe?.ok),service:"pickleup-api",storage:"D1",realtime:"Durable Objects",time:nowIso()},request,env);
@@ -380,6 +384,7 @@ async function handleApi(request,env){
     const fresh=await getMatch(env,p.id);
     await env.DB.prepare("INSERT INTO score_events(match_id,actor_user_id,event_type,payload,match_version) VALUES(?,?,?,?,?)")
       .bind(p.id,user.id,done?"MATCH_FINISH":"SET_FINISH",JSON.stringify({set:[a,bb],setNo,winner}),fresh.version).run();
+    if(done&&winner)await advanceBracket(env,p.id,winner);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
   p=route(path,"/api/matches/:id/quick-score");
@@ -397,6 +402,7 @@ async function handleApi(request,env){
     const fresh=await getMatch(env,p.id);
     await env.DB.prepare("INSERT INTO score_events(match_id,actor_user_id,event_type,payload,match_version) VALUES(?,?,?,?,?)")
       .bind(p.id,user.id,winner?"MATCH_FINISH":"CORRECTION",JSON.stringify({sets,winner}),fresh.version).run();
+    if(winner)await advanceBracket(env,p.id,winner);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
   p=route(path,"/api/matches/:id/finish");
@@ -412,6 +418,7 @@ async function handleApi(request,env){
     if(!finalWinner)return fail("WINNER_REQUIRED",request,env,400);
     await env.DB.prepare("UPDATE matches SET winner_team_id=?,status='completed',completed_at=?,current_score_a=0,current_score_b=0,version=version+1 WHERE id=?").bind(finalWinner,nowIso(),p.id).run();
     const fresh=await getMatch(env,p.id);await env.DB.prepare("INSERT INTO score_events(match_id,actor_user_id,event_type,payload,match_version) VALUES(?,?,?,?,?)").bind(p.id,user.id,"MATCH_FINISH",JSON.stringify({winner:finalWinner}),fresh.version).run();
+    await advanceBracket(env,p.id,finalWinner);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
   p=route(path,"/api/matches/:id/special-result");
@@ -421,6 +428,7 @@ async function handleApi(request,env){
     if(![m.team_a_id,m.team_b_id].includes(winner)||!["walkover","no_show","retired","injury","disqualified"].includes(reason))return fail("INVALID_SPECIAL_RESULT",request,env,400);
     await env.DB.prepare("UPDATE matches SET winner_team_id=?,status='completed',result_reason=?,result_note=?,completed_at=?,version=version+1 WHERE id=?").bind(winner,reason,note,nowIso(),p.id).run();
     const fresh=await getMatch(env,p.id);await env.DB.prepare("INSERT INTO score_events(match_id,actor_user_id,event_type,payload,match_version) VALUES(?,?,?,?,?)").bind(p.id,user.id,"MATCH_FINISH",JSON.stringify({winner,reason,note}),fresh.version).run();
+    await advanceBracket(env,p.id,winner);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
 
