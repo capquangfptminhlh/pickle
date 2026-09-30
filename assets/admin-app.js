@@ -420,7 +420,7 @@ async function accountsPage(){
   </div>
   <div class="panel"><div class="panel-head"><div><h2>${isOwner?"Tài khoản con":"Tài khoản trọng tài"}</h2><p>${children.length} tài khoản • phân quyền tại server</p></div><button class="btn primary" data-action="newUser">${isOwner?"Tạo tài khoản con":"Tạo trọng tài"}</button></div>
     <div class="role-help"><span><b>Chủ giải</b>Chỉ vận hành các giải mình sở hữu/được gán và VĐV trong các giải đó.</span><span><b>Trọng tài</b>Chỉ thấy trận được phân công; được nhập điểm và cập nhật thông tin cơ bản VĐV của trận đó.</span><span><b>Khách xem</b>Không cần tài khoản; chỉ đọc danh sách VĐV, lịch, BXH và bracket từ link công khai.</span>${isOwner?'<span><b>Quản lý CLB / Thu ngân</b>Giới hạn theo CLB hoặc nghiệp vụ được giao.</span>':""}</div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
       ${children.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b>${r.club_name?`<small style="display:block;color:#73847b">${escHtml(r.club_name)}</small>`:""}</td><td>${escHtml(r.email)}</td><td>${roleLabel(r.role)}</td><td>${escHtml(r.tournament_name||r.club_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="6">Chưa có tài khoản con.</td></tr>'}
     </tbody></table></div>
   </div>`;
