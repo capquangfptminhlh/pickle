@@ -76,9 +76,10 @@ for(const id of ["dashboard","club_events","players","clubs","club_attendance","
 async function modalSmoke(page,pageId,selector,label){
   const nav=page.locator('[data-page="'+pageId+'"]');
   if(!(await nav.count()))return;
-  await nav.click();await page.waitForTimeout(120);
+  await nav.click();
   const trigger=page.locator(selector).first();
-  if(!(await trigger.count())){failures.push({label,errors:["trigger missing: "+selector]});return}
+  const ready=await trigger.waitFor({state:"attached",timeout:2500}).then(()=>true).catch(()=>false);
+  if(!ready){failures.push({label,errors:["trigger missing: "+selector]});return}
   await trigger.click();await page.waitForTimeout(80);
   const dialog=page.locator("#genericDialog");
   if(!(await dialog.evaluate(el=>el.open))){failures.push({label,errors:["dialog did not open"]});return}
