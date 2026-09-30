@@ -150,7 +150,8 @@ const child=(await raw("/api/users",{method:"POST",cookie:admin.cookie,body:{nam
 const users=(await raw("/api/users",{cookie:admin.cookie})).data;
 assert(users.some(x=>x.id===child.id&&x.role==="organizer"),"child account listed");
 const organizer=await login(childEmail,childPassword);
-await raw("/api/users",{cookie:organizer.cookie,ok:[403]});
+const organizerUsers=(await raw("/api/users",{cookie:organizer.cookie})).data;
+assert(organizerUsers.some(x=>x.id===child.id&&x.role==="organizer")&&!organizerUsers.some(x=>x.role==="super_admin"),"organizer account list is scoped");
 await raw("/api/admin/state",{cookie:organizer.cookie});
 const rotatedPassword="ci-organizer-rotated-123";
 await raw("/api/users/"+child.id,{method:"PATCH",cookie:admin.cookie,body:{password:rotatedPassword}});
