@@ -25,7 +25,9 @@
 	},
 	"vars": {
 		"ALLOWED_ORIGINS": "https://pickleup.vn,https://www.pickleup.vn,https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
-		"PUBLIC_APP_URL": "https://pickleup.vn"
+		"PUBLIC_APP_URL": "https://pickleup.vn",
+		"BOOTSTRAP_ADMIN_EMAIL": "admin@pickleup.vn",
+		"BOOTSTRAP_ADMIN_NAME": "PickleUp Admin"
 	},
 	"d1_databases": [
 		{
