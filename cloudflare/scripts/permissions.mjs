@@ -1,0 +1,93 @@
+const base=process.env.PICKLE_CF_TEST_URL||"http://127.0.0.1:8787";
+
+async function raw(path,{method="GET",token=null,body,ok=[200,201,204]}={}){
+  const headers={};
+  if(token)headers.Authorization="Bearer "+token;
+  if(body!==undefined)headers["Content-Type"]="application/json";
+  const r=await fetch(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+  const text=await r.text();let data={};try{data=text?JSON.parse(text):{}}catch{data={text}}
+  if(!ok.includes(r.status))throw new Error(method+" "+path+" -> "+r.status+" "+text);
+  return {status:r.status,data};
+}
+function assert(v,m){if(!v)throw new Error("ASSERT: "+m)}
+const stamp=Date.now();
+const adminLogin=(await raw("/api/auth/login",{method:"POST",body:{email:"admin@pickle.test",password:"cloudflare-test-password-123"}})).data;
+assert(adminLogin.token&&adminLogin.user?.role==="super_admin","admin login");
+const admin=adminLogin.token;
+
+const clubA=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm Club A "+stamp,city:"HCMC"}})).data;
+const clubB=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm Club B "+stamp,city:"HCMC"}})).data;
+const pA=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player A "+stamp,clubId:clubA.id,rating:3.2}})).data;
+const pB=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player B "+stamp,clubId:clubB.id,rating:3.4}})).data;
+
+const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Permission Tournament "+stamp,venue:"CI"}})).data;
+let state=(await raw("/api/admin/state",{token:admin})).data;
+const division=state.divisions.find(x=>x.tournamentId===tournament.id);
+assert(division?.id,"division created");
+const teamA=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Perm Team A",clubId:clubA.id}})).data;
+const teamB=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Perm Team B",clubId:clubB.id}})).data;
+await raw("/api/teams/"+teamA.id+"/players",{method:"POST",token:admin,body:{playerId:pA.id}});
+await raw("/api/teams/"+teamB.id+"/players",{method:"POST",token:admin,body:{playerId:pB.id}});
+const regA=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamA.id,amount:300000}})).data;
+const regB=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamB.id,amount:900000}})).data;
+
+const userPassword="permission-user-password-123";
+const orgEmail="perm-org-"+stamp+"@pickle.test";
+const organizerUser=(await raw("/api/users",{method:"POST",token:admin,body:{name:"Perm Organizer",email:orgEmail,password:userPassword,role:"organizer",tournamentId:tournament.id}})).data;
+assert(organizerUser.role==="organizer","organizer created");
+let organizer=(await raw("/api/auth/login",{method:"POST",body:{email:orgEmail,password:userPassword}})).data;
+const orgUsers=(await raw("/api/users",{token:organizer.token})).data;
+assert(orgUsers.some(x=>x.id===organizerUser.id)&&!orgUsers.some(x=>x.role==="super_admin"),"organizer user list scoped");
+await raw("/api/users",{method:"POST",token:organizer.token,body:{name:"Blocked manager",email:"blocked-"+stamp+"@pickle.test",password:userPassword,role:"club_manager",clubId:clubA.id},ok:[403]});
+const refEmail="perm-ref-"+stamp+"@pickle.test";
+const refereeUser=(await raw("/api/users/referees",{method:"POST",token:organizer.token,body:{name:"Perm Ref",email:refEmail,password:userPassword,tournamentId:tournament.id}})).data;
+assert(refereeUser.role==="referee","organizer can create scoped referee");
+
+const rotated="permission-rotated-password-123";
+await raw("/api/users/"+organizerUser.id,{method:"PATCH",token:admin,body:{password:rotated}});
+await raw("/api/admin/state",{token:organizer.token,ok:[401]});
+organizer=(await raw("/api/auth/login",{method:"POST",body:{email:orgEmail,password:rotated}})).data;
+await raw("/api/admin/state",{token:organizer.token});
+await raw("/api/users/"+organizerUser.id,{method:"PATCH",token:admin,body:{active:false}});
+await raw("/api/admin/state",{token:organizer.token,ok:[401]});
+
+const referee=(await raw("/api/auth/login",{method:"POST",body:{email:refEmail,password:userPassword}})).data;
+await raw("/api/tournaments",{method:"POST",token:referee.token,body:{name:"Blocked"},ok:[403]});
+await raw("/api/registrations/"+regA.id+"/checkin",{method:"POST",token:referee.token,body:{},ok:[403]});
+await raw("/api/registrations",{token:referee.token,ok:[403]});
+
+const mgrEmail="perm-manager-"+stamp+"@pickle.test";
+const mgrUser=(await raw("/api/users",{method:"POST",token:admin,body:{name:"Perm Manager",email:mgrEmail,password:userPassword,role:"club_manager",clubId:clubA.id}})).data;
+assert(mgrUser.role==="club_manager"&&mgrUser.clubId===clubA.id,"club manager created with club scope");
+const manager=(await raw("/api/auth/login",{method:"POST",body:{email:mgrEmail,password:userPassword}})).data;
+const mgrPlayers=(await raw("/api/players",{token:manager.token})).data;
+assert(mgrPlayers.every(p=>p.club_id===clubA.id),"club manager roster scoped");
+const managerMade=(await raw("/api/players",{method:"POST",token:manager.token,body:{fullName:"Manager Made "+stamp,clubId:clubB.id,rating:4.8}})).data;
+assert(managerMade.club_id===clubA.id&&Number(managerMade.rating)===3,"club manager cannot escape club/rating scope");
+await raw("/api/players/"+pB.id,{method:"PATCH",token:manager.token,body:{nickname:"blocked"},ok:[403]});
+await raw("/api/tournaments",{method:"POST",token:manager.token,body:{name:"Blocked"},ok:[403]});
+await raw("/api/users",{token:manager.token,ok:[403]});
+await raw("/api/club-transactions",{method:"POST",token:manager.token,body:{clubId:clubB.id,direction:"income",amount:100000},ok:[201]});
+const mgrLedger=(await raw("/api/club-transactions",{token:manager.token})).data;
+assert(mgrLedger.every(x=>x.club_id===clubA.id),"club manager treasury scoped");
+
+const finEmail="perm-finance-"+stamp+"@pickle.test";
+const finUser=(await raw("/api/users",{method:"POST",token:admin,body:{name:"Perm Finance",email:finEmail,password:userPassword,role:"finance",clubId:clubA.id}})).data;
+assert(finUser.role==="finance"&&finUser.clubId===clubA.id,"finance created with club scope");
+const finance=(await raw("/api/auth/login",{method:"POST",body:{email:finEmail,password:userPassword}})).data;
+const financeRegs=(await raw("/api/registrations",{token:finance.token})).data;
+assert(financeRegs.some(x=>x.id===regA.id)&&!financeRegs.some(x=>x.id===regB.id),"finance registrations scoped");
+await raw("/api/registrations/"+regB.id+"/payment",{method:"POST",token:finance.token,body:{method:"cash"},ok:[403]});
+await raw("/api/registrations/"+regA.id+"/payment",{method:"POST",token:finance.token,body:{method:"cash"}});
+const report=(await raw("/api/reports/overview",{token:finance.token})).data;
+assert(Number(report.registrations)>=1&&Number(report.revenue)<900000,"finance overview scoped");
+await raw("/api/tournaments",{method:"POST",token:finance.token,body:{name:"Blocked"},ok:[403]});
+await raw("/api/users",{token:finance.token,ok:[403]});
+await raw("/api/players",{token:finance.token,ok:[403]});
+await raw("/api/club-events/"+(await raw("/api/club-events",{token:finance.token})).data?.[0]?.id+"/attendance",{token:finance.token,ok:[403,404]});
+
+await raw("/api/admin/state",{ok:[401]});
+console.log("CLOUDFLARE_PERMISSIONS_OK",JSON.stringify({
+  organizer:true,referee:true,clubManager:true,finance:true,
+  scopedRoster:true,scopedPayments:true,passwordRevocation:true,deactivationRevocation:true
+}));
