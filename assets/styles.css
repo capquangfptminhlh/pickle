@@ -581,3 +581,31 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
   .table tbody td:last-child>.mini,
   .table tbody td:last-child>a.mini{flex:0 1 auto;max-width:100%}
 }
+
+/* Pickleup.vn brand mark */
+.brand-mark{background:#0b1513 url("app-icon.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important;box-shadow:none!important;overflow:hidden!important}
+
+/* TOURNAMENT CONTROL CENTER V24 */
+.tournament-quick-actions{display:flex;gap:7px;flex-wrap:wrap}
+.tournament-quick-actions .mini,.tournament-quick-actions a{min-height:34px;display:inline-flex;align-items:center;text-decoration:none}
+.draw-mini{background:#eaffb0!important;color:#163d23!important;border-color:#d5ef73!important}
+.tournament-control-hero{padding:16px;border-radius:18px;background:#0c2117;color:#fff;display:grid;gap:12px}
+.tournament-control-hero>div:first-child>b{display:block;font-size:18px}.tournament-control-hero>div:first-child>div{margin-top:4px;font-size:11px;opacity:.72}
+.tournament-control-actions{display:flex;gap:8px;flex-wrap:wrap}.tournament-control-actions .btn{min-height:40px}
+.tournament-control-hero>small{font-size:10px;line-height:1.5;opacity:.72}
+.tournament-ops-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.tournament-ops-card{padding:13px;border:1px solid #e7ece9;border-radius:15px;background:#fbfdfc;min-width:0}
+.tournament-ops-card>b{display:block;font-size:12px}.tournament-ops-card>small{display:block;margin-top:4px;color:#728078;font-size:10px;line-height:1.45}
+.tournament-live-mini{display:grid;gap:6px;margin-top:9px}.tournament-live-mini .mini{text-align:left;justify-content:flex-start;white-space:normal}
+.tournament-bracket-preview{margin-top:10px;overflow:auto;max-height:300px}
+.draw-wheel-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(4,14,10,.78);backdrop-filter:blur(8px);padding:20px}
+.draw-wheel-card{width:min(430px,94vw);padding:26px;border-radius:28px;background:#fff;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.draw-wheel{width:230px;height:230px;margin:0 auto 18px;position:relative;border-radius:50%;background:conic-gradient(#dfff69,#22c55e,#0b8155,#dfff69);padding:10px;animation:drawWheelSpin 1.1s cubic-bezier(.2,.75,.25,1) infinite}
+.draw-wheel:after{content:"";position:absolute;inset:22px;border-radius:50%;background:#10231a}
+.draw-wheel>strong{position:absolute;inset:0;display:grid;place-items:center;z-index:3;font-size:48px}
+.draw-wheel-ring{position:absolute;inset:0;z-index:4}.draw-wheel-ring span{position:absolute;left:50%;top:50%;width:86px;margin-left:-43px;margin-top:-9px;color:#fff;font-size:8px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-92px) rotate(calc(-360deg/var(--n)*var(--i)))}
+.draw-wheel-card h3{margin:0;font-size:22px}.draw-wheel-card p{margin:7px 0 0;color:#748078;font-size:12px}
+@keyframes drawWheelSpin{to{transform:rotate(360deg)}}
+@media(max-width:760px){.tournament-ops-grid{grid-template-columns:1fr}.tournament-control-actions .btn{flex:1 1 calc(50% - 8px);padding:0 10px;font-size:11px}.draw-wheel{width:200px;height:200px}.draw-wheel-ring span{transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-78px) rotate(calc(-360deg/var(--n)*var(--i)))}}
+
+.tournament-live-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.tournament-live-row .mini:first-child{min-width:0}.tournament-live-row .mini:last-child{white-space:nowrap}@media(max-width:760px){.tournament-live-row{grid-template-columns:1fr}.tournament-live-row .mini:last-child{justify-content:center}}

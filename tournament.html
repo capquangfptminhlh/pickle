@@ -4,14 +4,15 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
-<title>Chi tiết giải | Pickle Tour</title>
+<link rel="icon" href="assets/app-icon-v4.svg" type="image/svg+xml">
+<title>Chi tiết giải | Pickleup.vn</title>
 <meta name="description" content="Thông tin giải, nội dung thi đấu, đội tham dự, lịch, live score, bảng xếp hạng và bracket.">
-<link rel="stylesheet" href="assets/styles.css"><link rel="stylesheet" href="assets/public.css?v=20260926-0919">
+<link rel="stylesheet" href="assets/styles.css?v=28"><link rel="stylesheet" href="assets/public.css?v=36">
+  <link rel="stylesheet" href="assets/pickleup-ui.css?v=20260928-1530">
 </head>
 <body class="public-body community-public tournament-app-page">
 <header class="public-header community-appbar"><div class="public-container public-nav">
-<a class="public-brand" href="index.html"><span class="brand-mark">P</span><span><b>PICKLE TOUR</b><small>TOURNAMENT NETWORK</small></span></a>
+<a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-v5.svg?v=17" alt="Pickleup.vn" width="220" height="50" style="display:block;width:min(220px,58vw);height:auto;object-fit:contain"></a>
 <nav><a href="index.html#tournaments">Giải đấu</a><a href="index.html#live">Live Score</a><a href="ranking.html">Ranking</a><a href="about.html">Giới thiệu</a></nav><a class="btn primary" href="login.html">Đăng nhập quản trị</a>
 </div></header>
 <main class="tournament-app-main">
@@ -20,10 +21,15 @@
   <div id="tourStatus" class="tournament-status-chip"></div>
   <h1 id="tourName">Đang tải...</h1><p id="tourMeta"></p>
   <div id="tourHeroStats" class="tournament-hero-stats"></div>
+  <div class="tournament-hero-actions">
+    <a href="#participants">👥 VĐV đăng ký</a>
+    <a href="#schedule">🔴 Live / Lịch đấu</a>
+    <a href="#knockout">🧩 Sơ đồ đến Chung kết</a>
+  </div>
   <div class="tournament-app-ball" aria-hidden="true"></div>
 </section>
-<nav class="public-container tournament-tabs">
-  <a href="#overview">Tổng quan</a><a href="#participants">Tham dự</a><a href="#schedule">Lịch đấu</a><a href="#standings">BXH</a><a href="#knockout">Bracket</a>
+<nav class="public-container tournament-tabs tournament-focus-tabs">
+  <a href="#knockout">🏆 Sơ đồ thi đấu</a><a href="#schedule">🗓 Bảng đấu / Lịch</a><a href="#participants">👥 VĐV</a><a href="#standings">📊 BXH</a>
 </nav>
 <section id="overview" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THÔNG TIN GIẢI</span><h2>Nội dung thi đấu</h2></div></div>
@@ -33,20 +39,20 @@
   <div class="app-section-head"><div><span>VẬN ĐỘNG VIÊN</span><h2>Đội / cặp tham dự</h2></div><span id="tourTeamCount" class="app-count-pill">0 đội</span></div>
   <div id="tourTeams" class="tournament-team-grid"></div>
 </div></section>
-<section id="schedule" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill">0 live</span></div>
-  <div id="tourMatches" class="public-match-grid app-match-list"></div>
+<section id="knockout" class="public-section community-section"><div class="public-container">
+  <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Sơ đồ thi đấu</h2></div></div><div class="tournament-bracket-help">Sơ đồ tự động từ Top 2 vòng bảng đến trận Chung kết.</div><div id="tourBracket"></div>
 </div></section>
 <section id="standings" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THI ĐẤU</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div>
 </div></section>
-<section id="knockout" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Bracket</h2></div></div><div id="tourBracket"></div>
+<section id="schedule" class="public-section community-section"><div class="public-container">
+  <div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill">0 live</span></div>
+  <div id="tourMatches" class="public-match-grid app-match-list"></div>
 </div></section>
 <section id="tourSponsorsSection" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>ĐỒNG HÀNH</span><h2>Nhà tài trợ</h2></div></div><div id="tourSponsors" class="public-sponsor-strip"></div>
 </div></section>
 </main>
-<footer class="public-footer"><div class="public-container"><b>PICKLE TOUR</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
-<script src="assets/zalo-tournaments-data.js"></script><script src="preview-api.js"></script><script src="assets/bracket-ui.js"></script><script src="assets/tournament.js"></script><script src="assets/ui-motion.js"></script><script src="preview-pwa.js"></script>
+<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
+<script src="assets/zalo-tournaments-data.js"></script><script src="preview-api.js?v=36"></script><script src="pages-auth.js?v=3"></script><script src="assets/bracket-ui.js?v=34"></script><script src="assets/tournament.js?v=37"></script><script src="assets/ui-motion.js?v=32"></script><script src="preview-pwa.js"></script>
 </body></html>

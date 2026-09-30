@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 220" role="img" aria-label="Pickleup.vn">
+<defs>
+  <linearGradient id="lime" x1="0" y1="1" x2="1" y2="0">
+    <stop stop-color="#00a84f"/><stop offset=".42" stop-color="#24df22"/><stop offset=".76" stop-color="#b8f400"/><stop offset="1" stop-color="#eaff45"/>
+  </linearGradient>
+  <radialGradient id="ball" cx=".34" cy=".24" r=".85">
+    <stop stop-color="#f6ff87"/><stop offset=".38" stop-color="#dcff2f"/><stop offset=".72" stop-color="#7be500"/><stop offset="1" stop-color="#1ba647"/>
+  </radialGradient>
+  <linearGradient id="dark" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#162521"/><stop offset="1" stop-color="#06100e"/>
+  </linearGradient>
+  <filter id="s" x="-30%" y="-30%" width="160%" height="180%">
+    <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#03100b" flood-opacity=".22"/>
+  </filter>
+</defs>
+<g transform="translate(10 4)" filter="url(#s)">
+  <path d="M48 181 79 39c4-18 18-29 38-29h72c55 0 91 28 91 73 0 36-20 63-55 77 18 11 30 28 35 51h-57c-7-24-22-36-48-36h-29l-8 36H48Zm83-84h43c29 0 47-13 47-34 0-18-15-28-42-28h-35l-13 62Z" fill="url(#dark)" stroke="#41534d" stroke-width="4"/>
+  <circle cx="148" cy="107" r="49" fill="url(#ball)" stroke="#dfff44" stroke-width="3"/>
+  <g fill="#073e2a">
+    <ellipse cx="129" cy="83" rx="8" ry="11" transform="rotate(-25 129 83)"/>
+    <ellipse cx="160" cy="77" rx="8" ry="11" transform="rotate(12 160 77)"/>
+    <ellipse cx="178" cy="101" rx="8" ry="11" transform="rotate(28 178 101)"/>
+    <ellipse cx="166" cy="129" rx="8" ry="11" transform="rotate(12 166 129)"/>
+    <ellipse cx="136" cy="133" rx="8" ry="11" transform="rotate(-18 136 133)"/>
+    <circle cx="148" cy="106" r="9"/>
+  </g>
+  <path d="M12 170c57 29 129 16 183-20 38-26 69-62 91-108l-6 46 34-22-19-56c-31 58-63 100-107 128-53 35-116 47-176 32Z" fill="url(#lime)"/>
+  <path d="M20 159c51 14 105 1 149-28 28-18 51-42 69-72" fill="none" stroke="#ebff47" stroke-width="4" stroke-linecap="round"/>
+</g>
+<g transform="translate(302 44) skewX(-7)">
+  <text x="0" y="105" font-family="Arial Black,Arial,sans-serif" font-size="98" font-weight="900" letter-spacing="-6" fill="#14231f">Pickle</text>
+  <text x="338" y="105" font-family="Arial Black,Arial,sans-serif" font-size="98" font-weight="900" letter-spacing="-6" fill="url(#lime)">up</text>
+  <text x="474" y="105" font-family="Arial Black,Arial,sans-serif" font-size="64" font-weight="900" letter-spacing="-3" fill="#263b34">.vn</text>
+</g>
+<path d="M309 170h475c38 0 77-5 119-15l-76 26H309Z" fill="url(#lime)" opacity=".95"/>
+</svg>

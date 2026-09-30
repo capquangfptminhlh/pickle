@@ -31,7 +31,7 @@
   window.addEventListener("beforeinstallprompt",e=>{
     e.preventDefault();state.deferred=e;const b=installButton();if(b)b.hidden=false;
   });
-  window.addEventListener("appinstalled",()=>{state.deferred=null;toast("Đã cài Pickle Tour trên thiết bị.")});
+  window.addEventListener("appinstalled",()=>{state.deferred=null;toast("Đã cài Pickleup.vn trên thiết bị.")});
 
   const showNetwork=()=>{
     document.documentElement.dataset.network=navigator.onLine?"online":"offline";

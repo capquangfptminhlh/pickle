@@ -1,203 +1,188 @@
-/* Pickle Tour — isolated mobile home design system */
+/* Pickleup.vn mobile home — premium sports/community UI */
 @media (max-width:760px){
   body.home-screen{
-    --home-bg:#f5f7f6;
-    --home-surface:#fff;
-    --home-ink:#122019;
-    --home-muted:#7b8881;
-    --home-green:#08754b;
-    --home-green-2:#0b5f41;
-    --home-lime:#ddff63;
-    --home-line:#e5ebe7;
-    background:var(--home-bg)!important;
-    color:var(--home-ink)!important;
-    padding-bottom:82px!important;
+    --bg:#f7f8f7;
+    --surface:#ffffff;
+    --ink:#111815;
+    --muted:#7d8782;
+    --line:#e6eae7;
+    --charcoal:#121816;
+    --lime:#dfff63;
+    --green:#0b7a50;
+    background:var(--bg)!important;
+    color:var(--ink)!important;
+    padding-bottom:70px!important;
   }
+
   .home-screen .public-header{
-    position:sticky;top:0;z-index:60;height:auto!important;
-    background:rgba(255,255,255,.96)!important;
-    border-bottom:1px solid var(--home-line)!important;
-    box-shadow:none!important;
-    backdrop-filter:blur(18px) saturate(160%);
+    position:sticky!important;top:0!important;z-index:60!important;height:auto!important;
+    background:rgba(255,255,255,.96)!important;border-bottom:1px solid var(--line)!important;
+    box-shadow:none!important;backdrop-filter:blur(18px) saturate(160%);
   }
   .home-screen .public-nav{
-    width:100%!important;height:62px!important;margin:0!important;padding:0 16px!important;
+    width:100%!important;height:60px!important;margin:0!important;padding:0 16px!important;
     display:flex!important;align-items:center!important;gap:10px!important;
   }
-  .home-screen .public-brand{min-width:0;gap:10px!important}
+  .home-screen .public-brand{gap:9px!important;min-width:0!important}
   .home-screen .public-brand .brand-mark{
-    width:38px!important;height:38px!important;border-radius:12px!important;
-    background:linear-gradient(145deg,#dfff63,#c9f947)!important;
-    color:#173820!important;font-size:17px!important;box-shadow:none!important;
+    width:36px!important;height:36px!important;border-radius:11px!important;
+    background:var(--lime)!important;color:#17331f!important;box-shadow:none!important;font-size:16px!important;
   }
-  .home-screen .public-brand b{font-size:13px!important;line-height:1.05!important}
-  .home-screen .public-brand small{margin-top:3px!important;font-size:7px!important;letter-spacing:.13em!important}
+  .home-screen .public-brand b{font-size:13px!important;line-height:1!important;letter-spacing:-.01em!important}
+  .home-screen .public-brand small{margin-top:3px!important;font-size:6.8px!important;letter-spacing:.13em!important}
   .home-screen .public-nav nav,.home-screen .public-nav>.btn{display:none!important}
   .home-screen .mobile-admin-link{
-    margin-left:auto;display:grid!important;place-items:center;width:38px;height:38px;flex:0 0 38px;
-    border:1px solid var(--home-line);border-radius:12px;background:#fff;color:#506058;text-decoration:none;
+    margin-left:auto!important;display:grid!important;place-items:center!important;width:36px!important;height:36px!important;
+    border:1px solid var(--line)!important;border-radius:11px!important;background:#fff!important;color:#46534c!important;text-decoration:none!important;
   }
-  .home-screen .mobile-admin-link svg{width:18px;height:18px}
+  .home-screen .mobile-admin-link svg{width:17px!important;height:17px!important}
 
   .home-screen .desktop-app-hub,.home-screen .public-hero{display:none!important}
-  .home-screen .mobile-app-dashboard{display:block!important;padding:14px 0 10px!important}
+  .home-screen .mobile-app-dashboard{display:block!important;padding:14px 0 8px!important}
   .home-screen .mobile-app-dashboard>.public-container,
   .home-screen .public-section>.public-container{
     width:calc(100% - 32px)!important;max-width:none!important;margin:0 16px!important;padding:0!important;
   }
 
   .home-screen .mobile-app-status-card{
-    padding:18px!important;border-radius:20px!important;
-    background:
-      radial-gradient(circle at 88% 12%,rgba(221,255,99,.16),transparent 24%),
-      linear-gradient(145deg,#0b6948,#084a35)!important;
-    border:1px solid rgba(255,255,255,.06)!important;
-    box-shadow:0 10px 26px rgba(6,78,51,.15)!important;color:#fff!important;
+    position:relative!important;overflow:hidden!important;padding:18px!important;border-radius:18px!important;
+    background:var(--charcoal)!important;color:#fff!important;border:0!important;
+    box-shadow:none!important;
   }
-  .home-screen .mobile-dashboard-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .home-screen .mobile-app-status-card:after{
+    content:"";position:absolute;right:-38px;top:-52px;width:150px;height:150px;border-radius:50%;
+    background:radial-gradient(circle,#27342e 0 42%,transparent 43%);opacity:.9;
+  }
+  .home-screen .mobile-dashboard-head{position:relative;z-index:1;display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:12px!important}
+  .home-screen .mobile-hero-copy{min-width:0}
   .home-screen .mobile-dashboard-head .eyebrow{
-    color:#bfe5d1!important;font-size:8px!important;font-weight:900!important;letter-spacing:.12em!important;
+    display:block!important;color:#aeb9b3!important;font-size:7.5px!important;letter-spacing:.14em!important;font-weight:900!important;
   }
-  .home-screen .mobile-dashboard-head h2{
-    margin:5px 0 0!important;color:#fff!important;font-size:23px!important;line-height:1.05!important;letter-spacing:-.035em!important;
+  .home-screen .mobile-dashboard-head h1{
+    margin:7px 0 8px!important;max-width:245px!important;color:#fff!important;
+    font-size:28px!important;line-height:.98!important;letter-spacing:-.045em!important;font-weight:950!important;
+  }
+  .home-screen .mobile-dashboard-head p{
+    max-width:270px!important;margin:0!important;color:#aeb8b3!important;font-size:10px!important;line-height:1.45!important;
   }
   .home-screen .mobile-app-badge{
-    width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:15px!important;
-    background:rgba(255,255,255,.1)!important;border:1px solid rgba(255,255,255,.1)!important;
-    color:var(--home-lime)!important;font-size:16px!important;box-shadow:none!important;
+    width:44px!important;height:44px!important;flex:0 0 44px!important;display:grid!important;place-items:center!important;
+    border-radius:14px!important;background:var(--lime)!important;border:0!important;color:#14261b!important;
+    font-size:15px!important;font-weight:950!important;box-shadow:none!important;position:relative!important;z-index:2!important;
   }
-  .home-screen .mobile-status-grid{display:grid!important;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:15px}
+  .home-screen .mobile-status-grid{
+    position:relative!important;z-index:1!important;display:grid!important;grid-template-columns:repeat(3,1fr)!important;
+    gap:0!important;margin-top:16px!important;border-top:1px solid rgba(255,255,255,.09)!important;
+  }
   .home-screen .mobile-status-grid a{
-    min-width:0;padding:10px 8px;border-radius:13px;background:rgba(255,255,255,.075);
-    border:1px solid rgba(255,255,255,.07);color:#fff;text-decoration:none;
+    min-width:0!important;padding:12px 8px 2px 0!important;border:0!important;border-radius:0!important;background:transparent!important;
+    color:#fff!important;text-decoration:none!important;
   }
-  .home-screen .mobile-status-grid strong{display:block;font-size:19px;line-height:1;font-weight:950;letter-spacing:-.04em}
-  .home-screen .mobile-status-grid span{
-    display:block;margin-top:5px;color:#c9e2d5;font-size:8px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  .home-screen .mobile-status-grid a+a{padding-left:10px!important;border-left:1px solid rgba(255,255,255,.09)!important}
+  .home-screen .mobile-status-grid strong{display:block!important;font-size:18px!important;line-height:1!important;font-weight:950!important;letter-spacing:-.04em!important}
+  .home-screen .mobile-status-grid span{display:block!important;margin-top:5px!important;color:#97a39c!important;font-size:8px!important;font-weight:750!important}
+
+  .home-screen .mobile-primary-actions{
+    display:grid!important;grid-template-columns:1fr auto!important;gap:8px!important;margin-top:10px!important;
   }
+  .home-screen .mobile-primary-actions a{
+    min-height:46px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;
+    border-radius:13px!important;text-decoration:none!important;font-size:11px!important;font-weight:900!important;
+  }
+  .home-screen .mobile-primary-actions .primary{justify-content:space-between!important;padding:0 14px!important;background:var(--lime)!important;color:#16271c!important}
+  .home-screen .mobile-primary-actions .primary svg{width:17px!important;height:17px!important}
+  .home-screen .mobile-primary-actions .secondary{padding:0 14px!important;background:#fff!important;color:#172019!important;border:1px solid var(--line)!important}
 
   .home-screen .mobile-app-actions{
-    display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;margin-top:10px!important;
+    display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin-top:8px!important;
   }
   .home-screen .mobile-app-actions a{
-    min-height:72px!important;padding:9px 3px!important;display:grid!important;place-items:center!important;gap:5px!important;
-    border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
-    color:#26342d!important;text-decoration:none!important;
+    min-height:56px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;
+    border:1px solid var(--line)!important;border-radius:13px!important;background:#fff!important;color:#39453e!important;
+    text-decoration:none!important;box-shadow:none!important;padding:0 8px!important;
   }
   .home-screen .mobile-app-actions span{
-    width:32px!important;height:32px!important;display:grid!important;place-items:center!important;border-radius:10px!important;
-    background:#edf7f1!important;color:var(--home-green)!important;
+    width:28px!important;height:28px!important;display:grid!important;place-items:center!important;border-radius:9px!important;
+    background:#f1f4f2!important;color:var(--green)!important;
   }
-  .home-screen .mobile-app-actions svg{width:17px!important;height:17px!important}
+  .home-screen .mobile-app-actions svg{width:15px!important;height:15px!important}
   .home-screen .mobile-app-actions b{font-size:9px!important;font-weight:850!important}
 
-  .home-screen .public-section{padding:20px 0!important;background:transparent!important}
-  .home-screen .soft-section{background:#f0f4f1!important}
-  .home-screen .section-title{align-items:flex-end!important;margin-bottom:12px!important;gap:10px!important}
-  .home-screen .section-title>div{min-width:0}
-  .home-screen .section-title .eyebrow{font-size:8px!important;letter-spacing:.1em!important;color:var(--home-green)!important}
-  .home-screen .section-title h2{margin:4px 0 0!important;font-size:23px!important;line-height:1!important;letter-spacing:-.04em!important}
+  .home-screen .public-section{padding:18px 0!important;background:transparent!important}
+  .home-screen .soft-section{background:#f2f4f2!important}
+  .home-screen .section-title{align-items:flex-end!important;margin-bottom:10px!important;gap:10px!important}
+  .home-screen .section-title>div{min-width:0!important}
+  .home-screen .section-title .eyebrow{font-size:7.5px!important;letter-spacing:.11em!important;color:var(--green)!important}
+  .home-screen .section-title h2{margin:3px 0 0!important;font-size:22px!important;line-height:1!important;letter-spacing:-.04em!important}
   .home-screen .section-title p{display:none!important}
-  .home-screen .section-link{font-size:9px!important;color:var(--home-green)!important;white-space:nowrap}
-  .home-screen .section-title .btn.mini{
-    min-height:34px!important;padding:0 11px!important;border-radius:11px!important;background:#14231a!important;
-    color:#fff!important;font-size:9px!important;box-shadow:none!important;
-  }
+  .home-screen .section-link{font-size:9px!important;color:var(--green)!important;white-space:nowrap!important}
+  .home-screen .section-title .btn.mini{display:none!important}
 
   .home-screen #publicTours.page-grid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
   .home-screen #publicTours .tour-card{
-    overflow:hidden!important;border:1px solid var(--home-line)!important;border-radius:19px!important;
-    background:#fff!important;box-shadow:none!important;
+    overflow:hidden!important;border:1px solid var(--line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
   }
   .home-screen #publicTours .tour-card:nth-child(n+3){display:none!important}
-  .home-screen .tour-media{height:132px!important;background:linear-gradient(145deg,#0d714a,#084833)!important}
+  .home-screen .tour-media{height:118px!important;background:linear-gradient(145deg,#152019,#0f4f38)!important}
   .home-screen .tour-media-shade{display:none!important}
-  .home-screen .tour-cover{padding:14px!important}
-  .home-screen .tour-cover small{font-size:7px!important;letter-spacing:.1em!important;color:#c6e4d4!important}
-  .home-screen .tour-cover strong{font-size:14px!important}
-  .home-screen .tour-featured-badge{top:12px!important;left:12px!important;font-size:7px!important}
-  .home-screen .tour-body{padding:14px!important}
-  .home-screen .tour-body h3{margin:0 0 12px!important;font-size:16px!important;line-height:1.25!important}
-  .home-screen .tour-meta-grid{grid-template-columns:1fr 1.35fr .55fr!important;gap:8px!important}
+  .home-screen .tour-cover{padding:13px!important}
+  .home-screen .tour-cover small{font-size:7px!important;letter-spacing:.11em!important;color:#aebbb4!important}
+  .home-screen .tour-cover strong{font-size:13px!important}
+  .home-screen .tour-body{padding:13px!important}
+  .home-screen .tour-body h3{margin:0 0 11px!important;font-size:16px!important;line-height:1.22!important}
+  .home-screen .tour-meta-grid{grid-template-columns:.85fr 1.6fr .45fr!important;gap:8px!important}
   .home-screen .tour-meta-grid small{font-size:7px!important}
   .home-screen .tour-meta-grid b{font-size:9px!important}
+  .home-screen .tour-featured-badge{font-size:6.5px!important}
+  .home-screen .tour-ball{right:24px!important;top:23px!important;width:50px!important;height:50px!important;box-shadow:0 0 0 12px rgba(221,255,99,.07)!important}
+  .home-screen .tour-paddle-shape{right:69px!important;bottom:18px!important;width:30px!important;height:43px!important}
 
-  .home-screen .tour-pickle-art{position:absolute!important;inset:0!important;display:block!important}
-  .home-screen .tour-ball{
-    position:absolute;right:34px;top:24px;width:58px;height:58px;border-radius:50%;background:var(--home-lime);
-    box-shadow:0 0 0 13px rgba(221,255,99,.07);
-  }
-  .home-screen .tour-ball:after{
-    content:"";position:absolute;inset:13px;border-radius:50%;
-    background:radial-gradient(circle at 24% 24%,#0b6545 0 2px,transparent 3px),
-               radial-gradient(circle at 70% 27%,#0b6545 0 2px,transparent 3px),
-               radial-gradient(circle at 72% 70%,#0b6545 0 2px,transparent 3px),
-               radial-gradient(circle at 28% 68%,#0b6545 0 2px,transparent 3px);
-  }
-  .home-screen .tour-paddle-shape{
-    position:absolute;right:86px;bottom:21px;width:34px;height:48px;border-radius:48% 48% 32% 32%;
-    background:#111916;transform:rotate(-18deg);
-  }
-  .home-screen .tour-paddle-shape:after{
-    content:"";position:absolute;left:11px;bottom:-21px;width:11px;height:25px;border-radius:0 0 5px 5px;background:#111916;
-  }
-
-  .home-screen #publicTopPlayers.top-player-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+  .home-screen #publicTopPlayers.top-player-grid{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}
   .home-screen #publicTopPlayers .top-player-card{
-    min-height:70px!important;display:grid!important;grid-template-columns:24px 52px minmax(0,1fr) auto!important;
-    align-items:center!important;gap:9px!important;padding:8px 10px!important;border:1px solid var(--home-line)!important;
-    border-radius:16px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important;
+    min-height:64px!important;display:grid!important;grid-template-columns:22px 46px minmax(0,1fr) auto!important;
+    align-items:center!important;gap:9px!important;padding:8px 10px!important;border:1px solid var(--line)!important;border-radius:14px!important;background:#fff!important;box-shadow:none!important;
   }
   .home-screen #publicTopPlayers .top-player-card:nth-child(n+4){display:none!important}
-  .home-screen #publicTopPlayers .top-player-rank{margin:0!important;font-size:9px!important}
-  .home-screen #publicTopPlayers .top-player-avatar{
-    width:52px!important;height:52px!important;min-width:52px!important;max-width:52px!important;border-radius:14px!important;object-fit:cover!important;
-  }
+  .home-screen #publicTopPlayers .top-player-avatar{width:46px!important;height:46px!important;min-width:46px!important;max-width:46px!important;border-radius:12px!important;object-fit:cover!important}
+  .home-screen #publicTopPlayers .top-player-rank{margin:0!important;font-size:8px!important}
   .home-screen #publicTopPlayers .top-player-copy{min-width:0!important;margin:0!important}
-  .home-screen #publicTopPlayers .top-player-copy b{font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-  .home-screen #publicTopPlayers .top-player-copy span{margin-top:3px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-  .home-screen #publicTopPlayers .top-player-card>strong{margin:0!important;font-size:12px!important;color:var(--home-green)!important}
+  .home-screen #publicTopPlayers .top-player-copy b{font-size:11px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .home-screen #publicTopPlayers .top-player-copy span{margin-top:2px!important;font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .home-screen #publicTopPlayers .top-player-card>strong{margin:0!important;font-size:11px!important;color:var(--green)!important}
 
   .home-screen #live{background:transparent!important}
-  .home-screen #publicMatches{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
-  .home-screen .public-match{
-    padding:12px!important;border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
-  }
+  .home-screen #publicMatches{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}
+  .home-screen .public-match{padding:11px!important;border:1px solid var(--line)!important;border-radius:14px!important;background:#fff!important;box-shadow:none!important}
   .home-screen .public-match:before{display:none!important}
-  .home-screen .public-match-top{font-size:8px!important}
-  .home-screen .public-team-row{padding:7px 0!important}
-  .home-screen .public-team-row b:first-child{font-size:11px!important}
-  .home-screen .public-team-row b:last-child{font-size:18px!important}
+  .home-screen .public-match-top{font-size:7.5px!important}
+  .home-screen .public-team-row{padding:6px 0!important}
+  .home-screen .public-team-row b:first-child{font-size:10px!important}
+  .home-screen .public-team-row b:last-child{font-size:17px!important}
   .home-screen #publicMatches .empty{
-    min-height:72px!important;padding:14px!important;border:1px solid var(--home-line)!important;border-radius:16px!important;
-    background:#fff!important;box-shadow:none!important;justify-content:flex-start!important;text-align:left!important;font-size:10px!important;
+    min-height:64px!important;padding:12px!important;border:1px solid var(--line)!important;border-radius:14px!important;background:#fff!important;
+    box-shadow:none!important;justify-content:flex-start!important;text-align:left!important;font-size:9px!important;
   }
-  .home-screen #publicMatches .empty:before{
-    content:"";width:8px;height:8px;flex:0 0 8px;margin-right:10px;border-radius:50%;background:#27c77d;
-    box-shadow:0 0 0 5px rgba(39,199,125,.09);
-  }
+  .home-screen #publicMatches .empty:before{content:"";width:7px!important;height:7px!important;flex:0 0 7px!important;margin-right:9px!important;border-radius:50%!important;background:#22c979!important;box-shadow:0 0 0 5px rgba(34,201,121,.08)!important}
 
   .home-screen #ranking,.home-screen #bracket,.home-screen #sponsors{display:none!important}
-  .home-screen #news{padding-bottom:24px!important}
-  .home-screen .news-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;overflow:visible!important;margin:0!important;padding:0!important}
-  .home-screen .news-card{
-    min-width:0!important;border:1px solid var(--home-line)!important;border-radius:16px!important;background:#fff!important;box-shadow:none!important;
-  }
+  .home-screen #news{padding-bottom:20px!important}
+  .home-screen .news-grid{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;overflow:visible!important;margin:0!important;padding:0!important}
+  .home-screen .news-card{min-width:0!important;border:1px solid var(--line)!important;border-radius:14px!important;background:#fff!important;box-shadow:none!important}
   .home-screen .news-card:nth-child(n+4){display:none!important}
-  .home-screen .news-card-body{padding:13px!important}
-  .home-screen .news-card-body h3{font-size:13px!important}
-  .home-screen .news-card-body p{font-size:9px!important;line-height:1.45!important}
+  .home-screen .news-card-body{padding:12px!important}
+  .home-screen .news-card-body h3{font-size:12px!important}
+  .home-screen .news-card-body p{font-size:8.5px!important;line-height:1.45!important}
 
   .home-screen .public-mobile-dock{
-    left:12px!important;right:12px!important;bottom:max(8px,var(--safe-bottom))!important;height:60px!important;
-    padding:4px!important;border:1px solid #dfe7e2!important;border-radius:19px!important;background:rgba(255,255,255,.97)!important;
-    box-shadow:0 10px 26px rgba(17,45,30,.11)!important;
+    left:0!important;right:0!important;bottom:0!important;height:58px!important;padding:4px 8px max(4px,var(--safe-bottom))!important;
+    border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important;background:rgba(255,255,255,.98)!important;
+    box-shadow:none!important;
   }
-  .home-screen .public-mobile-dock a{font-size:7.5px!important;border-radius:14px!important;color:#8b9690!important}
-  .home-screen .public-mobile-dock a.active{background:#edf7f1!important;color:var(--home-green)!important}
+  .home-screen .public-mobile-dock a{border-radius:10px!important;font-size:7px!important;color:#8b9590!important}
+  .home-screen .public-mobile-dock a.active{background:transparent!important;color:var(--green)!important}
+  .home-screen .public-mobile-dock a.active:after{content:"";position:absolute;bottom:1px;width:18px;height:2px;border-radius:99px;background:var(--green)}
   .home-screen .public-mobile-dock svg{width:17px!important;height:17px!important}
 }
+@media (min-width:761px){.mobile-admin-link{display:none!important}}
 
-@media (min-width:761px){
-  .mobile-admin-link{display:none!important}
-}
+@media(max-width:760px){.home-screen .public-brand .brand-mark{background:#0b1513 url("app-icon-v4.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}.home-screen .mobile-app-badge{background:#0b1513 url("app-icon-v4.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}

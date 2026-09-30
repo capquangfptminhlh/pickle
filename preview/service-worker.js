@@ -1,11 +1,11 @@
-const VERSION="pickle-pages-v23-gender-sync";
+const VERSION="pickleup-preview-v29-auto-draw-courts-realtime-20260929";
 const CORE=[
   "./manifest.webmanifest",
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
-  "../assets/styles.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
+  "../assets/login.js","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
-  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon.svg"
+  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-v4.svg","../assets/pickleup-logo-v5.svg"
 ];
 
 self.addEventListener("install",event=>{
@@ -32,7 +32,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.mode==="navigate"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
         return res;
       }).catch(async()=>await caches.match(req)||await caches.match("./offline.html"))
@@ -42,7 +42,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.destination==="script"||req.destination==="style"||req.destination==="font"){
     event.respondWith(
-      fetch(req).then(async res=>{
+      fetch(new Request(req,{cache:"reload"})).then(async res=>{
         if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
         return res;
       }).catch(()=>caches.match(req))
@@ -51,14 +51,9 @@ self.addEventListener("fetch",event=>{
   }
 
   if(req.destination==="image"){
-    event.respondWith(
-      caches.match(req).then(cached=>{
-        const refresh=fetch(req).then(async res=>{
-          if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
-          return res;
-        }).catch(()=>cached);
-        return cached||refresh;
-      })
-    );
+    event.respondWith(fetch(new Request(req,{cache:"reload"})).then(async res=>{
+      if(res.ok){const cache=await caches.open(VERSION);await cache.put(req,res.clone())}
+      return res;
+    }).catch(()=>caches.match(req)));
   }
 });
