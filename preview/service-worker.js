@@ -5,7 +5,7 @@ const CORE=[
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
   "../assets/login.js","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
-  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-v4.svg","../assets/pickleup-logo-v5.svg"
+  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
 ];
 
 self.addEventListener("install",event=>{
