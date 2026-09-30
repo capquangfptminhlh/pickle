@@ -8,3 +8,4 @@ backups/
 .DS_Store
 npm-debug.log*
 scratch/
+cloudflare/.wrangler-dist/

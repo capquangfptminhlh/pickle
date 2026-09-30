@@ -1,45 +1,37 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "pickleup-api",
-  "main": "src/index.js",
-  "compatibility_date": "2026-09-30",
-  "observability": {
-    "enabled": true
-  },
-  "vars": {
-    "ALLOWED_ORIGINS": "https://pickleup.vn,https://www.pickleup.vn,https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
-    "PUBLIC_APP_URL": "https://pickleup.vn"
-  },
-  "routes": [
-    {
-      "pattern": "api.pickleup.vn",
-      "custom_domain": true
-    }
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "pickleup-db",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA"
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "ROOMS",
-        "class_name": "TournamentRoom"
-      }
-    ]
-  },
-  "exports": {
-    "TournamentRoom": {
-      "type": "durable-object",
-      "storage": "sqlite"
-    }
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "pickleup-api",
+	"main": "src/index.js",
+	"compatibility_date": "2026-09-30",
+	"observability": {
+		"enabled": true
+	},
+	"workers_dev": true,
+	"vars": {
+		"ALLOWED_ORIGINS": "https://pickleup.vn,https://www.pickleup.vn,https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
+		"PUBLIC_APP_URL": "https://capquangfptminhlh.github.io/pickle"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "pickleup-db",
+			"migrations_dir": "migrations",
+			"database_id": "decaa17e-877f-42d6-a8cd-19d38d875bff"
+		}
+	],
+	// R2 will be added as the MEDIA binding after R2 is activated for this account.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "ROOMS",
+				"class_name": "TournamentRoom"
+			}
+		]
+	},
+	"exports": {
+		"TournamentRoom": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		}
+	}
 }
