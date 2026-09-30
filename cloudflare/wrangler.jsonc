@@ -9,7 +9,7 @@
 	"workers_dev": true,
 	"vars": {
 		"ALLOWED_ORIGINS": "https://pickleup.vn,https://www.pickleup.vn,https://capquangfptminhlh.github.io,http://localhost:8080,http://127.0.0.1:8080",
-		"PUBLIC_APP_URL": "https://capquangfptminhlh.github.io/pickle"
+		"PUBLIC_APP_URL": "https://pickleup.vn"
 	},
 	"d1_databases": [
 		{
