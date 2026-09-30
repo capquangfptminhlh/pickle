@@ -26,7 +26,7 @@ async function hmac(secret,data){
 }
 
 export async function hashPassword(password){
-  const iterations=100000;
+  const iterations=150000;
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const key=await crypto.subtle.importKey("raw",enc.encode(String(password)),{name:"PBKDF2"},false,["deriveBits"]);
   const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations},key,256);
@@ -137,6 +137,11 @@ export async function canEditPlayer(env,user,playerId){
     const row=await env.DB.prepare(
       "SELECT tp.player_id FROM team_players tp JOIN matches m ON (m.team_a_id=tp.team_id OR m.team_b_id=tp.team_id) WHERE tp.player_id=? AND m.referee_user_id=? LIMIT 1"
     ).bind(playerId,user.id).first();
+    return Boolean(row);
+  }
+  if(user.role==="club_manager"){
+    if(!user.clubId)return false;
+    const row=await env.DB.prepare("SELECT id FROM players WHERE id=? AND club_id=?").bind(playerId,user.clubId).first();
     return Boolean(row);
   }
   return false;
