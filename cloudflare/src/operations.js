@@ -144,7 +144,8 @@ export async function handleOperations(request,env){
   p=route(path,"/api/clubs/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),before=await one(env,"SELECT * FROM clubs WHERE id=?",p.id);if(!before)return fail("NOT_FOUND",request,env,404);
-    if(!(await scopeClub(user,p.id)))return fail("FORBIDDEN",request,env,403);
+    if(!hasRole(user,"super_admin","organizer","club_manager"))return fail("FORBIDDEN",request,env,403);
+    if(user.role==="club_manager"&&user.clubId!==p.id)return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request);
     await env.DB.prepare("UPDATE clubs SET name=?,city=?,active=?,updated_at=? WHERE id=?").bind(String(b.name??before.name),String(b.city??before.city??""),b.active===undefined?before.active:(b.active?1:0),nowIso(),p.id).run();
     return ok(await one(env,"SELECT * FROM clubs WHERE id=?",p.id),request,env);
