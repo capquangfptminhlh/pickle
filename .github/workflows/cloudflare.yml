@@ -26,6 +26,34 @@ jobs:
       - name: Wrangler dry run
         working-directory: cloudflare
         run: npm run check
+      - name: Apply local D1 migrations
+        working-directory: cloudflare
+        run: npx wrangler d1 migrations apply DB --local
+      - name: Run Cloudflare integration smoke test
+        working-directory: cloudflare
+        run: |
+          cat > .dev.vars <<'EOF'
+          SESSION_SECRET="cloudflare-local-test-secret-1234567890-abcdef"
+          BOOTSTRAP_ADMIN_EMAIL="admin@pickle.test"
+          BOOTSTRAP_ADMIN_PASSWORD="cloudflare-test-password-123"
+          BOOTSTRAP_ADMIN_NAME="CI Super Admin"
+          EOF
+          npx wrangler dev --local --port 8787 > /tmp/pickle-wrangler.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8787/api/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            cat /tmp/pickle-wrangler.log
+            exit 1
+          fi
+          node scripts/smoke.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate
