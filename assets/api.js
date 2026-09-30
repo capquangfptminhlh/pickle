@@ -83,7 +83,16 @@
     publicBranding:()=>request("/api/public/branding"),
     publicCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}`),
     confirmCheckin:token=>request(`/api/checkin/${encodeURIComponent(token)}/confirm`,{method:"POST",body:"{}"}),
-    submitTournament:payload=>request("/api/public/tournaments/submit",{method:"POST",body:JSON.stringify(payload)}),
+    submitTournament:async(payload,bannerFile=null)=>{
+      if(!bannerFile)return request("/api/public/tournaments/submit",{method:"POST",body:JSON.stringify(payload)});
+      const form=new FormData();
+      Object.entries(payload||{}).forEach(([key,value])=>{if(value!==null&&value!==undefined)form.append(key,String(value))});
+      form.append("banner",bannerFile);
+      const res=await fetch(apiUrl("/api/public/tournaments/submit"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"SUBMIT_TOURNAMENT_FAILED"),{status:res.status,data});
+      return data;
+    },
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
     importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
