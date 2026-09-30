@@ -665,7 +665,8 @@ export default {
   async fetch(request,env){
     try{
       const url=new URL(request.url);
-      if(url.protocol==="http:"){
+      const fromCloudflare=Boolean(request.headers.get("cf-ray")||request.headers.get("cf-visitor"));
+      if(url.protocol==="http:"&&fromCloudflare){
         url.protocol="https:";
         return Response.redirect(url.toString(),308);
       }
