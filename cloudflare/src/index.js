@@ -14,6 +14,7 @@ async function userRequired(request,env){
 }
 function httpError(code,status=400){return Object.assign(new Error(code),{status})}
 function asBool(v){return v===true||v===1||v==="1"||v==="true"}
+function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||""))&&String(v||"").length<=254}
 async function rows(env,sql,...args){const r=await env.DB.prepare(sql).bind(...args).all();return r.results||[]}
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
 async function assertTournament(env,user,id){
@@ -173,19 +174,31 @@ async function handleApi(request,env){
 
   if(path==="/api/players"&&method==="GET"){
     const user=await userRequired(request,env);
+    await requireAdminRole(user,"super_admin","organizer","referee","club_manager");
     let data=await rows(env,"SELECT p.*,c.name AS club_name FROM players p LEFT JOIN clubs c ON c.id=p.club_id ORDER BY p.full_name");
-    if(user.role==="referee"){
-      const ids=new Set((await loadAdminState(env,user)).players.map(x=>x.id));data=data.filter(x=>ids.has(x.id));
+    if(user.role==="organizer"||user.role==="referee"){
+      const ids=new Set((await loadAdminState(env,user)).players.map(x=>x.id));
+      data=data.filter(x=>ids.has(x.id));
+    }else if(user.role==="club_manager"){
+      if(!user.clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
+      data=data.filter(x=>x.club_id===user.clubId);
     }
-    return ok(data.map(x=>({...x,active:Boolean(x.active),rating:Number(x.rating||0)})),request,env);
+    return ok(data.map(x=>({
+      ...x,
+      phone:user.role==="referee"?"":x.phone,
+      active:Boolean(x.active),rating:Number(x.rating||0)
+    })),request,env);
   }
   if(path==="/api/players"&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer","club_manager");
     const b=await bodyJson(request),fullName=String(b.fullName||"").trim();
     if(!fullName)return fail("NAME_REQUIRED",request,env,400);
-    const id=uid(),clubId=b.clubId||user.clubId||null;
+    const clubId=user.role==="club_manager"?user.clubId:(b.clubId||user.clubId||null);
+    if(user.role==="club_manager"&&!clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
+    if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
+    const id=uid(),rating=user.role==="club_manager"?3:Number(b.rating||3);
     await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)")
-      .bind(id,clubId,user.id,fullName,String(b.nickname||""),String(b.gender||"other"),Number(b.rating||3),String(b.phone||""),nowIso(),nowIso()).run();
+      .bind(id,clubId,user.id,fullName,String(b.nickname||""),String(b.gender||"other"),rating,String(b.phone||""),nowIso(),nowIso()).run();
     const row=await one(env,"SELECT * FROM players WHERE id=?",id);await createAudit(env,user,"player",id,"CREATE",null,row);
     return ok(row,request,env,201);
   }
@@ -198,7 +211,7 @@ async function handleApi(request,env){
     const referee=user.role==="referee";
     const fullName=String(b.fullName??before.full_name).trim(),nickname=String(b.nickname??before.nickname??"");
     const gender=String(b.gender??before.gender??"other");
-    const rating=referee?before.rating:Number(b.rating??before.rating??3);
+    const rating=(referee||user.role==="club_manager")?before.rating:Number(b.rating??before.rating??3);
     const phone=referee?before.phone:String(b.phone??before.phone??"");
     const active=referee?before.active:(b.active===undefined?before.active:(asBool(b.active)?1:0));
     await env.DB.prepare("UPDATE players SET full_name=?,nickname=?,gender=?,rating=?,phone=?,active=?,updated_at=? WHERE id=?")
@@ -463,33 +476,80 @@ async function handleApi(request,env){
   if(path==="/api/users"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     let data=await rows(env,"SELECT id,email,display_name,role,active,tournament_id_scope,club_id,created_at FROM app_users ORDER BY display_name");
-    if(user.role==="organizer")data=data.filter(x=>x.id===user.id||(x.role==="referee"&&(x.tournament_id_scope===user.tournamentScope||!user.tournamentScope)));
+    if(user.role==="organizer"){
+      const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));
+      data=data.filter(x=>x.id===user.id||(x.role==="referee"&&x.tournament_id_scope&&owned.has(x.tournament_id_scope)));
+    }
     return ok(data.map(publicUser),request,env);
   }
   if(path==="/api/users"&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");const b=await bodyJson(request);
     const email=String(b.email||"").trim().toLowerCase(),name=String(b.name||"").trim(),password=String(b.password||""),role=String(b.role||"referee");
-    if(!email||!name||password.length<12)return fail("FIELDS_REQUIRED",request,env,400);
-    if(user.role==="organizer"&&role!=="referee")return fail("FORBIDDEN_ROLE",request,env,403);
-    if(!["organizer","referee"].includes(role))return fail("INVALID_ROLE",request,env,400);
-    const tournamentId=b.tournamentId||user.tournamentScope||null;
-    if(role==="referee"&&user.role==="organizer"&&tournamentId)await assertTournament(env,user,tournamentId);
+    if(!email||!name||!password)return fail("FIELDS_REQUIRED",request,env,400);
+    if(!validEmail(email))return fail("INVALID_EMAIL",request,env,400);
+    if(name.length>120)return fail("NAME_TOO_LONG",request,env,400);
+    if(password.length<12||password.length>64)return fail("PASSWORD_POLICY",request,env,400);
+    if(user.role==="organizer"&&role!=="referee")return fail("ORGANIZER_CAN_ONLY_CREATE_REFEREE",request,env,403);
+    if(!["organizer","referee","club_manager","finance"].includes(role))return fail("INVALID_CHILD_ROLE",request,env,400);
+    const scopedRole=["club_manager","finance"].includes(role);
+    const clubId=scopedRole?(b.clubId||null):null;
+    if(role==="club_manager"&&!clubId)return fail("CLUB_REQUIRED",request,env,400);
+    if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
+    let tournamentId=["organizer","referee"].includes(role)?(b.tournamentId||null):null;
+    if(user.role==="organizer"){
+      if(!tournamentId)return fail("TOURNAMENT_REQUIRED",request,env,400);
+      await assertTournament(env,user,tournamentId);
+    }else if(tournamentId&&!(await one(env,"SELECT id FROM tournaments WHERE id=?",tournamentId))){
+      return fail("INVALID_TOURNAMENT",request,env,400);
+    }
+    if(await one(env,"SELECT id FROM app_users WHERE email=?",email))return fail("EMAIL_EXISTS",request,env,409);
     const id=uid(),hash=await hashPassword(password);
-    try{await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?)").bind(id,email,name,role,hash,tournamentId,nowIso(),nowIso()).run()}
-    catch{return fail("EMAIL_EXISTS",request,env,409)}
-    return ok(publicUser(await one(env,"SELECT * FROM app_users WHERE id=?",id)),request,env,201);
+    await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?,?)")
+      .bind(id,email,name,role,hash,tournamentId,clubId,nowIso(),nowIso()).run();
+    const created=await one(env,"SELECT * FROM app_users WHERE id=?",id);
+    await createAudit(env,user,"user",id,"CREATE_CHILD_ACCOUNT",null,publicUser(created));
+    return ok(publicUser(created),request,env,201);
   }
   p=route(path,"/api/users/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     const target=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);if(!target)return fail("NOT_FOUND",request,env,404);
-    if(user.role==="organizer"&&target.role!=="referee")return fail("FORBIDDEN",request,env,403);
-    const b=await bodyJson(request),name=String(b.name??b.displayName??target.display_name),active=b.active===undefined?target.active:(asBool(b.active)?1:0),scope=b.tournamentId===undefined?target.tournament_id_scope:b.tournamentId;
-    if(user.role==="organizer"&&scope)await assertTournament(env,user,scope);
+    const b=await bodyJson(request);
+    if(p.id===user.id&&b.active===false)return fail("CANNOT_DISABLE_SELF",request,env,400);
+    if(user.role==="organizer"){
+      if(target.role!=="referee")return fail("ORGANIZER_CAN_ONLY_EDIT_REFEREE",request,env,403);
+      if(!target.tournament_id_scope||!(await canManageTournament(env,user,target.tournament_id_scope)))return fail("TOURNAMENT_SCOPE_FORBIDDEN",request,env,403);
+    }
+    if(target.role==="super_admin"&&target.id!==user.id)return fail("OWNER_ACCOUNT_PROTECTED",request,env,403);
+    const role=user.role==="organizer"?"referee":(target.role==="super_admin"?"super_admin":(b.role===undefined?target.role:String(b.role)));
+    if(target.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return fail("INVALID_CHILD_ROLE",request,env,400);
+    const email=String(b.email??target.email).trim().toLowerCase(),name=String(b.name??b.displayName??target.display_name).trim();
+    if(!email||!name)return fail("FIELDS_REQUIRED",request,env,400);
+    if(!validEmail(email))return fail("INVALID_EMAIL",request,env,400);
+    if(name.length>120)return fail("NAME_TOO_LONG",request,env,400);
+    if(await one(env,"SELECT id FROM app_users WHERE email=? AND id<>?",email,p.id))return fail("EMAIL_EXISTS",request,env,409);
+    const scopedRole=["club_manager","finance"].includes(role);
+    const clubId=scopedRole?(b.clubId===undefined?(target.club_id||null):b.clubId):null;
+    if(role==="club_manager"&&!clubId)return fail("CLUB_REQUIRED",request,env,400);
+    if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
+    let tournamentId=["organizer","referee"].includes(role)?(b.tournamentId===undefined?(target.tournament_id_scope||null):b.tournamentId):null;
+    if(user.role==="organizer"){
+      if(!tournamentId)return fail("TOURNAMENT_REQUIRED",request,env,400);
+      await assertTournament(env,user,tournamentId);
+    }else if(tournamentId&&!(await one(env,"SELECT id FROM tournaments WHERE id=?",tournamentId))){
+      return fail("INVALID_TOURNAMENT",request,env,400);
+    }
     let hash=target.password_hash,authVersion=Number(target.auth_version||0);
-    if(b.password){if(String(b.password).length<12)return fail("WEAK_PASSWORD",request,env,400);hash=await hashPassword(String(b.password));authVersion++}
-    await env.DB.prepare("UPDATE app_users SET display_name=?,active=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?").bind(name,active,scope,hash,authVersion,nowIso(),p.id).run();
-    return ok(publicUser(await one(env,"SELECT * FROM app_users WHERE id=?",p.id)),request,env);
+    if(b.password){
+      const pwd=String(b.password);if(pwd.length<12||pwd.length>64)return fail("PASSWORD_POLICY",request,env,400);
+      hash=await hashPassword(pwd);authVersion++;
+    }
+    const active=b.active===undefined?target.active:(asBool(b.active)?1:0);
+    await env.DB.prepare("UPDATE app_users SET email=?,display_name=?,role=?,active=?,club_id=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
+      .bind(email,name,role,active,clubId,tournamentId,hash,authVersion,nowIso(),p.id).run();
+    const updated=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);
+    await createAudit(env,user,"user",p.id,"UPDATE_CHILD_ACCOUNT",publicUser(target),publicUser(updated),b.password?"Password reset":null);
+    return ok(publicUser(updated),request,env);
   }
   if(path==="/api/users/referees"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
@@ -537,8 +597,13 @@ async function handleApi(request,env){
   }
 
   if(path==="/api/registrations"&&method==="GET"){
-    const user=await userRequired(request,env);let data=await rows(env,"SELECT r.*,d.name AS division_name,t.name AS team_name,tr.id AS tournament_id,tr.name AS tournament_name FROM registrations r JOIN divisions d ON d.id=r.division_id JOIN tournaments tr ON tr.id=d.tournament_id LEFT JOIN teams t ON t.id=r.team_id ORDER BY r.created_at DESC");
-    if(user.role==="organizer"){const allowed=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));data=data.filter(x=>allowed.has(x.tournament_id))}
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer","finance");
+    let data=await rows(env,"SELECT r.*,d.name AS division_name,t.name AS team_name,t.club_id AS team_club_id,tr.id AS tournament_id,tr.name AS tournament_name FROM registrations r JOIN divisions d ON d.id=r.division_id JOIN tournaments tr ON tr.id=d.tournament_id LEFT JOIN teams t ON t.id=r.team_id ORDER BY r.created_at DESC");
+    if(user.role==="organizer"){
+      const allowed=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));data=data.filter(x=>allowed.has(x.tournament_id));
+    }else if(user.role==="finance"&&user.clubId){
+      data=data.filter(x=>x.team_club_id===user.clubId);
+    }
     return ok(data,request,env);
   }
   p=route(path,"/api/divisions/:id/registrations");
@@ -548,21 +613,51 @@ async function handleApi(request,env){
   }
   p=route(path,"/api/registrations/:id/checkin");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),r=await one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",p.id);if(!r)return fail("NOT_FOUND",request,env,404);if(user.role==="organizer")await assertTournament(env,user,r.tournament_id);
-    await env.DB.prepare("UPDATE registrations SET checked_in_at=?,checked_in_by=? WHERE id=?").bind(nowIso(),user.id,p.id).run();return ok({ok:true},request,env);
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const r=await one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",p.id);
+    if(!r)return fail("NOT_FOUND",request,env,404);
+    if(user.role==="organizer")await assertTournament(env,user,r.tournament_id);
+    await env.DB.prepare("UPDATE registrations SET checked_in_at=?,checked_in_by=? WHERE id=?").bind(nowIso(),user.id,p.id).run();
+    return ok({ok:true},request,env);
   }
   p=route(path,"/api/registrations/:id/undo-checkin");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),r=await one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",p.id);if(!r)return fail("NOT_FOUND",request,env,404);if(user.role==="organizer")await assertTournament(env,user,r.tournament_id);
-    await env.DB.prepare("UPDATE registrations SET checked_in_at=NULL,checked_in_by=NULL WHERE id=?").bind(p.id).run();return ok({ok:true},request,env);
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const r=await one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",p.id);
+    if(!r)return fail("NOT_FOUND",request,env,404);
+    if(user.role==="organizer")await assertTournament(env,user,r.tournament_id);
+    await env.DB.prepare("UPDATE registrations SET checked_in_at=NULL,checked_in_by=NULL WHERE id=?").bind(p.id).run();
+    return ok({ok:true},request,env);
   }
-
   if(path==="/api/reports/overview"&&method==="GET"){
-    const user=await userRequired(request,env),state=await loadAdminState(env,user);
-    const regs=await rows(env,"SELECT * FROM registrations"),payments=regs.filter(r=>r.payment_status==="paid");
-    return ok({players:state.players.filter(x=>x.active!==false).length,members:state.players.filter(x=>x.active!==false).length,registrations:regs.length,checked_in:regs.filter(x=>x.checked_in_at).length,paid_count:payments.length,revenue:payments.reduce((a,x)=>a+Number(x.amount||0),0),matches:state.matches.length,live:state.matches.filter(x=>x.status==="live").length,completed:state.matches.filter(x=>x.status==="done").length},request,env);
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","finance","club_manager");
+    let clubId=url.searchParams.get("clubId")||null;
+    if(user.role==="club_manager"){
+      if(!user.clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }else if(user.role==="finance"&&user.clubId){
+      if(clubId&&clubId!==user.clubId)return fail("FORBIDDEN",request,env,403);
+      clubId=user.clubId;
+    }
+    const players=clubId
+      ?await rows(env,"SELECT id FROM players WHERE active=1 AND club_id=?",clubId)
+      :await rows(env,"SELECT id FROM players WHERE active=1");
+    const regs=clubId
+      ?await rows(env,"SELECT r.* FROM registrations r LEFT JOIN teams t ON t.id=r.team_id WHERE t.club_id=?",clubId)
+      :await rows(env,"SELECT * FROM registrations");
+    const payments=regs.filter(r=>r.payment_status==="paid");
+    const transactions=clubId
+      ?await rows(env,"SELECT direction,amount FROM club_transactions WHERE club_id=?",clubId)
+      :[];
+    const clubBalance=transactions.reduce((sum,x)=>sum+(x.direction==="income"?1:-1)*Number(x.amount||0),0);
+    return ok({
+      players:players.length,members:players.length,registrations:regs.length,
+      checked_in:regs.filter(x=>x.checked_in_at).length,paid_count:payments.length,
+      revenue:payments.reduce((a,x)=>a+Number(x.amount||0),0),
+      matches:0,live:0,completed:0,clubBalance
+    },request,env);
   }
-
   return fail("NOT_FOUND",request,env,404);
 }
 
