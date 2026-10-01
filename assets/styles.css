@@ -609,3 +609,27 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
 @media(max-width:760px){.tournament-ops-grid{grid-template-columns:1fr}.tournament-control-actions .btn{flex:1 1 calc(50% - 8px);padding:0 10px;font-size:11px}.draw-wheel{width:200px;height:200px}.draw-wheel-ring span{transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-78px) rotate(calc(-360deg/var(--n)*var(--i)))}}
 
 .tournament-live-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.tournament-live-row .mini:first-child{min-width:0}.tournament-live-row .mini:last-child{white-space:nowrap}@media(max-width:760px){.tournament-live-row{grid-template-columns:1fr}.tournament-live-row .mini:last-child{justify-content:center}}
+
+/* Searchable system player picker */
+[data-player-picker]{display:grid;gap:12px}
+.player-picker-slot{min-width:0;padding:12px;border:1px solid #e3ebe6;border-radius:14px;background:#f9fcfa}
+.player-picker-slot .field{margin:0}
+.player-picker-results{display:grid;gap:6px;max-height:244px;margin-top:7px;overflow:auto}
+.player-picker-result{width:100%;padding:9px 10px;border:1px solid #e1e9e4;border-radius:12px;background:#fff;color:#12261b;text-align:left;cursor:pointer}
+.player-picker-result:hover,.player-picker-result:focus-visible{border-color:#0b8155;background:#f0faf5;outline:none}
+.player-picker-person{display:flex;align-items:center;gap:10px;min-width:0}
+.player-picker-person>img,.player-picker-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:12px;object-fit:cover}
+.player-picker-avatar{display:grid;place-items:center;background:#e8f1ec;color:#174c31;font-size:12px;font-weight:900}
+.player-picker-person>span:not(.player-picker-avatar){display:grid;gap:3px;min-width:0}
+.player-picker-person strong,.player-picker-person small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-picker-person strong{font-size:13px}.player-picker-person small{color:#718078;font-size:10px}
+.player-picker-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #add8bd;border-radius:12px;background:#effaf3}
+.player-picker-selected[hidden],.player-picker-results[hidden],.player-picker-slot .field[hidden]{display:none!important}
+.player-picker-selected .player-picker-person{flex:1;min-width:0}
+.player-picker-empty{margin:0;padding:11px;border-radius:11px;background:#fff6e7;color:#805415;font-size:11px;line-height:1.45}
+@media(max-width:760px){
+  .player-picker-slot{padding:10px;border-radius:12px}
+  .player-picker-results{max-height:210px}
+  .player-picker-selected{align-items:flex-start;flex-direction:column}
+  .player-picker-selected>.mini{width:100%;justify-content:center}
+}

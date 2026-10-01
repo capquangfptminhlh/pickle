@@ -12,3 +12,4 @@ cloudflare/.wrangler-dist/
 cloudflare/.wrangler/
 cloudflare/public/
 .worktrees/
+ui-artifacts/

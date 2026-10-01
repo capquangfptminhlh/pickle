@@ -340,6 +340,21 @@ for(const mode of ["player","club","area"]){
 }
 
 await goto(ppage,preview+"/admin.html","preview populated admin return");
+await ppage.locator('[data-page="players"]').click();await ppage.waitForTimeout(100);
+const registryText=await ppage.locator("#content").innerText();
+if(!registryText.includes("Bảng VĐV / Rating hệ thống"))failures.push({label:"player registry label",errors:["system registry heading missing"]});
+if(!(await ppage.locator('[data-action="newPlayer"]').innerText()).includes("Tạo hồ sơ VĐV"))failures.push({label:"player registry action",errors:["profile action label missing"]});
+await ppage.locator('[data-action="newTeam"]').click();
+if(!(await ppage.locator("[data-player-picker]").count())){
+  failures.push({label:"team player picker",errors:["searchable picker missing"]});
+}else{
+  await ppage.locator('[data-player-search]').first().fill("Spare UI Player");
+  if(!(await ppage.locator('[data-player-result]').count()))failures.push({label:"team player picker",errors:["registry search returned no athlete"]});
+  await ppage.locator('[data-player-search]').first().fill("Không tồn tại 999999");
+  const noResult="VĐV chưa có trong hệ thống. Hãy tạo hồ sơ tại Bảng VĐV / Rating trước.";
+  if(!(await ppage.locator('[data-player-results]').first().innerText()).includes(noResult))failures.push({label:"team player picker",errors:["missing registry guidance"]});
+}
+await ppage.locator('#genericDialog .icon-btn').click();
 await ppage.setViewportSize({width:390,height:844});
 for(const id of ["dashboard","club_events","players","clubs","club_attendance","treasury","tournaments","registrations","matches","scores","standings","bracket","courts","bookings","referees","payments","sponsors","content","reports","audit","settings"]){
   const b=ppage.locator('[data-page="'+id+'"]');
