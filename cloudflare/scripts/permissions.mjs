@@ -19,6 +19,8 @@ const clubA=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm 
 const clubB=(await raw("/api/clubs",{method:"POST",token:admin,body:{name:"Perm Club B "+stamp,city:"HCMC"}})).data;
 const pA=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player A "+stamp,clubId:clubA.id,rating:3.2}})).data;
 const pB=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player B "+stamp,clubId:clubB.id,rating:3.4}})).data;
+const pC=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player C "+stamp,clubId:clubA.id,rating:3.1}})).data;
+const pD=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player D "+stamp,clubId:clubB.id,rating:3.3}})).data;
 const adminEdited=(await raw("/api/players/"+pA.id,{
   method:"PATCH",token:admin,
   body:{
@@ -39,14 +41,33 @@ assert(adminEdited.ratingHistoryRecorded===true,"rating edit records history");
 await raw("/api/players/"+pA.id,{method:"PATCH",token:admin,body:{rating:3.8},ok:[400]});
 await raw("/api/players/"+pA.id,{method:"PATCH",token:admin,body:{clubId:"missing-club"},ok:[400]});
 
-const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Permission Tournament "+stamp,venue:"CI"}})).data;
+const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Permission Tournament "+stamp,venue:"CI",eventType:"doubles"}})).data;
 let state=(await raw("/api/admin/state",{token:admin})).data;
 const division=state.divisions.find(x=>x.tournamentId===tournament.id);
 assert(division?.id,"division created");
-const teamA=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Perm Team A",clubId:clubA.id}})).data;
-const teamB=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Perm Team B",clubId:clubB.id}})).data;
-await raw("/api/teams/"+teamA.id+"/players",{method:"POST",token:admin,body:{playerId:pA.id}});
-await raw("/api/teams/"+teamB.id+"/players",{method:"POST",token:admin,body:{playerId:pB.id}});
+const beforeAtomic=(await raw("/api/admin/state",{token:admin})).data;
+const teamA=(await raw("/api/divisions/"+division.id+"/teams",{
+  method:"POST",token:admin,body:{name:"Perm Team A",clubId:clubA.id,playerIds:[pA.id,pB.id]}
+})).data;
+let atomicState=(await raw("/api/admin/state",{token:admin})).data;
+assert((atomicState.teamPlayers[teamA.id]||[]).length===2,"team and player links created together");
+await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Duplicate",playerIds:[pA.id,pA.id]},ok:[400]});
+await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Wrong count",playerIds:[pA.id]},ok:[400]});
+await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Already assigned",playerIds:[pA.id,pB.id]},ok:[409]});
+const inactive=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Inactive Player "+stamp,rating:3}})).data;
+await raw("/api/players/"+inactive.id,{method:"DELETE",token:admin});
+await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"Inactive Pair",playerIds:[inactive.id,pC.id]},ok:[400]});
+atomicState=(await raw("/api/admin/state",{token:admin})).data;
+assert(atomicState.teams.length===beforeAtomic.teams.length+1,"failed team requests leave no rows");
+
+const teamB=(await raw("/api/divisions/"+division.id+"/teams",{
+  method:"POST",token:admin,body:{name:"Perm Team B",clubId:clubB.id,playerIds:[pC.id,pD.id]}
+})).data;
+const secondTournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Second Permission Tournament "+stamp,venue:"CI",eventType:"doubles"}})).data;
+const secondState=(await raw("/api/admin/state",{token:admin})).data;
+const secondDivision=secondState.divisions.find(x=>x.tournamentId===secondTournament.id);
+const pE=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player E "+stamp,rating:3.5}})).data;
+await raw("/api/divisions/"+secondDivision.id+"/teams",{method:"POST",token:admin,body:{name:"Cross Division Pair",playerIds:[pA.id,pE.id]}});
 const regA=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamA.id,amount:300000}})).data;
 const regB=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamB.id,amount:900000}})).data;
 

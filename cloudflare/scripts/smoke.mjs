@@ -35,15 +35,18 @@ const imported=(await raw("/api/import/players",{method:"POST",token:admin,body:
   {fullName:"CF Player 1 "+stamp,gender:"male",rating:3.1},
   {fullName:"CF Player 2 "+stamp,gender:"male",rating:3.0},
   {fullName:"CF Player 3 "+stamp,gender:"female",rating:2.9},
-  {fullName:"CF Player 4 "+stamp,gender:"female",rating:2.8}
+  {fullName:"CF Player 4 "+stamp,gender:"female",rating:2.8},
+  {fullName:"CF Player 5 "+stamp,gender:"male",rating:3.3},
+  {fullName:"CF Player 6 "+stamp,gender:"male",rating:3.2},
+  {fullName:"CF Player 7 "+stamp,gender:"female",rating:2.7},
+  {fullName:"CF Player 8 "+stamp,gender:"female",rating:2.6}
 ]}})).data;
-assert(imported.created===4&&imported.ids.length===4,"players imported");
+assert(imported.created===8&&imported.ids.length===8,"players imported");
 
 const teams=[];
 for(let i=0;i<4;i++){
-  const t=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"CF Team "+(i+1)+" "+stamp,group:i<2?"A":"B",seed:i+1}})).data;
+  const t=(await raw("/api/divisions/"+division.id+"/teams",{method:"POST",token:admin,body:{name:"CF Team "+(i+1)+" "+stamp,group:i<2?"A":"B",seed:i+1,playerIds:imported.ids.slice(i*2,i*2+2)}})).data;
   teams.push(t);
-  await raw("/api/teams/"+t.id+"/players",{method:"POST",token:admin,body:{playerId:imported.ids[i]}});
 }
 await raw("/api/divisions/"+division.id+"/auto-seed-groups",{method:"POST",token:admin,body:{groupCount:2}});
 const rr=(await raw("/api/divisions/"+division.id+"/generate-round-robin",{method:"POST",token:admin,body:{}})).data;

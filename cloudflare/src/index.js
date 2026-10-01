@@ -4,6 +4,7 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {advanceBracket} from "./bracket.js";
+import {playerCountRange,validatePlayerIds} from "../../shared/team-player-selection.js";
 
 export {TournamentRoom};
 
@@ -331,9 +332,22 @@ async function handleApi(request,env){
   p=route(path,"/api/divisions/:id/teams");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
-    const id=uid();await env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
-      .bind(id,p.id,name,b.clubId||null,b.seed??null,String(b.group||"A"),"active",nowIso()).run();
-    const row=await one(env,"SELECT * FROM teams WHERE id=?",id);await emitUpdate(env,tid);return ok(row,request,env,201);
+    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
+    if(!division)throw httpError("NOT_FOUND",404);
+    let playerIds;
+    try{playerIds=validatePlayerIds(division.event_type,b.playerIds)}catch(error){throw httpError(error.message,400)}
+    const marks=playerIds.map(()=>"?").join(",");
+    const selected=await rows(env,`SELECT id,active FROM players WHERE id IN (${marks})`,...playerIds);
+    if(selected.length!==playerIds.length)throw httpError("PLAYER_NOT_FOUND",404);
+    if(selected.some(x=>!x.active))throw httpError("PLAYER_INACTIVE",400);
+    const assigned=await rows(env,`SELECT tp.player_id FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id IN (${marks})`,p.id,...playerIds);
+    if(assigned.length)throw httpError("PLAYER_ALREADY_IN_DIVISION",409);
+    const id=uid(),changedAt=nowIso();
+    const statements=[env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(id,p.id,name,b.clubId||null,b.seed??null,String(b.group||"A"),"active",changedAt)];
+    for(const playerId of playerIds)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
+    await env.DB.batch(statements);
+    const row=await one(env,"SELECT * FROM teams WHERE id=?",id);await emitUpdate(env,tid);return ok({...row,playerIds},request,env,201);
   }
   p=route(path,"/api/teams/:id");
   if(p&&method==="PATCH"){
@@ -348,8 +362,17 @@ async function handleApi(request,env){
   p=route(path,"/api/teams/:id/players");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertTeam(env,user,p.id),b=await bodyJson(request),playerId=String(b.playerId||"");
-    if(!playerId||!(await one(env,"SELECT id FROM players WHERE id=?",playerId)))return fail("PLAYER_NOT_FOUND",request,env,404);
-    await env.DB.prepare("INSERT OR IGNORE INTO team_players(team_id,player_id) VALUES(?,?)").bind(p.id,playerId).run();await emitUpdate(env,tid);return ok({ok:true},request,env);
+    const player=playerId?await one(env,"SELECT id,active FROM players WHERE id=?",playerId):null;
+    if(!player)return fail("PLAYER_NOT_FOUND",request,env,404);
+    if(!player.active)return fail("PLAYER_INACTIVE",request,env,400);
+    const team=await one(env,"SELECT t.id,t.division_id,d.event_type FROM teams t JOIN divisions d ON d.id=t.division_id WHERE t.id=?",p.id);
+    const existing=await one(env,"SELECT 1 AS found FROM team_players WHERE team_id=? AND player_id=?",p.id,playerId);
+    if(existing)return ok({ok:true},request,env);
+    const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=? AND t.id<>?",team.division_id,playerId,p.id);
+    if(assigned)return fail("PLAYER_ALREADY_IN_DIVISION",request,env,409);
+    const count=Number((await one(env,"SELECT COUNT(*) AS count FROM team_players WHERE team_id=?",p.id))?.count||0);
+    if(count>=playerCountRange(team.event_type).max)return fail("INVALID_PLAYER_COUNT",request,env,400);
+    await env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(p.id,playerId).run();await emitUpdate(env,tid);return ok({ok:true},request,env);
   }
 
   p=route(path,"/api/divisions/:id/matches");
