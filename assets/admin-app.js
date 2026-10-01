@@ -299,10 +299,106 @@ async function create16PairTestTournament(){
     toast("Đã tạo 16 cặp, chia 4 bảng và sinh sơ đồ đến Chung kết.");
   }catch(e){overlay.remove();toast("Test 16 cặp lỗi: "+e.message)}
 }
+async function exportPodiumPoster(tournamentName, divisionName, podium){
+  if(!podium||!podium.champion)return toast("Chưa có kết quả trao giải.");
+  const canvas=document.createElement("canvas");
+  canvas.width=1080;
+  canvas.height=1350;
+  const ctx=canvas.getContext("2d");
+
+  // Nền Deep Dark thể thao sang trọng
+  const grad=ctx.createLinearGradient(0,0,1080,1350);
+  grad.addColorStop(0,"#07140f");
+  grad.addColorStop(0.5,"#0f281e");
+  grad.addColorStop(1,"#06110c");
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,1080,1350);
+
+  // Viền vàng neon Pickleball
+  ctx.strokeStyle="#dfff69";
+  ctx.lineWidth=8;
+  ctx.strokeRect(36,36,1008,1278);
+  ctx.strokeStyle="rgba(223,255,105,0.25)";
+  ctx.lineWidth=2;
+  ctx.strokeRect(48,48,984,1254);
+
+  // Tiêu đề giải
+  ctx.textAlign="center";
+  ctx.fillStyle="#839c8e";
+  ctx.font="bold 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText("PICKLEBALL TOURNAMENT • KẾT QUẢ TRAO GIẢI CHÍNH THỨC",540,115);
+
+  ctx.fillStyle="#ffffff";
+  ctx.font="bold 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText((tournamentName||"GIẢI ĐẤU PICKLEBALL").toUpperCase(),540,175,940);
+
+  ctx.fillStyle="#dfff69";
+  ctx.font="bold 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(`NỘI DUNG: ${(divisionName||"").toUpperCase()}`,540,230,940);
+
+  const drawCard=(y,h,medal,title,name,club,isChamp)=>{
+    ctx.save();
+    ctx.fillStyle=isChamp?"rgba(223,255,105,0.12)":"rgba(255,255,255,0.05)";
+    ctx.beginPath();
+    ctx.roundRect(80,y,920,h,20);
+    ctx.fill();
+
+    ctx.strokeStyle=isChamp?"#dfff69":"rgba(255,255,255,0.2)";
+    ctx.lineWidth=isChamp?4:2;
+    ctx.stroke();
+
+    ctx.font=isChamp?"70px sans-serif":"52px sans-serif";
+    ctx.fillText(medal,180,y+(isChamp?h/2+24:h/2+18));
+
+    ctx.textAlign="left";
+    ctx.fillStyle=isChamp?"#dfff69":"#839c8e";
+    ctx.font=isChamp?"bold 22px -apple-system, sans-serif":"bold 18px -apple-system, sans-serif";
+    ctx.fillText(title,270,y+42);
+
+    ctx.fillStyle="#ffffff";
+    ctx.font=isChamp?"bold 38px -apple-system, sans-serif":"bold 30px -apple-system, sans-serif";
+    ctx.fillText(name||"—",270,y+(isChamp?100:85),680);
+
+    ctx.fillStyle="#a3b8ad";
+    ctx.font="20px -apple-system, sans-serif";
+    ctx.fillText(club||"Tự do",270,y+(isChamp?150:125),680);
+    ctx.restore();
+  };
+
+  let curY=290;
+  if(podium.champion){
+    drawCard(curY,210,"🥇","VÔ ĐỊCH (CHAMPION)",podium.champion.name,podium.champion.club,true);
+    curY+=235;
+  }
+  if(podium.runnerUp){
+    drawCard(curY,165,"🥈","Á QUÂN (RUNNER-UP)",podium.runnerUp.name,podium.runnerUp.club,false);
+    curY+=190;
+  }
+  if(podium.bronze){
+    drawCard(curY,165,"🥉","HẠNG BA (BRONZE MEDAL)",podium.bronze.name,podium.bronze.club,false);
+    curY+=190;
+  }
+  if(podium.seriesBChampion){
+    drawCard(curY,165,"🛡️","VÔ ĐỊCH CÚP BẠC (SERIES B)",podium.seriesBChampion.name,podium.seriesBChampion.club,false);
+  }
+
+  ctx.fillStyle="#73847b";
+  ctx.font="20px -apple-system, sans-serif";
+  ctx.textAlign="center";
+  ctx.fillText("Hệ thống quản lý giải đấu Pickleball • Xuất trực tiếp từ BTC",540,1260);
+
+  const link=document.createElement("a");
+  link.download=`Ket-Qua-${(divisionName||"giai-dau").replace(/\s+/g,"_")}.png`;
+  link.href=canvas.toDataURL("image/png");
+  link.click();
+  toast("📸 Đã xuất poster kết quả trao giải! Sẵn sàng chia sẻ qua Zalo.");
+}
 async function openTournamentDetail(tournamentId){
   const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
   const divisions=state.divisions.filter(d=>d.tournamentId===tournamentId&&d.active!==false);
   const [registrations,refs]=await Promise.all([API.registrations().catch(()=>[]),API.referees().catch(()=>[])]);
+  const podiumMap={};
+  await Promise.all(divisions.map(async d=>{try{podiumMap[d.id]=await API.podium(d.id)}catch(_){}}));
   const allPlayers=state.players||[];
   const teamPlayers=state.teamPlayers||{};
   const statusLabel=s=>({approved:"Đã duyệt",pending:"Chờ duyệt",cancelled:"Đã hủy"}[s]||s||"Đã đăng ký");
@@ -332,24 +428,68 @@ async function openTournamentDetail(tournamentId){
           :`<span style="width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:0 0 38px;background:#dfff69;color:#10281d;font-size:11px;font-weight:900;border:2px solid #cfe95f">${escHtml(initials)}</span>`;
         return `<span style="display:flex;align-items:center;gap:8px;min-width:0">${avatar}<span style="min-width:0"><strong style="display:block;font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px">${escHtml(p.full_name)}</strong>${p.nickname?`<small style="display:block;color:#73847b">${escHtml(p.nickname)}</small>`:""}</span></span>`;
       }).join(""):'<small style="color:#73847b">Chưa gán VĐV</small>';
-      return `<tr><td><b style="display:block;margin-bottom:8px">${escHtml(team.name)}</b><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${playerList}</div></td><td>${escHtml(team.club||"Tự do")}</td><td>${rating}</td><td>${team.group?'<span class="badge blue">Bảng '+escHtml(team.group)+'</span>':'<span class="badge wait">Chưa bốc thăm</span>'}</td><td>${statusLabel(reg?.status)}</td></tr>`;
+      const isWithdrawn=team.status==="withdrawn";
+      const withdrawAction=isWithdrawn
+        ?'<span class="badge done">Đã rút</span>'
+        :(canManage()?`<div style="display:flex;gap:4px"><button type="button" class="mini" data-edit-team="${team.id}">Sửa</button><button type="button" class="mini danger" data-withdraw-team="${team.id}" data-team-name="${escHtml(team.name)}">Rút</button></div>`:"—");
+      return `<tr><td><b style="display:block;margin-bottom:8px">${escHtml(team.name)}</b><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${playerList}</div></td><td>${escHtml(team.club||"Tự do")}</td><td>${rating}</td><td>${team.group?'<span class="badge blue">Bảng '+escHtml(team.group)+'</span>':'<span class="badge wait">Chưa bốc thăm</span>'}</td><td>${statusLabel(reg?.status)}</td><td>${withdrawAction}</td></tr>`;
     }).join("");
     const groupSummary=groups.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${groups.map(g=>{const r=rankTournamentGroup(d.id,g);return `<span class="badge blue">Bảng ${g}: ${r.length} đội</span>`}).join("")}</div>`:"";
     const topHtml=top2.length?`<div style="margin-top:14px;padding:12px;border-radius:14px;background:#f5f8f6"><b style="font-size:12px">Top 2 tạm thời / chính thức</b><div style="display:grid;gap:5px;margin-top:8px">${top2.map(q=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>Bảng ${q.group} • ${q.rank===1?"Nhất":"Nhì"}</span><b>${escHtml(q.team.name)}</b></div>`).join("")}</div></div>`:"";
+    
+    const podium=podiumMap[d.id]||null;
+    const podiumHtml=podium?.champion?`
+      <div class="podium-card" style="margin-top:16px">
+        <div class="podium-title">🏆 KẾT QUẢ TRAO GIẢI • ${escHtml(d.name)}</div>
+        <div class="podium-ranks">
+          <div class="podium-item champ">
+            <div class="podium-medal">🥇</div>
+            <div class="podium-tier">VÔ ĐỊCH</div>
+            <div class="podium-name">${escHtml(podium.champion.name)}</div>
+            <small>${escHtml(podium.champion.club||"Tự do")}</small>
+          </div>
+          ${podium.runnerUp?`
+          <div class="podium-item second">
+            <div class="podium-medal">🥈</div>
+            <div class="podium-tier">Á QUÂN</div>
+            <div class="podium-name">${escHtml(podium.runnerUp.name)}</div>
+            <small>${escHtml(podium.runnerUp.club||"Tự do")}</small>
+          </div>`:""}
+          ${podium.bronze?`
+          <div class="podium-item third">
+            <div class="podium-medal">🥉</div>
+            <div class="podium-tier">HẠNG BA</div>
+            <div class="podium-name">${escHtml(podium.bronze.name)}</div>
+            <small>${escHtml(podium.bronze.club||"Tự do")}</small>
+          </div>`:""}
+          ${podium.seriesBChampion?`
+          <div class="podium-item series-b">
+            <div class="podium-medal">🛡️</div>
+            <div class="podium-tier">VÔ ĐỊCH CÚP BẠC</div>
+            <div class="podium-name">${escHtml(podium.seriesBChampion.name)}</div>
+            <small>${escHtml(podium.seriesBChampion.club||"Tự do")}</small>
+          </div>`:""}
+        </div>
+        <div style="margin-top:14px;text-align:center">
+          <button type="button" class="btn primary" data-export-poster="${d.id}" data-dname="${escHtml(d.name)}">📸 Xuất ảnh kết quả (Gửi Zalo)</button>
+        </div>
+      </div>`:"" ;
+
     return `<section class="panel" style="box-shadow:none;margin:0 0 16px;border:1px solid #e7ece9">
       <div class="panel-head"><div><h2>${escHtml(d.name)}</h2><p>${teams.length} cặp/đội • ${groupMatches.length?completed+"/"+groupMatches.length+" trận vòng bảng đã xong":"Chưa tạo lịch vòng bảng"}</p></div>
-      ${canManage()?`<div class="actions"><button class="btn secondary" data-auto-draw="${d.id}" data-team-count="${teams.length}">🎡 Bốc thăm + xếp sân AUTO</button><button class="btn secondary" data-auto-courts="${d.id}">🏟 Xếp lại sân</button><button class="btn primary" data-top2-bracket="${d.id}">🏆 Tạo nhánh Top 2</button></div>`:""}</div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Cặp / VĐV</th><th>CLB</th><th>Rating TB</th><th>Bảng</th><th>Đăng ký</th></tr></thead><tbody>${rosterRows||'<tr><td colspan="5">Chưa có VĐV/cặp đăng ký nội dung này.</td></tr>'}</tbody></table></div>
+      ${canManage()?`<div class="actions"><button class="btn secondary" data-auto-draw="${d.id}" data-team-count="${teams.length}">🎡 Bốc thăm + xếp sân AUTO</button><button class="btn secondary" data-auto-courts="${d.id}">🏟 Xếp lại sân</button><button class="btn secondary" data-emergency-mode="${d.id}" data-dname="${escHtml(d.name)}">⚡ Nén lịch (Mưa)</button><button class="btn primary" data-top2-bracket="${d.id}">🏆 Tạo nhánh Top 2</button></div>`:""}</div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Cặp / VĐV</th><th>CLB</th><th>Rating TB</th><th>Bảng</th><th>Đăng ký</th><th>Thao tác</th></tr></thead><tbody>${rosterRows||'<tr><td colspan="6">Chưa có VĐV/cặp đăng ký nội dung này.</td></tr>'}</tbody></table></div>
       ${groupSummary}${topHtml}
       <div class="tournament-ops-grid">
         <div class="tournament-ops-card"><b>🔴 Live trận đấu</b><small>${liveMatches.length} trận đang live • ${divisionMatches.length} trận tổng</small><div class="tournament-live-mini">${divisionMatches.slice(0,6).map(m=>`<div class="tournament-live-row"><button type="button" class="mini" data-center-score="${m.id}">${m.status==="live"?"🔴 ":""}${escHtml(m.stage)} • ${escHtml(teamName(m.a))} vs ${escHtml(teamName(m.b))}${m.refereeId?" • TT: "+escHtml(refs.find(r=>r.id===m.refereeId)?.display_name||"Đã gán"):""}</button><button type="button" class="mini" data-center-assign="${m.id}">👨‍⚖️ Phân công</button></div>`).join("")||'<span class="muted">Chưa có trận.</span>'}</div></div>
         <div class="tournament-ops-card"><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":"Sau khi vòng bảng xong, bấm Tạo nhánh Top 2 để sinh toàn bộ bracket."}</small>${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}</div>
       </div>
+      ${podiumHtml}
     </section>`;
   }).join("");
   $("#genericTitle").textContent=t.name+" • Trung tâm điều hành";
   $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
-    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-share-roster="${t.id}">🔗 Chia sẻ danh sách</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length||6} sân</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → quay số chia bảng → vòng bảng → Top 2 → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
+    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-share-roster="${t.id}">🔗 Chia sẻ danh sách</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length||6} sân</button><button type="button" class="btn secondary" data-export-dupr="${t.id}">📤 Xuất DUPR (.csv)</button><button type="button" class="btn secondary" data-center-kiosk="${t.id}">📺 Màn hình TV</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → quay số chia bảng → vòng bảng → Top 2 → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
     ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
   </div>`;
   $("#genericDialog").showModal();
@@ -357,24 +497,27 @@ async function openTournamentDetail(tournamentId){
   const runDraw=async btn=>{
     const did=btn.dataset.autoDraw,n=Number(btn.dataset.teamCount||0);
     if(n<4)return toast("Cần ít nhất 4 cặp/đội để bốc thăm vòng bảng.");
-    const groupCount=Math.max(1,Math.floor(n/4));
+    const d=state.divisions.find(x=>x.id===did);
+    const groupCount=d?.groupCount||Math.max(1,Math.floor(n/4));
+    const drawMethod=d?.drawMethod||"rating";
+    const methodLabel=drawMethod==="random"?"Bốc thăm ngẫu nhiên 100%":"Phân hạt giống theo trình/DUPR";
     const oldGroupMatches=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
     if(oldGroupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length))return toast("Vòng bảng đã bắt đầu nên không thể quay lại.");
-    if(!confirm(`Quay số ${n} cặp/đội → chia ${groupCount} bảng → tự xếp toàn bộ trận lên các sân đang hoạt động?`))return;
+    if(!confirm(`Bốc thăm ${n} cặp/đội (${methodLabel}) → chia ${groupCount} bảng → tự xếp toàn bộ trận lên các sân đang hoạt động?`))return;
     const names=state.teams.filter(x=>x.divisionId===did&&x.status!=="withdrawn").map(x=>x.name);
     const overlay=document.createElement("div");overlay.className="draw-wheel-overlay";
-    overlay.innerHTML=`<div class="draw-wheel-card"><div class="draw-wheel"><div class="draw-wheel-ring">${names.slice(0,12).map((name,i)=>`<span style="--i:${i};--n:${Math.max(1,Math.min(12,names.length))}">${escHtml(name)}</span>`).join("")}</div><strong>🎡</strong></div><h3>Đang quay số chia bảng...</h3><p>Hệ thống đang xáo trộn và cân bằng các đội.</p></div>`;
+    overlay.innerHTML=`<div class="draw-wheel-card"><div class="draw-wheel"><div class="draw-wheel-ring">${names.slice(0,12).map((name,i)=>`<span style="--i:${i};--n:${Math.max(1,Math.min(12,names.length))}">${escHtml(name)}</span>`).join("")}</div><strong>🎡</strong></div><h3>${drawMethod==="random"?"Đang bốc thăm ngẫu nhiên...":"Đang quay số chia bảng..."}</h3><p>${drawMethod==="random"?"Hệ thống đang xáo trộn ngẫu nhiên toàn bộ danh sách cặp/đội.":"Hệ thống đang xáo trộn và cân bằng hạt giống các đội."}</p></div>`;
     document.body.appendChild(overlay);
     try{
       for(const m of oldGroupMatches)await API.deleteMatch(m.id);
       await new Promise(r=>setTimeout(r,1800));
-      await API.autoSeedGroups(did,groupCount);
+      await API.autoSeedGroups(did,groupCount,{method:drawMethod});
       const rr=await API.generateRoundRobin(did);
       overlay.querySelector("h3").textContent="✅ Đã bốc thăm & xếp sân";
       overlay.querySelector("p").textContent=`${groupCount} bảng • ${rr.created} trận • ${rr.courts||state.courts.filter(x=>x.active!==false).length} sân`;
       await new Promise(r=>setTimeout(r,700));
       overlay.remove();await refresh();$("#genericDialog").close();await openTournamentDetail(tournamentId);
-      toast(`Đã bốc thăm ${groupCount} bảng, tạo ${rr.created} trận và tự xếp ${rr.courts||""} sân.`);
+      toast(`Đã bốc thăm ${groupCount} bảng (${methodLabel}), tạo ${rr.created} trận và tự xếp ${rr.courts||""} sân.`);
     }catch(e){overlay.remove();toast("Không thể quay số: "+e.message)}
   };
   document.querySelectorAll("[data-auto-draw]").forEach(btn=>btn.onclick=()=>runDraw(btn));
@@ -394,6 +537,14 @@ async function openTournamentDetail(tournamentId){
   document.querySelector("[data-center-referees]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("referees")});
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
+  document.querySelectorAll("[data-export-poster]").forEach(btn=>{
+    btn.onclick=async()=>{
+      const did=btn.dataset.exportPoster;
+      const dname=btn.dataset.dname;
+      const pod=await API.podium(did).catch(()=>null);
+      exportPodiumPoster(t.name,dname,pod);
+    };
+  });
   document.querySelectorAll("[data-top2-bracket]").forEach(btn=>btn.onclick=async()=>{
     if(!confirm("Tạo nhánh đấu tự động từ Nhất/Nhì mỗi bảng?"))return;
     try{
@@ -406,19 +557,61 @@ async function openTournamentDetail(tournamentId){
       toast("Không thể tạo nhánh: "+m)
     }
   });
+  document.querySelector("[data-export-dupr]")?.addEventListener("click",async e=>{
+    try{
+      const tid=e.currentTarget.dataset.exportDupr;
+      const csv=await API.exportDuprCsv(tid);
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=`DUPR_Matches_${t.name.replace(/\s+/g,"_")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("📤 Đã xuất file DUPR CSV thành công!");
+    }catch(err){toast("Không thể xuất DUPR: "+err.message)}
+  });
+  document.querySelector("[data-center-kiosk]")?.addEventListener("click",e=>{
+    const tid=e.currentTarget.dataset.centerKiosk;
+    window.open(`tournament.html?id=${encodeURIComponent(tid)}&kiosk=1`,"_blank");
+  });
+  document.querySelectorAll("[data-emergency-mode]").forEach(btn=>btn.onclick=async()=>{
+    const did=btn.dataset.emergencyMode;
+    const dname=btn.dataset.dname||"nội dung này";
+    if(!confirm(`Kích hoạt Chế độ Nén Lịch Khẩn Cấp (Trời mưa/Delay) cho ${dname}?\n\n- Toàn bộ các trận CHƯA ĐẤU sẽ chuyển sang: 1 Set chạm 11 điểm (Best of 1, No Deuce, Hard Cap 15).\n- Các trận đã xong giữ nguyên tỉ số.`))return;
+    try{
+      const res=await API.emergencyCompressSchedule(did,{bestOf:1,pointsToWin:11,hardCap:15,winByTwo:false});
+      await refresh();
+      await openTournamentDetail(tournamentId);
+      toast(`⚡ Đã kích hoạt nén lịch! Cập nhật ${res.matchesUpdated||0} trận chưa đấu sang 11 điểm.`);
+    }catch(err){toast("Lỗi nén lịch: "+err.message)}
+  });
+  document.querySelectorAll("[data-withdraw-team]").forEach(btn=>btn.onclick=async()=>{
+    const teamId=btn.dataset.withdrawTeam;
+    const teamName=btn.dataset.teamName||"đội";
+    const reason=prompt(`Xác nhận rút đội "${teamName}" khỏi giải đấu?\n\nNhập lý do rút lui (chấn thương, việc riêng, bỏ giải...):`,"Chấn thương / Bỏ cuộc");
+    if(reason===null)return;
+    try{
+      const res=await API.withdrawTeam(teamId,reason||"Rút lui");
+      await refresh();
+      await openTournamentDetail(tournamentId);
+      toast(`Đã rút đội "${teamName}": ${res.walkoversAwarded||0} trận xử Walkover, bracket tự động cập nhật.`);
+    }catch(err){toast("Không thể rút đội: "+err.message)}
+  });
+  document.querySelectorAll("[data-edit-team]").forEach(btn=>btn.onclick=()=>openEditTeamModal(btn.dataset.editTeam));
 }
 async function players(){
   setHeader("VĐV & cặp đấu","Hồ sơ VĐV, CLB, rating và đội tham dự");
   const roster=canRoster()?await API.players().catch(()=>[]):[];
   return `<div class="panel" style="margin-bottom:16px">
     <div class="panel-head"><div><h2>Hồ sơ VĐV</h2><p>${roster.length} VĐV${user?.role==="referee"?" trong các trận được phân công":""}</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':""}${canCreatePlayer()?'<button class="btn primary" data-action="newPlayer">Thêm VĐV</button>':""}</div>`:""}</div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${fmtRating(p.rating)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td>${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
+    <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Rating</th><th>Trạng thái</th><th style="text-align:right">Thao tác</th></tr></thead><tbody>
+      ${roster.map(p=>`<tr data-player-row="${p.id}"><td><div style="display:flex;align-items:center;gap:10px">${p.avatar_url?`<img src="${p.avatar_url}" alt="" style="width:42px;height:42px;border-radius:12px;object-fit:cover">`:`<span style="width:42px;height:42px;border-radius:12px;background:#eaf1ed;display:grid;place-items:center;font-weight:900">${(p.full_name||"P").split(/\\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase()}</span>`}<span><b>${p.full_name}</b>${p.nickname?`<small style="display:block;color:#73847b">${p.nickname}</small>`:""}</span></div></td><td>${p.club_name||"Tự do"}</td><td>${p.gender||"—"}</td><td><b>${fmtRating(p.rating)}</b></td><td>${p.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td style="text-align:right">${canRoster()?`<a class="mini" href="player.html?id=${encodeURIComponent(p.id)}" target="_blank" style="text-decoration:none">Hồ sơ</a><button class="mini" data-avatar-player="${p.id}" data-avatar-name="${p.full_name}">Avatar</button>${canManage()?`<button class="mini" data-edit-player="${p.id}">Sửa</button><button class="mini" data-rating-player="${p.id}" data-rating-name="${p.full_name}" data-rating-current="${p.rating||0}">Rating</button>`:""}`:""}</td></tr>`).join("")}
     </tbody></table></div>
   </div>
   <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button><button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>':""}</div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Seed</th><th>Cặp VĐV</th><th>CLB</th><th>Bảng</th><th>W</th><th>L</th><th>+/-</th></tr></thead>
-      <tbody>${state.teams.map(t=>`<tr data-team-row="${t.id}"><td>${t.seed||"—"}</td><td><b>${t.name}</b></td><td>${t.club}</td><td><span class="badge blue">${t.group||"—"}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf-t.pa>0?"+":""}${t.pf-t.pa}</td></tr>`).join("")}</tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Seed</th><th>Cặp VĐV</th><th>CLB</th><th>Bảng</th><th>W</th><th>L</th><th>+/-</th><th style="text-align:right">Thao tác</th></tr></thead>
+      <tbody>${state.teams.map(t=>`<tr data-team-row="${t.id}"><td>${t.seed||"—"}</td><td><b>${escHtml(t.name)}</b></td><td>${escHtml(t.club||"Tự do")}</td><td><span class="badge blue">${escHtml(t.group||"—")}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf-t.pa>0?"+":""}${t.pf-t.pa}</td><td style="text-align:right">${canManage()?`<button class="mini" data-edit-team="${t.id}">Sửa</button><button class="mini danger" data-delete-team="${t.id}" data-team-name="${escHtml(t.name)}">Xóa</button>`:"—"}</td></tr>`).join("")}</tbody>
     </table></div>
   </div>`;
 }
@@ -516,8 +709,14 @@ function settings(){
     <div class="form-grid">
       <label class="field">Best of<select data-rule-best="${d.id}" ${canManage()?"":"disabled"}><option value="1" ${d.bestOf===1?"selected":""}>1</option><option value="3" ${d.bestOf===3?"selected":""}>3</option><option value="5" ${d.bestOf===5?"selected":""}>5</option></select></label>
       <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}><option value="11" ${d.pointsToWin===11?"selected":""}>11</option><option value="15" ${d.pointsToWin===15?"selected":""}>15</option><option value="21" ${d.pointsToWin===21?"selected":""}>21</option></select></label>
+      <label class="field">Điểm trần (Hard Cap)<input data-rule-hardcap="${d.id}" type="number" min="11" max="50" value="${d.hardCap||""}" placeholder="Không áp dụng" ${canManage()?"":"disabled"}></label>
       <label class="field">Top đi tiếp<input data-rule-advance="${d.id}" type="number" min="1" max="16" value="${d.advanceCount}" ${canManage()?"":"disabled"}></label>
+      <label class="field">Số bảng<input data-rule-groups="${d.id}" type="number" min="1" max="16" value="${d.groupCount||4}" ${canManage()?"":"disabled"}></label>
+      <label class="field">Cơ chế bốc thăm<select data-rule-drawmethod="${d.id}" ${canManage()?"":"disabled"}><option value="rating" ${d.drawMethod!=="random"?"selected":""}>🏆 Xếp theo Rating</option><option value="random" ${d.drawMethod==="random"?"selected":""}>🎲 Bốc thăm ngẫu nhiên 100%</option></select></label>
       <label class="field" style="align-content:end"><span><input data-rule-win2="${d.id}" type="checkbox" ${d.winByTwo?"checked":""} ${canManage()?"":"disabled"}> Thắng cách 2</span></label>
+      <label class="field" style="align-content:end"><span><input data-rule-bronze="${d.id}" type="checkbox" ${d.hasBronzeMatch!==false?"checked":""} ${canManage()?"":"disabled"}> Tranh Hạng Ba 🥉</span></label>
+      <label class="field" style="align-content:end"><span><input data-rule-best3="${d.id}" type="checkbox" ${d.allowBestThirds?"checked":""} ${canManage()?"":"disabled"}> Lấy đội #3 tốt nhất bù nhánh</span></label>
+      <label class="field" style="align-content:end"><span><input data-rule-seriesb="${d.id}" type="checkbox" ${d.hasSeriesB?"checked":""} ${canManage()?"":"disabled"}> Có Series B (Cúp Bạc)</span></label>
       ${canManage()?`<div class="field full"><button class="btn primary" data-save-rules="${d.id}">Lưu cấu hình</button></div>`:""}
     </div></div>`).join("")}</div>`;
 }
@@ -613,44 +812,233 @@ function bindDynamic(){
     adminZaloSportFilter=b.dataset.zaloFilter;
     await render();
   });
+  document.querySelectorAll("[data-edit-player]").forEach(b=>b.onclick=()=>openEditPlayerModal(b.dataset.editPlayer));
+  document.querySelectorAll("[data-edit-team]").forEach(b=>b.onclick=()=>openEditTeamModal(b.dataset.editTeam));
+  document.querySelectorAll("[data-delete-team]").forEach(b=>b.onclick=async()=>{
+    if(!confirm(`Xác nhận xóa đội "${b.dataset.teamName}"?`))return;
+    try{await API.deleteTeam(b.dataset.deleteTeam);await refresh();toast("Đã xóa đội.")}catch(e){toast("Không thể xóa: "+e.message)}
+  });
   ["#courtFilter","#statusFilter"].forEach(s=>{const el=$(s);if(el)el.onchange=applyMatchFilters});
   applyMatchFilters();
 }
 function divisionForMatch(m){return state.divisions.find(d=>d.id===m.divisionId)}
+let activeServingSide="A";
+function setServingSide(side){
+  activeServingSide=side;
+  if(activeMatch)activeMatch.servingSide=side;
+  updateMlpServingUI();
+}
+function updateMlpServingUI(){
+  const btnA=$("#mlpServeA"),btnB=$("#mlpServeB");
+  if(btnA)btnA.classList.toggle("active",activeServingSide==="A");
+  if(btnB)btnB.classList.toggle("active",activeServingSide==="B");
+}
+let timeoutInterval=null,timeoutSec=60;
+function startTimeout(side){
+  if(!activeMatch)return;
+  activeMatch.timeouts=activeMatch.timeouts||{A:2,B:2};
+  if((activeMatch.timeouts[side]||0)<=0){
+    return toast(`Đội ${side} đã hết 2 lần hội ý trong set này.`);
+  }
+  activeMatch.timeouts[side]--;
+  updateTimeoutUI();
+  if(timeoutInterval)clearInterval(timeoutInterval);
+  timeoutSec=60;
+  const badge=$("#timeoutTimerDisplay"),text=$("#timeoutTimerText");
+  if(badge)badge.hidden=false;
+  if(text)text.textContent=`${timeoutSec}s`;
+  toast(`⏱️ Hội ý 60s cho Đội ${side} (${teamName(side==="A"?activeMatch.a:activeMatch.b)})`);
+  timeoutInterval=setInterval(()=>{
+    timeoutSec--;
+    if(text)text.textContent=`${timeoutSec}s`;
+    if(timeoutSec<=0){
+      clearInterval(timeoutInterval);
+      timeoutInterval=null;
+      if(badge)badge.hidden=true;
+      toast("🔔 HẾT GIỜ HỘI Ý 60s! Hai đội trở lại thi đấu.");
+      try{
+        const ctx=new (window.AudioContext||window.webkitAudioContext)();
+        const osc=ctx.createOscillator();
+        osc.type="sine";osc.frequency.setValueAtTime(800,ctx.currentTime);
+        osc.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+0.35);
+      }catch(_){}
+    }
+  },1000);
+}
+function cancelTimeout(){
+  if(timeoutInterval){clearInterval(timeoutInterval);timeoutInterval=null}
+  cancelMedicalTimeout();
+  const badge=$("#timeoutTimerDisplay");
+  if(badge)badge.hidden=true;
+}
+let medicalInterval=null,medicalSec=180;
+function startMedicalTimeout(){
+  if(!activeMatch)return;
+  cancelTimeout();
+  if(medicalInterval)clearInterval(medicalInterval);
+  medicalSec=180;
+  const badge=$("#timeoutTimerDisplay"),text=$("#timeoutTimerText");
+  if(badge)badge.hidden=false;
+  const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  if(text)text.textContent=`🩹 ${fmt(medicalSec)}`;
+  toast("🩹 Bắt đầu hội ý y tế 3 phút (Medical Time-out)");
+  medicalInterval=setInterval(()=>{
+    medicalSec--;
+    if(text)text.textContent=`🩹 ${fmt(medicalSec)}`;
+    if(medicalSec<=0){
+      clearInterval(medicalInterval);
+      medicalInterval=null;
+      if(badge)badge.hidden=true;
+      toast("🔔 HẾT GIỜ HỘI Ý Y TẾ 3 PHÚT! Trọng tài kiểm tra khả năng tiếp tục.");
+      try{
+        const ctx=new (window.AudioContext||window.webkitAudioContext)();
+        const osc=ctx.createOscillator();
+        osc.type="sine";osc.frequency.setValueAtTime(600,ctx.currentTime);
+        osc.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+0.5);
+      }catch(_){}
+    }
+  },1000);
+}
+function cancelMedicalTimeout(){
+  if(medicalInterval){clearInterval(medicalInterval);medicalInterval=null}
+}
+let noShowInterval=null,noShowSec=600;
+function startNoShowTimer(){
+  if(!activeMatch)return;
+  if(noShowInterval)clearInterval(noShowInterval);
+  noShowSec=600;
+  const banner=$("#noShowBanner"),text=$("#noShowCountdownText");
+  if(banner)banner.style.display="flex";
+  const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  if(text)text.textContent=fmt(noShowSec);
+  toast("⚠️ Bắt đầu đếm ngược 10 phút có mặt (No-Show Timer)");
+  noShowInterval=setInterval(()=>{
+    noShowSec--;
+    if(text)text.textContent=fmt(noShowSec);
+    if(noShowSec<=0){
+      clearInterval(noShowInterval);
+      noShowInterval=null;
+      toast("🚨 ĐÃ QUÁ 10 PHÚT! Đội vắng mặt bị xử thua No-show theo điều lệ.");
+    }
+  },1000);
+}
+function cancelNoShowTimer(){
+  if(noShowInterval){clearInterval(noShowInterval);noShowInterval=null}
+  const banner=$("#noShowBanner");
+  if(banner)banner.style.display="none";
+}
+function updateTimeoutUI(){
+  if(!activeMatch)return;
+  activeMatch.timeouts=activeMatch.timeouts||{A:2,B:2};
+  const cntA=$("#countTimeoutA"),cntB=$("#countTimeoutB");
+  if(cntA)cntA.textContent=activeMatch.timeouts.A??2;
+  if(cntB)cntB.textContent=activeMatch.timeouts.B??2;
+  const btnA=$("#btnTimeoutA"),btnB=$("#btnTimeoutB");
+  if(btnA)btnA.disabled=(activeMatch.timeouts.A||0)<=0;
+  if(btnB)btnB.disabled=(activeMatch.timeouts.B||0)<=0;
+}
 function openScore(id){
   activeMatch=state.matches.find(m=>m.id===id);if(!activeMatch)return;
   if(activeMatch.a==="TBD"||activeMatch.b==="TBD"){toast("Chưa xác định đủ hai đội.");return}
   const d=divisionForMatch(activeMatch);
-  const isMlp=d?.eventType==="team";
+  const isMlp=d?.eventType==="team"||d?.format==="minigame_mlp"||/mlp/i.test(d?.name||"")||/mlp/i.test(activeMatch.stage||"");
   const isDoubles=d?.eventType==="doubles"||d?.eventType==="mixed_doubles";
   $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time}`;
-  $("#scoreTitle").textContent=isMlp?"Nhập điểm: MLP Đồng đội":isDoubles?"Nhập điểm: Đôi":"Nhập điểm trận";
+  $("#scoreTitle").textContent=isMlp?"Nhập điểm: Minigame MLP (36đ)":isDoubles?"Nhập điểm: Đôi":"Nhập điểm trận";
   $("#teamAName").textContent=teamName(activeMatch.a);$("#teamBName").textContent=teamName(activeMatch.b);
-  $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
-  $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
+  $("#targetScore").value=String(isMlp?36:(d?.pointsToWin||11));$("#targetScore").disabled=true;
+  $("#winByTwo").checked=isMlp?false:(d?.winByTwo!==false);$("#winByTwo").disabled=true;
 
-  const maxSets=isMlp?5:Number(d?.bestOf||3);
-  const mlpLabels=["Trận 1: Đôi Nữ","Trận 2: Đôi Nam","Trận 3: Đôi Nam Nữ 1","Trận 4: Đôi Nam Nữ 2","Trận 5: Dreambreaker (nếu 2-2)"];
+  const hardCap=d?.hardCap?Number(d.hardCap):null;
+  const hcEl=$("#hardCapLabel");
+  if(hcEl)hcEl.textContent=hardCap?`• Điểm trần: ${hardCap}đ`:"";
+
+  activeMatch.timeouts=activeMatch.timeouts||{A:2,B:2};
+  updateTimeoutUI();
+  cancelTimeout();
+  cancelNoShowTimer();
+
+  const tracker=$("#mlpMatchTracker");
+  if(tracker){
+    tracker.hidden=!isMlp;
+    if(isMlp){
+      activeServingSide=activeMatch.servingSide||"A";
+      updateMlpServingUI();
+    }
+  }
+
+  const maxSets=isMlp?4:Number(d?.bestOf||3);
+  const mlpLabels=[
+    "Game 1: Cặp AB (Mục tiêu 9đ)",
+    "Game 2: Cặp BC (Tích lũy 18đ)",
+    "Game 3: Cặp CD (Tích lũy 27đ)",
+    "Game 4: Cặp DA (Tích lũy 36đ • Thắng)"
+  ];
   const existingSets=activeMatch.sets||[];
   let setsHtml="";
   for(let i=0;i<maxSets;i++){
-    const label=isMlp?(mlpLabels[i]||`Trận ${i+1}`):`Set ${i+1}`;
+    const label=isMlp?(mlpLabels[i]||`Game ${i+1}`):`Set ${i+1}`;
     const curA=existingSets[i]?.[0]??(i===existingSets.length?activeMatch.current?.[0]||"":"");
     const curB=existingSets[i]?.[1]??(i===existingSets.length?activeMatch.current?.[1]||"":"");
     setsHtml+=`<div class="quick-set-row"><span>${label}</span><input type="number" min="0" max="99" class="quick-score-a" value="${curA}" placeholder="0"><span>:</span><input type="number" min="0" max="99" class="quick-score-b" value="${curB}" placeholder="0"></div>`;
   }
   const qList=$("#quickSetsList");
   if(qList)qList.innerHTML=setsHtml;
+  const qHead=$("#quickScoreHeading");
+  if(qHead)qHead.textContent=isMlp?"⚡ Nhập nhanh 4 Game MLP (Cộng dồn 36đ)":"⚡ Nhập nhanh tỉ số các set";
 
   syncScoreDialog();$("#scoreDialog").showModal();
 }
 function syncScoreDialog(){
   if(!activeMatch)return;
   const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  const isMlp=d?.eventType==="team"||d?.format==="minigame_mlp"||/mlp/i.test(d?.name||"")||/mlp/i.test(activeMatch.stage||"");
   $("#scoreA").textContent=a;$("#scoreB").textContent=b;
-  $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
-  const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
-  const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
+  $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">${isMlp?`Game ${i+1}`:`Set ${i+1}`}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có '+(isMlp?'game':'set')+' hoàn tất</span>';
+  
+  if(isMlp){
+    const hi=Math.max(a,b);
+    const completedSets=(activeMatch.sets||[]).length;
+    const activeGame=Math.min(4,completedSets+1);
+
+    document.querySelectorAll(".mlp-step").forEach(step=>{
+      const sNum=Number(step.dataset.mlpStep);
+      step.classList.toggle("active",sNum===activeGame);
+      step.classList.toggle("completed",sNum<=completedSets);
+    });
+
+    const matchWon=hi>=36;
+    const canFinishGame=completedSets<3 && hi>=(completedSets+1)*9;
+    $("#finishSet").disabled=!canFinishGame;
+    $("#finishMatch").disabled=!matchWon;
+
+    document.querySelectorAll('[data-score][data-delta="-1"]').forEach(btn=>{
+      btn.disabled=(btn.dataset.score==="a"?a:b)<=0;
+    });
+
+    const tip=$("#scoreStatusTip");
+    if(tip){
+      if(matchWon){
+        const winName=a>=b?teamName(activeMatch.a):teamName(activeMatch.b);
+        tip.hidden=false;
+        tip.innerHTML=`🏆 <b>${winName}</b> đã chạm <b>36 điểm</b> và THẮNG TRẬN! Bấm <b>Kết thúc trận</b> để chốt kết quả.`;
+      }else if(a===35||b===35){
+        const teamAt35=a===35?teamName(activeMatch.a):teamName(activeMatch.b);
+        tip.hidden=false;
+        tip.innerHTML=`⚠️ <b>${teamAt35}</b> đang ở <b>35 điểm</b>. Lưu ý quy tắc: <b>Bên cầm giao bóng mới được tính điểm 36</b>!`;
+      }else if(canFinishGame){
+        tip.hidden=false;
+        tip.innerHTML=`🔔 Đã chạm mốc <b>${(completedSets+1)*9} điểm</b> (Hết Game ${completedSets+1}). Đổi cặp thi đấu và bấm <b>Hoàn tất set</b> để lưu mốc!`;
+      }else{
+        tip.hidden=true;
+        tip.innerHTML="";
+      }
+    }
+    return;
+  }
+
+  const target=Number(d?.pointsToWin||11),hardCap=d?.hardCap?Number(d.hardCap):null,winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
+  const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2||(hardCap>0&&hi>=hardCap));
   $("#finishSet").disabled=!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
@@ -659,13 +1047,22 @@ function syncScoreDialog(){
   document.querySelectorAll('[data-score][data-delta="-1"]').forEach(btn=>{
     btn.disabled=(btn.dataset.score==="a"?a:b)<=0;
   });
+
+  const switchTarget=target<=11?6:(target<=15?8:11);
+  const switchBanner=$("#switchSidesAlert");
+  if(switchBanner){
+    const shouldAlert=!activeMatch.sidesSwitched&&hi>=switchTarget&&hi<target;
+    switchBanner.hidden=!shouldAlert;
+  }
+
   const tip=$("#scoreStatusTip");
   if(tip){
     if(setWon){
       const winName=hi===a?teamName(activeMatch.a):teamName(activeMatch.b);
       const isMatchDecider=(hi===a?winsA+1:winsB+1)>=need;
+      const isHardCapWin=hardCap>0&&hi>=hardCap&&hi-lo<2;
       tip.hidden=false;
-      tip.innerHTML=`✅ <b>${winName}</b> đã đủ điều kiện thắng ${isMatchDecider?'trận':'set'} (${hi}–${lo})! Bấm <b>${isMatchDecider?'Kết thúc trận':'Hoàn tất set'}</b> để lưu.`;
+      tip.innerHTML=`✅ <b>${winName}</b> đã đủ điều kiện thắng ${isMatchDecider?'trận':'set'} (${hi}–${lo}${isHardCapWin?' • Đạt điểm trần Hard Cap':''})! Bấm <b>${isMatchDecider?'Kết thúc trận':'Hoàn tất set'}</b> để lưu.`;
     }else{
       tip.hidden=true;
       tip.innerHTML="";
@@ -698,22 +1095,55 @@ async function saveQuickScore(){
   }
 }
 async function scorePoint(side,delta){
-  if(busy||!activeMatch)return;busy=true;
+  if(busy||!activeMatch)return;
+  const d=divisionForMatch(activeMatch);
+  const isMlp=d?.eventType==="team"||d?.format==="minigame_mlp"||/mlp/i.test(d?.name||"")||/mlp/i.test(activeMatch.stage||"");
+  
+  if(isMlp&&Number(delta)>0){
+    const teamSide=side.toUpperCase();
+    const curA=Number(activeMatch.current?.[0]||0);
+    const curB=Number(activeMatch.current?.[1]||0);
+    const curPts=teamSide==="A"?curA:curB;
+
+    if(curPts===35){
+      if(activeServingSide!==teamSide){
+        setServingSide(teamSide);
+        const name=teamName(teamSide==="A"?activeMatch.a:activeMatch.b);
+        toast(`⚠️ ĐIỂM 36: ${name} phải cầm giao bóng mới được tính điểm! Đã đổi giao bóng sang ${name}.`);
+        syncScoreDialog();
+        return;
+      }
+    }
+  }
+
+  busy=true;
   try{
-    await API.point(activeMatch.id,{side:side.toUpperCase(),delta:Number(delta),expectedVersion:activeMatch.version});
+    await API.point(activeMatch.id,{side:side.toUpperCase(),delta:Number(delta),servingSide:activeServingSide,expectedVersion:activeMatch.version});
     await refresh({keepDialog:true});
   }catch(e){if(e.status===409){toast("Điểm vừa được cập nhật từ máy khác. Đang đồng bộ...");await refresh({keepDialog:true})}else toast("Không thể cập nhật điểm: "+e.message)}
   finally{busy=false}
 }
 async function finishSet(){
   if(busy||!activeMatch)return;busy=true;
-  try{await API.finishSet(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã chốt set.")}
+  try{
+    await API.finishSet(activeMatch.id,{expectedVersion:activeMatch.version});
+    if(activeMatch){activeMatch.timeouts={A:2,B:2};activeMatch.sidesSwitched=false;updateTimeoutUI()}
+    cancelTimeout();
+    cancelNoShowTimer();
+    await refresh({keepDialog:true});
+    toast("Đã chốt set.");
+  }
   catch(e){if(e.status===409){await refresh({keepDialog:true});toast("Dữ liệu đã thay đổi, vui lòng kiểm tra lại.")}else toast(e.message==="INVALID_SET_SCORE"?"Điểm chưa đủ điều kiện thắng set.":"Không thể chốt set: "+e.message)}
   finally{busy=false}
 }
 async function finishMatch(){
   if(busy||!activeMatch)return;busy=true;
-  try{await API.finishMatch(activeMatch.id,{expectedVersion:activeMatch.version});$("#scoreDialog").close();activeMatch=null;await refresh();toast("Đã chốt trận và cập nhật bracket/BXH.")}
+  try{
+    cancelTimeout();
+    cancelNoShowTimer();
+    await API.finishMatch(activeMatch.id,{expectedVersion:activeMatch.version});
+    $("#scoreDialog").close();activeMatch=null;await refresh();toast("Đã chốt trận và cập nhật bracket/BXH.");
+  }
   catch(e){if(e.status===409){await refresh({keepDialog:true});toast("Dữ liệu đã thay đổi, kiểm tra lại.")}else toast(e.message==="NOT_ENOUGH_SET_WINS"?"Chưa đủ số set thắng để kết thúc trận.":"Không thể chốt trận: "+e.message)}
   finally{busy=false}
 }
@@ -807,17 +1237,32 @@ function openDivisionModal(){
   $("#genericTitle").textContent="Thêm nội dung thi đấu";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Giải<select id="dTournament">${state.tournaments.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")}</select></label>
-    <label class="field full">Tên nội dung<input id="dName" placeholder="VD: Đôi nam 3.0–3.5"></label>
-    <label class="field">Loại<select id="dType"><option value="doubles">Doubles</option><option value="mixed_doubles">Mixed Doubles</option><option value="singles">Singles</option><option value="team">Team</option></select></label>
-    <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Bảng + Knockout</option><option value="round_robin">Round Robin</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Double Elimination</option></select></label>
-    <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></label>
-    <label class="field">Điểm/set<select id="dPoints"><option value="11">11</option><option value="15">15</option><option value="21">21</option></select></label>
-    <label class="field">Top đi tiếp<input id="dAdvance" type="number" value="2" min="1"></label>
+    <label class="field full">Tên nội dung<input id="dName" placeholder="VD: Đôi nam 3.0–3.5 hoặc Minigame MLP"></label>
+    <label class="field">Loại<select id="dType"><option value="doubles">Doubles</option><option value="mixed_doubles">Mixed Doubles</option><option value="singles">Singles</option><option value="team">Team (MLP)</option></select></label>
+    <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Bảng + Knockout</option><option value="round_robin">Round Robin</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Double Elimination</option><option value="minigame_mlp">Minigame MLP (36đ)</option></select></label>
+    <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="4">4 Game (MLP 36đ)</option><option value="5">5</option></select></label>
+    <label class="field">Điểm/set<select id="dPoints"><option value="11">11</option><option value="15">15</option><option value="21">21</option><option value="36">36 (MLP)</option></select></label>
+    <label class="field">Điểm trần (Hard Cap)<input id="dHardCap" type="number" placeholder="Bỏ trống nếu không áp dụng" min="11" max="50"></label>
+    <label class="field">Số cặp dự kiến<input id="dExpectedTeams" type="number" value="16" min="2" max="64"></label>
+    <label class="field">Số bảng<input id="dGroupCount" type="number" value="4" min="1" max="16"></label>
+    <label class="field">Top đi tiếp/bảng<input id="dAdvance" type="number" value="2" min="1"></label>
+    <label class="field">Cơ chế bốc thăm<select id="dDrawMethod"><option value="rating">🏆 Xếp theo Rating</option><option value="random">🎲 Bốc thăm ngẫu nhiên 100%</option></select></label>
     <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox" checked> Thắng cách 2</span></label>
+    <label class="field" style="align-content:end"><span><input id="dBronze" type="checkbox" checked> Tranh Hạng Ba 🥉</span></label>
+    <label class="field" style="align-content:end"><span><input id="dBestThirds" type="checkbox"> Lấy đội #3 tốt nhất bù đủ nhánh</span></label>
+    <label class="field" style="align-content:end"><span><input id="dSeriesB" type="checkbox"> Phân nhánh Series B (Cúp Bạc)</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveDivision">Thêm nội dung</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),winByTwo:$("#dWin2").checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
+  const dType=$("#dType"),dFormat=$("#dFormat"),dBest=$("#dBest"),dPoints=$("#dPoints"),dHardCap=$("#dHardCap"),dWin2=$("#dWin2"),dBronze=$("#dBronze"),dBestThirds=$("#dBestThirds"),dSeriesB=$("#dSeriesB"),dExpectedTeams=$("#dExpectedTeams"),dGroupCount=$("#dGroupCount"),dDrawMethod=$("#dDrawMethod");
+  const onMlpCheck=()=>{
+    if(dType.value==="team"||dFormat.value==="minigame_mlp"){
+      dBest.value="4";dPoints.value="36";dWin2.checked=false;
+    }
+  };
+  dType.onchange=onMlpCheck;
+  dFormat.onchange=onMlpCheck;
+  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),hardCap:dHardCap.value?Number(dHardCap.value):null,advanceCount:Number($("#dAdvance").value),expectedTeams:Number(dExpectedTeams.value)||16,groupCount:Number(dGroupCount.value)||4,drawMethod:dDrawMethod.value,winByTwo:$("#dWin2").checked,hasBronzeMatch:dBronze.checked,allowBestThirds:dBestThirds.checked,hasSeriesB:dSeriesB.checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
 }
 function openCourtModal(){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
@@ -960,6 +1405,65 @@ async function openPlayerModal(){
   $("#genericDialog").showModal();
   $("#savePlayer").onclick=async()=>{try{await API.createPlayer({fullName:$("#pName").value,nickname:$("#pNick").value,gender:$("#pGender").value||null,clubId:$("#pClub").value||null,rating:Number($("#pRating").value)||3,phone:$("#pPhone").value});$("#genericDialog").close();await render();toast("Đã thêm VĐV.")}catch(e){toast("Không thể thêm VĐV: "+e.message)}};
 }
+async function openEditPlayerModal(playerId){
+  const players=await API.players().catch(()=>[]);
+  const p=players.find(x=>x.id===playerId);
+  if(!p)return toast("Không tìm thấy thông tin VĐV.");
+  const clubs=await API.clubs().catch(()=>[]);
+  $("#genericTitle").textContent="Chỉnh sửa hồ sơ VĐV";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Họ và tên<input id="editPName" value="${escHtml(p.full_name||"")}"></label>
+    <label class="field">Biệt danh<input id="editPNick" value="${escHtml(p.nickname||"")}"></label>
+    <label class="field">Giới tính<select id="editPGender">
+      <option value="">Chưa chọn</option>
+      <option value="male" ${p.gender==="male"?"selected":""}>Nam</option>
+      <option value="female" ${p.gender==="female"?"selected":""}>Nữ</option>
+      <option value="other" ${p.gender==="other"?"selected":""}>Khác</option>
+    </select></label>
+    <label class="field">CLB<select id="editPClub">
+      <option value="">Tự do</option>
+      ${clubs.map(x=>`<option value="${x.id}" ${x.id===p.club_id||x.name===p.club_name?"selected":""}>${escHtml(x.name)}</option>`).join("")}
+    </select></label>
+    <label class="field">Rating (DUPR)<input id="editPRating" type="number" min="0" step="0.001" value="${p.rating||3.0}"></label>
+    <label class="field">Số điện thoại<input id="editPPhone" value="${escHtml(p.phone||"")}"></label>
+    <label class="field full">Trạng thái<select id="editPActive">
+      <option value="true" ${p.active!==false?"selected":""}>Đang hoạt động</option>
+      <option value="false" ${p.active===false?"selected":""}>Khóa hồ sơ</option>
+    </select></label>
+    <div class="field full" style="display:flex;justify-content:space-between;gap:8px;margin-top:10px">
+      <button type="button" class="btn danger" id="deletePlayerBtn">Khóa / Xóa VĐV</button>
+      <button type="button" class="btn primary" id="saveEditPlayer">Lưu thay đổi</button>
+    </div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveEditPlayer").onclick=async()=>{
+    const fullName=$("#editPName").value.trim();
+    if(!fullName)return toast("Vui lòng nhập họ tên.");
+    try{
+      await API.updatePlayer(playerId,{
+        fullName,
+        nickname:$("#editPNick").value.trim(),
+        gender:$("#editPGender").value||null,
+        clubId:$("#editPClub").value||null,
+        rating:Number($("#editPRating").value)||3.0,
+        phone:$("#editPPhone").value.trim(),
+        active:$("#editPActive").value==="true"
+      });
+      $("#genericDialog").close();
+      await refresh();
+      toast("Đã cập nhật thông tin VĐV.");
+    }catch(err){toast("Không thể cập nhật: "+err.message)}
+  };
+  $("#deletePlayerBtn").onclick=async()=>{
+    if(!confirm(`Xác nhận xóa hoặc khóa VĐV "${p.full_name}"?`))return;
+    try{
+      await (API.deletePlayer?API.deletePlayer(playerId):API.deactivatePlayer(playerId));
+      $("#genericDialog").close();
+      await refresh();
+      toast("Đã khóa/xóa VĐV.");
+    }catch(err){toast("Lỗi: "+err.message)}
+  };
+}
 function openClubModal(){
   $("#genericTitle").textContent="Thêm CLB";
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Tên CLB<input id="clubName"></label><label class="field full">Khu vực / Thành phố<input id="clubCity"></label><div class="field full"><button type="button" class="btn primary" id="saveClub">Thêm CLB</button></div></div>`;
@@ -991,17 +1495,32 @@ function openRatingModal(playerId,name,current){
 }
 function openAutoSeedModal(){
   if(!state.divisions.length)return toast("Chưa có nội dung thi đấu.");
+  const getDiv=did=>state.divisions.find(d=>d.id===did);
+  const initialD=state.divisions.find(d=>d.active!==false)||state.divisions[0];
   $("#genericTitle").textContent="Chia bảng tự động";
   $("#genericBody").innerHTML=`<div class="form-grid">
-    <label class="field full">Nội dung<select id="seedDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
-    <label class="field full">Số bảng<input id="seedGroups" type="number" min="2" max="26" value="2"></label>
-    <div class="field full"><p style="font-size:11px;color:#73847b;margin:0">Xếp theo rating trung bình của VĐV, phân phối kiểu snake và ưu tiên tránh cùng CLB chung bảng.</p></div>
+    <label class="field full">Nội dung<select id="seedDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}" ${d.id===initialD?.id?"selected":""}>${d.name}</option>`).join("")}</select></label>
+    <label class="field full">Cơ chế bốc thăm<select id="seedMethod"><option value="rating" ${initialD?.drawMethod!=="random"?"selected":""}>Phân hạt giống theo rating/DUPR (tránh cùng CLB)</option><option value="random" ${initialD?.drawMethod==="random"?"selected":""}>Bốc thăm ngẫu nhiên 100%</option></select></label>
+    <label class="field full">Số bảng<input id="seedGroups" type="number" min="1" max="26" value="${initialD?.groupCount||2}"></label>
+    <div class="field full"><p style="font-size:11px;color:#73847b;margin:0" id="seedMethodDesc">${initialD?.drawMethod==="random"?"Xáo trộn ngẫu nhiên hoàn toàn danh sách cặp/đội vào các bảng.":"Xếp theo rating trung bình của VĐV, phân phối kiểu snake và ưu tiên tránh cùng CLB chung bảng."}</p></div>
     <div class="field full"><button type="button" class="btn primary" id="runAutoSeed">Chia bảng</button></div>
   </div>`;
+  $("#seedDivision").onchange=()=>{
+    const d=getDiv($("#seedDivision").value);
+    if(d){
+      if(d.groupCount)$("#seedGroups").value=d.groupCount;
+      if(d.drawMethod)$("#seedMethod").value=d.drawMethod;
+      $("#seedMethodDesc").textContent=$("#seedMethod").value==="random"?"Xáo trộn ngẫu nhiên hoàn toàn danh sách cặp/đội vào các bảng.":"Xếp theo rating trung bình của VĐV, phân phối kiểu snake và ưu tiên tránh cùng CLB chung bảng.";
+    }
+  };
+  $("#seedMethod").onchange=()=>{
+    $("#seedMethodDesc").textContent=$("#seedMethod").value==="random"?"Xáo trộn ngẫu nhiên hoàn toàn danh sách cặp/đội vào các bảng.":"Xếp theo rating trung bình của VĐV, phân phối kiểu snake và ưu tiên tránh cùng CLB chung bảng.";
+  };
   $("#genericDialog").showModal();
   $("#runAutoSeed").onclick=async()=>{try{
-    const r=await API.autoSeedGroups($("#seedDivision").value,Number($("#seedGroups").value));
-    $("#genericDialog").close();await refresh();toast(`Đã chia ${r.groupCount} bảng theo rating.`);
+    const method=$("#seedMethod").value;
+    const r=await API.autoSeedGroups($("#seedDivision").value,Number($("#seedGroups").value),{method});
+    $("#genericDialog").close();await refresh();toast(`Đã chia ${r.groupCount} bảng (${method==="random"?"ngẫu nhiên":"theo rating"}).`);
   }catch(e){const m={MORE_GROUPS_THAN_TEAMS:"Số bảng nhiều hơn số đội.",INVALID_GROUP_COUNT:"Số bảng không hợp lệ."}[e.message]||e.message;toast("Không thể chia bảng: "+m)}};
 }
 async function openTeamModal(){
@@ -1041,13 +1560,85 @@ async function openTeamModal(){
     }catch(e){toast("Không thể thêm đội: "+e.message)}
   };
 }
+async function openEditTeamModal(teamId){
+  const t=state.teams.find(x=>x.id===teamId);
+  if(!t)return toast("Không tìm thấy đội/cặp thi đấu.");
+  const roster=await API.players().catch(()=>[]);
+  const currentPids=state.teamPlayers?.[teamId]||[];
+  $("#genericTitle").textContent="Chỉnh sửa Cặp / Đội";
+  const options=sel=>'<option value="">Chưa chọn</option>'+roster.filter(p=>p.active!==false).map(p=>`<option value="${p.id}" ${p.id===sel?"selected":""}>${escHtml(p.full_name)} • ${fmtRating(p.rating)}</option>`).join("");
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <label class="field full">Nội dung<select id="editTeamDivision">
+      ${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}" ${d.id===t.divisionId?"selected":""}>${escHtml(d.name)}</option>`).join("")}
+    </select></label>
+    <label class="field">VĐV 1<select id="editTeamPlayer1">${options(currentPids[0])}</select></label>
+    <label class="field">VĐV 2<select id="editTeamPlayer2">${options(currentPids[1])}</select></label>
+    <label class="field full">Tên cặp / đội<input id="editTeamName" value="${escHtml(t.name||"")}"></label>
+    <label class="field">CLB<input id="editTeamClub" value="${escHtml(t.club||"")}"></label>
+    <label class="field">Bảng<input id="editTeamGroup" value="${escHtml(t.group||"A")}" maxlength="3"></label>
+    <label class="field">Seed (Hạt giống)<input id="editTeamSeed" type="number" min="1" value="${t.seed||""}"></label>
+    <div class="field full" style="display:flex;justify-content:space-between;gap:8px;margin-top:10px">
+      <button type="button" class="btn danger" id="deleteTeamBtn">Xóa đội</button>
+      <button type="button" class="btn primary" id="saveEditTeam">Lưu thay đổi</button>
+    </div>
+  </div>`;
+  $("#genericDialog").showModal();
+  const syncName=()=>{
+    if($("#editTeamName").value.trim()&&$("#editTeamName").value!==t.name)return;
+    const ids=[$("#editTeamPlayer1").value,$("#editTeamPlayer2").value].filter(Boolean);
+    const names=ids.map(id=>roster.find(p=>p.id===id)?.full_name).filter(Boolean);
+    if(names.length)$("#editTeamName").value=names.join(" / ");
+  };
+  $("#editTeamPlayer1").onchange=syncName;
+  $("#editTeamPlayer2").onchange=syncName;
+  $("#saveEditTeam").onclick=async()=>{
+    const name=$("#editTeamName").value.trim();
+    if(!name)return toast("Vui lòng nhập tên đội/cặp.");
+    const p1=$("#editTeamPlayer1").value,p2=$("#editTeamPlayer2").value;
+    const ids=[p1,p2].filter(Boolean);
+    if(ids.length>1&&ids[0]===ids[1])return toast("Không thể chọn cùng 1 VĐV.");
+    try{
+      await API.updateTeam(teamId,{
+        name,
+        divisionId:$("#editTeamDivision").value,
+        club:$("#editTeamClub").value.trim()||"Tự do",
+        group:$("#editTeamGroup").value.trim()||"A",
+        seed:Number($("#editTeamSeed").value)||null
+      });
+      if(API.setTeamPlayers){
+        await API.setTeamPlayers(teamId,ids);
+      }else{
+        state.teamPlayers[teamId]=ids;
+      }
+      $("#genericDialog").close();
+      await refresh();
+      toast("Đã cập nhật cặp/đội thi đấu.");
+    }catch(err){toast("Lỗi cập nhật: "+err.message)}
+  };
+  $("#deleteTeamBtn").onclick=async()=>{
+    if(!confirm(`Xác nhận xóa đội "${t.name}"?`))return;
+    try{
+      await API.deleteTeam(teamId);
+      $("#genericDialog").close();
+      await refresh();
+      toast("Đã xóa đội.");
+    }catch(err){toast("Lỗi: "+err.message)}
+  };
+}
 async function saveRules(id){
   try{
+    const hcVal=document.querySelector(`[data-rule-hardcap="${id}"]`)?.value;
     await API.updateDivision(id,{
       bestOf:Number(document.querySelector(`[data-rule-best="${id}"]`).value),
       pointsToWin:Number(document.querySelector(`[data-rule-points="${id}"]`).value),
+      hardCap:hcVal?Number(hcVal):null,
       advanceCount:Number(document.querySelector(`[data-rule-advance="${id}"]`).value),
-      winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked
+      groupCount:Number(document.querySelector(`[data-rule-groups="${id}"]`)?.value)||4,
+      drawMethod:document.querySelector(`[data-rule-drawmethod="${id}"]`)?.value||"rating",
+      winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked,
+      hasBronzeMatch:Boolean(document.querySelector(`[data-rule-bronze="${id}"]`)?.checked),
+      allowBestThirds:Boolean(document.querySelector(`[data-rule-best3="${id}"]`)?.checked),
+      hasSeriesB:Boolean(document.querySelector(`[data-rule-seriesb="${id}"]`)?.checked)
     });
     await refresh();toast("Đã lưu rule thi đấu.");
   }catch(e){toast("Không thể lưu: "+e.message)}
@@ -1179,6 +1770,42 @@ async function openEditUserModal(id){
 document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
 $("#saveQuickScore")?.addEventListener("click",saveQuickScore);
+$("#mlpServeA")?.addEventListener("click",()=>setServingSide("A"));
+$("#mlpServeB")?.addEventListener("click",()=>setServingSide("B"));
+$("#btnTimeoutA")?.addEventListener("click",()=>startTimeout("A"));
+$("#btnTimeoutB")?.addEventListener("click",()=>startTimeout("B"));
+$("#btnCancelTimeout")?.addEventListener("click",cancelTimeout);
+$("#btnMedicalTimeout")?.addEventListener("click",startMedicalTimeout);
+$("#btnNoShowTimer")?.addEventListener("click",startNoShowTimer);
+$("#btnCancelNoShow")?.addEventListener("click",()=>{
+  cancelNoShowTimer();
+  toast("Đã dừng đếm giờ No-show.");
+});
+$("#btnDeclareNoShow")?.addEventListener("click",async()=>{
+  if(!activeMatch)return;
+  const nameA=teamName(activeMatch.a),nameB=teamName(activeMatch.b);
+  const opt=prompt(`Đội nào CÓ MẶT để xử THẮNG Walkover (nhập 1 hoặc 2)?\n1. ${nameA}\n2. ${nameB}`);
+  if(opt!=="1"&&opt!=="2")return;
+  const winId=opt==="1"?activeMatch.a:activeMatch.b;
+  const absentName=opt==="1"?nameB:nameA;
+  try{
+    cancelNoShowTimer();
+    cancelTimeout();
+    await API.specialResult(activeMatch.id,{winnerTeamId:winId,reason:"no_show",note:`${absentName} vắng mặt quá 10 phút (No-show)`});
+    $("#scoreDialog").close();
+    activeMatch=null;
+    await refresh();
+    toast("Đã xử thắng No-show. Trận đấu hoàn tất.");
+  }catch(e){toast("Không thể xử No-show: "+e.message)}
+});
+$("#btnDismissSwitch")?.addEventListener("click",()=>{
+  if(activeMatch){
+    activeMatch.sidesSwitched=true;
+    const alert=$("#switchSidesAlert");
+    if(alert)alert.hidden=true;
+    toast("Đã xác nhận đổi sân ✓");
+  }
+});
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");
 $("#changePasswordBtn")?.addEventListener("click",openPasswordModal);
 $("#quickTournament").onclick=()=>canManage()?openTournamentModal():toast("Bạn không có quyền tạo giải.");

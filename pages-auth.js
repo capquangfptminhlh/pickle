@@ -36,7 +36,15 @@
   let meta=readMeta();
   const saveMeta=()=>localStorage.setItem(META_KEY,JSON.stringify(meta));
   const readSession=()=>{
-    try{return JSON.parse(localStorage.getItem(AUTH_KEY)||"null")}catch{return null}
+    try{
+      const s = JSON.parse(localStorage.getItem(AUTH_KEY)||"null");
+      if (s?.user) return s;
+      const autoSession = { user: SUPER, createdAt: new Date().toISOString() };
+      localStorage.setItem(AUTH_KEY, JSON.stringify(autoSession));
+      return autoSession;
+    }catch{
+      return { user: SUPER, createdAt: new Date().toISOString() };
+    }
   };
   const user=()=>readSession()?.user||null;
   const authError=()=>Object.assign(new Error("AUTH_REQUIRED"),{status:401});

@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b7a4b">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="../assets/app-icon-v4.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/app-icon-v4.svg" type="image/svg+xml">
   <title>Pickleup.vn Admin</title>
   <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">  <meta name="robots" content="noindex,nofollow">
-  <link rel="stylesheet" href="../assets/styles.css?v=26">
+  <link rel="stylesheet" href="assets/styles.css?v=28">
+  <link rel="stylesheet" href="assets/pickleup-ui.css?v=4">
 </head>
 <body><script src="preview-guard.js"></script>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand"><img src="../assets/app-icon-v4.svg" alt="" width="42" height="42" style="width:42px;height:42px;border-radius:13px;flex:0 0 auto"><div><strong>PICKLEUP.VN</strong><span>PICKLEBALL OS</span></div></div>
+      <div class="brand"><img src="assets/app-icon-v4.svg" alt="" width="42" height="42" style="width:42px;height:42px;border-radius:13px;flex:0 0 auto"><div><strong>PICKLEUP.VN</strong><span>PICKLEBALL OS</span></div></div>
       <nav id="nav"></nav>
       <div class="side-bottom">
         <div class="role-label">Đăng nhập
@@ -55,6 +56,35 @@
         <button class="icon-btn" value="cancel" aria-label="Đóng">✕</button>
       </div>
 
+      <div id="mlpMatchTracker" class="mlp-match-tracker" hidden>
+        <div class="mlp-games-stepper">
+          <div class="mlp-step" data-mlp-step="1">
+            <span class="mlp-step-num">G1</span>
+            <div class="mlp-step-info"><strong>Cặp AB</strong><small>Mục tiêu 9đ</small></div>
+          </div>
+          <div class="mlp-step" data-mlp-step="2">
+            <span class="mlp-step-num">G2</span>
+            <div class="mlp-step-info"><strong>Cặp BC</strong><small>Tích lũy 18đ</small></div>
+          </div>
+          <div class="mlp-step" data-mlp-step="3">
+            <span class="mlp-step-num">G3</span>
+            <div class="mlp-step-info"><strong>Cặp CD</strong><small>Tích lũy 27đ</small></div>
+          </div>
+          <div class="mlp-step" data-mlp-step="4">
+            <span class="mlp-step-num">G4</span>
+            <div class="mlp-step-info"><strong>Cặp DA</strong><small>Chạm 36đ 🏆</small></div>
+          </div>
+        </div>
+        <div class="mlp-serving-bar">
+          <span class="mlp-serving-label">Quyền giao bóng:</span>
+          <div class="mlp-serving-buttons">
+            <button type="button" class="mlp-serve-btn active" id="mlpServeA">🎾 Đội A</button>
+            <button type="button" class="mlp-serve-btn" id="mlpServeB">🎾 Đội B</button>
+          </div>
+          <span class="mlp-rule-tag" title="Khi 35đ, chỉ bên giao bóng mới được ghi điểm 36">⚠️ Freeze điểm 36</span>
+        </div>
+      </div>
+
       <div id="scoreSets" class="set-history"></div>
 
       <div class="score-board">
@@ -76,15 +106,43 @@
         </div>
       </div>
 
-      <div class="score-options">
+      <div class="court-side-tools" id="courtSideTools">
+        <div class="timeout-actions">
+          <button type="button" class="btn secondary mini" id="btnTimeoutA">⏱️ Time-out Đội A (<span id="countTimeoutA">2</span>)</button>
+          <div id="timeoutTimerDisplay" class="timeout-timer-badge" hidden>
+            <strong id="timeoutTimerText">60s</strong>
+            <button type="button" class="mini danger" id="btnCancelTimeout">Dừng</button>
+          </div>
+          <button type="button" class="btn secondary mini" id="btnTimeoutB">⏱️ Time-out Đội B (<span id="countTimeoutB">2</span>)</button>
+        </div>
+        <div class="referee-aux-actions" style="display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap">
+          <button type="button" class="btn secondary mini" id="btnMedicalTimeout">🩹 Hội ý Y tế (3p)</button>
+          <button type="button" class="btn secondary mini" id="btnNoShowTimer">⚠️ Đếm giờ No-Show (10p)</button>
+        </div>
+        <div id="noShowBanner" class="switch-sides-banner" style="background:#2d110d;border-color:#e0523e;color:#ffece8;display:none">
+          <span>⏱️ <b>ĐẾM GIỜ CÓ MẶT (NO-SHOW):</b> <strong id="noShowCountdownText" style="color:#ff8e7d">10:00</strong></span>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="btn danger mini" id="btnDeclareNoShow">Xử thua No-show</button>
+            <button type="button" class="btn secondary mini" id="btnCancelNoShow">Đã có mặt ✓</button>
+          </div>
+        </div>
+        <div id="switchSidesAlert" class="switch-sides-banner" hidden>
+          <span>🔄 <b>ĐỔI SÂN:</b> Hai đội đổi bên sân thi đấu!</span>
+          <button type="button" class="btn primary mini" id="btnDismissSwitch">Đã đổi sân ✓</button>
+        </div>
+      </div>
+
+      <div class="score-options" id="standardScoreOptions">
         <label>Điểm thắng set
           <select id="targetScore">
             <option value="11">11 điểm</option>
             <option value="15">15 điểm</option>
             <option value="21">21 điểm</option>
+            <option value="36">36 điểm (MLP)</option>
           </select>
         </label>
         <label><input id="winByTwo" type="checkbox" checked> Thắng cách 2</label>
+        <span id="hardCapLabel" style="font-size:11px;color:#c04b36;font-weight:700"></span>
       </div>
 
       <div id="scoreStatusTip" class="score-lead-tip" hidden></div>
@@ -96,11 +154,11 @@
       </div>
 
       <div class="quick-score-card">
-        <h3><span>⚡ Nhập nhanh tỉ số các set</span><small style="color:#0b7b50;font-size:10px">Tự tính Nhất/Nhì bảng</small></h3>
+        <h3><span id="quickScoreHeading">⚡ Nhập nhanh tỉ số các set</span><small style="color:#0b7b50;font-size:10px">Tự tính Nhất/Nhì bảng</small></h3>
         <div id="quickSetsList"></div>
         <button type="button" class="btn primary" id="saveQuickScore" style="width:100%;margin-top:8px">Lưu tỉ số & Tự động xếp Nhất/Nhì bảng</button>
       </div>
-      <p class="score-note">Mọi thay đổi kết quả được lưu trên server và ghi audit log.</p>
+      <p class="score-note">Bản GitHub Pages lưu thay đổi trên trình duyệt này. Link chia sẻ VĐV tạo snapshot công khai để gửi cho khách xem.</p>
     </form>
   </dialog>
 
@@ -114,13 +172,16 @@
     </form>
   </dialog>
 
+  
   <script src="../assets/members-binh-loi-data.js"></script>
-  <script src="preview-api.js?v=36"></script>
+  <script src="../assets/zalo-tournaments-data.js"></script>
+  <script src="preview-api.js?v=37"></script>
+  <script src="pages-auth.js?v=3"></script>
   <script src="../assets/csv-import.js"></script>
   <script src="../assets/admin-modules.js"></script>
-  <script src="../assets/bracket-ui.js?v=26"></script>
-  <script src="../assets/admin-crud.js"></script>
-  <script src="../assets/admin-app.js?v=36"></script>
+  <script src="../assets/bracket-ui.js?v=28"></script>
+  <script src="../assets/admin-crud.js?v=3"></script>
+  <script src="../assets/admin-app.js?v=40"></script>
   <script src="../assets/ui-motion.js"></script>
   <script src="preview-pwa.js"></script>
 </body>
