@@ -65,11 +65,24 @@ assert(afterInvalidImport.players.length===beforeInvalidImport.players.length,"t
 assert(afterInvalidImport.teams.length===beforeInvalidImport.teams.length,"invalid team import is atomic");
 
 const teamA=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI A "+stamp,clubId:club.id,group:"A",seed:1,playerIds:[player.id,playerB.id]}})).data;
+let adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+assert((adminState.teamPlayers[teamA.id]||[]).length===2,"team creation links registry players atomically");
+const duplicateSelection=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Duplicate "+stamp,playerIds:[playerC.id,playerC.id]},ok:[400]})).data;
+assert(duplicateSelection.error==="DUPLICATE_PLAYER_SELECTION","duplicate player selection rejected");
+const invalidCount=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Wrong Count "+stamp,playerIds:[playerC.id]},ok:[400]})).data;
+assert(invalidCount.error==="INVALID_PLAYER_COUNT","doubles requires two players");
+const assignedSelection=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Assigned "+stamp,playerIds:[player.id,playerB.id]},ok:[409]})).data;
+assert(assignedSelection.error==="PLAYER_ALREADY_IN_DIVISION","same-division player reuse rejected");
+const inactivePlayer=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Inactive "+stamp,rating:3}})).data;
+const sparePlayer=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Spare "+stamp,rating:3}})).data;
+await raw("/api/players/"+inactivePlayer.id,{method:"DELETE",cookie:admin.cookie});
+const inactiveSelection=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Inactive Pair "+stamp,playerIds:[inactivePlayer.id,sparePlayer.id]},ok:[400]})).data;
+assert(inactiveSelection.error==="PLAYER_INACTIVE","inactive player rejected");
 const teamB=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI B "+stamp,group:"A",seed:2,playerIds:[playerC.id,playerD.id]}})).data;
 await raw("/api/teams/"+teamB.id,{method:"PATCH",cookie:admin.cookie,body:{group:"B",seed:2,status:"active"}});
 
 const match=(await raw("/api/divisions/"+did+"/matches",{method:"POST",cookie:admin.cookie,body:{teamAId:teamA.id,teamBId:teamB.id,courtId:court.id,stage:"CI Round"}})).data;
-let adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
 let view=adminState.matches.find(x=>x.id===match.id);
 assert(view&&view.version,"match visible");
 await raw("/api/matches/"+match.id+"/assignment",{method:"PATCH",cookie:admin.cookie,body:{courtId:null,refereeUserId:null}});
@@ -99,7 +112,9 @@ const single=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cook
 const wrongDivisionRegistration=(await raw("/api/divisions/"+single.id+"/registrations",{method:"POST",cookie:admin.cookie,body:{teamId:teamA.id,amount:1000},ok:[400]})).data;
 assert(wrongDivisionRegistration.error==="TEAM_DIVISION_MISMATCH","registration rejects team from another division");
 const seTeams=[];
-for(let i=1;i<=5;i++)seTeams.push((await raw("/api/divisions/"+single.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI SE "+i+" "+stamp,seed:i}})).data);
+const bracketPlayers=[player,playerB,playerC,playerD,sparePlayer];
+for(let i=bracketPlayers.length;i<10;i++)bracketPlayers.push((await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Bracket Player "+i+" "+stamp,rating:3+i/100}})).data);
+for(let i=1;i<=5;i++)seTeams.push((await raw("/api/divisions/"+single.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI SE "+i+" "+stamp,seed:i,playerIds:bracketPlayers.slice((i-1)*2,i*2).map(p=>p.id)}})).data);
 const seBracket=(await raw("/api/divisions/"+single.id+"/generate-bracket",{method:"POST",cookie:admin.cookie,body:{}})).data;
 assert(seBracket.bracketSize===8&&seBracket.created===7,"single elimination bracket with byes");
 adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
@@ -107,7 +122,7 @@ assert(adminState.matches.some(m=>m.divisionId===single.id&&m.resultReason==="by
 
 const de=(await raw("/api/tournaments/"+tid+"/divisions",{method:"POST",cookie:admin.cookie,body:{name:"CI Double Elim",eventType:"doubles",format:"double_elimination",bestOf:3,pointsToWin:11,advanceCount:1}})).data;
 const deTeams=[];
-for(let i=1;i<=4;i++)deTeams.push((await raw("/api/divisions/"+de.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI DE "+i+" "+stamp,seed:i}})).data);
+for(let i=1;i<=4;i++)deTeams.push((await raw("/api/divisions/"+de.id+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI DE "+i+" "+stamp,seed:i,playerIds:bracketPlayers.slice((i-1)*2,i*2).map(p=>p.id)}})).data);
 const deBracket=(await raw("/api/divisions/"+de.id+"/generate-bracket",{method:"POST",cookie:admin.cookie,body:{}})).data;
 assert(deBracket.created===6,"double elimination 4-team bracket");
 adminState=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
@@ -182,7 +197,8 @@ await raw("/api/registrations/"+reg.id+"/checkin",{method:"POST",cookie:ref.cook
 // Delegated role boundaries.
 const scopeClub=(await raw("/api/clubs",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Club "+stamp,city:"HCMC"}})).data;
 const scopePlayer=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Scope Player "+stamp,rating:3.2,clubId:scopeClub.id}})).data;
-const scopeTeam=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Team "+stamp,clubId:scopeClub.id,group:"C",seed:3}})).data;
+const scopePartner=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Scope Partner "+stamp,rating:3.1,clubId:scopeClub.id}})).data;
+const scopeTeam=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI Scope Team "+stamp,clubId:scopeClub.id,group:"C",seed:3,playerIds:[scopePlayer.id,scopePartner.id]}})).data;
 const scopeReg=(await raw("/api/divisions/"+did+"/registrations",{method:"POST",cookie:admin.cookie,body:{teamId:scopeTeam.id,amount:900000}})).data;
 
 const managerMail="ci-manager-"+stamp+"@pickle.test";

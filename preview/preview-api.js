@@ -379,7 +379,18 @@
     createCourt:async(tid,p)=>{const x={id:uid(),tournamentId:tid,name:p.name,sortOrder:state.courts.filter(c=>c.tournamentId===tid).length+1,active:true};state.courts.push(x);persist();return clone(x)},
     updateCourt:async(id,p)=>{Object.assign(state.courts.find(x=>x.id===id),p);persist();return {}},
     deleteCourt:async id=>{const x=state.courts.find(c=>c.id===id);const used=state.matches.some(m=>m.courtId===id)||state.bookings.some(b=>b.court_id===id);if(used){x.active=false;persist();return {mode:"archived",entity:clone(x)}}state.courts=state.courts.filter(c=>c.id!==id);persist();return {mode:"deleted"}},
-    createTeam:async(did,p)=>{const id=uid();const club=state.clubs.find(c=>c.id===p.clubId);const t={id,divisionId:did,name:p.name,club:club?.name||p.club||"Tự do",clubId:p.clubId||club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};state.teams.push(t);state.teamPlayers[id]=[];persist();return clone(t)},
+    createTeam:async(did,p)=>{
+      const division=state.divisions.find(d=>d.id===did);if(!division)throw new Error("NOT_FOUND");
+      const playerIds=validatePreviewPlayerIds(division.eventType,p.playerIds);
+      const selected=playerIds.map(id=>state.players.find(player=>player.id===id));
+      if(selected.some(player=>!player))throw new Error("PLAYER_NOT_FOUND");
+      if(selected.some(player=>player.active===false))throw new Error("PLAYER_INACTIVE");
+      const used=new Set(state.teams.filter(team=>team.divisionId===did).flatMap(team=>state.teamPlayers[team.id]||[]));
+      if(playerIds.some(id=>used.has(id)))throw new Error("PLAYER_ALREADY_IN_DIVISION");
+      const id=uid(),club=state.clubs.find(c=>c.id===p.clubId);
+      const t={id,divisionId:did,name:p.name,club:club?.name||p.club||"Tự do",clubId:p.clubId||club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};
+      state.teams.push(t);state.teamPlayers[id]=[...playerIds];persist();return clone({...t,playerIds});
+    },
     updateTeam:async(id,p)=>{const t=state.teams.find(x=>x.id===id);const club=state.clubs.find(c=>c.id===p.clubId);Object.assign(t,{name:p.name??t.name,clubId:p.clubId===undefined?t.clubId:(p.clubId||null),club:p.clubId===undefined?t.club:(club?.name||"Tự do"),group:p.group??t.group,seed:p.seed??t.seed,status:p.status??t.status});persist();return clone(t)},
     deleteTeam:async id=>{const t=state.teams.find(x=>x.id===id);const used=state.matches.some(m=>m.a===id||m.b===id)||state.registrations.some(r=>r.team_name===t?.name);if(used){t.status="withdrawn";persist();return {mode:"withdrawn",entity:clone(t)}}state.teams=state.teams.filter(x=>x.id!==id);delete state.teamPlayers[id];persist();return {mode:"deleted"}},
     updateDivision:async(id,p)=>{Object.assign(state.divisions.find(x=>x.id===id),p);persist();return {}},
@@ -485,7 +496,16 @@
     createClubTransaction:async p=>{const x={id:uid(),club_id:p.clubId,direction:p.direction,category:p.category||"other",amount:Number(p.amount)||0,note:p.note||"",occurred_at:p.occurredAt||new Date().toISOString(),created_by_name:"Quản trị viên"};state.clubTransactions.unshift(x);persist();return clone(x)},
     bookings:async()=>clone(state.bookings),createBooking:async p=>{const court=state.courts.find(c=>c.id===p.courtId),tournament=state.tournaments.find(t=>t.id===court?.tournamentId);const x={id:uid(),court_id:p.courtId,court_name:court?.name||"Sân",tournament_name:tournament?.name||"",title:p.title,contact_name:p.contactName,contact_phone:p.contactPhone,start_at:p.startAt,end_at:p.endAt,status:"confirmed",notes:p.notes};state.bookings.unshift(x);persist();return clone(x)},updateBooking:async(id,p)=>{Object.assign(state.bookings.find(x=>x.id===id),p);persist();return {}},deleteBooking:async id=>{const x=state.bookings.find(v=>v.id===id);x.status="cancelled";persist();return {mode:"cancelled",entity:clone(x)}},
     reportOverview:async()=>{const income=state.clubTransactions.filter(x=>x.direction==="income").reduce((a,x)=>a+Number(x.amount||0),0),expense=state.clubTransactions.filter(x=>x.direction==="expense").reduce((a,x)=>a+Number(x.amount||0),0),today=new Date().toDateString();return {players:state.players.filter(p=>p.active!==false).length,members:state.players.filter(p=>p.active!==false).length,registrations:state.registrations.length,checked_in:state.registrations.filter(r=>r.checked_in_at).length,paid_count:state.registrations.filter(r=>r.payment_status==="paid").length,revenue:state.registrations.filter(r=>r.payment_status==="paid").reduce((a,r)=>a+Number(r.amount||0),0),matches:state.matches.length,live:state.matches.filter(m=>m.status==="live").length,completed:state.matches.filter(m=>m.status==="done").length,attendanceToday:Object.values(state.clubAttendance).flat().filter(a=>a.status==="attended"&&a.checked_in_at&&new Date(a.checked_in_at).toDateString()===today).length,upcomingActivities:state.clubEvents.filter(e=>e.status!=="cancelled"&&new Date(e.start_at)>=new Date()).length,clubIncome:income,clubExpense:expense,clubBalance:income-expense}},
-    addTeamPlayer:async(teamId,playerId)=>{const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("NOT_FOUND");const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(!arr.includes(playerId))arr.push(playerId);persist();return {ok:true}}
+    addTeamPlayer:async(teamId,playerId)=>{
+      const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("PLAYER_NOT_FOUND");
+      if(player.active===false)throw new Error("PLAYER_INACTIVE");
+      const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(arr.includes(playerId))return {ok:true};
+      const division=state.divisions.find(d=>d.id===team.divisionId);
+      const used=state.teams.filter(t=>t.divisionId===team.divisionId&&t.id!==teamId).some(t=>(state.teamPlayers[t.id]||[]).includes(playerId));
+      if(used)throw new Error("PLAYER_ALREADY_IN_DIVISION");
+      if(arr.length>=playerCountRange(division?.eventType).max)throw new Error("INVALID_PLAYER_COUNT");
+      arr.push(playerId);persist();return {ok:true};
+    }
   };
   window.PickleAPI=api;
   window.io=()=>({on:(event,cb)=>window.addEventListener("pickle-preview-update",e=>{if(event==="public:state"||event==="match:update")cb(clone(e.detail))})});

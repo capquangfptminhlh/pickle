@@ -223,7 +223,16 @@ await ppage.evaluate(async()=>{
   const event=await window.PickleAPI.createClubEvent({clubId:club.id,title:"UI Social",eventType:"social",venue:"UI Court",startAt:new Date(Date.now()+3600000).toISOString(),endAt:new Date(Date.now()+7200000).toISOString()});
   await window.PickleAPI.addClubAttendance(event.id,player.id);
   await window.PickleAPI.createClubTransaction({clubId:club.id,direction:"income",category:"membership",amount:100000,note:"UI test"});
+  try{await window.PickleAPI.createTeam(did,{name:"Duplicate UI",playerIds:[player.id,player.id]});throw new Error("duplicate player selection accepted")}
+  catch(error){if(error.message!=="DUPLICATE_PLAYER_SELECTION")throw error}
+  const inactive=await window.PickleAPI.createPlayer({fullName:"Inactive UI Player",rating:3});
+  const spare=await window.PickleAPI.createPlayer({fullName:"Spare UI Player",rating:3});
+  await window.PickleAPI.deactivatePlayer(inactive.id);
+  try{await window.PickleAPI.createTeam(did,{name:"Inactive UI",playerIds:[inactive.id,spare.id]});throw new Error("inactive player accepted")}
+  catch(error){if(error.message!=="PLAYER_INACTIVE")throw error}
   const a=await window.PickleAPI.createTeam(did,{name:"UI Team A",group:"A",seed:1,playerIds:[player.id,playerB.id]});
+  try{await window.PickleAPI.createTeam(did,{name:"Assigned UI",playerIds:[player.id,playerB.id]});throw new Error("assigned player accepted")}
+  catch(error){if(error.message!=="PLAYER_ALREADY_IN_DIVISION")throw error}
   const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2,playerIds:[playerC.id,playerD.id]});
   await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
 });
@@ -235,7 +244,11 @@ const draw16=await ppage.evaluate(async()=>{
   await window.PickleAPI.updateDivisionFull(did,{name:"Đôi 16 cặp",eventType:"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true});
   for(let i=1;i<=4;i++)await window.PickleAPI.createCourt(tid,{name:"Sân "+i});
   const teams=[];
-  for(let i=1;i<=16;i++)teams.push(await window.PickleAPI.createTeam(did,{name:"Cặp "+String(i).padStart(2,"0"),group:"A",seed:i}));
+  for(let i=1;i<=16;i++){
+    const p1=await window.PickleAPI.createPlayer({fullName:"Draw Player "+String(i*2-1).padStart(2,"0"),rating:3});
+    const p2=await window.PickleAPI.createPlayer({fullName:"Draw Player "+String(i*2).padStart(2,"0"),rating:3});
+    teams.push(await window.PickleAPI.createTeam(did,{name:"Cặp "+String(i).padStart(2,"0"),group:"A",seed:i,playerIds:[p1.id,p2.id]}));
+  }
   const draw=await window.PickleAPI.autoSeedGroups(did,4);
   const rr=await window.PickleAPI.generateRoundRobin(did);
   let state=await window.PickleAPI.adminState();
