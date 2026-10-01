@@ -89,11 +89,11 @@ jobs:
       - name: Apply D1 migrations
         working-directory: cloudflare
         run: npx wrangler d1 migrations apply DB --remote
-      - name: Check whether bootstrap admin exists
+      - name: Check whether an active super admin exists
         id: admin_state
         working-directory: cloudflare
         run: |
-          if npx wrangler d1 execute DB --remote --command "SELECT email FROM app_users WHERE lower(email)=lower('admin@pickleup.vn') LIMIT 1" --json | grep -qi 'admin@pickleup.vn'; then
+          if npx wrangler d1 execute DB --remote --command "SELECT role FROM app_users WHERE role='super_admin' AND active=1 LIMIT 1" --json | grep -q 'super_admin'; then
             echo "needs_bootstrap=false" >> "$GITHUB_OUTPUT"
           else
             echo "needs_bootstrap=true" >> "$GITHUB_OUTPUT"
