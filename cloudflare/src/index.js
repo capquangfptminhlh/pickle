@@ -97,6 +97,25 @@ async function nextUniqueSlug(env,table,name){
 async function requireAdminRole(user,...roles){
   if(!requireRole(user,...roles))throw httpError("FORBIDDEN",403);
 }
+async function validateDivisionRoster(env,divisionId,playerIds,{currentTeamId=null}={}){
+  const d=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",divisionId);
+  if(!d)throw httpError("DIVISION_NOT_FOUND",404);
+  let ids;
+  try{ids=validatePlayerIds(d.event_type,playerIds)}catch(error){throw httpError(error.message,400)}
+  const players=[];
+  for(const id of ids){
+    const p=await one(env,"SELECT * FROM players WHERE id=?",id);
+    if(!p)throw httpError("PLAYER_NOT_FOUND",404);
+    if(!p.active)throw httpError("PLAYER_INACTIVE",400);
+    const duplicate=await one(env,
+      "SELECT t.id FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE tp.player_id=? AND t.division_id=? AND t.status<>'withdrawn' AND (? IS NULL OR t.id<>?) LIMIT 1",
+      id,divisionId,currentTeamId,currentTeamId
+    );
+    if(duplicate)throw httpError("PLAYER_ALREADY_IN_DIVISION",409);
+    players.push(p);
+  }
+  return {division:d,players,ids};
+}
 async function handleApi(request,env){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
 
@@ -177,7 +196,7 @@ async function handleApi(request,env){
     const user=await userRequired(request,env);
     await requireAdminRole(user,"super_admin","organizer","referee","club_manager");
     let data=await rows(env,"SELECT p.*,c.name AS club_name FROM players p LEFT JOIN clubs c ON c.id=p.club_id ORDER BY p.full_name");
-    if(user.role==="organizer"||user.role==="referee"){
+    if(user.role==="referee"){
       const ids=new Set((await loadAdminState(env,user)).players.map(x=>x.id));
       data=data.filter(x=>ids.has(x.id));
     }else if(user.role==="club_manager"){
@@ -331,23 +350,18 @@ async function handleApi(request,env){
 
   p=route(path,"/api/divisions/:id/teams");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
-    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
-    if(!division)throw httpError("NOT_FOUND",404);
-    let playerIds;
-    try{playerIds=validatePlayerIds(division.event_type,b.playerIds)}catch(error){throw httpError(error.message,400)}
-    const marks=playerIds.map(()=>"?").join(",");
-    const selected=await rows(env,`SELECT id,active FROM players WHERE id IN (${marks})`,...playerIds);
-    if(selected.length!==playerIds.length)throw httpError("PLAYER_NOT_FOUND",404);
-    if(selected.some(x=>!x.active))throw httpError("PLAYER_INACTIVE",400);
-    const assigned=await rows(env,`SELECT tp.player_id FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id IN (${marks})`,p.id,...playerIds);
-    if(assigned.length)throw httpError("PLAYER_ALREADY_IN_DIVISION",409);
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    const roster=await validateDivisionRoster(env,p.id,b.playerIds);
+    const name=String(b.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
+    if(!name)return fail("NAME_REQUIRED",request,env,400);
     const id=uid(),changedAt=nowIso();
     const statements=[env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
       .bind(id,p.id,name,b.clubId||null,b.seed??null,String(b.group||"A"),"active",changedAt)];
-    for(const playerId of playerIds)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
+    for(const playerId of roster.ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
     await env.DB.batch(statements);
-    const row=await one(env,"SELECT * FROM teams WHERE id=?",id);await emitUpdate(env,tid);return ok({...row,playerIds},request,env,201);
+    const row=await one(env,"SELECT * FROM teams WHERE id=?",id);
+    await createAudit(env,user,"team",id,"CREATE_TEAM_WITH_ROSTER",null,{...row,playerIds:roster.ids},name);
+    await emitUpdate(env,tid);return ok({...row,playerIds:roster.ids},request,env,201);
   }
   p=route(path,"/api/teams/:id");
   if(p&&method==="PATCH"){
@@ -368,7 +382,7 @@ async function handleApi(request,env){
     const team=await one(env,"SELECT t.id,t.division_id,d.event_type FROM teams t JOIN divisions d ON d.id=t.division_id WHERE t.id=?",p.id);
     const existing=await one(env,"SELECT 1 AS found FROM team_players WHERE team_id=? AND player_id=?",p.id,playerId);
     if(existing)return ok({ok:true},request,env);
-    const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=? AND t.id<>?",team.division_id,playerId,p.id);
+    const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=? AND t.id<>? AND t.status<>'withdrawn'",team.division_id,playerId,p.id);
     if(assigned)return fail("PLAYER_ALREADY_IN_DIVISION",request,env,409);
     const count=Number((await one(env,"SELECT COUNT(*) AS count FROM team_players WHERE team_id=?",p.id))?.count||0);
     if(count>=playerCountRange(team.event_type).max)return fail("INVALID_PLAYER_COUNT",request,env,400);
@@ -650,8 +664,14 @@ async function handleApi(request,env){
   }
   p=route(path,"/api/divisions/:id/registrations");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),id=uid();
-    await env.DB.prepare("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(id,p.id,b.teamId||null,b.status||"pending",b.paymentStatus||"unpaid",Number(b.amount||0),uid(),nowIso()).run();await emitUpdate(env,tid);return ok(await one(env,"SELECT * FROM registrations WHERE id=?",id),request,env,201);
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),id=uid(),teamId=String(b.teamId||"");
+    const team=await one(env,"SELECT id FROM teams WHERE id=? AND division_id=? AND status<>'withdrawn'",teamId,p.id);
+    if(!team)return fail("TEAM_DIVISION_MISMATCH",request,env,400);
+    const linked=await rows(env,"SELECT player_id FROM team_players WHERE team_id=? ORDER BY player_id",teamId);
+    await validateDivisionRoster(env,p.id,linked.map(x=>x.player_id),{currentTeamId:teamId});
+    const dup=await one(env,"SELECT id FROM registrations WHERE division_id=? AND team_id=? AND status<>'cancelled' LIMIT 1",p.id,teamId);
+    if(dup)return fail("REGISTRATION_EXISTS",request,env,409);
+    await env.DB.prepare("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(id,p.id,teamId,b.status||"approved",b.paymentStatus||"unpaid",Number(b.amount||0),uid(),nowIso()).run();await emitUpdate(env,tid);return ok(await one(env,"SELECT * FROM registrations WHERE id=?",id),request,env,201);
   }
   p=route(path,"/api/registrations/:id/checkin");
   if(p&&method==="POST"){

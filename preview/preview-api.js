@@ -344,7 +344,7 @@
         try{validatePreviewPlayerIds(division.eventType,playerIds)}catch(error){issues.push({row:index+1,field:"players",reason:error.message})}
         plans.push({raw,name,playerIds,id:uid()});
       }
-      const assigned=new Set(state.teams.filter(team=>team.divisionId===did).flatMap(team=>state.teamPlayers[team.id]||[]));
+      const assigned=new Set(state.teams.filter(team=>team.divisionId===did&&team.status!=="withdrawn").flatMap(team=>state.teamPlayers[team.id]||[]));
       for(const [playerId,refs] of plannedPlayerRows){
         if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
         if(assigned.has(playerId))for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
@@ -366,7 +366,7 @@
     createClub:async p=>{const x={id:uid(),name:p.name,city:p.city||"",active:true};state.clubs.push(x);persist();return clone(x)},
     updateClub:async(id,p)=>{const x=state.clubs.find(v=>v.id===id);Object.assign(x,p);state.players.filter(v=>v.club_id===id).forEach(v=>v.club_name=x.name);persist();return clone(x)},
     deleteClub:async id=>{const x=state.clubs.find(v=>v.id===id);const used=state.players.some(v=>v.club_id===id)||state.teams.some(t=>t.clubId===id);if(used){x.active=false;persist();return {mode:"archived",entity:clone(x)}}state.clubs=state.clubs.filter(v=>v.id!==id);persist();return {mode:"deleted"}},
-    createPlayer:async p=>{const club=state.clubs.find(c=>c.id===p.clubId);const x={id:uid(),full_name:p.fullName,nickname:p.nickname||"",gender:p.gender||null,rating:Number(p.rating||3),phone:p.phone||"",club_id:p.clubId||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(p.fullName||"P")};state.players.push(x);persist();return clone(x)},
+    createPlayer:async p=>{const club=state.clubs.find(c=>c.id===p.clubId);const x={id:uid(),full_name:p.fullName,nickname:p.nickname||"",gender:p.gender||null,rating:Number(p.rating||3),phone:p.phone||"",club_id:p.clubId||null,club_name:club?.name||"Tự do",active:true,avatar_url:""};state.players.push(x);persist();return clone(x)},
     updatePlayer:async(id,p)=>{const x=state.players.find(v=>v.id===id);const club=state.clubs.find(c=>c.id===p.clubId);Object.assign(x,{full_name:p.fullName??x.full_name,nickname:p.nickname??x.nickname,gender:p.gender??x.gender,phone:p.phone??x.phone,club_id:p.clubId===undefined?x.club_id:(p.clubId||null),club_name:p.clubId===undefined?x.club_name:(club?.name||"Tự do"),active:p.active??x.active});persist();return clone(x)},
     deactivatePlayer:async id=>{const x=state.players.find(v=>v.id===id);x.active=false;persist();return {mode:"deactivated",entity:clone(x)}},
     adjustRating:async(id,p)=>{let x=state.players.find(v=>v.id===id);if(!x&&typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){const zl=window.PICKLE_BINH_LOI_MEMBERS.find((m,i)=>("zl-"+m.zaloId)===id||("p-"+i)===id||m.id===id);if(zl){x={id,full_name:zl.fullName||zl.name,nickname:zl.nickname||"",gender:zl.gender||"male",rating:Number(zl.rating)||(zl.gender==="female"?2.0:2.5),avatar_url:zl.avatarUrl||zl.avatar_url||"",club_id:null,club_name:zl.club||"CLB Pickleball Bình Lợi",active:true};state.players.push(x)}}if(!x)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});const before=Number(x.rating||0);x.rating=Math.round(Math.max(0,before+Number(p.delta||0))*100)/100;(state.ratingHistory[id]||(state.ratingHistory[id]=[])).unshift({before_rating:before,delta:Number(p.delta||0),after_rating:x.rating,reason:p.reason||"",created_at:new Date().toISOString()});persist();return clone(x)},
@@ -385,7 +385,7 @@
       const selected=playerIds.map(id=>state.players.find(player=>player.id===id));
       if(selected.some(player=>!player))throw new Error("PLAYER_NOT_FOUND");
       if(selected.some(player=>player.active===false))throw new Error("PLAYER_INACTIVE");
-      const used=new Set(state.teams.filter(team=>team.divisionId===did).flatMap(team=>state.teamPlayers[team.id]||[]));
+      const used=new Set(state.teams.filter(team=>team.divisionId===did&&team.status!=="withdrawn").flatMap(team=>state.teamPlayers[team.id]||[]));
       if(playerIds.some(id=>used.has(id)))throw new Error("PLAYER_ALREADY_IN_DIVISION");
       const id=uid(),club=state.clubs.find(c=>c.id===p.clubId);
       const t={id,divisionId:did,name:p.name,club:club?.name||p.club||"Tự do",clubId:p.clubId||club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};
@@ -474,7 +474,17 @@
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),createReferee:async p=>{if(!p.password||String(p.password).length<12)throw new Error("PASSWORD_TOO_SHORT");const r={id:uid(),email:p.email,display_name:p.name,active:true,password:String(p.password)};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active,...(p.password?{password:String(p.password)}:{})});persist();return clone(r)},
     registrations:async()=>clone(state.registrations),
-    createRegistration:async(did,p)=>{const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId);const r={id:uid(),status:"approved",payment_status:"unpaid",amount:p.amount||null,team_name:team?.name||"",division_name:d?.name||"",tournament_name:t?.name||"",checked_in_at:null,payment_id:null,payment_review_status:null};state.registrations.push(r);persist();return clone(r)},
+    createRegistration:async(did,p)=>{
+      const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId&&x.divisionId===did&&x.status!=="withdrawn");
+      if(!d||!team)throw new Error("TEAM_DIVISION_MISMATCH");
+      const ids=validatePreviewPlayerIds(d.eventType,state.teamPlayers[team.id]||[]);
+      const players=ids.map(id=>state.players.find(x=>x.id===id));
+      if(players.some(x=>!x))throw new Error("PLAYER_NOT_FOUND");
+      if(players.some(x=>x.active===false))throw new Error("PLAYER_INACTIVE");
+      if(state.registrations.some(r=>r.division_id===did&&r.team_id===team.id&&r.status!=="cancelled"))throw new Error("REGISTRATION_EXISTS");
+      const r={id:uid(),team_id:team.id,division_id:did,status:"approved",payment_status:"unpaid",amount:p.amount||null,team_name:team.name,division_name:d.name,tournament_name:t?.name||"",checked_in_at:null,payment_id:null,payment_review_status:null};
+      state.registrations.push(r);persist();return clone(r)
+    },
     updateRegistration:async(id,p)=>{const r=state.registrations.find(x=>x.id===id);Object.assign(r,{status:p.status??r.status,payment_status:p.paymentStatus??r.payment_status,amount:p.amount??r.amount});persist();return clone(r)},
     deleteRegistration:async id=>{const r=state.registrations.find(x=>x.id===id);if(r.checked_in_at||r.payment_id){r.status="cancelled";persist();return {mode:"cancelled",entity:clone(r)}}state.registrations=state.registrations.filter(x=>x.id!==id);persist();return {mode:"deleted"}},
     checkin:async id=>{const r=state.registrations.find(x=>x.id===id);r.checked_in_at=new Date().toISOString();persist();return clone(r)},
@@ -501,7 +511,7 @@
       if(player.active===false)throw new Error("PLAYER_INACTIVE");
       const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(arr.includes(playerId))return {ok:true};
       const division=state.divisions.find(d=>d.id===team.divisionId);
-      const used=state.teams.filter(t=>t.divisionId===team.divisionId&&t.id!==teamId).some(t=>(state.teamPlayers[t.id]||[]).includes(playerId));
+      const used=state.teams.filter(t=>t.divisionId===team.divisionId&&t.id!==teamId&&t.status!=="withdrawn").some(t=>(state.teamPlayers[t.id]||[]).includes(playerId));
       if(used)throw new Error("PLAYER_ALREADY_IN_DIVISION");
       if(arr.length>=playerCountRange(division?.eventType).max)throw new Error("INVALID_PLAYER_COUNT");
       arr.push(playerId);persist();return {ok:true};

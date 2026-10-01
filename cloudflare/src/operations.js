@@ -124,7 +124,7 @@ export async function handleOperations(request,env){
 
   p=route(path,"/api/divisions/:id/import-teams");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),items=Array.isArray(b.rows)?b.rows:[];
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),body=await bodyJson(request),items=Array.isArray(body.rows)?body.rows:[];
     if(!items.length||items.length>5000)return fail("INVALID_IMPORT_SIZE",request,env,400);
     const division=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",p.id);
     const plans=[],issues=[],plannedPlayerRows=new Map();
@@ -146,7 +146,7 @@ export async function handleOperations(request,env){
     }
     for(const [playerId,refs] of plannedPlayerRows){
       if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
-      const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=?",p.id,playerId);
+      const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=? AND t.status<>'withdrawn'",p.id,playerId);
       if(assigned)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
     }
     if(issues.length)return fail("IMPORT_PLAYER_ISSUES",request,env,400,{issues});

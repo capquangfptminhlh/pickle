@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
           node scripts/smoke.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
-          node scripts/permissions.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node scripts/permissions-v2.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate
@@ -67,6 +67,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PICKLE_ADMIN_PASSWORD: ${{ secrets.PICKLE_ADMIN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -78,7 +79,7 @@ jobs:
       - name: Build static assets
         working-directory: cloudflare
         run: npm run build:assets
-      - name: Verify deployment credentials
+      - name: Verify Cloudflare credentials
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -88,6 +89,35 @@ jobs:
       - name: Apply D1 migrations
         working-directory: cloudflare
         run: npx wrangler d1 migrations apply DB --remote
+      - name: Check whether bootstrap admin exists
+        id: admin_state
+        working-directory: cloudflare
+        run: |
+          if npx wrangler d1 execute DB --remote --command "SELECT email FROM app_users WHERE lower(email)=lower('admin@pickleup.vn') LIMIT 1" --json | grep -qi 'admin@pickleup.vn'; then
+            echo "needs_bootstrap=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_bootstrap=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Require bootstrap password only for first admin
+        if: steps.admin_state.outputs.needs_bootstrap == 'true'
+        run: test -n "$PICKLE_ADMIN_PASSWORD"
       - name: Deploy Worker
+        working-directory: cloudflare
+        run: npx wrangler deploy
+      - name: Configure session secret
+        working-directory: cloudflare
+        run: |
+          if npx wrangler secret list --format json | grep -q '"SESSION_SECRET"'; then
+            echo "SESSION_SECRET already configured"
+          else
+            SESSION_SECRET="$(openssl rand -hex 32)"
+            echo "::add-mask::$SESSION_SECRET"
+            printf '%s' "$SESSION_SECRET" | npx wrangler secret put SESSION_SECRET
+          fi
+      - name: Configure one-time bootstrap password
+        if: steps.admin_state.outputs.needs_bootstrap == 'true'
+        working-directory: cloudflare
+        run: printf '%s' "$PICKLE_ADMIN_PASSWORD" | npx wrangler secret put BOOTSTRAP_ADMIN_PASSWORD
+      - name: Redeploy with authentication secrets
         working-directory: cloudflare
         run: npx wrangler deploy

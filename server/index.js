@@ -376,6 +376,25 @@ function validateSet(a,b,target,winByTwo){
   const hi=Math.max(a,b),lo=Math.min(a,b);
   return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
+async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null}={}){
+  const division=(await c.query("select id,event_type from divisions where id=$1",[divisionId])).rows[0];
+  if(!division)throw Object.assign(new Error("DIVISION_NOT_FOUND"),{status:404});
+  let ids;
+  try{ids=validatePlayerIds(division.event_type,playerIds)}catch(error){throw Object.assign(error,{status:400})}
+  const players=[];
+  for(const id of ids){
+    const p=(await c.query("select * from players where id=$1",[id])).rows[0];
+    if(!p)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
+    if(!p.active)throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
+    const duplicate=(await c.query(
+      "select t.id from team_players tp join teams t on t.id=tp.team_id where tp.player_id=$1 and t.division_id=$2 and t.status<>'withdrawn' and ($3::uuid is null or t.id<>$3) limit 1",
+      [id,divisionId,currentTeamId]
+    )).rows[0];
+    if(duplicate)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    players.push(p);
+  }
+  return {division,ids,players};
+}
 async function authorizeMatch(c,user,m){
   if(user.role==="super_admin")return true;
   if(user.role==="organizer")return canManageTournament(user,m.tournament_id,c);
@@ -701,15 +720,6 @@ app.get("/api/players",authRequired,allow("super_admin","organizer","referee","c
   if(req.user.role==="club_manager"){
     if(!req.user.clubId)return res.json([]);
     where="where p.club_id=$1";params=[req.user.clubId];
-  }else if(req.user.role==="organizer"){
-    where=`where p.created_by_user_id=$1 or exists (
-      select 1 from team_players tp
-      join teams t on t.id=tp.team_id
-      join divisions d on d.id=t.division_id
-      join tournaments tr on tr.id=d.tournament_id
-      where tp.player_id=p.id and (tr.owner_user_id=$1 or ($2::uuid is not null and tr.id=$2))
-    )`;
-    params=[req.user.sub,req.user.tournamentScope||null];
   }else if(req.user.role==="referee"){
     where=`where exists (
       select 1 from team_players tp
@@ -794,9 +804,8 @@ app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),
     const player=(await c.query("select id,active from players where id::text=$1",[String(playerId)])).rows[0];
     if(!player)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
     if(!player.active)throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
-    if(req.user.role==="organizer"&&!(await canEditPlayer(req.user,player.id,c)))throw Object.assign(new Error("PLAYER_SCOPE_FORBIDDEN"),{status:403});
     if((await c.query("select 1 from team_players where team_id=$1 and player_id=$2",[team.id,player.id])).rowCount)return;
-    if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.id<>$3",[team.division_id,player.id,team.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.id<>$3 and t.status<>'withdrawn'",[team.division_id,player.id,team.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
     const count=Number((await c.query("select count(*)::int as count from team_players where team_id=$1",[team.id])).rows[0]?.count||0);
     if(count>=playerCountRange(team.event_type).max)throw Object.assign(new Error("INVALID_PLAYER_COUNT"),{status:400});
     await c.query("insert into team_players(team_id,player_id) values($1,$2)",[team.id,player.id]);
@@ -866,7 +875,7 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
     }
     for(const [playerId,refs] of plannedPlayerRows){
       if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
-      const assigned=(await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 limit 1",[d.id,playerId])).rowCount;
+      const assigned=(await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.status<>'withdrawn' limit 1",[d.id,playerId])).rowCount;
       if(assigned)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
     }
     if(issues.length)throw Object.assign(new Error("IMPORT_PLAYER_ISSUES"),{status:400,issues});
@@ -955,18 +964,11 @@ app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),t
 }));
 
 app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
-  const {name,club,clubId:requestedClubId,group="A",seed}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const {club,clubId:requestedClubId,group="A",seed}=req.body;
   const row=await tx(async c=>{
-    const division=(await c.query("select id,event_type from divisions where id=$1",[req.params.id])).rows[0];
-    if(!division)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    let playerIds;
-    try{playerIds=validatePlayerIds(division.event_type,req.body.playerIds)}catch(error){throw Object.assign(error,{status:400})}
-    const players=(await c.query("select id,active from players where id::text=any($1::text[])",[playerIds])).rows;
-    if(players.length!==playerIds.length)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
-    if(players.some(player=>!player.active))throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
-    if(req.user.role==="organizer")for(const player of players)if(!(await canEditPlayer(req.user,player.id,c)))throw Object.assign(new Error("PLAYER_SCOPE_FORBIDDEN"),{status:403});
-    const assigned=(await c.query("select tp.player_id from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id::text=any($2::text[])",[division.id,playerIds])).rows;
-    if(assigned.length)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    const roster=await validateDivisionRoster(c,req.params.id,req.body.playerIds);
+    const name=String(req.body.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
+    if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
     let clubId=null;
     if(requestedClubId){
       const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
@@ -978,8 +980,8 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
       clubId=cr.id;
     }
     const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed) values($1,$2,$3,$4,$5) returning *",[req.params.id,name,clubId,group,seed||null])).rows[0];
-    for(const playerId of playerIds)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);
-    const after={...t,playerIds};await audit(c,req.user,"team",t.id,"CREATE_TEAM",null,after,name);return after;
+    for(const playerId of roster.ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);
+    const after={...t,playerIds:roster.ids};await audit(c,req.user,"team",t.id,"CREATE_TEAM_WITH_ROSTER",null,after,name);return after;
   });
   await emitState();res.status(201).json(row);
 }));
@@ -1521,10 +1523,16 @@ app.get("/api/registrations",authRequired,allow("super_admin","organizer","finan
 }));
 app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
-  const teamCheck=await pool.query("select id from teams where id=$1 and division_id=$2",[teamId,req.params.id]);
-  if(!teamCheck.rowCount)return res.status(400).json({error:"TEAM_DIVISION_MISMATCH"});
-  const row=(await pool.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'registration',$2,'CREATE_REGISTRATION',$3)",[req.user.sub,row.id,row]);
+  const row=await tx(async c=>{
+    const team=(await c.query("select id from teams where id=$1 and division_id=$2 and status<>'withdrawn'",[teamId,req.params.id])).rows[0];
+    if(!team)throw Object.assign(new Error("TEAM_DIVISION_MISMATCH"),{status:400});
+    const linked=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[teamId])).rows.map(x=>x.player_id);
+    await validateDivisionRoster(c,req.params.id,linked,{currentTeamId:teamId});
+    if((await c.query("select 1 from registrations where division_id=$1 and team_id=$2 and status<>'cancelled' limit 1",[req.params.id,teamId])).rowCount)throw Object.assign(new Error("REGISTRATION_EXISTS"),{status:409});
+    const reg=(await c.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
+    await audit(c,req.user,"registration",reg.id,"CREATE_REGISTRATION",null,reg);
+    return reg;
+  });
   res.status(201).json(row);
 }));
 app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),registrationManageParam,wrap(async(req,res)=>{

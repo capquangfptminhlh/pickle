@@ -10,6 +10,7 @@ npm-debug.log*
 scratch/
 cloudflare/.wrangler-dist/
 cloudflare/.wrangler/
+cloudflare/.wrangler-test-*/
 cloudflare/public/
 cloudflare/.dev.vars
 .worktrees/
