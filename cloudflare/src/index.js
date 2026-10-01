@@ -4,7 +4,7 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {advanceBracket} from "./bracket.js";
-import {playerCountRange,validatePlayerIds} from "../../shared/team-player-selection.js";
+import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 
 export {TournamentRoom};
 
@@ -96,6 +96,24 @@ async function nextUniqueSlug(env,table,name){
 }
 async function requireAdminRole(user,...roles){
   if(!requireRole(user,...roles))throw httpError("FORBIDDEN",403);
+}
+async function teamClub(env,body,statements){
+  if(body.clubId){
+    const club=await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",body.clubId);
+    if(!club)throw httpError("INVALID_CLUB");
+    return club.id;
+  }
+  const name=String(body.club||"").normalize("NFC").trim();
+  if(!name||registryNameKey(name)===registryNameKey("Tự do"))return null;
+  const existing=(await rows(env,"SELECT id,name FROM clubs WHERE active=1")).find(club=>registryNameKey(club.name)===registryNameKey(name));
+  if(existing)return existing.id;
+  const id=uid(),at=nowIso();
+  statements.push(env.DB.prepare("INSERT INTO clubs(id,name,slug,active,created_at,updated_at) VALUES(?,?,?,1,?,?)").bind(id,name,slugify(name)+"-"+id,at,at));
+  return id;
+}
+function rosterAudit(env,user,id,before,after){
+  return env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'team',?,'UPDATE_TEAM',?,?,?)")
+    .bind(user.id,id,JSON.stringify(before),JSON.stringify(after),"Cập nhật đội / cặp");
 }
 async function validateDivisionRoster(env,divisionId,playerIds,{currentTeamId=null}={}){
   const d=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",divisionId);
@@ -354,9 +372,10 @@ async function handleApi(request,env){
     const roster=await validateDivisionRoster(env,p.id,b.playerIds);
     const name=String(b.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
     if(!name)return fail("NAME_REQUIRED",request,env,400);
-    const id=uid(),changedAt=nowIso();
-    const statements=[env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
-      .bind(id,p.id,name,b.clubId||null,b.seed??null,String(b.group||"A"),"active",changedAt)];
+    const id=uid(),changedAt=nowIso(),statements=[];
+    const clubId=await teamClub(env,b,statements);
+    statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(id,p.id,name,clubId,b.seed??null,String(b.group||"A"),"active",changedAt));
     for(const playerId of roster.ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
     await env.DB.batch(statements);
     const row=await one(env,"SELECT * FROM teams WHERE id=?",id);
@@ -366,9 +385,32 @@ async function handleApi(request,env){
   p=route(path,"/api/teams/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),tid=await assertTeam(env,user,p.id),before=await one(env,"SELECT * FROM teams WHERE id=?",p.id),b=await bodyJson(request);
-    await env.DB.prepare("UPDATE teams SET name=?,club_id=?,seed=?,group_code=?,status=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),b.clubId===undefined?before.club_id:b.clubId,b.seed===undefined?before.seed:b.seed,String(b.group??before.group_code??""),String(b.status??before.status),nowIso(),p.id).run();
-    const after=await one(env,"SELECT * FROM teams WHERE id=?",p.id);await emitUpdate(env,tid);return ok(after,request,env);
+    const oldIds=(await rows(env,"SELECT player_id FROM team_players WHERE team_id=? ORDER BY player_id",p.id)).map(x=>x.player_id);
+    const status=String(b.status??before.status);
+    if(!["active","withdrawn"].includes(status))throw httpError("INVALID_TEAM_STATUS");
+    let ids=oldIds,changed=false;
+    if(b.playerIds!==undefined){
+      const d=await one(env,"SELECT event_type FROM divisions WHERE id=?",before.division_id);
+      try{ids=validatePlayerIds(d.event_type,b.playerIds)}catch(error){throw httpError(error.message)}
+      changed=ids.length!==oldIds.length||ids.some(id=>!oldIds.includes(id));
+    }
+    if(changed){
+      const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id)) LIMIT 1",p.id,p.id);
+      if(locked)throw httpError("TEAM_ROSTER_LOCKED",409);
+    }
+    if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(env,before.division_id,ids,{currentTeamId:p.id});
+    const name=String(b.name??before.name).trim();if(!name)throw httpError("NAME_REQUIRED");
+    let clubId=before.club_id;
+    if(b.clubId!==undefined){clubId=b.clubId||null;if(clubId&&clubId!==before.club_id&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))throw httpError("INVALID_CLUB")}
+    const changedAt=nowIso(),after={...before,name,club_id:clubId,seed:b.seed===undefined?before.seed:b.seed,group_code:String(b.group??before.group_code??""),status,updated_at:changedAt,playerIds:ids};
+    const statements=[];
+    if(changed)statements.push(env.DB.prepare("DELETE FROM team_players WHERE team_id=?").bind(p.id));
+    statements.push(env.DB.prepare("UPDATE teams SET name=?,club_id=?,seed=?,group_code=?,status=?,updated_at=? WHERE id=?")
+      .bind(after.name,after.club_id,after.seed,after.group_code,after.status,changedAt,p.id));
+    if(changed)for(const id of ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(p.id,id));
+    statements.push(rosterAudit(env,user,p.id,{...before,playerIds:oldIds},after));
+    await env.DB.batch(statements);
+    await emitUpdate(env,tid);return ok(after,request,env);
   }
   if(p&&method==="DELETE"){
     const user=await userRequired(request,env),tid=await assertTeam(env,user,p.id);await env.DB.prepare("DELETE FROM teams WHERE id=?").bind(p.id).run();await emitUpdate(env,tid);return ok({ok:true},request,env);
@@ -737,7 +779,9 @@ export default {
       }
       return await handleApi(request,env);
     }catch(e){
-      const status=Number(e?.status||500),code=status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED");
+      const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
+      const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT"].find(code=>dbMessage.includes(code));
+      const status=Number(e?.status||(constraint?(constraint==='INVALID_PLAYER_COUNT'?400:409):500)),code=constraint||(status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED"));
       if(status===500)console.error(e);
       return fail(code,request,env,status);
     }

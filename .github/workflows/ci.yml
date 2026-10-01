@@ -40,6 +40,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Install Chromium for UI smoke tests
         run: npx playwright install --with-deps chromium
+      - name: Registry desktop and mobile browser regressions
+        run: node scripts/registry-ui.mjs
       - name: Syntax check
         run: |
           node --check server/index.js
@@ -110,6 +112,10 @@ jobs:
           curl -fsS -b cookies.txt http://127.0.0.1:8080/api/admin/state
       - name: End-to-end operations test
         run: node scripts/e2e.mjs
+      - name: Registry API and Preview regressions
+        run: |
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-api.mjs
+          node --test scripts/registry-preview.test.mjs
       - name: Start static preview server
         run: |
           python3 -m http.server 8090 > preview.log 2>&1 &

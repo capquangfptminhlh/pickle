@@ -10,6 +10,8 @@ on:
       - "*.html"
       - "manifest.webmanifest"
       - "service-worker.js"
+      - "scripts/registry-*.mjs"
+      - "preview/preview-api.js"
       - ".github/workflows/cloudflare.yml"
   workflow_dispatch:
 
@@ -27,9 +29,20 @@ jobs:
       - name: Install Worker dependencies
         working-directory: cloudflare
         run: npm install --ignore-scripts
+      - name: Install browser test dependencies
+        run: |
+          npm install --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Registry desktop and mobile browser regressions
+        run: |
+          node scripts/registry-ui.mjs
+          node --test scripts/registry-preview.test.mjs
       - name: Wrangler dry run
         working-directory: cloudflare
         run: npm run check
+      - name: Registry and Worker regression tests
+        working-directory: cloudflare
+        run: npm test
       - name: Apply local D1 migrations
         working-directory: cloudflare
         run: npx wrangler d1 migrations apply DB --local
@@ -59,6 +72,7 @@ jobs:
           fi
           node scripts/smoke.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node scripts/permissions-v2.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate

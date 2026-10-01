@@ -4,7 +4,7 @@ import {ok,fail,bodyJson,route,uid,slugify,nowIso,safeJsonParse,publicUser} from
 import {loadAdminState} from "./state.js";
 import {generateBracket,rewindBracket} from "./bracket.js";
 import {broadcast} from "./realtime.js";
-import {validatePlayerIds} from "../../shared/team-player-selection.js";
+import {validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 
 async function rows(env,sql,...args){const r=await env.DB.prepare(sql).bind(...args).all();return r.results||[]}
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
@@ -127,13 +127,16 @@ export async function handleOperations(request,env){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),body=await bodyJson(request),items=Array.isArray(body.rows)?body.rows:[];
     if(!items.length||items.length>5000)return fail("INVALID_IMPORT_SIZE",request,env,400);
     const division=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",p.id);
-    const plans=[],issues=[],plannedPlayerRows=new Map();
+    const plans=[],issues=[],plannedPlayerRows=new Map(),byName=new Map();
+    for(const player of await rows(env,"SELECT id,full_name FROM players WHERE active=1")){
+      const key=registryNameKey(player.full_name),matches=byName.get(key)||[];matches.push(player);byName.set(key,matches);
+    }
     for(let index=0;index<items.length;index++){
       const r=items[index],name=String(r.name||r.team||"").trim();if(!name)continue;
       const playerIds=[];
       for(let slot=0;slot<4;slot++){
         const playerName=String(r[`player${slot+1}`]||"").trim();if(!playerName)continue;
-        const matches=await rows(env,"SELECT id,full_name FROM players WHERE lower(full_name)=lower(?) AND active=1 ORDER BY created_at",playerName);
+        const matches=byName.get(registryNameKey(playerName))||[];
         if(matches.length!==1){
           issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
         }else{

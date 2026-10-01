@@ -94,19 +94,62 @@
   }
 
   async function editTeam(t,ctx){
-    const clubs=await API.clubs().catch(()=>[]);
+    let clubs,roster;
+    try{[clubs,roster]=await Promise.all([API.clubs(),API.players()])}
+    catch(e){ctx.toast("Không thể tải hồ sơ VĐV / CLB: "+e.message);return}
+    clubs=clubs.filter(club=>(club.active!==false&&club.active!==0)||club.id===t.clubId);
+    if(t.clubId&&!clubs.some(club=>club.id===t.clubId))clubs.push({id:t.clubId,name:t.club||t.club_name||"CLB hiện tại",active:false});
+    const initialIds=[...(ctx.state.teamPlayers?.[t.id]||[])];
+    const division=ctx.state.divisions.find(d=>d.id===t.divisionId);
+    const count=division?.eventType==="singles"?1:division?.eventType==="team"?4:2;
+    const excludedIds=ctx.state.teams.filter(team=>team.id!==t.id&&team.divisionId===t.divisionId&&team.status!=="withdrawn").flatMap(team=>ctx.state.teamPlayers?.[team.id]||[]);
+    const locked=(ctx.state.matches||[]).some(match=>[match.a,match.b,match.team_a_id,match.team_b_id].includes(t.id)&&(
+      match.startedAt||match.started_at||match.winner||match.winner_team_id||
+      ["live","done","completed","walkover"].includes(match.status)||match.sets?.length||
+      (match.current||[]).some(score=>Number(score)!==0)||Number(match.current_score_a||0)!==0||Number(match.current_score_b||0)!==0
+    ));
     modal("Sửa đội / cặp",'<div class="form-grid">'+
+      '<div class="field full security-note" id="crudTeamRosterNote"><span>'+(locked?'Trận của đội đã bắt đầu hoặc có điểm / kết quả. Thành viên đã khóa; bạn vẫn có thể sửa thông tin đội.':'Chọn thành viên từ hồ sơ VĐV hệ thống. '+(count===4?'Nội dung đồng đội cần 1–4 VĐV.':'Nội dung này cần '+count+' VĐV.'))+'</span></div>'+
+      '<div class="field full" id="crudTeamPlayerPicker"></div>'+
+      '<div id="crudTeamResetWrap" style="grid-column:1/-1" hidden><button id="crudTeamResetMembers" type="button" class="mini">Khôi phục thành viên ban đầu</button></div>'+
       '<label class="field full">Tên đội / cặp<input id="crudTeamName" value="'+esc(t.name)+'"></label>'+
-      '<label class="field">CLB<select id="crudTeamClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+c.id+'" '+(c.id===t.clubId?"selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></label>'+
+      '<label class="field">CLB<select id="crudTeamClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===t.clubId?"selected":"")+'>'+esc(c.name)+(c.active===false||c.active===0?' (đã khóa)':'')+'</option>').join("")+'</select></label>'+
       '<label class="field">Bảng<input id="crudTeamGroup" value="'+esc(t.group||"")+'"></label>'+
       '<label class="field">Seed<input id="crudTeamSeed" type="number" min="1" value="'+esc(t.seed||"")+'"></label>'+
       '<label class="field">Trạng thái<select id="crudTeamStatus"><option value="active" '+(t.status==="active"?"selected":"")+'>Hoạt động</option><option value="withdrawn" '+(t.status==="withdrawn"?"selected":"")+'>Rút giải</option></select></label>'+
+      '<div class="security-note" style="grid-column:1/-1" id="crudTeamError" role="alert" hidden></div>'+
       '<div class="field full"><button id="crudSaveTeam" type="button" class="btn primary">Lưu đội</button></div></div>');
+    let picker,membersEdited=false;
+    const mountPicker=()=>window.PicklePlayerPicker.mount({root:$("#crudTeamPlayerPicker"),players:roster,count,excludedIds,selectedIds:initialIds,onChange:ids=>{
+      membersEdited=true;
+      $("#crudTeamResetWrap").hidden=ids.length===initialIds.length&&ids.every(id=>initialIds.includes(id));
+    }});
+    picker=mountPicker();
+    $("#crudTeamResetMembers").onclick=()=>{
+      picker.destroy();picker=mountPicker();membersEdited=false;
+      $("#crudTeamResetWrap").hidden=true;$("#crudTeamError").hidden=true;
+    };
+    if(locked)$("#crudTeamPlayerPicker").querySelectorAll("button,input").forEach(control=>control.disabled=true);
     $("#crudSaveTeam").onclick=async()=>{
+      const button=$("#crudSaveTeam"),error=$("#crudTeamError");button.disabled=true;error.hidden=true;
       try{
-        await API.updateTeam(t.id,{name:$("#crudTeamName").value.trim(),clubId:$("#crudTeamClub").value||null,group:$("#crudTeamGroup").value.trim(),seed:Number($("#crudTeamSeed").value)||null,status:$("#crudTeamStatus").value});
+        const payload={name:$("#crudTeamName").value.trim(),clubId:$("#crudTeamClub").value||null,group:$("#crudTeamGroup").value.trim(),seed:Number($("#crudTeamSeed").value)||null,status:$("#crudTeamStatus").value};
+        const ids=picker.values();
+        if(!locked&&membersEdited&&(ids.length!==initialIds.length||ids.some(id=>!initialIds.includes(id))))payload.playerIds=ids;
+        await API.updateTeam(t.id,payload);
         close();await ctx.refresh();ctx.toast("Đã cập nhật đội.");
-      }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}
+      }catch(e){
+        const reason={
+          PLAYER_ALREADY_IN_DIVISION:"VĐV đã thuộc một cặp/đội khác trong nội dung này. Hãy chọn hồ sơ khác.",
+          PLAYER_INACTIVE:"Có VĐV đang bị khóa. Hãy chọn hồ sơ đang hoạt động để đổi thành viên.",
+          PLAYER_NOT_FOUND:"Có hồ sơ VĐV không còn tồn tại. Hãy chọn lại từ hệ thống.",
+          INVALID_PLAYER_COUNT:"Số lượng VĐV chưa đúng. "+(count===4?"Nội dung đồng đội cần 1–4 VĐV.":"Nội dung này cần "+count+" VĐV."),
+          DUPLICATE_PLAYER_SELECTION:"Không thể chọn cùng một VĐV hai lần.",
+          TEAM_ROSTER_LOCKED:"Trận của đội đã bắt đầu hoặc có điểm / kết quả. Không thể đổi thành viên; khôi phục thành viên ban đầu để lưu thông tin đội.",
+          INVALID_CLUB:"CLB không hợp lệ hoặc đã khóa."
+        }[e.message]||e.message;
+        error.textContent="Không thể cập nhật: "+reason;error.hidden=false;ctx.toast(error.textContent);
+      }finally{button.disabled=false}
     };
   }
 

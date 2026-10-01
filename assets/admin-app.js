@@ -798,11 +798,40 @@ function openCsvImportModal(){
       <button type="button" class="mini" id="lhmPresetBtn" style="font-size:12px;padding:6px 12px;background:#0d2118;color:#dfff69;border:1px solid #dfff6944;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">⚡ Nạp 1,015 hội viên Bình Lợi (LHM CRM)</button>
     </div>
     <div class="field full"><div id="csvPreview" class="csv-preview">Chọn file hoặc dán dữ liệu để xem trước.</div></div>
+    <div class="security-note" id="csvIssues" role="alert" hidden style="grid-column:1/-1;overflow-wrap:anywhere"></div>
     <div class="field full"><button type="button" class="btn primary" id="csvImportBtn" disabled>Bắt đầu Import</button></div>
   </div>`;
   $("#genericDialog").showModal();
   let rows=[];
   const type=$("#csvType"),file=$("#csvFile"),paste=$("#csvPaste"),preview=$("#csvPreview"),btn=$("#csvImportBtn"),lhmBtn=$("#lhmPresetBtn");
+  const issueBox=$("#csvIssues");
+  const showIssues=error=>{
+    const issues=error.data?.detail?.issues||error.data?.issues||error.issues||[];
+    const reasons={
+      PLAYER_NOT_FOUND:"VĐV không tồn tại trong hệ thống. Hãy tạo hồ sơ hoặc sửa họ tên trước.",
+      AMBIGUOUS_PLAYER:"Có nhiều hồ sơ trùng tên. Hãy kiểm tra và phân biệt hồ sơ trước khi import.",
+      PLAYER_INACTIVE:"Hồ sơ VĐV đang bị khóa. Hãy chọn hồ sơ đang hoạt động.",
+      DUPLICATE_PLAYER_SELECTION:"Không thể chọn cùng một VĐV hai lần trong một đội.",
+      PLAYER_ALREADY_IN_IMPORT:"VĐV xuất hiện nhiều lần trong CSV này. Hãy giữ một đội cho mỗi nội dung.",
+      PLAYER_ALREADY_IN_DIVISION:"VĐV đã thuộc một cặp/đội khác trong nội dung này.",
+      PLAYER_SELECTION_REQUIRED:"Chưa có VĐV. Hãy điền tên hồ sơ tại các cột player.",
+      INVALID_PLAYER_COUNT:"Số lượng VĐV không đúng: đơn cần 1, đôi / đôi nam nữ cần 2, đồng đội cần 1–4 VĐV."
+    };
+    issueBox.replaceChildren();
+    const heading=document.createElement("b");heading.textContent="Import thất bại. Sửa các dòng dưới đây rồi thử lại:";issueBox.appendChild(heading);
+    if(issues.length){
+      const list=document.createElement("ul");
+      issues.forEach(issue=>{
+        const item=document.createElement("li");
+        item.textContent=`Dòng ${issue.row??"—"} • Cột ${issue.field||"—"} • Tên: ${issue.name||"—"} • ${reasons[issue.reason]||issue.reason||"Dữ liệu không hợp lệ."}`;
+        list.appendChild(item);
+      });
+      issueBox.appendChild(list);
+    }else{
+      const message=document.createElement("p");message.textContent=reasons[error.message]||error.message;issueBox.appendChild(message);
+    }
+    issueBox.hidden=false;
+  };
   if(lhmBtn){
     lhmBtn.onclick=async()=>{
       try{
@@ -826,12 +855,12 @@ function openCsvImportModal(){
       }
     };
   }
-  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
-  type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file hoặc dán dữ liệu để xem trước.";btn.disabled=true};updateHelp();
+  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2,player3,player4 <small>(đơn: 1 VĐV; đôi / đôi nam nữ: 2; đồng đội: 1–4)</small>':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
+  type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file hoặc dán dữ liệu để xem trước.";issueBox.hidden=true;btn.disabled=true};updateHelp();
   const renderPreview=()=>{
     if(!rows.length){preview.textContent="Không có dữ liệu hợp lệ.";btn.disabled=true;return}
     const keys=Object.keys(rows[0]);
-    preview.innerHTML='<div class="csv-preview-head">'+keys.map(k=>`<b>${k}</b>`).join("")+'</div>'+rows.slice(0,5).map(r=>'<div class="csv-preview-row">'+keys.map(k=>{const val=r[k]||"";if(k.toLowerCase().includes("avatar")&&val.startsWith("http"))return `<span><img src="${esc(val)}" style="width:24px;height:24px;border-radius:50%;object-fit:cover"></span>`;return `<span>${esc(val)}</span>`;}).join("")+'</div>').join("")+`<small>${rows.length} dòng dữ liệu sẵn sàng import</small>`;btn.disabled=false;
+    preview.innerHTML='<div class="csv-preview-head">'+keys.map(k=>`<b>${escHtml(k)}</b>`).join("")+'</div>'+rows.slice(0,5).map(r=>'<div class="csv-preview-row">'+keys.map(k=>{const val=String(r[k]??"");if(k.toLowerCase().includes("avatar")&&/^https?:\/\//i.test(val))return `<span><img src="${escHtml(val)}" style="width:24px;height:24px;border-radius:50%;object-fit:cover"></span>`;return `<span>${escHtml(val)}</span>`;}).join("")+'</div>').join("")+`<small>${rows.length} dòng dữ liệu sẵn sàng import</small>`;btn.disabled=false;
   };
   file.onchange=async()=>{
     const f=file.files?.[0];if(!f)return;
@@ -847,11 +876,11 @@ function openCsvImportModal(){
     renderPreview();
   };
   btn.onclick=async()=>{
-    if(!rows.length)return;btn.disabled=true;
+    if(!rows.length)return;btn.disabled=true;issueBox.hidden=true;
     try{
       const r=type.value==="players"?await API.importPlayers(rows):await API.importTeams($("#csvDivision").value,rows);
       $("#genericDialog").close();await refresh();toast(`Đã import thành công ${r.created} ${type.value==="players"?"VĐV / Hội viên":"đội"}.`);
-    }catch(e){btn.disabled=false;toast("Import thất bại: "+e.message)}
+    }catch(e){btn.disabled=false;showIssues(e);toast("Import thất bại. Xem chi tiết trong hộp import.")}
   };
 }
 async function openPlayerModal(){
@@ -934,8 +963,8 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
   const syncName=ids=>{
     const names=ids.map(id=>roster.find(p=>p.id===id)?.full_name).filter(Boolean);
     if(!nameEdited)$("#teamName").value=names.join(" / ");
-    const clubs=[...new Set(ids.map(id=>roster.find(p=>p.id===id)?.club_name).filter(x=>x&&x!=="Tự do"))];
-    if(!clubEdited)$("#teamClub").value=clubs.length===1?clubs[0]:"";
+    const clubs=ids.map(id=>roster.find(p=>p.id===id)?.club_name?.trim()||"");
+    if(!clubEdited)$("#teamClub").value=clubs.length&&clubs[0]&&clubs[0]!=="Tự do"&&clubs.every(club=>club===clubs[0])?clubs[0]:"";
   };
   const mountPicker=()=>{
     picker?.destroy();

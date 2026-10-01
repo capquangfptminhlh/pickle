@@ -111,7 +111,7 @@ export async function loadState(env,{publicOnly=false}={}){
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,
     courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,
-    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null
+    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null
   }));
 
   let audit=[];

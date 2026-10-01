@@ -1,0 +1,45 @@
+import assert from "node:assert/strict";
+
+const base=process.env.REGISTRY_TEST_URL||"http://127.0.0.1:8787";
+if(!["127.0.0.1","localhost","[::1]"].includes(new URL(base).hostname))throw new Error("Registry write tests require a local test server");
+let auth={};
+async function api(path,body,method=body===undefined?"GET":"POST",expected=[200,201]){
+  const response=await fetch(base+path,{method,headers:{...auth,...(body===undefined?{}:{"Content-Type":"application/json"})},body:body===undefined?undefined:JSON.stringify(body)});
+  const data=await response.json();assert.ok(expected.includes(response.status),`${method} ${path}: ${response.status} ${JSON.stringify(data)}`);return {data,response};
+}
+const stamp=Date.now();
+const login=await api("/api/auth/login",{email:process.env.ADMIN_EMAIL||"admin@pickle.test",password:process.env.ADMIN_PASSWORD||"cloudflare-test-password-123"});
+auth=login.data.token?{Authorization:"Bearer "+login.data.token}:{Cookie:login.response.headers.get("set-cookie").split(";")[0]};
+const club=(await api("/api/clubs",{name:"CLB Đặng "+stamp})).data;
+const names=["Đặng Văn A ","Nguyễn Văn B ","Trần Văn C ","Lê Văn D "];
+const players=[];
+for(const name of names)players.push((await api("/api/players",{fullName:name+stamp,clubId:club.id,rating:3})).data);
+const tournament=(await api("/api/tournaments",{name:"Registry Regression "+stamp,eventType:"doubles",venue:"Local Test"})).data;
+const tid=tournament.tournament?.id||tournament.id;
+const state=async()=>(await api("/api/admin/state")).data;
+const did=(await state()).divisions.find(x=>x.tournamentId===tid).id;
+const create=async(ids,extra={},division=did,expected=[201])=>(await api(`/api/divisions/${division}/teams`,{name:"Regression Team",playerIds:ids,...extra},"POST",expected)).data;
+const a=await create([players[0].id,players[1].id],{club:club.name.toLocaleLowerCase("vi").normalize("NFD")});assert.equal(a.club_id||a.clubId,club.id);
+const registration=(await api(`/api/divisions/${did}/registrations`,{teamId:a.id,amount:0})).data;
+await api(`/api/teams/${a.id}`,{playerIds:[players[1].id,players[2].id]},"PATCH");
+assert.deepEqual((await state()).teamPlayers[a.id].sort(),[players[1].id,players[2].id].sort());
+const regs=(await api("/api/registrations")).data;assert.ok(regs.some(x=>x.id===registration.id&&x.team_id===a.id));
+await api(`/api/teams/${a.id}`,{playerIds:[players[1].id]},"PATCH",[400]);
+await api(`/api/teams/${a.id}`,{status:"withdrawn"},"PATCH");
+const b=await create([players[1].id,players[3].id]);
+const conflict=await api(`/api/teams/${a.id}`,{status:"active"},"PATCH",[409]);assert.equal(conflict.data.error,"PLAYER_ALREADY_IN_DIVISION");
+await api(`/api/teams/${a.id}`,{playerIds:[players[0].id,players[2].id],status:"active"},"PATCH");
+const match=(await api(`/api/divisions/${did}/matches`,{teamAId:a.id,teamBId:b.id,stage:"Regression"})).data;
+await api(`/api/matches/${match.id}/point`,{side:"A",delta:1,version:match.version||1});
+const locked=await api(`/api/teams/${a.id}`,{playerIds:[players[0].id,players[1].id]},"PATCH",[409]);assert.equal(locked.data.error,"TEAM_ROSTER_LOCKED");
+await api(`/api/teams/${a.id}`,{name:"Metadata remains editable"},"PATCH");
+const d2=(await api(`/api/tournaments/${tid}/divisions`,{name:"CSV Unicode",eventType:"doubles",format:"pool_to_knockout"})).data;
+const imported=await api(`/api/divisions/${d2.id}/import-teams`,{rows:[{name:"Unicode",player1:(names[0]+stamp).toLocaleLowerCase("vi").normalize("NFD"),player2:(names[1]+stamp).toLocaleUpperCase("vi")}]});assert.equal(imported.data.created,1);
+const d3=(await api(`/api/tournaments/${tid}/divisions`,{name:"Concurrency",eventType:"doubles",format:"pool_to_knockout"})).data;
+const attempts=await Promise.all([[players[0].id,players[1].id],[players[0].id,players[2].id]].map(ids=>api(`/api/divisions/${d3.id}/teams`,{name:"Concurrent",playerIds:ids},"POST",[201,409])));
+assert.deepEqual(attempts.map(x=>x.response.status).sort(),[201,409]);
+const d4=(await api(`/api/tournaments/${tid}/divisions`,{name:"CSV Errors",eventType:"doubles",format:"pool_to_knockout"})).data;
+const missing=await api(`/api/divisions/${d4.id}/import-teams`,{rows:[{name:"Invalid",player1:"Missing "+stamp,player2:names[1]+stamp}]},"POST",[400]);
+assert.ok((missing.data.detail?.issues||missing.data.issues).some(x=>x.row===1&&x.field==="player1"&&x.reason==="PLAYER_NOT_FOUND"));
+assert.equal((await state()).teams.filter(x=>x.divisionId===d4.id).length,0);
+console.log("REGISTRY_API_OK",JSON.stringify({club:true,replaceRoster:true,registrationPreserved:true,invalidCount:true,reactivationConflict:true,historyLock:true,unicodeCsv:true,concurrentCreation:true,rowErrors:true}));

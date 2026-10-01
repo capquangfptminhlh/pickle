@@ -1,3 +1,7 @@
+export function registryNameKey(value){
+  return String(value??"").normalize("NFC").trim().toLocaleLowerCase("vi");
+}
+
 export function playerCountRange(eventType){
   if(eventType==="singles")return {min:1,max:1};
   if(eventType==="doubles"||eventType==="mixed_doubles")return {min:2,max:2};

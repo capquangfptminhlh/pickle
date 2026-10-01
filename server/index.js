@@ -12,7 +12,7 @@ import QRCode from "qrcode";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
-import {playerCountRange,validatePlayerIds} from "../shared/team-player-selection.js";
+import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
@@ -315,7 +315,7 @@ async function loadState({publicOnly=false}={}){
   const matches=matchRows.map(m=>({
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
-    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null
+    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,startedAt:m.started_at||null
   }));
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
@@ -369,7 +369,7 @@ async function emitState(){
 }
 async function getMatch(c,id,lock=false){
   const q=`select m.*,d.best_of,d.points_to_win,d.win_by_two,d.tournament_id
-    from matches m join divisions d on d.id=m.division_id where m.id=$1 ${lock?"for update":""}`;
+    from matches m join divisions d on d.id=m.division_id where m.id=$1 ${lock?"for update of m":""}`;
   return (await c.query(q,[id])).rows[0];
 }
 function validateSet(a,b,target,winByTwo){
@@ -377,7 +377,7 @@ function validateSet(a,b,target,winByTwo){
   return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
 async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null}={}){
-  const division=(await c.query("select id,event_type from divisions where id=$1",[divisionId])).rows[0];
+  const division=(await c.query("select id,event_type from divisions where id=$1 for update",[divisionId])).rows[0];
   if(!division)throw Object.assign(new Error("DIVISION_NOT_FOUND"),{status:404});
   let ids;
   try{ids=validatePlayerIds(division.event_type,playerIds)}catch(error){throw Object.assign(error,{status:400})}
@@ -394,6 +394,11 @@ async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null
     players.push(p);
   }
   return {division,ids,players};
+}
+async function assertRosterEditable(c,teamId){
+  // Lock scheduled matches too, so scoring cannot race a membership replacement.
+  const matches=(await c.query("select m.*,exists(select 1 from match_sets s where s.match_id=m.id) as has_sets from matches m where team_a_id=$1 or team_b_id=$1 for update of m",[teamId])).rows;
+  if(matches.some(m=>m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||m.has_sets))throw Object.assign(new Error("TEAM_ROSTER_LOCKED"),{status:409});
 }
 async function authorizeMatch(c,user,m){
   if(user.role==="super_admin")return true;
@@ -801,10 +806,12 @@ app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),
   await tx(async c=>{
     const team=(await c.query("select t.id,t.division_id,d.event_type from teams t join divisions d on d.id=t.division_id where t.id=$1",[req.params.id])).rows[0];
     if(!team)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    await c.query("select id from divisions where id=$1 for update",[team.division_id]);
     const player=(await c.query("select id,active from players where id::text=$1",[String(playerId)])).rows[0];
     if(!player)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
     if(!player.active)throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
     if((await c.query("select 1 from team_players where team_id=$1 and player_id=$2",[team.id,player.id])).rowCount)return;
+    await assertRosterEditable(c,team.id);
     if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.id<>$3 and t.status<>'withdrawn'",[team.division_id,player.id,team.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
     const count=Number((await c.query("select count(*)::int as count from team_players where team_id=$1",[team.id])).rows[0]?.count||0);
     if(count>=playerCountRange(team.event_type).max)throw Object.assign(new Error("INVALID_PLAYER_COUNT"),{status:400});
@@ -855,14 +862,15 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
   const rows=Array.isArray(req.body.rows)?req.body.rows:[];
   if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
   const result=await tx(async c=>{
-    const d=(await c.query("select id,event_type from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    const plans=[],issues=[],plannedPlayerRows=new Map();
+    const d=(await c.query("select id,event_type from divisions where id=$1 for update",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const plans=[],issues=[],plannedPlayerRows=new Map(),byName=new Map();
+    for(const player of (await c.query("select id,full_name from players where active=true")).rows){const key=registryNameKey(player.full_name),matches=byName.get(key)||[];matches.push(player);byName.set(key,matches)}
     for(let index=0;index<rows.length;index++){
       const raw=rows[index],name=String(raw.name||raw.team||"").trim();if(!name)continue;
       const playerIds=[];
       for(let slot=0;slot<4;slot++){
         const playerName=String(raw[`player${slot+1}`]||"").trim();if(!playerName)continue;
-        const matches=(await c.query("select id,full_name from players where lower(full_name)=lower($1) and active=true order by created_at",[playerName])).rows;
+        const matches=byName.get(registryNameKey(playerName))||[];
         if(matches.length!==1){
           issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
         }else{
@@ -974,9 +982,10 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
       const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
       if(!cr)throw Object.assign(new Error("INVALID_CLUB"),{status:400});
       clubId=cr.id;
-    }else if(club){
-      let cr=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[club])).rows[0];
-      if(!cr)cr=(await c.query("insert into clubs(name,slug) values($1,$2) returning id",[club,slugify(club)+"-"+Date.now().toString().slice(-4)])).rows[0];
+    }else if(club&&registryNameKey(club)!==registryNameKey("Tự do")){
+      const name=String(club).normalize("NFC").trim();
+      let cr=(await c.query("select id,name from clubs where active=true")).rows.find(row=>registryNameKey(row.name)===registryNameKey(name));
+      if(!cr)cr=(await c.query("insert into clubs(name,slug) values($1,$2) returning id",[name,slugify(name)+"-"+crypto.randomUUID()])).rows[0];
       clubId=cr.id;
     }
     const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed) values($1,$2,$3,$4,$5) returning *",[req.params.id,name,clubId,group,seed||null])).rows[0];
@@ -1972,13 +1981,28 @@ app.delete("/api/players/:id",authRequired,allow("super_admin","organizer","club
 }));
 
 app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
-  const before=(await pool.query("select * from teams where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  let clubId=before.club_id;
-  if(req.body.clubId!==undefined)clubId=req.body.clubId||null;
-  const after=(await pool.query(`
-    update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *
-  `,[String(req.body.name??before.name).trim(),clubId,req.body.group??before.group_code,req.body.seed??before.seed,req.body.status??before.status,req.params.id])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'team',$2,'UPDATE_TEAM',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
+  const after=await tx(async c=>{
+    const tid=(await c.query("select division_id from teams where id=$1",[req.params.id])).rows[0];if(!tid)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const d=(await c.query("select id,event_type from divisions where id=$1 for update",[tid.division_id])).rows[0];
+    // Team identity is stable; permit score-result FK checks while locking metadata.
+    const before=(await c.query("select * from teams where id=$1 for no key update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const oldIds=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[before.id])).rows.map(x=>x.player_id);
+    const status=req.body.status??before.status;
+    if(!["active","withdrawn"].includes(status))throw Object.assign(new Error("INVALID_TEAM_STATUS"),{status:400});
+    let ids=oldIds;
+    if(req.body.playerIds!==undefined){try{ids=validatePlayerIds(d.event_type,req.body.playerIds)}catch(error){throw Object.assign(error,{status:400})}}
+    const changed=ids.length!==oldIds.length||ids.some(id=>!oldIds.includes(id));
+    if(changed)await assertRosterEditable(c,before.id);
+    if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(c,before.division_id,ids,{currentTeamId:before.id});
+    let clubId=before.club_id;
+    if(req.body.clubId!==undefined){clubId=req.body.clubId||null;if(clubId&&clubId!==before.club_id&&!(await c.query("select id from clubs where id=$1 and active=true",[clubId])).rowCount)throw Object.assign(new Error("INVALID_CLUB"),{status:400})}
+    const name=String(req.body.name??before.name).trim();if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
+    if(changed)await c.query("delete from team_players where team_id=$1",[before.id]);
+    const row=(await c.query("update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *",[name,clubId,req.body.group??before.group_code,req.body.seed??before.seed,status,before.id])).rows[0];
+    if(changed)for(const id of ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[before.id,id]);
+    const result={...row,playerIds:ids};await audit(c,req.user,"team",before.id,"UPDATE_TEAM",{...before,playerIds:oldIds},result,"Cập nhật đội / cặp");return result;
+  });
+  await emitState();res.json(after);
 }));
 app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
