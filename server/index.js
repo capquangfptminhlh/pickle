@@ -2126,7 +2126,7 @@ app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(as
   let clubId=scopedRole?(req.body.clubId??before.club_id??null):null;
   if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
   if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
-  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId??before.tournament_id_scope??null):null;
+  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId===undefined?(before.tournament_id_scope||null):req.body.tournamentId):null;
   if(req.user.role==="organizer"){
     if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
   }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
@@ -2191,7 +2191,7 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"
   const before=(await pool.query("select id,email,display_name,role,active,tournament_id_scope from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(req.user.role==="organizer"&&(!before.tournament_id_scope||!(await canManageTournament(req.user,before.tournament_id_scope))))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
-  let tournamentId=req.body.tournamentId??before.tournament_id_scope??null;
+  let tournamentId=req.body.tournamentId===undefined?(before.tournament_id_scope||null):req.body.tournamentId;
   if(req.user.role==="organizer"){
     if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
   }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){

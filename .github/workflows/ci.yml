@@ -41,7 +41,9 @@ jobs:
       - name: Install Chromium for UI smoke tests
         run: npx playwright install --with-deps chromium
       - name: Registry desktop and mobile browser regressions
-        run: node scripts/registry-ui.mjs
+        run: |
+          node scripts/registry-ui.mjs
+          node scripts/registry-accounts-ui.mjs
       - name: Syntax check
         run: |
           node --check server/index.js
@@ -115,6 +117,7 @@ jobs:
       - name: Registry API and Preview regressions
         run: |
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-api.mjs
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-accounts-api.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Start static preview server
         run: |

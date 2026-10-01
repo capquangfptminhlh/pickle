@@ -36,6 +36,7 @@ jobs:
       - name: Registry desktop and mobile browser regressions
         run: |
           node scripts/registry-ui.mjs
+          node scripts/registry-accounts-ui.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Wrangler dry run
         working-directory: cloudflare
@@ -73,6 +74,7 @@ jobs:
           node scripts/smoke.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node scripts/permissions-v2.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-accounts-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate

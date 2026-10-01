@@ -16,6 +16,14 @@ async function userRequired(request,env){
 function httpError(code,status=400){return Object.assign(new Error(code),{status})}
 function asBool(v){return v===true||v===1||v==="1"||v==="true"}
 function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||""))&&String(v||"").length<=254}
+function accountUser(row){
+  return {...publicUser(row),display_name:row.display_name,tournament_id_scope:row.tournament_id_scope||null,
+    club_id:row.club_id||null,tournament_name:row.tournament_name||null,club_name:row.club_name||null};
+}
+function accountAudit(env,user,id,action,before,after,reason=null){
+  return env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'user',?,?,?,?,?)")
+    .bind(user.id,id,action,before?JSON.stringify(accountUser(before)):null,JSON.stringify(accountUser(after)),reason);
+}
 async function rows(env,sql,...args){const r=await env.DB.prepare(sql).bind(...args).all();return r.results||[]}
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
 async function assertTournament(env,user,id){
@@ -573,16 +581,18 @@ async function handleApi(request,env){
 
   if(path==="/api/users"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
-    let data=await rows(env,"SELECT id,email,display_name,role,active,tournament_id_scope,club_id,created_at FROM app_users ORDER BY display_name");
+    let data=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name,c.name AS club_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope LEFT JOIN clubs c ON c.id=u.club_id ORDER BY u.display_name");
     if(user.role==="organizer"){
       const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));
       data=data.filter(x=>x.id===user.id||(x.role==="referee"&&x.tournament_id_scope&&owned.has(x.tournament_id_scope)));
     }
-    return ok(data.map(publicUser),request,env);
+    return ok(data.map(accountUser),request,env);
   }
-  if(path==="/api/users"&&method==="POST"){
+  const refereeAccount=route(path,"/api/users/referees/:id");
+  const refereeWrite=path==="/api/users/referees"||Boolean(refereeAccount);
+  if((path==="/api/users"||path==="/api/users/referees")&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");const b=await bodyJson(request);
-    const email=String(b.email||"").trim().toLowerCase(),name=String(b.name||"").trim(),password=String(b.password||""),role=String(b.role||"referee");
+    const email=String(b.email||"").trim().toLowerCase(),name=String(b.name||"").trim(),password=String(b.password||""),role=refereeWrite?"referee":String(b.role||"referee");
     if(!email||!name||!password)return fail("FIELDS_REQUIRED",request,env,400);
     if(!validEmail(email))return fail("INVALID_EMAIL",request,env,400);
     if(name.length>120)return fail("NAME_TOO_LONG",request,env,400);
@@ -601,17 +611,21 @@ async function handleApi(request,env){
       return fail("INVALID_TOURNAMENT",request,env,400);
     }
     if(await one(env,"SELECT id FROM app_users WHERE email=?",email))return fail("EMAIL_EXISTS",request,env,409);
-    const id=uid(),hash=await hashPassword(password);
-    await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?)")
-      .bind(id,email,name,role,hash,tournamentId,clubId,nowIso(),nowIso()).run();
+    const id=uid(),hash=await hashPassword(password),at=nowIso();
+    const after={id,email,display_name:name,role,active:1,tournament_id_scope:tournamentId,club_id:clubId};
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?)")
+        .bind(id,email,name,role,hash,tournamentId,clubId,at,at),
+      accountAudit(env,user,id,refereeWrite?"CREATE_REFEREE":"CREATE_CHILD_ACCOUNT",null,after)
+    ]);
     const created=await one(env,"SELECT * FROM app_users WHERE id=?",id);
-    await createAudit(env,user,"user",id,"CREATE_CHILD_ACCOUNT",null,publicUser(created));
-    return ok(publicUser(created),request,env,201);
+    return ok(accountUser(created),request,env,201);
   }
-  p=route(path,"/api/users/:id");
+  p=refereeAccount||route(path,"/api/users/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     const target=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);if(!target)return fail("NOT_FOUND",request,env,404);
+    if(refereeWrite&&target.role!=="referee")return fail("NOT_FOUND",request,env,404);
     const b=await bodyJson(request);
     if(p.id===user.id&&b.active===false)return fail("CANNOT_DISABLE_SELF",request,env,400);
     if(user.role==="organizer"){
@@ -619,7 +633,7 @@ async function handleApi(request,env){
       if(!target.tournament_id_scope||!(await canManageTournament(env,user,target.tournament_id_scope)))return fail("TOURNAMENT_SCOPE_FORBIDDEN",request,env,403);
     }
     if(target.role==="super_admin"&&target.id!==user.id)return fail("OWNER_ACCOUNT_PROTECTED",request,env,403);
-    const role=user.role==="organizer"?"referee":(target.role==="super_admin"?"super_admin":(b.role===undefined?target.role:String(b.role)));
+    const role=refereeWrite||user.role==="organizer"?"referee":(target.role==="super_admin"?"super_admin":(b.role===undefined?target.role:String(b.role)));
     if(target.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return fail("INVALID_CHILD_ROLE",request,env,400);
     const email=String(b.email??target.email).trim().toLowerCase(),name=String(b.name??b.displayName??target.display_name).trim();
     if(!email||!name)return fail("FIELDS_REQUIRED",request,env,400);
@@ -643,39 +657,22 @@ async function handleApi(request,env){
       hash=await hashPassword(pwd);authVersion++;
     }
     const active=b.active===undefined?target.active:(asBool(b.active)?1:0);
-    await env.DB.prepare("UPDATE app_users SET email=?,display_name=?,role=?,active=?,club_id=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
-      .bind(email,name,role,active,clubId,tournamentId,hash,authVersion,nowIso(),p.id).run();
+    const after={...target,email,display_name:name,role,active,club_id:clubId,tournament_id_scope:tournamentId};
+    await env.DB.batch([
+      env.DB.prepare("UPDATE app_users SET email=?,display_name=?,role=?,active=?,club_id=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
+        .bind(email,name,role,active,clubId,tournamentId,hash,authVersion,nowIso(),p.id),
+      accountAudit(env,user,p.id,refereeWrite?"UPDATE_REFEREE":"UPDATE_CHILD_ACCOUNT",target,after,b.password?"Password reset":null)
+    ]);
     const updated=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);
-    await createAudit(env,user,"user",p.id,"UPDATE_CHILD_ACCOUNT",publicUser(target),publicUser(updated),b.password?"Password reset":null);
-    return ok(publicUser(updated),request,env);
+    return ok(accountUser(updated),request,env);
   }
   if(path==="/api/users/referees"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
-    let refs=await rows(env,"SELECT id,email,display_name,role,active,tournament_id_scope,club_id,created_at FROM app_users WHERE role='referee' ORDER BY display_name");
+    let refs=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope WHERE u.role='referee' ORDER BY u.display_name");
     if(user.role==="organizer"){
-      const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));refs=refs.filter(x=>!x.tournament_id_scope||owned.has(x.tournament_id_scope));
+      const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));refs=refs.filter(x=>x.tournament_id_scope&&owned.has(x.tournament_id_scope));
     }
-    return ok(refs.map(publicUser),request,env);
-  }
-  if(path==="/api/users/referees"&&method==="POST"){
-    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");const b=await bodyJson(request);b.role="referee";
-    const email=String(b.email||"").trim().toLowerCase(),name=String(b.name||"").trim(),password=String(b.password||""),tournamentId=b.tournamentId||null;
-    if(!email||!name||password.length<12)return fail("FIELDS_REQUIRED",request,env,400);
-    if(user.role==="organizer"){if(!tournamentId)return fail("TOURNAMENT_REQUIRED",request,env,400);await assertTournament(env,user,tournamentId)}
-    const id=uid(),hash=await hashPassword(password);
-    try{await env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,created_at,updated_at) VALUES(?,?,?,'referee',1,?,0,?,?,?)").bind(id,email,name,hash,tournamentId,nowIso(),nowIso()).run()}
-    catch{return fail("EMAIL_EXISTS",request,env,409)}
-    return ok(publicUser(await one(env,"SELECT * FROM app_users WHERE id=?",id)),request,env,201);
-  }
-  p=route(path,"/api/users/referees/:id");
-  if(p&&method==="PATCH"){
-    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
-    const target=await one(env,"SELECT * FROM app_users WHERE id=? AND role='referee'",p.id);if(!target)return fail("NOT_FOUND",request,env,404);const b=await bodyJson(request);
-    const scope=b.tournamentId===undefined?target.tournament_id_scope:b.tournamentId;if(user.role==="organizer"&&scope)await assertTournament(env,user,scope);
-    let hash=target.password_hash,version=Number(target.auth_version||0);if(b.password){if(String(b.password).length<12)return fail("WEAK_PASSWORD",request,env,400);hash=await hashPassword(String(b.password));version++}
-    await env.DB.prepare("UPDATE app_users SET display_name=?,active=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??target.display_name),b.active===undefined?target.active:(asBool(b.active)?1:0),scope,hash,version,nowIso(),p.id).run();
-    return ok(publicUser(await one(env,"SELECT * FROM app_users WHERE id=?",p.id)),request,env);
+    return ok(refs.map(accountUser),request,env);
   }
 
   if(path==="/api/clubs"&&method==="GET"){
@@ -780,6 +777,7 @@ export default {
       return await handleApi(request,env);
     }catch(e){
       const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
+      if(dbMessage.includes("UNIQUE constraint failed: app_users.email"))return fail("EMAIL_EXISTS",request,env,409);
       const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT"].find(code=>dbMessage.includes(code));
       const status=Number(e?.status||(constraint?(constraint==='INVALID_PLAYER_COUNT'?400:409):500)),code=constraint||(status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED"));
       if(status===500)console.error(e);
