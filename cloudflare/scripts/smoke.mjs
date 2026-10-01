@@ -61,7 +61,7 @@ const referee=(await raw("/api/users/referees",{method:"POST",token:admin,body:{
 assert(referee.role==="referee","referee created");
 
 state=(await raw("/api/admin/state",{token:admin})).data;
-const bracketMatch=state.matches.find(m=>m.bracketSlot&&m.a!=="TBD"&&m.b!=="TBD");
+const bracketMatch=state.matches.find(m=>m.divisionId===division.id&&m.bracketSlot&&m.a!=="TBD"&&m.b!=="TBD");
 assert(bracketMatch,"playable bracket match");
 await raw("/api/matches/"+bracketMatch.id+"/assignment",{method:"PATCH",token:admin,body:{courtId:courtA.id,refereeUserId:referee.id}});
 
@@ -80,7 +80,7 @@ score=(await raw("/api/matches/"+bracketMatch.id+"/quick-score",{method:"POST",t
 assert(score.status==="done"&&score.winner,"quick score completes match");
 
 state=(await raw("/api/admin/state",{token:admin})).data;
-const next=state.matches.find(m=>m.id!==bracketMatch.id&&m.bracketSlot==="SE-R2-M1");
+const next=state.matches.find(m=>m.divisionId===division.id&&m.id!==bracketMatch.id&&m.bracketSlot==="SE-R2-M1");
 assert(next&&(next.a===score.winner||next.b===score.winner),"winner advances in bracket");
 
 const reg=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teams[0].id,amount:300000}})).data;

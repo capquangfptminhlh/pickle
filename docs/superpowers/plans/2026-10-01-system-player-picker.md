@@ -512,4 +512,3 @@ Fetch `https://pickleup.vn/api/health` and the versioned admin assets. Log into 
 - singles shows one slot and doubles shows two;
 - a selected athlete cannot be selected again;
 - team submission creates the team with all selected athlete links.
-

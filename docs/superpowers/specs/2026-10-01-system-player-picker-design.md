@@ -91,4 +91,3 @@ Add integration coverage proving that:
 - the searchable picker displays rating/club information and the no-result instruction;
 - the global registry uses the new labels while still creating a player profile;
 - Wrangler dry-run, the existing permission smoke test, and production deployment continue to pass.
-

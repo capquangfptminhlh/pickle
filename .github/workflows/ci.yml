@@ -47,6 +47,8 @@ jobs:
           node --check assets/admin-app.js
           node --check assets/admin-modules.js
           node --check assets/admin-crud.js
+          node --check assets/player-picker.js
+          node --check shared/team-player-selection.js
           node --check assets/public.js
           node --check assets/player.js
           node --check assets/checkin.js

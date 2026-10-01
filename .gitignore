@@ -11,5 +11,6 @@ scratch/
 cloudflare/.wrangler-dist/
 cloudflare/.wrangler/
 cloudflare/public/
+cloudflare/.dev.vars
 .worktrees/
 ui-artifacts/

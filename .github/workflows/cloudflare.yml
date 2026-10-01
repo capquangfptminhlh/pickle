@@ -6,6 +6,7 @@ on:
     paths:
       - "cloudflare/**"
       - "assets/**"
+      - "shared/**"
       - "*.html"
       - "manifest.webmanifest"
       - "service-worker.js"
