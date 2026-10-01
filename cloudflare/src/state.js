@@ -149,7 +149,8 @@ export async function loadAdminState(env,user){
     return filterState(state,new Set(owned));
   }
   if(user.role==="referee"){
-    const matches=state.matches.filter(m=>m.refereeId===user.id);
+    const allowedDivisions=new Set(state.divisions.filter(d=>!user.tournamentScope||d.tournamentId===user.tournamentScope).map(d=>d.id));
+    const matches=state.matches.filter(m=>m.refereeId===user.id&&allowedDivisions.has(m.divisionId));
     const divisionIds=new Set(matches.map(m=>m.divisionId));
     const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(x=>x&&x!=="TBD"));
     const tournamentIds=new Set(state.divisions.filter(d=>divisionIds.has(d.id)).map(d=>d.tournamentId));
@@ -162,7 +163,7 @@ export async function loadAdminState(env,user){
       divisions:state.divisions.filter(d=>divisionIds.has(d.id)),
       courts:state.courts.filter(c=>tournamentIds.has(c.tournamentId)),
       teams:state.teams.filter(t=>teamIds.has(t.id)),
-      players:state.players.filter(p=>playerIds.has(p.id)),
+      players:state.players.filter(p=>playerIds.has(p.id)).map(p=>({...p,phone:""})),
       teamPlayers,matches,audit:[]
     };
   }
@@ -202,25 +203,37 @@ export async function loadPublicPlayer(env,id){
   ).bind(id).first();
   if(!p)return null;
   const teamRows=await rows(env,
-    "SELECT t.id AS team_id,t.name AS team_name,d.name AS division_name,tr.id AS tournament_id,tr.name AS tournament_name,tr.start_at FROM team_players tp JOIN teams t ON t.id=tp.team_id JOIN divisions d ON d.id=t.division_id JOIN tournaments tr ON tr.id=d.tournament_id WHERE tp.player_id=? AND tr.public_visible=1 ORDER BY tr.start_at DESC",id
+    "SELECT t.id,t.id AS team_id,t.name AS team_name,d.name AS division_name,tr.id AS tournament_id,tr.name AS tournament_name,tr.start_at FROM team_players tp JOIN teams t ON t.id=tp.team_id JOIN divisions d ON d.id=t.division_id JOIN tournaments tr ON tr.id=d.tournament_id WHERE tp.player_id=? AND tr.public_visible=1 AND d.active=1 AND t.status='active' ORDER BY tr.start_at DESC",id
   );
   const teamIds=teamRows.map(x=>x.team_id);
-  let matchRows=[];
+  const visibleMatch=" JOIN divisions d ON d.id=m.division_id JOIN tournaments tr ON tr.id=d.tournament_id ";
+  const membership=" WHERE tr.public_visible=1 AND d.active=1 AND m.status<>'cancelled' AND EXISTS (SELECT 1 FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE tp.player_id=? AND t.status='active' AND t.division_id=m.division_id AND (t.id=m.team_a_id OR t.id=m.team_b_id)) ";
+  const matchRows=teamIds.length?await rows(env,
+    "SELECT m.*,d.name AS division_name,tr.name AS tournament_name,tr.id AS tournament_id,ta.name AS team_a_name,tb.name AS team_b_name FROM matches m"+visibleMatch+"LEFT JOIN teams ta ON ta.id=m.team_a_id LEFT JOIN teams tb ON tb.id=m.team_b_id"+membership+"ORDER BY COALESCE(m.completed_at,m.scheduled_at,m.created_at) DESC",id):[];
+  const setMap=new Map();
+  const setRows=teamIds.length?await rows(env,"SELECT s.match_id,s.score_a,s.score_b FROM match_sets s JOIN matches m ON m.id=s.match_id"+visibleMatch+membership+"ORDER BY s.match_id,s.set_no",id):[];
+  for(const s of setRows){
+    if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);
+    setMap.get(s.match_id).push([Number(s.score_a),Number(s.score_b)]);
+  }
+  let wins=0,losses=0,pointsFor=0,pointsAgainst=0;
+  const matches=matchRows.map(m=>{
+    const mine=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id,side=mine===m.team_a_id?"A":"B",sets=setMap.get(m.id)||[];
+    const won=m.status==="completed"&&m.winner_team_id===mine,lost=Boolean(m.status==="completed"&&m.winner_team_id&&m.winner_team_id!==mine);
+    if(won)wins++;if(lost)losses++;
+    const myPoints=sets.reduce((n,s)=>n+s[side==="A"?0:1],0),oppPoints=sets.reduce((n,s)=>n+s[side==="A"?1:0],0);
+    pointsFor+=myPoints;pointsAgainst+=oppPoints;
+    return {id:m.id,tournamentId:m.tournament_id,tournamentName:m.tournament_name,divisionName:m.division_name,stage:m.stage,status:publicStatus(m.status),scheduledAt:m.scheduled_at,completedAt:m.completed_at,
+      teamAId:m.team_a_id,teamBId:m.team_b_id,teamAName:m.team_a_name||"TBD",teamBName:m.team_b_name||"TBD",myTeamId:mine,mySide:side,winnerTeamId:m.winner_team_id,won,lost,sets,myPoints,oppPoints};
+  });
+  let partners=[];
   if(teamIds.length){
-    const placeholders=teamIds.map(()=>"?").join(",");
-    matchRows=await rows(env,
-      "SELECT * FROM matches WHERE (team_a_id IN ("+placeholders+") OR team_b_id IN ("+placeholders+")) AND status='completed' ORDER BY completed_at DESC",
-      ...teamIds,...teamIds
-    );
+    partners=await rows(env,"SELECT DISTINCT p.id,p.full_name,p.nickname,p.avatar_url,p.rating,c.name AS club_name FROM team_players tp JOIN players p ON p.id=tp.player_id LEFT JOIN clubs c ON c.id=p.club_id JOIN teams t ON t.id=tp.team_id JOIN divisions d ON d.id=t.division_id JOIN tournaments tr ON tr.id=d.tournament_id WHERE p.id<>? AND p.active=1 AND t.status='active' AND d.active=1 AND tr.public_visible=1 AND EXISTS(SELECT 1 FROM team_players mine WHERE mine.team_id=tp.team_id AND mine.player_id=?) ORDER BY p.full_name",id,id);
   }
-  let wins=0,losses=0;
-  for(const m of matchRows){
-    const mine=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
-    if(m.winner_team_id===mine)wins++;else losses++;
-  }
+  const ratingHistory=await rows(env,"SELECT before_rating,delta,after_rating,reason,created_at FROM rating_history WHERE player_id=? ORDER BY created_at DESC LIMIT 100",id);
   return {
     profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",rating:Number(p.rating||0),avatarUrl:p.avatar_url||"",clubName:p.club_name||"",clubCity:p.club_city||""},
-    stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*100/(wins+losses)):0,pointsFor:0,pointsAgainst:0,diff:0},
-    teams:teamRows,partners:[],matches:matchRows.slice(0,30),ratingHistory:[]
+    stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor,pointsAgainst,diff:pointsFor-pointsAgainst},
+    teams:teamRows,partners,matches:matches.slice(0,100),ratingHistory
   };
 }

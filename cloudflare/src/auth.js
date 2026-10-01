@@ -135,8 +135,8 @@ export async function canEditPlayer(env,user,playerId){
   }
   if(user.role==="referee"){
     const row=await env.DB.prepare(
-      "SELECT tp.player_id FROM team_players tp JOIN matches m ON (m.team_a_id=tp.team_id OR m.team_b_id=tp.team_id) WHERE tp.player_id=? AND m.referee_user_id=? LIMIT 1"
-    ).bind(playerId,user.id).first();
+      "SELECT tp.player_id FROM team_players tp JOIN matches m ON (m.team_a_id=tp.team_id OR m.team_b_id=tp.team_id) JOIN divisions d ON d.id=m.division_id WHERE tp.player_id=? AND m.referee_user_id=? AND (? IS NULL OR d.tournament_id=?) LIMIT 1"
+    ).bind(playerId,user.id,user.tournamentScope||null,user.tournamentScope||null).first();
     return Boolean(row);
   }
   if(user.role==="club_manager"){

@@ -13,6 +13,7 @@ import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
+import {validateSet,validateSeries} from "../shared/scoring-rules.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
@@ -65,7 +66,7 @@ const receiptMimeExt={...imageMimeExt,"application/pdf":".pdf"};
 const receiptUpload=multer({
   storage:multer.diskStorage({
     destination:(req,file,cb)=>cb(null,receiptDir),
-    filename:(req,file,cb)=>cb(null,`receipt-${randomUUID()}${receiptMimeExt[file.mimetype]||".bin"}`)
+    filename:(req,file,cb)=>cb(null,`receipt-${req.user.sub}-${randomUUID()}${receiptMimeExt[file.mimetype]||".bin"}`)
   }),
   limits:{fileSize:8*1024*1024},
   fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(receiptMimeExt,file.mimetype))
@@ -103,7 +104,8 @@ app.use(helmet({
       fontSrc:["'self'","data:"],
       objectSrc:["'none'"],
       baseUri:["'self'"],
-      frameAncestors:["'none'"]
+      frameAncestors:["'none'"],
+      frameSrc:["'self'","blob:"]
     }
   },
   referrerPolicy:{policy:"strict-origin-when-cross-origin"}
@@ -206,8 +208,9 @@ async function canEditPlayer(user,playerId,c=pool){
       select 1
       from team_players tp
       join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
-      where tp.player_id=$1 and m.referee_user_id=$2
-    `,[playerId,user.sub])).rowCount);
+      join divisions d on d.id=m.division_id
+      where tp.player_id=$1 and m.referee_user_id=$2 and ($3::uuid is null or d.tournament_id=$3)
+    `,[playerId,user.sub,user.tournamentScope||null])).rowCount);
   }
   return false;
 }
@@ -336,7 +339,8 @@ async function loadAdminState(user){
   }
   if(user.role==="referee"){
     const state=await loadState();
-    const matches=state.matches.filter(m=>m.refereeId===user.sub);
+    const allowedDivisions=new Set(state.divisions.filter(d=>!user.tournamentScope||d.tournamentId===user.tournamentScope).map(d=>d.id));
+    const matches=state.matches.filter(m=>m.refereeId===user.sub&&allowedDivisions.has(m.divisionId));
     const divisionIds=new Set(matches.map(m=>m.divisionId));
     const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(id=>id&&id!=="TBD"));
     const tournamentIds=new Set(state.divisions.filter(d=>divisionIds.has(d.id)).map(d=>d.tournamentId));
@@ -347,7 +351,7 @@ async function loadAdminState(user){
       divisions:state.divisions.filter(d=>divisionIds.has(d.id)),
       courts:state.courts.filter(c=>tournamentIds.has(c.tournamentId)),
       teams:state.teams.filter(t=>teamIds.has(t.id)),
-      players:(state.players||[]).filter(p=>playerIds.has(p.id)),
+      players:(state.players||[]).filter(p=>playerIds.has(p.id)).map(p=>({...p,phone:""})),
       teamPlayers,
       matches,
       audit:[]
@@ -371,10 +375,6 @@ async function getMatch(c,id,lock=false){
   const q=`select m.*,d.best_of,d.points_to_win,d.win_by_two,d.tournament_id
     from matches m join divisions d on d.id=m.division_id where m.id=$1 ${lock?"for update of m":""}`;
   return (await c.query(q,[id])).rows[0];
-}
-function validateSet(a,b,target,winByTwo){
-  const hi=Math.max(a,b),lo=Math.min(a,b);
-  return a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
 }
 async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null}={}){
   const division=(await c.query("select id,event_type from divisions where id=$1 for update",[divisionId])).rows[0];
@@ -403,7 +403,7 @@ async function assertRosterEditable(c,teamId){
 async function authorizeMatch(c,user,m){
   if(user.role==="super_admin")return true;
   if(user.role==="organizer")return canManageTournament(user,m.tournament_id,c);
-  if(user.role==="referee"&&m.referee_user_id===user.sub)return true;
+  if(user.role==="referee"&&m.referee_user_id===user.sub&&(!user.tournamentScope||user.tournamentScope===m.tournament_id))return true;
   return false;
 }
 
@@ -413,6 +413,152 @@ async function validRefereeForTournament(user,refereeId,tournamentId,c=pool){
   if(!row||row.role!=="referee"||!row.active)return false;
   if(user?.role==="organizer")return row.tournament_id_scope===tournamentId&&await canManageTournament(user,tournamentId,c);
   return !row.tournament_id_scope||row.tournament_id_scope===tournamentId;
+}
+async function validateMatchAssignment(c,user,m,b){
+  const a=b.teamAId===undefined?m.team_a_id:b.teamAId,bb=b.teamBId===undefined?m.team_b_id:b.teamBId;
+  const changed=m.id&&(a!==m.team_a_id||bb!==m.team_b_id);
+  if(changed&&(m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||
+    (await c.query("select 1 from score_events where match_id=$1 union all select 1 from match_sets where match_id=$1 limit 1",[m.id])).rowCount))throw Object.assign(new Error("MATCH_ROSTER_LOCKED"),{status:409});
+  if(a&&bb&&a===bb)throw Object.assign(new Error("INVALID_TEAMS"),{status:400});
+  for(const [id,previous] of [[a,m.team_a_id],[bb,m.team_b_id]])if(id&&(!m.id||id!==previous)&&!(await c.query("select 1 from teams where id=$1 and division_id=$2 and status='active'",[id,m.division_id])).rowCount)throw Object.assign(new Error("INVALID_TEAMS"),{status:400});
+  if(b.courtId&&(!m.id||b.courtId!==m.court_id)&&!(await c.query("select 1 from courts where id=$1 and tournament_id=$2 and active=true",[b.courtId,m.tournament_id])).rowCount)throw Object.assign(new Error("INVALID_COURT_SCOPE"),{status:400});
+  if(b.refereeUserId&&(!m.id||b.refereeUserId!==m.referee_user_id)&&!(await validRefereeForTournament(user,b.refereeUserId,m.tournament_id,c)))throw Object.assign(new Error("INVALID_REFEREE_SCOPE"),{status:400});
+  if(m.id&&b.expectedVersion!==undefined&&Number(b.expectedVersion)!==Number(m.version))throw Object.assign(new Error("VERSION_CONFLICT"),{status:409});
+  return {a:a||null,b:bb||null};
+}
+
+const scoreFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
+const scoreError=(code,status=400)=>Object.assign(new Error(code),{status});
+const scorePairs=sets=>sets.map(s=>[s.score_a,s.score_b]);
+const scoreSnapshot=(match,sets)=>({match:{...match},sets:sets.map(s=>({...s}))});
+const scoreSeries=(m,sets,requireComplete)=>validateSeries(scorePairs(sets),Number(m.best_of),Number(m.points_to_win),m.win_by_two,{requireComplete});
+function assertScoreSource(m,{undo=false}={}){
+  if(!undo&&(m.status==="completed"||m.status==="walkover"||m.winner_team_id))throw scoreError("MATCH_COMPLETED",409);
+  if(m.status==="cancelled")throw scoreError("MATCH_CANCELLED",409);
+  if(!m.team_a_id||!m.team_b_id||m.team_a_id==="TBD"||m.team_b_id==="TBD"||m.team_a_id===m.team_b_id)throw scoreError("MATCH_TEAMS_REQUIRED",409);
+}
+function assertScoreVersion(m,body){
+  if(body.expectedVersion!==undefined&&(!Number.isSafeInteger(Number(body.expectedVersion))||Number(body.expectedVersion)!==Number(m.version)))throw scoreError("VERSION_CONFLICT",409);
+}
+function finishScore(m,winner,at){
+  m.status="completed";m.winner_team_id=winner;m.completed_at=at;m.current_score_a=0;m.current_score_b=0;m.result_reason=null;m.result_note=null;
+}
+function scoreSet(id,no,a,b){return {id:randomUUID(),match_id:id,set_no:no,score_a:a,score_b:b,completed:true}}
+async function scoreBracketChanges(c,m,winner,restore=null){
+  const slots=restore||[{id:m.next_match_id,side:m.next_match_side,teamAfter:winner},
+    {id:m.loser_next_match_id,side:m.loser_next_match_side,teamAfter:winner===m.team_a_id?m.team_b_id:m.team_a_id}].filter(s=>s.id&&s.side);
+  if(!slots.length)return [];
+  if(slots.some(s=>!["A","B"].includes(s.side)||s.id===m.id))throw scoreError("INVALID_BRACKET_LINK",409);
+  // All scorers and metadata writers lock the match before touching its history.
+  // Lock destination rows in a stable order when both winner and loser advance.
+  const targets=(await c.query("select * from matches where id=any($1::uuid[]) order by id for update",[[...new Set(slots.map(s=>s.id))]])).rows;
+  const targetMap=new Map(targets.map(t=>[t.id,t])),changes=[];
+  for(const slot of slots){
+    const target=targetMap.get(slot.id);if(!target||target.division_id!==m.division_id)throw scoreError("INVALID_BRACKET_LINK",409);
+    const history=(await c.query("select 1 from match_sets where match_id=$1 union all select 1 from score_events where match_id=$1 limit 1",[target.id])).rowCount;
+    if(target.started_at||["live","completed","walkover","cancelled"].includes(target.status)||target.winner_team_id||target.current_score_a||target.current_score_b||history)throw scoreError("DOWNSTREAM_MATCH_LOCKED",409);
+    const column=slot.side==="A"?"team_a_id":"team_b_id",current=target[column]||null;
+    if(restore){
+      if(current!==(slot.teamAfter||null))throw scoreError("VERSION_CONFLICT",409);
+      changes.push({...slot,teamBefore:current,teamAfter:slot.teamBefore||null,version:target.version});
+    }else{
+      if(current&&current!==slot.teamAfter)throw scoreError("BRACKET_SLOT_OCCUPIED",409);
+      changes.push({...slot,teamBefore:current,version:target.version});
+    }
+  }
+  return changes;
+}
+async function legacyScoreSnapshot(c,m,sets,event,payload){
+  const before=scoreSnapshot(m,sets),p=payload.before;
+  const previous=(await c.query("select * from score_events where match_id=$1 and id<$2 and event_type<>'UNDO' and undone_at is null order by id desc limit 1",[m.id,event.id])).rows[0];
+  const wasLive=previous&&["POINT","SET_FINISH"].includes(previous.event_type);
+  if(event.event_type==="POINT"&&p){
+    if(Array.isArray(p)){
+      if(!wasLive)throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+      before.match.current_score_a=p[0];before.match.current_score_b=p[1];before.match.status="live";
+    }else if(Number.isSafeInteger(p.current_score_a)&&Number.isSafeInteger(p.current_score_b)&&p.status){
+      before.match.current_score_a=p.current_score_a;before.match.current_score_b=p.current_score_b;before.match.status=p.status;
+    }else throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }else if((event.event_type==="SET_FINISH"||event.event_type==="MATCH_FINISH")&&payload.setNo&&Array.isArray(payload.set)){
+    if(!wasLive||!sets.some(s=>s.set_no===payload.setNo&&s.score_a===payload.set[0]&&s.score_b===payload.set[1]))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+    before.sets=before.sets.filter(s=>s.set_no!==payload.setNo);before.match.current_score_a=payload.set[0];before.match.current_score_b=payload.set[1];
+    before.match.status="live";before.match.winner_team_id=null;before.match.completed_at=null;
+  }else if(event.event_type==="SET_FINISH"&&payload.addedSetNo&&p){
+    if(!sets.some(s=>s.set_no===payload.addedSetNo&&s.score_a===p.scoreA&&s.score_b===p.scoreB))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+    before.sets=before.sets.filter(s=>s.set_no!==payload.addedSetNo);before.match.current_score_a=p.scoreA;before.match.current_score_b=p.scoreB;
+  }else{
+    // Older PostgreSQL MATCH_FINISH records did not preserve a final set added by
+    // /finish, nor the prior downstream occupants. Reconstructing would lose data.
+    throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }
+  return before;
+}
+async function scoreUndoPlan(c,m,sets){
+  assertScoreSource(m,{undo:true});
+  const event=(await c.query("select * from score_events where match_id=$1 and event_type<>'UNDO' and undone_at is null order by id desc limit 1 for update",[m.id])).rows[0];
+  if(!event)throw scoreError("NOTHING_TO_UNDO");
+  const payload=event.payload||{};
+  const before=payload.before?.match&&Array.isArray(payload.before.sets)?payload.before:await legacyScoreSnapshot(c,m,sets,event,payload);
+  for(const field of scoreFields)if(!(field in before.match))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  const after=scoreSnapshot(m,before.sets);for(const field of scoreFields)after.match[field]=before.match[field];
+  after.match.started_at=m.started_at||before.match.started_at||null;
+  let downstream=[];
+  if(m.winner_team_id!==after.match.winner_team_id){
+    if(Array.isArray(payload.downstream))downstream=await scoreBracketChanges(c,m,m.winner_team_id,payload.downstream);
+    else if(m.next_match_id||m.loser_next_match_id)throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }
+  return {after,eventType:"UNDO",payload:{undoEventId:event.id},undoEvent:event,downstream};
+}
+async function scoreMutationPlan(c,m,sets,action,body,at){
+  assertScoreSource(m);
+  const after=scoreSnapshot(m,sets),next=after.match;let eventType="POINT",payload={},done=false;
+  if(action==="point"){
+    const delta=Number(body.delta);if(!["A","B"].includes(body.side)||![1,-1].includes(delta))throw scoreError("BAD_SCORE_ACTION");
+    if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw scoreError("INVALID_CURRENT_SCORE",409);
+    const existing=scoreSeries(m,sets,false);if(!existing.valid||existing.winner)throw scoreError("MATCH_NOT_PLAYABLE",409);
+    const column=body.side==="A"?"current_score_a":"current_score_b";next[column]=Math.max(0,next[column]+delta);
+    if(next[column]>32767)throw scoreError("INVALID_CURRENT_SCORE",409);
+    next.status="live";payload={side:body.side,delta};
+  }else if(action==="quick-score"){
+    if(!Array.isArray(body.sets)||!body.sets.length)throw scoreError("NO_SETS_PROVIDED");
+    const result=validateSeries(body.sets,Number(m.best_of),Number(m.points_to_win),m.win_by_two);
+    if(!result.valid)throw scoreError(result.error);
+    if(body.sets.some(s=>s.some(n=>n>32767)))throw scoreError("INVALID_SET_SCORE");
+    after.sets=body.sets.map((s,i)=>scoreSet(m.id,i+1,...s));finishScore(next,result.winner==="A"?m.team_a_id:m.team_b_id,at);done=true;eventType="MATCH_FINISH";payload={quickScore:true};
+  }else if(action==="finish-set"||action==="finish"){
+    if(action==="finish-set"||m.current_score_a!==0||m.current_score_b!==0){
+      if(!validateSet(m.current_score_a,m.current_score_b,Number(m.points_to_win),m.win_by_two))throw scoreError("INVALID_SET_SCORE");
+      after.sets.push(scoreSet(m.id,Math.max(0,...sets.map(s=>s.set_no))+1,m.current_score_a,m.current_score_b));
+    }
+    const result=scoreSeries(m,after.sets,action==="finish");if(!result.valid)throw scoreError(result.error);
+    next.current_score_a=0;next.current_score_b=0;next.status="live";
+    if(result.winner){
+      const winner=result.winner==="A"?m.team_a_id:m.team_b_id;
+      if(body.winnerTeamId&&body.winnerTeamId!==winner)throw scoreError("INVALID_WINNER");
+      finishScore(next,winner,at);done=true;
+    }else if(body.winnerTeamId)throw scoreError("MATCH_NOT_FINISHED");
+    eventType=done?"MATCH_FINISH":"SET_FINISH";
+  }else if(action==="special-result"){
+    if(![m.team_a_id,m.team_b_id].includes(body.winnerTeamId)||!["walkover","no_show","retired","injury","disqualified"].includes(body.reason))throw scoreError("INVALID_SPECIAL_RESULT");
+    finishScore(next,body.winnerTeamId,at);next.result_reason=body.reason;next.result_note=String(body.note||"");done=true;eventType="MATCH_FINISH";payload={special:true};
+  }
+  next.started_at=m.started_at||at;
+  const downstream=done?await scoreBracketChanges(c,m,next.winner_team_id):[];
+  return {after,eventType,payload,downstream};
+}
+async function applyScore(c,user,m,sets,action,plan){
+  const before=scoreSnapshot(m,sets),next=plan.after.match;
+  const updated=(await c.query("update matches set "+scoreFields.map((field,i)=>`${field}=$${i+1}`).join(",")+",version=version+1 where id=$9 and version=$10 returning *",[...scoreFields.map(f=>next[f]),m.id,m.version])).rows[0];
+  if(!updated)throw scoreError("VERSION_CONFLICT",409);
+  await c.query("delete from match_sets where match_id=$1",[m.id]);
+  for(const s of plan.after.sets)await c.query("insert into match_sets(id,match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,$5,$6)",[s.id,m.id,s.set_no,s.score_a,s.score_b,s.completed]);
+  for(const slot of plan.downstream){const column=slot.side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${column}=$1,version=version+1 where id=$2`,[slot.teamAfter||null,slot.id])}
+  if(plan.undoEvent){const consumed=await c.query("update score_events set undone_at=now() where id=$1 and undone_at is null",[plan.undoEvent.id]);if(!consumed.rowCount)throw scoreError("VERSION_CONFLICT",409)}
+  plan.after.match={...next,...updated};
+  const payload={...plan.payload,expectedVersion:m.version,before,after:plan.after,downstream:plan.downstream};
+  await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,$3,$4,$5)",[m.id,user.sub,plan.eventType,payload,updated.version]);
+  await audit(c,user,"match",m.id,action.toUpperCase().replaceAll("-","_"),before,plan.after,plan.undoEvent?`Undo event ${plan.undoEvent.id}`:null);
+  return updated;
 }
 
 const tournamentManageParam=wrap(async(req,res,next)=>{
@@ -556,7 +702,7 @@ app.get("/api/public/players/:id",wrap(async(req,res)=>{
     join teams t on t.id=tp.team_id
     join divisions d on d.id=t.division_id
     join tournaments tr on tr.id=d.tournament_id
-    where tp.player_id=$1
+    where tp.player_id=$1 and tr.public_visible=true and d.active=true and t.status='active'
     order by tr.start_at desc nulls last
   `,[p.id])).rows;
   const teamIds=teamRows.map(t=>t.id);
@@ -567,9 +713,9 @@ app.get("/api/public/players/:id",wrap(async(req,res)=>{
     join team_players other on other.team_id=mine.team_id and other.player_id<>mine.player_id
     join players p2 on p2.id=other.player_id
     left join clubs c on c.id=p2.club_id
-    where mine.player_id=$1
+    where mine.player_id=$1 and mine.team_id=any($2::uuid[]) and p2.active=true
     order by p2.full_name
-  `,[p.id])).rows:[];
+  `,[p.id,teamIds])).rows:[];
 
   const matchRows=teamIds.length?(await pool.query(`
     select m.*,d.name division_name,tr.id tournament_id,tr.name tournament_name,tr.start_at tournament_start,
@@ -579,7 +725,7 @@ app.get("/api/public/players/:id",wrap(async(req,res)=>{
     join tournaments tr on tr.id=d.tournament_id
     left join teams ta on ta.id=m.team_a_id
     left join teams tb on tb.id=m.team_b_id
-    where m.team_a_id=any($1::uuid[]) or m.team_b_id=any($1::uuid[])
+    where (m.team_a_id=any($1::uuid[]) or m.team_b_id=any($1::uuid[])) and tr.public_visible=true and d.active=true and m.status<>'cancelled'
     order by coalesce(m.completed_at,m.scheduled_at,m.created_at) desc
     limit 100
   `,[teamIds])).rows:[];
@@ -644,7 +790,7 @@ app.get("/api/public/posts/:slug",wrap(async(req,res)=>{
   if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
 }));
 app.get("/api/public/sponsors",wrap(async(req,res)=>{
-  const {rows}=await pool.query("select id,tournament_id,name,logo_url,website_url,tier,sort_order from sponsors order by sort_order,name");
+  const {rows}=await pool.query("select s.id,s.tournament_id,s.name,s.logo_url,s.website_url,s.tier,s.sort_order from sponsors s left join tournaments t on t.id=s.tournament_id where s.tournament_id is null or t.public_visible=true order by s.sort_order,s.name");
   res.json(rows);
 }));
 app.get("/api/public/branding",wrap(async(req,res)=>{
@@ -729,14 +875,15 @@ app.get("/api/players",authRequired,allow("super_admin","organizer","referee","c
     where=`where exists (
       select 1 from team_players tp
       join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
-      where tp.player_id=p.id and m.referee_user_id=$1
+      join divisions d on d.id=m.division_id
+      where tp.player_id=p.id and m.referee_user_id=$1 and ($2::uuid is null or d.tournament_id=$2)
     )`;
-    params=[req.user.sub];
+    params=[req.user.sub,req.user.tournamentScope||null];
   }
   const {rows}=await pool.query(`
     select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
     from players p left join clubs c on c.id=p.club_id ${where} order by p.full_name
-  `,params);res.json(rows);
+  `,params);res.json(req.user.role==="referee"?rows.map(p=>({...p,phone:""})):rows);
 }));
 app.post("/api/players",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
   const {fullName,nickname,gender,phone}=req.body;if(!fullName)return res.status(400).json({error:"NAME_REQUIRED"});
@@ -996,187 +1143,34 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
 }));
 
 app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
-  const {courtId,refereeUserId,scheduledAt}=req.body;
-  const before=await getMatch(pool,req.params.id,false);
-  if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  if(refereeUserId&&refereeUserId!==before.referee_user_id&&!(await validRefereeForTournament(req.user,refereeUserId,before.tournament_id)))return res.status(400).json({error:"INVALID_REFEREE_SCOPE"});
-  if(courtId){
-    const courtTid=await tournamentIdForCourt(courtId);
-    if(courtTid!==before.tournament_id)return res.status(400).json({error:"COURT_TOURNAMENT_MISMATCH"});
-  }
-  const after=(await pool.query(`
-    update matches set court_id=$1,referee_user_id=$2,
-    scheduled_at=coalesce($3,scheduled_at),version=version+1 where id=$4 returning *
-  `,[courtId||null,refereeUserId||null,scheduledAt||null,req.params.id])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'match',$2,'ASSIGN_MATCH',$3,$4)",[req.user.sub,after.id,before,after]);
+  const after=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw scoreError("NOT_FOUND",404);
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    const b=req.body||{};assertScoreVersion(before,b);
+    if(b.status!==undefined&&b.status!==before.status)throw scoreError("USE_SCORE_ACTION");
+    await validateMatchAssignment(c,req.user,before,b);
+    const after=(await c.query("update matches set court_id=$1,referee_user_id=$2,scheduled_at=$3,version=version+1 where id=$4 returning *",
+      [b.courtId===undefined?before.court_id:b.courtId,b.refereeUserId===undefined?before.referee_user_id:b.refereeUserId,b.scheduledAt===undefined?before.scheduled_at:b.scheduledAt,before.id])).rows[0];
+    await audit(c,req.user,"match",before.id,"ASSIGN_MATCH",before,after);return after;
+  });
   await emitState();res.json(after);
 }));
 
-app.post("/api/matches/:id/point",authRequired,wrap(async(req,res)=>{
-  const {side,delta,expectedVersion}=req.body;if(!["A","B"].includes(side)||![1,-1].includes(Number(delta)))return res.status(400).json({error:"BAD_SCORE_ACTION"});
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    if(expectedVersion!==undefined&&Number(expectedVersion)!==m.version)throw Object.assign(new Error("VERSION_CONFLICT"),{status:409,currentVersion:m.version});
-    if(m.status==="completed")throw Object.assign(new Error("MATCH_COMPLETED"),{status:409});
-    const before={current_score_a:m.current_score_a,current_score_b:m.current_score_b,status:m.status,version:m.version};
-    const col=side==="A"?"current_score_a":"current_score_b";
-    const r=(await c.query(`
-      update matches set ${col}=greatest(0,${col}+$1),status='live',
-      started_at=coalesce(started_at,now()),version=version+1 where id=$2 returning *
-    `,[Number(delta),m.id])).rows[0];
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'POINT',$3,$4)",[m.id,req.user.sub,{before,side,delta:Number(delta)},r.version]);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
-app.post("/api/matches/:id/finish-set",authRequired,wrap(async(req,res)=>{
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    if(req.body.expectedVersion!==undefined&&Number(req.body.expectedVersion)!==m.version)throw Object.assign(new Error("VERSION_CONFLICT"),{status:409});
-    if(!validateSet(m.current_score_a,m.current_score_b,m.points_to_win,m.win_by_two))throw Object.assign(new Error("INVALID_SET_SCORE"),{status:400});
-    const nextNo=Number((await c.query("select coalesce(max(set_no),0)+1 n from match_sets where match_id=$1",[m.id])).rows[0].n);
-    await c.query("insert into match_sets(match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,true)",[m.id,nextNo,m.current_score_a,m.current_score_b]);
-    const r=(await c.query("update matches set current_score_a=0,current_score_b=0,version=version+1 where id=$1 returning *",[m.id])).rows[0];
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'SET_FINISH',$3,$4)",[m.id,req.user.sub,{addedSetNo:nextNo,before:{scoreA:m.current_score_a,scoreB:m.current_score_b,version:m.version}},r.version]);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
-app.post("/api/matches/:id/special-result",authRequired,wrap(async(req,res)=>{
-  const reason=String(req.body.reason||"").trim();
-  const note=String(req.body.note||"").trim();
-  const allowedReasons=["walkover","no_show","retired","injury","disqualified"];
-  if(!allowedReasons.includes(reason))return res.status(400).json({error:"INVALID_RESULT_REASON"});
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    if(m.status==="completed")throw Object.assign(new Error("MATCH_COMPLETED"),{status:409});
-    const winner=req.body.winnerTeamId;
-    if(!winner||![m.team_a_id,m.team_b_id].includes(winner))throw Object.assign(new Error("INVALID_WINNER"),{status:400});
-    const loser=winner===m.team_a_id?m.team_b_id:m.team_a_id;
-    const before={status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side,loserNextMatchId:m.loser_next_match_id,loserNextSide:m.loser_next_match_side};
-    const r=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason=$2,result_note=$3,version=version+1 where id=$4 returning *",[winner,reason,note||null,m.id])).rows[0];
-    if(m.next_match_id&&m.next_match_side){
-      const col=m.next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[winner,m.next_match_id]);
-    }
-    if(loser&&m.loser_next_match_id&&m.loser_next_match_side){
-      const col=m.loser_next_match_side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[loser,m.loser_next_match_id]);
-    }
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,loser,special:true,reason,before},r.version]);
-    await audit(c,req.user,"match",m.id,"SPECIAL_RESULT",m,r,`${reason}: ${winner}`);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
-app.post("/api/matches/:id/quick-score",authRequired,wrap(async(req,res)=>{
-  const rawSets=Array.isArray(req.body.sets)?req.body.sets:[];
-  const sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);
-  if(!sets.length)return res.status(400).json({error:"NO_SETS_PROVIDED"});
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    if(m.status==="completed")throw Object.assign(new Error("MATCH_COMPLETED"),{status:409});
-    await c.query("delete from match_sets where match_id=$1",[m.id]);
-    let aw=0,bw=0;
-    for(let i=0;i<sets.length;i++){
-      const [sa,sb]=sets[i];
-      if(sa>sb)aw++;else if(sb>sa)bw++;
-      await c.query("insert into match_sets(match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,true)",[m.id,i+1,sa,sb]);
-    }
-    const winner=aw>=bw?m.team_a_id:m.team_b_id;
-    const loser=winner===m.team_a_id?m.team_b_id:m.team_a_id;
-    const before={status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side,loserNextMatchId:m.loser_next_match_id,loserNextSide:m.loser_next_match_side};
-    const r=(await c.query(`
-      update matches set current_score_a=0,current_score_b=0,winner_team_id=$1,
-      status='completed',completed_at=now(),result_reason=null,result_note=null,version=version+1
-      where id=$2 returning *
-    `,[winner,m.id])).rows[0];
-    if(m.next_match_id&&m.next_match_side){
-      const col=m.next_match_side==="A"?"team_a_id":"team_b_id";
-      await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[winner,m.next_match_id]);
-    }
-    if(loser&&m.loser_next_match_id&&m.loser_next_match_side){
-      const col=m.loser_next_match_side==="A"?"team_a_id":"team_b_id";
-      await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[loser,m.loser_next_match_id]);
-    }
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,loser,quickScore:true,sets,before},r.version]);
-    await audit(c,req.user,"match",m.id,"QUICK_SCORE",m,r,`Tỉ số: ${sets.map(s=>s[0]+"-"+s[1]).join(", ")}`);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
-app.post("/api/matches/:id/finish",authRequired,wrap(async(req,res)=>{
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    if(req.body.expectedVersion!==undefined&&Number(req.body.expectedVersion)!==m.version)throw Object.assign(new Error("VERSION_CONFLICT"),{status:409});
-    let sets=(await c.query("select * from match_sets where match_id=$1 and completed=true order by set_no",[m.id])).rows;
-    let aw=sets.filter(s=>s.score_a>s.score_b).length,bw=sets.filter(s=>s.score_b>s.score_a).length,need=Math.floor(m.best_of/2)+1;
-    if(Math.max(aw,bw)<need && validateSet(m.current_score_a,m.current_score_b,m.points_to_win,m.win_by_two)){
-      const nextNo=Number((await c.query("select coalesce(max(set_no),0)+1 n from match_sets where match_id=$1",[m.id])).rows[0].n);
-      await c.query("insert into match_sets(match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,true)",[m.id,nextNo,m.current_score_a,m.current_score_b]);
-      m.current_score_a>m.current_score_b?aw++:bw++;
-      await c.query("update matches set current_score_a=0,current_score_b=0 where id=$1",[m.id]);
-    }
-    if(Math.max(aw,bw)<need)throw Object.assign(new Error("NOT_ENOUGH_SET_WINS"),{status:400});
-    const winner=aw>bw?m.team_a_id:m.team_b_id;
-    const loser=winner===m.team_a_id?m.team_b_id:m.team_a_id;
-    const r=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason=null,result_note=null,version=version+1 where id=$2 returning *",[winner,m.id])).rows[0];
-    if(m.next_match_id&&m.next_match_side){
-      const col=m.next_match_side==="A"?"team_a_id":"team_b_id";
-      await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[winner,m.next_match_id]);
-    }
-    if(loser&&m.loser_next_match_id&&m.loser_next_match_side){
-      const col=m.loser_next_match_side==="A"?"team_a_id":"team_b_id";
-      await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[loser,m.loser_next_match_id]);
-    }
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'MATCH_FINISH',$3,$4)",[m.id,req.user.sub,{winner,loser,before:{status:m.status,winner:m.winner_team_id,nextMatchId:m.next_match_id,nextSide:m.next_match_side,loserNextMatchId:m.loser_next_match_id,loserNextSide:m.loser_next_match_side}},r.version]);
-    await audit(c,req.user,"match",m.id,"FINISH_MATCH",m,r,`Winner: ${winner}`);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
-app.post("/api/matches/:id/undo",authRequired,wrap(async(req,res)=>{
-  const updated=await tx(async c=>{
-    const m=await getMatch(c,req.params.id,true);if(!m)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(!(await authorizeMatch(c,req.user,m)))throw Object.assign(new Error("FORBIDDEN"),{status:403});
-    const ev=(await c.query("select * from score_events where match_id=$1 and event_type<>'UNDO' and undone_at is null order by id desc limit 1",[m.id])).rows[0];
-    if(!ev)throw Object.assign(new Error("NOTHING_TO_UNDO"),{status:400});
-    const p=ev.payload||{};
-    if(ev.event_type==="POINT"&&p.before){
-      await c.query("update matches set current_score_a=$1,current_score_b=$2,status=$3,version=version+1 where id=$4",[p.before.current_score_a,p.before.current_score_b,p.before.status,m.id]);
-    }else if(ev.event_type==="SET_FINISH"&&p.addedSetNo){
-      await c.query("delete from match_sets where match_id=$1 and set_no=$2",[m.id,p.addedSetNo]);
-      await c.query("update matches set current_score_a=$1,current_score_b=$2,version=version+1 where id=$3",[p.before.scoreA,p.before.scoreB,m.id]);
-    }else if(ev.event_type==="MATCH_FINISH"){
-      await c.query("update matches set winner_team_id=$1,status=$2,completed_at=null,result_reason=null,result_note=null,version=version+1 where id=$3",[p.before?.winner||null,p.before?.status||"live",m.id]);
-      if(p.before?.nextMatchId&&p.before?.nextSide){
-        const downstream=(await c.query("select status from matches where id=$1 for update",[p.before.nextMatchId])).rows[0];
-        if(downstream&&["live","completed"].includes(downstream.status))throw Object.assign(new Error("DOWNSTREAM_MATCH_STARTED"),{status:409});
-        const col=p.before.nextSide==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=null,version=version+1 where id=$1`,[p.before.nextMatchId]);
-      }
-      if(p.before?.loserNextMatchId&&p.before?.loserNextSide){
-        const downstream=(await c.query("select status from matches where id=$1 for update",[p.before.loserNextMatchId])).rows[0];
-        if(downstream&&["live","completed"].includes(downstream.status))throw Object.assign(new Error("DOWNSTREAM_MATCH_STARTED"),{status:409});
-        const col=p.before.loserNextSide==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${col}=null,version=version+1 where id=$1`,[p.before.loserNextMatchId]);
-      }
-    }else throw Object.assign(new Error("UNDO_UNSUPPORTED"),{status:400});
-    const r=await getMatch(c,m.id,false);
-    await c.query("update score_events set undone_at=now() where id=$1",[ev.id]);
-    await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,'UNDO',$3,$4)",[m.id,req.user.sub,{undoneEventId:ev.id},r.version]);
-    await audit(c,req.user,"match",m.id,"UNDO_SCORE",ev,null,`Undo event ${ev.id}`);
-    return r;
-  });
-  io.emit("match:update",{id:updated.id,version:updated.version});await emitState();res.json(updated);
-}));
-
+for(const action of ["point","finish-set","quick-score","finish","special-result","undo"]){
+  app.post("/api/matches/:id/"+action,authRequired,wrap(async(req,res)=>{
+    const updated=await tx(async c=>{
+      const m=await getMatch(c,req.params.id,true);if(!m)throw scoreError("NOT_FOUND",404);
+      if(!(await authorizeMatch(c,req.user,m)))throw scoreError("FORBIDDEN",403);
+      const body=req.body||{};assertScoreVersion(m,body);
+      const sets=(await c.query("select * from match_sets where match_id=$1 order by set_no",[m.id])).rows;
+      const plan=action==="undo"?await scoreUndoPlan(c,m,sets):await scoreMutationPlan(c,m,sets,action,body,new Date().toISOString());
+      return applyScore(c,req.user,m,sets,action,plan);
+    });
+    // Scoring history commits before observers receive the updated version.
+    try{io.emit("match:update",{id:updated.id,version:updated.version});await emitState()}catch(e){console.error("score_broadcast_failed",{matchId:updated.id,error:String(e.message)})}
+    res.json(updated);
+  }));
+}
 
 app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
@@ -1500,18 +1494,17 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
 }));
 
 app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
-  const {teamAId,teamBId,courtId,stage="Vòng bảng",scheduledAt,refereeUserId}=req.body;
-  if(!teamAId||!teamBId||teamAId===teamBId)return res.status(400).json({error:"INVALID_TEAMS"});
-  const tournamentId=await tournamentIdForDivision(req.params.id);
-  if(refereeUserId&&!(await validRefereeForTournament(req.user,refereeUserId,tournamentId)))return res.status(400).json({error:"INVALID_REFEREE_SCOPE"});
-  if(courtId&&await tournamentIdForCourt(courtId)!==tournamentId)return res.status(400).json({error:"COURT_TOURNAMENT_MISMATCH"});
-  const validTeams=Number((await pool.query("select count(*)::int n from teams where division_id=$1 and id=any($2::uuid[])",[req.params.id,[teamAId,teamBId]])).rows[0].n);
-  if(validTeams!==2)return res.status(400).json({error:"TEAMS_NOT_IN_DIVISION"});
-  const row=(await pool.query(`
-    insert into matches(division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status)
-    values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
-  `,[req.params.id,courtId||null,refereeUserId||null,teamAId,teamBId,stage,scheduledAt||null])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'match',$2,'CREATE_MATCH',$3)",[req.user.sub,row.id,row]);
+  const row=await tx(async c=>{
+    const b=req.body||{};
+    if(!b.teamAId||!b.teamBId||b.teamAId===b.teamBId)throw scoreError("INVALID_TEAMS");
+    if(b.status!==undefined&&b.status!=="scheduled")throw scoreError("USE_SCORE_ACTION");
+    const d=(await c.query("select * from divisions where id=$1 for share",[req.params.id])).rows[0];if(!d)throw scoreError("NOT_FOUND",404);
+    if(!(await canManageTournament(req.user,d.tournament_id,c)))throw scoreError("FORBIDDEN",403);
+    const pair=await validateMatchAssignment(c,req.user,{division_id:d.id,tournament_id:d.tournament_id},b);
+    const created=(await c.query("insert into matches(division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *",
+      [d.id,b.courtId||null,b.refereeUserId||null,pair.a,pair.b,b.stage||"Vòng bảng",b.scheduledAt||null])).rows[0];
+    await audit(c,req.user,"match",created.id,"CREATE_MATCH",null,created);return created;
+  });
   await emitState();res.status(201).json(row);
 }));
 
@@ -2017,21 +2010,25 @@ app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamMa
 }));
 
 app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
-  const before=(await pool.query("select * from matches where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  if(before.status==="completed"&&req.body.status&&req.body.status!=="completed")return res.status(409).json({error:"COMPLETED_MATCH_LOCKED"});
-  const status=req.body.status??before.status;
-  if(!["scheduled","ready","live","completed","walkover","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
-  const after=(await pool.query(`
-    update matches set stage=$1,scheduled_at=$2,court_id=$3,referee_user_id=$4,status=$5,version=version+1 where id=$6 returning *
-  `,[req.body.stage??before.stage,req.body.scheduledAt??before.scheduled_at,req.body.courtId??before.court_id,req.body.refereeUserId??before.referee_user_id,status,req.params.id])).rows[0];
-  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'match',$2,'UPDATE_MATCH',$3,$4)",[req.user.sub,after.id,before,after]);await emitState();res.json(after);
+  const after=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw scoreError("NOT_FOUND",404);
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    const b=req.body||{};assertScoreVersion(before,b);
+    if(b.status!==undefined&&b.status!==before.status)throw scoreError("USE_SCORE_ACTION");
+    const pair=await validateMatchAssignment(c,req.user,before,b);
+    const updated=(await c.query("update matches set stage=$1,scheduled_at=$2,court_id=$3,referee_user_id=$4,team_a_id=$5,team_b_id=$6,version=version+1 where id=$7 returning *",
+      [b.stage??before.stage,b.scheduledAt===undefined?before.scheduled_at:b.scheduledAt,b.courtId===undefined?before.court_id:b.courtId,b.refereeUserId===undefined?before.referee_user_id:b.refereeUserId,pair.a,pair.b,before.id])).rows[0];
+    await audit(c,req.user,"match",before.id,"UPDATE_MATCH",before,updated);return updated;
+  });await emitState();res.json(after);
 }));
 app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
   const result=await tx(async c=>{
     const before=await getMatch(c,req.params.id,true);if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    if(before.status==="completed")throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});
-    const scoreEvents=Number((await c.query("select count(*)::int n from score_events where match_id=$1",[before.id])).rows[0].n);
-    if(before.status!=="scheduled"||scoreEvents>0){
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    assertScoreVersion(before,req.body||{});
+    if(["completed","walkover"].includes(before.status)||before.winner_team_id)throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});
+    const history=(await c.query("select 1 from score_events where match_id=$1 union all select 1 from match_sets where match_id=$1 limit 1",[before.id])).rowCount;
+    if(before.started_at||["live","cancelled"].includes(before.status)||before.current_score_a||before.current_score_b||history){
       const after=(await c.query("update matches set status='cancelled',version=version+1 where id=$1 returning *",[before.id])).rows[0];
       await audit(c,req.user,"match",before.id,"CANCEL_MATCH",before,after,"Match has started/history");return {mode:"cancelled",entity:after};
     }
@@ -2232,7 +2229,20 @@ io.on("connection",socket=>{socket.emit("connected",{ok:true})});
 app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:isProduction?"1h":0}));
 app.use("/uploads/avatars",express.static(avatarDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
 app.use("/uploads/media",express.static(mediaDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
-app.use("/uploads/receipts",authRequired,allow("super_admin","organizer","finance"),(req,res,next)=>{res.set("Cache-Control","no-store");next()},express.static(receiptDir,{fallthrough:false,maxAge:0}));
+app.use("/uploads/receipts",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res,next)=>{
+  res.set("Cache-Control","private, no-store");
+  const filename=decodeURIComponent(req.path).replace(/^\//,"");
+  if(!/^receipt-[\w-]+\.(jpg|png|webp|pdf)$/.test(filename))return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role!=="super_admin"){
+    const candidates=(await pool.query("select p.receipt_url,d.tournament_id,t.club_id from payment_records p join registrations r on r.id=p.registration_id join divisions d on d.id=r.division_id left join teams t on t.id=r.team_id where p.receipt_url is not null")).rows;
+    const linked=candidates.filter(r=>{try{return decodeURIComponent(new URL(r.receipt_url,"https://receipt.invalid").pathname)==="/uploads/receipts/"+filename}catch{return false}});
+    if(linked.length){
+      const allowed=await Promise.all(linked.map(r=>req.user.role==="organizer"?canManageTournament(req.user,r.tournament_id):(!req.user.clubId||req.user.clubId===r.club_id)));
+      if(!allowed.every(Boolean))return res.status(403).json({error:"FORBIDDEN"});
+    }else if(!filename.startsWith(`receipt-${req.user.sub}-`))return res.status(403).json({error:"FORBIDDEN"});
+  }
+  next();
+}),express.static(receiptDir,{fallthrough:false,maxAge:0}));
 app.get("/",(req,res)=>res.sendFile(path.join(root,"index.html")));
 app.get("/index.html",(req,res)=>res.sendFile(path.join(root,"index.html")));
 const adminPage=wrap(async(req,res)=>{

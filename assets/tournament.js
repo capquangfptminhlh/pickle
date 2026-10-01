@@ -133,17 +133,18 @@ function drawBracketConnectors(){
 }
 addEventListener("resize",()=>{clearTimeout(window.__pickleBracketResize);window.__pickleBracketResize=setTimeout(drawBracketConnectors,120)});
 async function load(){
-  if(realtimeRefreshBusy)return;
+  if(realtimeRefreshBusy){realtimeRefreshAgain=true;return}
   realtimeRefreshBusy=true;
-  try{[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}
+  try{do{realtimeRefreshAgain=false;[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}while(realtimeRefreshAgain)}
   finally{realtimeRefreshBusy=false}
 }
+let realtimeRefreshAgain=false;
 load().catch(console.error);
 if(window.io){
   const socket=io();
-  socket.on("connect",()=>{realtimeConnected=true;render()});
+  socket.on("connect",()=>{realtimeConnected=true;load().catch(console.error)});
   socket.on("disconnect",()=>{realtimeConnected=false;render()});
-  socket.on("public:state",s=>{realtimeConnected=true;state=s;render()});
+  socket.on("public:state",s=>{realtimeConnected=true;if(Array.isArray(s?.matches)&&Array.isArray(s?.teams)&&Array.isArray(s?.tournaments)){state=s;render()}else load().catch(console.error)});
   socket.on("match:update",()=>{realtimeConnected=true;load().catch(console.error)});
 }
 setInterval(()=>{if(!realtimeConnected)load().catch(console.error)},10000);

@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import {authenticate,canManageTournament,tournamentForDivision,tournamentForCourt,canEditPlayer} from "./auth.js";
 import {ok,fail,bodyJson,route,uid,slugify,nowIso,safeJsonParse,publicUser} from "./util.js";
 import {loadAdminState} from "./state.js";
-import {generateBracket,rewindBracket} from "./bracket.js";
+import {generateBracket} from "./bracket.js";
 import {broadcast} from "./realtime.js";
 import {validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 
@@ -478,34 +478,6 @@ export async function handleOperations(request,env){
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),result=await generateBracket(env,p.id);
     await emit(env,"public:state",{tournamentId:tid});return ok(result,request,env);
-  }
-
-  p=route(path,"/api/matches/:id/undo");
-  if(p&&method==="POST"){
-    const user=await userRequired(request,env);
-    const m=await one(env,"SELECT m.*,d.tournament_id FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",p.id);if(!m)return fail("NOT_FOUND",request,env,404);
-    const allowed=user.role==="super_admin"||(user.role==="organizer"&&await canManageTournament(env,user,m.tournament_id))||(user.role==="referee"&&m.referee_user_id===user.id);
-    if(!allowed)return fail("FORBIDDEN",request,env,403);
-    const ev=await one(env,"SELECT * FROM score_events WHERE match_id=? AND undone_at IS NULL ORDER BY id DESC LIMIT 1",p.id);if(!ev)return fail("NOTHING_TO_UNDO",request,env,400);
-    const payload=safeJsonParse(ev.payload,{});
-    const winner=m.winner_team_id||payload.winner||null;
-    if(payload.before&&Array.isArray(payload.before)){
-      await env.DB.prepare("UPDATE matches SET current_score_a=?,current_score_b=?,status='live',version=version+1 WHERE id=?").bind(Number(payload.before[0]||0),Number(payload.before[1]||0),p.id).run();
-    }else if(payload.set&&payload.setNo){
-      await env.DB.prepare("DELETE FROM match_sets WHERE match_id=? AND set_no=?").bind(p.id,Number(payload.setNo)).run();
-      await env.DB.prepare("UPDATE matches SET current_score_a=?,current_score_b=?,winner_team_id=NULL,completed_at=NULL,result_reason=NULL,result_note=NULL,status='live',version=version+1 WHERE id=?").bind(Number(payload.set[0]||0),Number(payload.set[1]||0),p.id).run();
-    }else if(Array.isArray(payload.sets)){
-      await env.DB.prepare("DELETE FROM match_sets WHERE match_id=?").bind(p.id).run();
-      await env.DB.prepare("UPDATE matches SET current_score_a=0,current_score_b=0,winner_team_id=NULL,completed_at=NULL,result_reason=NULL,result_note=NULL,status='scheduled',version=version+1 WHERE id=?").bind(p.id).run();
-    }else{
-      await env.DB.prepare("UPDATE matches SET winner_team_id=NULL,completed_at=NULL,result_reason=NULL,result_note=NULL,status='live',version=version+1 WHERE id=?").bind(p.id).run();
-    }
-    if(winner)await rewindBracket(env,p.id,winner);
-    await env.DB.prepare("UPDATE score_events SET undone_at=? WHERE id=?").bind(nowIso(),ev.id).run();
-    const fresh=await one(env,"SELECT version FROM matches WHERE id=?",p.id);
-    await env.DB.prepare("INSERT INTO score_events(match_id,actor_user_id,event_type,payload,match_version) VALUES(?,?,?,?,?)").bind(p.id,user.id,"UNDO",JSON.stringify({undidEventId:ev.id}),Number(fresh?.version||m.version)+0).run();
-    await emit(env,"match:update",{id:p.id,tournamentId:m.tournament_id});await emit(env,"public:state",{tournamentId:m.tournament_id});
-    return ok(await matchView(env,p.id),request,env);
   }
 
   return null;

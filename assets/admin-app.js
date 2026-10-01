@@ -99,7 +99,7 @@ function renderNav(){
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
-  const scoreBtn=m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">Nhập điểm</button>`:"";
+  const scoreBtn=m.status!=="cancelled"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">${m.status==="done"?"Xem điểm / Undo":"Nhập điểm"}</button>`:"";
   return `<div class="match-card" data-match-card="${m.id}" data-match-court="${m.courtId||""}" data-match-status="${m.status}">
     <div class="match-top"><span>${m.time} • Sân ${m.court} • ${m.stage}</span>${statusBadge(m.status)}</div>
     <div class="versus">
@@ -351,7 +351,7 @@ async function players(){
 }
 function matchesPage(scoreOnly=false){
   setHeader(scoreOnly?"Nhập điểm":"Lịch & trận đấu",scoreOnly?"Giao diện courtside cho BTC/trọng tài":"Điều phối sân, giờ đấu và trạng thái");
-  const arr=scoreOnly?state.matches.filter(m=>m.status!=="done"):state.matches;
+  const arr=scoreOnly?state.matches.filter(m=>m.status!=="cancelled"):state.matches;
   return `<div class="filters"><select id="courtFilter"><option value="">Tất cả sân</option>${state.courts.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select>
     <select id="statusFilter"><option value="">Tất cả trạng thái</option><option value="live">Đang đấu</option><option value="wait">Chờ</option><option value="done">Kết thúc</option></select>${canManage()?'<button class="btn secondary" data-action="autoSchedule">🏟 Xếp sân tự động</button><button class="btn primary" data-action="newMatch">Tạo trận</button>':""}</div>
     <div class="grid-2"><div class="panel"><div class="panel-head"><div><h2>${scoreOnly?"Các trận cần nhập":"Lịch thi đấu"}</h2><p id="matchCount">${arr.length} trận</p></div></div>
@@ -387,7 +387,7 @@ function standings(){
     return content;
   }).join("")||'<div class="panel empty">Chưa có bảng đấu.</div>';
 }
-function bracketMatch(m){if(!m)return"";return `<div class="bracket-match"><div class="bracket-team ${m.winner===m.a?"win":""}"><span>${teamName(m.a)}</span><b>${m.sets?.filter(s=>s[0]>s[1]).length||""}</b></div><div class="bracket-team ${m.winner===m.b?"win":""}"><span>${teamName(m.b)}</span><b>${m.sets?.filter(s=>s[1]>s[0]).length||""}</b></div>${m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" style="margin-top:7px" data-score-match="${m.id}">Nhập điểm</button>`:""}</div>`}
+function bracketMatch(m){if(!m)return"";return `<div class="bracket-match"><div class="bracket-team ${m.winner===m.a?"win":""}"><span>${teamName(m.a)}</span><b>${m.sets?.filter(s=>s[0]>s[1]).length||""}</b></div><div class="bracket-team ${m.winner===m.b?"win":""}"><span>${teamName(m.b)}</span><b>${m.sets?.filter(s=>s[1]>s[0]).length||""}</b></div>${m.status!=="cancelled"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" style="margin-top:7px" data-score-match="${m.id}">Nhập điểm</button>`:""}</div>`}
 function bracket(){
   setHeader("Bracket","Single elimination, double elimination và tự routing nhánh");
   const html=window.PickleBracket?.render(state.matches,teamName,{admin:true})||'<div class="empty">Bracket renderer chưa tải.</div>';
@@ -432,7 +432,7 @@ async function payments(){
   return `<div class="panel">
     <div class="panel-head"><div><h2>Đăng ký & thanh toán</h2><p>${rows.length} hồ sơ</p></div>${canManage()?'<button class="btn primary" data-action="newRegistration">Tạo đăng ký</button>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Giải</th><th>Nội dung</th><th>Đội</th><th>Số tiền</th><th>Đăng ký</th><th>Thanh toán</th><th>Thao tác</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td>${r.tournament_name}</td><td>${r.division_name}</td><td><b>${r.team_name||"—"}</b></td><td>${r.amount?Number(r.amount).toLocaleString("vi-VN")+" đ":"—"}</td><td>${r.status}</td><td>${r.payment_status}</td><td><div class="actions">${!r.payment_id?`<button class="mini" data-add-payment="${r.id}">Ghi nhận CK</button>`:""}${r.payment_id&&r.payment_review_status==="pending"?`<button class="mini" data-review-payment="${r.payment_id}" data-status="approved">Duyệt</button><button class="mini" data-review-payment="${r.payment_id}" data-status="rejected">Từ chối</button>`:""}</div></td></tr>`).join("")}
+    ${rows.map(r=>`<tr><td>${escHtml(r.tournament_name)}</td><td>${escHtml(r.division_name)}</td><td><b>${escHtml(r.team_name||"—")}</b></td><td>${r.amount?Number(r.amount).toLocaleString("vi-VN")+" đ":"—"}</td><td>${escHtml(r.status)}</td><td>${escHtml(r.payment_status)}</td><td><div class="actions">${r.receipt_url?`<button class="mini" data-view-receipt="${escHtml(r.receipt_url)}">Xem biên nhận</button>`:""}${!r.payment_id?`<button class="mini" data-add-payment="${r.id}">Ghi nhận CK</button>`:""}${r.payment_id&&r.payment_review_status==="pending"?`<button class="mini" data-review-payment="${r.payment_id}" data-status="approved">Duyệt</button><button class="mini" data-review-payment="${r.payment_id}" data-status="rejected">Từ chối</button>`:""}</div></td></tr>`).join("")}
     </tbody></table></div>
   </div>`;
 }
@@ -520,10 +520,24 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="autoBracket"]').forEach(b=>b.onclick=openAutoBracketModal);
   document.querySelectorAll("[data-match-detail]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.matchDetail));
   document.querySelectorAll("[data-add-payment]").forEach(b=>b.onclick=()=>openPaymentModal(b.dataset.addPayment));
+  document.querySelectorAll("[data-view-receipt]").forEach(b=>b.onclick=()=>openReceiptModal(b.dataset.viewReceipt));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
   document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
   ["#courtFilter","#statusFilter"].forEach(s=>{const el=$(s);if(el)el.onchange=applyMatchFilters});
   applyMatchFilters();
+}
+async function openReceiptModal(value){
+  try{
+    const base=new URL(API.apiBase?.()||location.origin),url=new URL(value,base);
+    if(url.origin!==base.origin){
+      if(url.protocol!=="https:")return toast("Link biên nhận không hợp lệ.");
+      window.open(url.href,"_blank","noopener,noreferrer");return;
+    }
+    const blobUrl=await API.receiptPreview(url.href);
+    $("#genericTitle").textContent="Biên nhận thanh toán";
+    $("#genericBody").innerHTML=`<iframe title="Biên nhận thanh toán" src="${blobUrl}" style="width:100%;height:60vh;border:0"></iframe>`;
+    const dialog=$("#genericDialog");dialog.addEventListener("close",()=>URL.revokeObjectURL(blobUrl),{once:true});dialog.showModal();
+  }catch(e){toast(e.status===403?"Bạn không có quyền xem biên nhận này.":e.status===401?"Phiên đăng nhập đã hết hạn.":"Không thể mở biên nhận.")}
 }
 function divisionForMatch(m){return state.divisions.find(d=>d.id===m.divisionId)}
 function openScore(id){
@@ -538,7 +552,7 @@ function openScore(id){
   $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
   $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
 
-  const maxSets=isMlp?5:Number(d?.bestOf||3);
+  const maxSets=Number(d?.bestOf||3);
   const mlpLabels=["Trận 1: Đôi Nữ","Trận 2: Đôi Nam","Trận 3: Đôi Nam Nữ 1","Trận 4: Đôi Nam Nữ 2","Trận 5: Dreambreaker (nếu 2-2)"];
   const existingSets=activeMatch.sets||[];
   let setsHtml="";
@@ -560,48 +574,78 @@ function syncScoreDialog(){
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
   const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
-  $("#finishSet").disabled=!setWon;
+  const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
+  $("#finishSet").disabled=locked||!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
   const winsB=(activeMatch.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length;
-  $("#finishMatch").disabled=!(winsA>=need||winsB>=need||setWon);
-  document.querySelectorAll('[data-score][data-delta="-1"]').forEach(btn=>{
-    btn.disabled=(btn.dataset.score==="a"?a:b)<=0;
+  const decider=setWon&&(a>b?winsA+1:winsB+1)>=need;
+  $("#finishMatch").disabled=locked||!(winsA>=need||winsB>=need||decider);
+  $("#saveQuickScore").disabled=locked;
+  document.querySelectorAll('#quickSetsList input').forEach(input=>input.disabled=locked);
+  $("#undoScore").disabled=activeMatch.status==="cancelled";
+  document.querySelectorAll('[data-score]').forEach(btn=>{
+    btn.disabled=locked||(btn.dataset.delta==="-1"&&(btn.dataset.score==="a"?a:b)<=0);
   });
   const tip=$("#scoreStatusTip");
   if(tip){
-    if(setWon){
+    if(locked){tip.hidden=false;tip.textContent=activeMatch.status==="cancelled"?"Trận đã hủy, không thể nhập điểm.":"Trận đã kết thúc. Dùng Undo để sửa kết quả nếu nhánh sau chưa bắt đầu."}
+    else if(setWon){
       const winName=hi===a?teamName(activeMatch.a):teamName(activeMatch.b);
       const isMatchDecider=(hi===a?winsA+1:winsB+1)>=need;
       tip.hidden=false;
-      tip.innerHTML=`✅ <b>${winName}</b> đã đủ điều kiện thắng ${isMatchDecider?'trận':'set'} (${hi}–${lo})! Bấm <b>${isMatchDecider?'Kết thúc trận':'Hoàn tất set'}</b> để lưu.`;
+      tip.innerHTML=`✅ <b>${escHtml(winName)}</b> đã đủ điều kiện thắng ${isMatchDecider?'trận':'set'} (${hi}–${lo})! Bấm <b>${isMatchDecider?'Kết thúc trận':'Hoàn tất set'}</b> để lưu.`;
     }else{
       tip.hidden=true;
       tip.innerHTML="";
     }
   }
 }
+function scoreError(e){
+  return {VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
+    DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
+    UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",
+    MATCH_NOT_FINISHED:"Chưa đủ số set thắng để kết thúc trận.",NOT_ENOUGH_SET_WINS:"Chưa đủ số set thắng để kết thúc trận.",
+    INVALID_SET_SCORE:"Tỉ số set chưa hợp lệ theo điểm thắng và cách biệt đã cấu hình.",INVALID_SERIES:"Dãy set không hợp lệ.",TOO_MANY_SETS:"Số set vượt quá luật thi đấu.",EXTRA_SET_AFTER_WINNER:"Không nhập thêm set sau khi đã đủ số set thắng.",
+    MATCH_COMPLETED:"Trận đã kết thúc. Hãy Undo trước khi sửa điểm.",MATCH_CANCELLED:"Trận đã hủy.",MATCH_TEAMS_REQUIRED:"Chưa xác định đủ hai đội.",
+    INVALID_WINNER:"Đội thắng không khớp với tỉ số.",MATCH_ROSTER_LOCKED:"Trận đã có lịch sử thi đấu, không thể đổi hai đội.",
+    INVALID_COURT_SCOPE:"Sân phải đang hoạt động và thuộc giải này.",INVALID_REFEREE_SCOPE:"Trọng tài phải đang hoạt động và được cấp quyền cho giải này.",
+    INVALID_TEAMS:"Chọn hai đội đang hoạt động thuộc cùng nội dung.",BRACKET_SLOT_OCCUPIED:"Vị trí ở nhánh sau đã có đội khác. Hãy kiểm tra bracket."}[e.message]||"Không thể lưu: "+e.message;
+}
+async function showScoreError(e){if(e.message==="VERSION_CONFLICT")await refresh({keepDialog:true});toast(scoreError(e))}
+async function showMatchDraftError(e,m){
+  if(e.message==="VERSION_CONFLICT"){
+    await refresh();
+    const latest=state.matches.find(x=>x.id===m.id);
+    if(latest){
+      Object.assign(m,latest);
+      if(["done","completed","walkover","cancelled"].includes(latest.status)&&$("#saveSpecialResult"))$("#saveSpecialResult").disabled=true;
+    }else{for(const id of ["#saveAssignment","#saveSpecialResult"])if($(id))$(id).disabled=true}
+  }
+  toast(scoreError(e));
+}
 async function saveQuickScore(){
   if(busy||!activeMatch)return;busy=true;
   try{
     const rows=document.querySelectorAll("#quickSetsList .quick-set-row");
     const sets=[];
-    rows.forEach(r=>{
+    for(const r of rows){
       const valA=r.querySelector(".quick-score-a").value.trim();
       const valB=r.querySelector(".quick-score-b").value.trim();
-      if(valA!==""&&valB!==""){
-        const a=Number(valA)||0,b=Number(valB)||0;
-        if(a>0||b>0)sets.push([a,b]);
-      }
-    });
+      if(valA===""&&valB==="")continue;
+      if(valA===""||valB==="")return toast("Nhập đủ điểm hai bên cho mỗi set.");
+      const a=Number(valA),b=Number(valB);
+      if(![a,b].every(n=>Number.isSafeInteger(n)&&n>=0))return toast("Điểm phải là số nguyên từ 0 trở lên.");
+      sets.push([a,b]);
+    }
     if(!sets.length)return toast("Vui lòng nhập tỉ số ít nhất 1 set.");
-    await API.quickScore(activeMatch.id,{sets});
+    await API.quickScore(activeMatch.id,{sets,expectedVersion:activeMatch.version});
     $("#scoreDialog").close();
     activeMatch=null;
     await refresh();
     toast("Đã lưu kết quả! Bảng xếp hạng đã tự động xếp Nhất bảng & Nhì bảng.");
   }catch(e){
-    toast("Không thể lưu tỉ số: "+e.message);
+    await showScoreError(e);
   }finally{
     busy=false;
   }
@@ -611,25 +655,25 @@ async function scorePoint(side,delta){
   try{
     await API.point(activeMatch.id,{side:side.toUpperCase(),delta:Number(delta),expectedVersion:activeMatch.version});
     await refresh({keepDialog:true});
-  }catch(e){if(e.status===409){toast("Điểm vừa được cập nhật từ máy khác. Đang đồng bộ...");await refresh({keepDialog:true})}else toast("Không thể cập nhật điểm: "+e.message)}
+  }catch(e){await showScoreError(e)}
   finally{busy=false}
 }
 async function finishSet(){
   if(busy||!activeMatch)return;busy=true;
   try{await API.finishSet(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã chốt set.")}
-  catch(e){if(e.status===409){await refresh({keepDialog:true});toast("Dữ liệu đã thay đổi, vui lòng kiểm tra lại.")}else toast(e.message==="INVALID_SET_SCORE"?"Điểm chưa đủ điều kiện thắng set.":"Không thể chốt set: "+e.message)}
+  catch(e){await showScoreError(e)}
   finally{busy=false}
 }
 async function finishMatch(){
   if(busy||!activeMatch)return;busy=true;
   try{await API.finishMatch(activeMatch.id,{expectedVersion:activeMatch.version});$("#scoreDialog").close();activeMatch=null;await refresh();toast("Đã chốt trận và cập nhật bracket/BXH.")}
-  catch(e){if(e.status===409){await refresh({keepDialog:true});toast("Dữ liệu đã thay đổi, kiểm tra lại.")}else toast(e.message==="NOT_ENOUGH_SET_WINS"?"Chưa đủ số set thắng để kết thúc trận.":"Không thể chốt trận: "+e.message)}
+  catch(e){await showScoreError(e)}
   finally{busy=false}
 }
 async function undoScore(){
   if(busy||!activeMatch)return;busy=true;
-  try{await API.undo(activeMatch.id);await refresh({keepDialog:true});toast("Đã Undo và ghi audit log.")}
-  catch(e){toast(e.message==="NOTHING_TO_UNDO"?"Không còn thao tác để Undo.":"Không thể Undo: "+e.message)}
+  try{await API.undo(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã Undo và ghi audit log.")}
+  catch(e){await showScoreError(e)}
   finally{busy=false}
 }
 function openPasswordModal(){
@@ -679,7 +723,7 @@ async function openMatchDetail(id){
     <label class="field full">Đổi giờ<input id="detailTime" type="datetime-local"></label>
     <div class="field full"><button type="button" class="btn primary" id="saveAssignment">Lưu điều phối</button></div>
   </div>`:"";
-  const special=m.status!=="done"&&m.a!=="TBD"&&m.b!=="TBD"?`<div class="special-result-box">
+  const special=!["done","completed","walkover","cancelled"].includes(m.status)&&m.a!=="TBD"&&m.b!=="TBD"?`<div class="special-result-box">
     <div class="panel-head"><div><h2>Kết quả đặc biệt</h2><p>Walkover / No-show / Retired / DQ, không cần nhập điểm giả</p></div></div>
     <div class="form-grid">
       <label class="field full">Đội thắng<select id="specialWinner"><option value="${m.a}">${teamName(m.a)}</option><option value="${m.b}">${teamName(m.b)}</option></select></label>
@@ -698,17 +742,17 @@ async function openMatchDetail(id){
 
   const btn=$("#saveAssignment");
   if(btn)btn.onclick=async()=>{try{
-    await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,scheduledAt:$("#detailTime").value||null});
+    await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,...($("#detailTime").value?{scheduledAt:$("#detailTime").value}:{}),expectedVersion:m.version});
     $("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.");
-  }catch(e){toast("Không thể cập nhật: "+e.message)}};
+  }catch(e){await showMatchDraftError(e,m)}};
 
   const specialBtn=$("#saveSpecialResult");
   if(specialBtn)specialBtn.onclick=async()=>{
     if(!confirm("Chốt kết quả đặc biệt cho trận này?"))return;
     try{
-      await API.specialResult(m.id,{winnerTeamId:$("#specialWinner").value,reason:$("#specialReason").value,note:$("#specialNote").value.trim()});
+      await API.specialResult(m.id,{winnerTeamId:$("#specialWinner").value,reason:$("#specialReason").value,note:$("#specialNote").value.trim(),expectedVersion:m.version});
       $("#genericDialog").close();await refresh();toast("Đã chốt kết quả đặc biệt và cập nhật bracket.");
-    }catch(e){toast("Không thể chốt: "+e.message)}
+    }catch(e){await showMatchDraftError(e,m)}
   };
 }
 function openDivisionModal(){

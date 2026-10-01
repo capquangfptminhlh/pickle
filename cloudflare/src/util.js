@@ -35,7 +35,7 @@ export function corsHeaders(request,env){
 export function json(data,status,request,env,extra={}){
   return new Response(JSON.stringify(data),{
     status,
-    headers:{"Content-Type":"application/json; charset=utf-8",...corsHeaders(request,env),...extra}
+    headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store",...corsHeaders(request,env),...extra}
   });
 }
 

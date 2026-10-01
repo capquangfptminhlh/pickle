@@ -30,7 +30,7 @@ const failures = [];
 async function fixture(viewport = { width: 1280, height: 900 }) {
   const page = await browser.newPage({ viewport });
   page.setDefaultTimeout(2500);
-  await page.route("**/assets/api.js", route => route.fulfill({ contentType: "application/javascript", body: `
+  await page.route("**/assets/api.js*", route => route.fulfill({ contentType: "application/javascript", body: `
     const roster=[
       {id:"p1",full_name:"Nguyễn Một",active:true,club_name:"CLB A",rating:3},
       {id:"p2",full_name:"Trần Hai (khóa)",active:false,rating:3},

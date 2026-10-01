@@ -44,6 +44,8 @@ jobs:
         run: |
           node scripts/registry-ui.mjs
           node scripts/registry-accounts-ui.mjs
+          node scripts/registry-scoring-ui.mjs
+          node --test scripts/registry-realtime.test.mjs
       - name: Syntax check
         run: |
           node --check server/index.js
@@ -53,6 +55,7 @@ jobs:
           node --check assets/admin-crud.js
           node --check assets/player-picker.js
           node --check shared/team-player-selection.js
+          node --check shared/scoring-rules.js
           node --check assets/public.js
           node --check assets/player.js
           node --check assets/checkin.js
@@ -118,6 +121,8 @@ jobs:
         run: |
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-api.mjs
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-accounts-api.mjs
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-operations-api.mjs
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-public-api.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Start static preview server
         run: |

@@ -99,6 +99,16 @@
     importTeams:(divisionId,rows)=>request(`/api/divisions/${divisionId}/import-teams`,{method:"POST",body:JSON.stringify({rows})}),
     clubs:()=>request("/api/clubs"),
     createPlayer:payload=>request("/api/players",{method:"POST",body:JSON.stringify(payload)}),
+    receiptPreview:async value=>{
+      const base=new URL(API_BASE||location.origin),url=new URL(value,base);
+      const path=decodeURIComponent(url.pathname);
+      if(url.origin!==base.origin||(!path.startsWith("/api/media/receipts/")&&!path.startsWith("/uploads/receipts/")))throw new Error("INVALID_RECEIPT_URL");
+      const res=await fetch(url.href,{headers:authHeaders(),credentials:API_BASE?"omit":"include",cache:"no-store"});
+      if(!res.ok)throw Object.assign(new Error(res.status===401?"AUTH_REQUIRED":res.status===403?"FORBIDDEN":"RECEIPT_NOT_FOUND"),{status:res.status});
+      const blob=await res.blob();
+      if(!["application/pdf","image/jpeg","image/png","image/webp"].includes(blob.type))throw new Error("INVALID_FILE_TYPE");
+      return URL.createObjectURL(blob);
+    },
     uploadReceipt:async(file)=>{
       const form=new FormData();form.append("receipt",file);
       const res=await fetch(apiUrl("/api/uploads/receipt"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
@@ -182,7 +192,7 @@
     finishMatch:(id,payload)=>request(`/api/matches/${id}/finish`,{method:"POST",body:JSON.stringify(payload)}),
     quickScore:(id,payload)=>request(`/api/matches/${id}/quick-score`,{method:"POST",body:JSON.stringify(payload)}),
     specialResult:(id,payload)=>request(`/api/matches/${id}/special-result`,{method:"POST",body:JSON.stringify(payload)}),
-    undo:(id)=>request(`/api/matches/${id}/undo`,{method:"POST",body:"{}"}),
+    undo:(id,payload={})=>request(`/api/matches/${id}/undo`,{method:"POST",body:JSON.stringify(payload)}),
     users:()=>request("/api/users"),
     createUser:payload=>request("/api/users",{method:"POST",body:JSON.stringify(payload)}),
     updateUser:(id,payload)=>request(`/api/users/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
@@ -194,7 +204,7 @@
     addPayment:(registrationId,payload)=>request(`/api/registrations/${registrationId}/payment`,{method:"POST",body:JSON.stringify(payload)}),
     reviewPayment:(paymentId,status)=>request(`/api/payment-records/${paymentId}`,{method:"PATCH",body:JSON.stringify({status})})
   };
-  if(!window.io&&API_BASE){
+  if(!window.io){
     window.io=()=>{
       const listeners=new Map();
       let ws=null,closed=false,retry=null;
@@ -202,19 +212,20 @@
       const connect=()=>{
         if(closed)return;
         try{
-          const base=API_BASE.replace(/^http/i,"ws");
+          const base=(API_BASE||location.origin).replace(/^http/i,"ws");
           ws=new WebSocket(base+"/api/realtime?room=public");
-          ws.onopen=()=>emitLocal("connect");
+          ws.onopen=()=>{emitLocal("connect");emitLocal("public:state",{refresh:true})};
           ws.onclose=()=>{emitLocal("disconnect");if(!closed)retry=setTimeout(connect,1500)};
           ws.onerror=()=>{};
           ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m?.event)emitLocal(m.event,m.payload)}catch{}};
         }catch{retry=setTimeout(connect,2000)}
       };
-      connect();
-      return {
-        on:(event,cb)=>{if(!listeners.has(event))listeners.set(event,[]);listeners.get(event).push(cb);return this},
+      const adapter={
+        on:(event,cb)=>{if(!listeners.has(event))listeners.set(event,[]);listeners.get(event).push(cb);return adapter},
         disconnect:()=>{closed=true;if(retry)clearTimeout(retry);try{ws?.close()}catch{}}
       };
+      connect();
+      return adapter;
     };
   }
 })();
