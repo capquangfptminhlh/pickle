@@ -12,6 +12,7 @@ import QRCode from "qrcode";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
+import {playerCountRange,validatePlayerIds} from "../shared/team-player-selection.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
@@ -833,11 +834,34 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
   const rows=Array.isArray(req.body.rows)?req.body.rows:[];
   if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
   const result=await tx(async c=>{
-    const d=(await c.query("select id from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    let created=0,linkedPlayers=0;
-    const ids=[];
-    for(const raw of rows){
-      const name=String(raw.name||"").trim();if(!name)continue;
+    const d=(await c.query("select id,event_type from divisions where id=$1",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const plans=[],issues=[],plannedPlayerRows=new Map();
+    for(let index=0;index<rows.length;index++){
+      const raw=rows[index],name=String(raw.name||raw.team||"").trim();if(!name)continue;
+      const playerIds=[];
+      for(let slot=0;slot<4;slot++){
+        const playerName=String(raw[`player${slot+1}`]||"").trim();if(!playerName)continue;
+        const matches=(await c.query("select id,full_name from players where lower(full_name)=lower($1) and active=true order by created_at",[playerName])).rows;
+        if(matches.length!==1){
+          issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
+        }else{
+          playerIds.push(matches[0].id);
+          const refs=plannedPlayerRows.get(matches[0].id)||[];refs.push({row:index+1,field:`player${slot+1}`,name:playerName});plannedPlayerRows.set(matches[0].id,refs);
+        }
+      }
+      try{validatePlayerIds(d.event_type,playerIds)}catch(error){issues.push({row:index+1,field:"players",reason:error.message})}
+      plans.push({row:index+1,raw,name,playerIds});
+    }
+    for(const [playerId,refs] of plannedPlayerRows){
+      if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
+      const assigned=(await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 limit 1",[d.id,playerId])).rowCount;
+      if(assigned)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
+    }
+    if(issues.length)throw Object.assign(new Error("IMPORT_PLAYER_ISSUES"),{status:400,issues});
+
+    let created=0,linkedPlayers=0;const ids=[];
+    for(const plan of plans){
+      const {raw,name,playerIds}=plan;
       let clubId=null;
       const clubName=String(raw.club||raw.clubName||"").trim();
       if(clubName){
@@ -850,10 +874,8 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
       }
       const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed,status) values($1,$2,$3,$4,$5,'active') returning id",[d.id,name,clubId,String(raw.group||"A").trim()||"A",Number(raw.seed)||null])).rows[0];
       ids.push(t.id);created++;
-      for(const person of [raw.player1,raw.player2,raw.player3,raw.player4].map(x=>String(x||"").trim()).filter(Boolean)){
-        let p=(await c.query("select id from players where lower(full_name)=lower($1) and active=true order by created_at limit 1",[person])).rows[0];
-        if(!p)p=(await c.query("insert into players(full_name,rating,club_id,active,created_by_user_id) values($1,3,$2,true,$3) returning id",[person,clubId,req.user.sub])).rows[0];
-        await c.query("insert into team_players(team_id,player_id) values($1,$2) on conflict do nothing",[t.id,p.id]);linkedPlayers++;
+      for(const playerId of playerIds){
+        await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);linkedPlayers++;
       }
     }
     await audit(c,req.user,"team_import",d.id,"IMPORT_TEAMS",null,{created,linkedPlayers,ids},`${created} teams`);
@@ -2196,6 +2218,6 @@ app.use((err,req,res,next)=>{
   }
   const status=Number(err.status)||500;
   const error=status>=500?"SERVER_ERROR":(err.message||"REQUEST_FAILED");
-  res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{})});
+  res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{}),...(status<500&&Array.isArray(err.issues)?{issues:err.issues}:{})});
 });
 server.listen(port,()=>console.log(`Pickleup.vn listening on :${port}`));

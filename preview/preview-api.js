@@ -2,6 +2,16 @@
   const KEY="pickle-local-state-v1";
   const uid=()=>crypto.randomUUID?.()||("id-"+Date.now()+"-"+Math.random().toString(16).slice(2));
   const clone=x=>JSON.parse(JSON.stringify(x));
+  const playerCountRange=eventType=>eventType==="singles"?{min:1,max:1}:(eventType==="doubles"||eventType==="mixed_doubles")?{min:2,max:2}:{min:1,max:4};
+  const validatePreviewPlayerIds=(eventType,input)=>{
+    const original=(Array.isArray(input)?input:[]).map(value=>String(value||"").trim()).filter(Boolean);
+    if(!original.length)throw new Error("PLAYER_SELECTION_REQUIRED");
+    const ids=[...new Set(original)];
+    if(ids.length!==original.length)throw new Error("DUPLICATE_PLAYER_SELECTION");
+    const {min,max}=playerCountRange(eventType);
+    if(ids.length<min||ids.length>max)throw new Error("INVALID_PLAYER_COUNT");
+    return ids;
+  };
   const svgAvatar=(name,bg="#0d2118",fg="#dfff69")=>{
     const ini=(name||"P").split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase();
     const svg='<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" rx="72" fill="'+bg+'"/><circle cx="196" cy="60" r="46" fill="#ffffff12"/><text x="128" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="82" fill="'+fg+'">'+ini+'</text></svg>';
@@ -316,7 +326,40 @@
     },
     players:async()=>clone(state.players),clubs:async()=>clone(state.clubs),
     importPlayers:async rows=>{let created=0;const playerMap=new Map(state.players.map(x=>[x.full_name.toLowerCase(),x])),clubMap=new Map(state.clubs.map(c=>[c.name.toLowerCase(),c]));for(const r of rows){const name=String(r.fullName||r.name||"").trim();if(!name)continue;const avatar=String(r.avatarUrl||r.avatar_url||r.avatar||"").trim(),lName=name.toLowerCase();let p=playerMap.get(lName);if(p){if(avatar)p.avatar_url=avatar;created++;continue;}const cName=String(r.club||"").trim();let club=cName?clubMap.get(cName.toLowerCase()):null;if(!club&&cName){club={id:uid(),name:cName,city:"",active:true};state.clubs.push(club);clubMap.set(cName.toLowerCase(),club)}const newP={id:uid(),full_name:name,nickname:r.nickname||"",gender:["male","female","other"].includes(r.gender)?r.gender:null,rating:Number(r.rating)||3,phone:r.phone||"",club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:avatar||svgAvatar(name)};state.players.push(newP);playerMap.set(lName,newP);created++}persist();return {created}},
-    importTeams:async(did,rows)=>{let created=0,linkedPlayers=0;for(const r of rows){const name=String(r.name||"").trim();if(!name)continue;let club=state.clubs.find(c=>c.name.toLowerCase()===String(r.club||"").trim().toLowerCase());if(!club&&r.club){club={id:uid(),name:r.club,city:"",active:true};state.clubs.push(club)}const id=uid(),t={id,divisionId:did,name,club:club?.name||"Tự do",clubId:club?.id||null,group:r.group||"A",seed:Number(r.seed)||null,status:"active",w:0,l:0,pf:0,pa:0};state.teams.push(t);state.teamPlayers[id]=[];for(const pn of [r.player1,r.player2,r.player3,r.player4].filter(Boolean)){let p=state.players.find(x=>x.full_name.toLowerCase()===String(pn).trim().toLowerCase());if(!p){p={id:uid(),full_name:String(pn).trim(),nickname:"",gender:null,rating:3,club_id:club?.id||null,club_name:club?.name||"Tự do",active:true,avatar_url:svgAvatar(String(pn).trim())};state.players.push(p)}state.teamPlayers[id].push(p.id);linkedPlayers++}created++}persist();return {created,linkedPlayers}},
+    importTeams:async(did,rows)=>{
+      const division=state.divisions.find(d=>d.id===did);if(!division)throw new Error("NOT_FOUND");
+      const plans=[],issues=[],plannedPlayerRows=new Map();
+      for(let index=0;index<rows.length;index++){
+        const raw=rows[index],name=String(raw.name||raw.team||"").trim();if(!name)continue;
+        const playerIds=[];
+        for(let slot=0;slot<4;slot++){
+          const playerName=String(raw[`player${slot+1}`]||"").trim();if(!playerName)continue;
+          const matches=state.players.filter(player=>player.active!==false&&player.full_name.toLocaleLowerCase("vi")===playerName.toLocaleLowerCase("vi"));
+          if(matches.length!==1)issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
+          else{
+            playerIds.push(matches[0].id);
+            const refs=plannedPlayerRows.get(matches[0].id)||[];refs.push({row:index+1,field:`player${slot+1}`,name:playerName});plannedPlayerRows.set(matches[0].id,refs);
+          }
+        }
+        try{validatePreviewPlayerIds(division.eventType,playerIds)}catch(error){issues.push({row:index+1,field:"players",reason:error.message})}
+        plans.push({raw,name,playerIds,id:uid()});
+      }
+      const assigned=new Set(state.teams.filter(team=>team.divisionId===did).flatMap(team=>state.teamPlayers[team.id]||[]));
+      for(const [playerId,refs] of plannedPlayerRows){
+        if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
+        if(assigned.has(playerId))for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
+      }
+      if(issues.length)throw Object.assign(new Error("IMPORT_PLAYER_ISSUES"),{issues});
+      let linkedPlayers=0;
+      for(const plan of plans){
+        const r=plan.raw,clubName=String(r.club||r.clubName||"").trim();
+        let club=state.clubs.find(c=>c.name.toLocaleLowerCase("vi")===clubName.toLocaleLowerCase("vi"));
+        if(!club&&clubName){club={id:uid(),name:clubName,city:"",active:true};state.clubs.push(club)}
+        const t={id:plan.id,divisionId:did,name:plan.name,club:club?.name||"Tự do",clubId:club?.id||null,group:r.group||"A",seed:Number(r.seed)||null,status:"active",w:0,l:0,pf:0,pa:0};
+        state.teams.push(t);state.teamPlayers[plan.id]=[...plan.playerIds];linkedPlayers+=plan.playerIds.length;
+      }
+      persist();return {created:plans.length,linkedPlayers};
+    },
     uploadReceipt:async file=>({url:await fileData(file)}),
     uploadImage:async file=>({url:await fileData(file)}),
     uploadPlayerAvatar:async(id,file)=>{const x=state.players.find(v=>v.id===id);x.avatar_url=await fileData(file);persist();return {avatarUrl:x.avatar_url}},

@@ -49,11 +49,23 @@ const club=(await raw("/api/clubs",{method:"POST",cookie:admin.cookie,body:{name
 await raw("/api/clubs/"+club.id,{method:"PATCH",cookie:admin.cookie,body:{name:"CI Club Updated "+stamp,city:"HCMC",active:true}});
 
 const player=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Player "+stamp,rating:3.1,clubId:club.id,gender:"male"}})).data;
+const playerB=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Player B "+stamp,rating:3.2,clubId:club.id,gender:"female"}})).data;
+const playerC=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Player C "+stamp,rating:3.3,clubId:club.id,gender:"male"}})).data;
+const playerD=(await raw("/api/players",{method:"POST",cookie:admin.cookie,body:{fullName:"CI Player D "+stamp,rating:3.4,clubId:club.id,gender:"female"}})).data;
 await raw("/api/players/"+player.id,{method:"PATCH",cookie:admin.cookie,body:{nickname:"CI",active:true}});
 await raw("/api/players/"+player.id+"/rating-adjust",{method:"POST",cookie:admin.cookie,body:{delta:0.01,reason:"CI rating test"}});
 
-const teamA=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI A "+stamp,clubId:club.id,group:"A",seed:1}})).data;
-const teamB=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI B "+stamp,group:"A",seed:2}})).data;
+const beforeInvalidImport=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+const invalidImport=(await raw("/api/divisions/"+did+"/import-teams",{method:"POST",cookie:admin.cookie,body:{rows:[{
+  name:"CI Invalid Import "+stamp,player1:player.full_name,player2:"Missing CI Player "+stamp
+}]},ok:[400]})).data;
+assert(invalidImport.error==="IMPORT_PLAYER_ISSUES"&&invalidImport.issues?.[0]?.row===1,"team import reports missing registry player");
+const afterInvalidImport=(await raw("/api/admin/state",{cookie:admin.cookie})).data;
+assert(afterInvalidImport.players.length===beforeInvalidImport.players.length,"team import does not create player profiles");
+assert(afterInvalidImport.teams.length===beforeInvalidImport.teams.length,"invalid team import is atomic");
+
+const teamA=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI A "+stamp,clubId:club.id,group:"A",seed:1,playerIds:[player.id,playerB.id]}})).data;
+const teamB=(await raw("/api/divisions/"+did+"/teams",{method:"POST",cookie:admin.cookie,body:{name:"CI B "+stamp,group:"A",seed:2,playerIds:[playerC.id,playerD.id]}})).data;
 await raw("/api/teams/"+teamB.id,{method:"PATCH",cookie:admin.cookie,body:{group:"B",seed:2,status:"active"}});
 
 const match=(await raw("/api/divisions/"+did+"/matches",{method:"POST",cookie:admin.cookie,body:{teamAId:teamA.id,teamBId:teamB.id,courtId:court.id,stage:"CI Round"}})).data;

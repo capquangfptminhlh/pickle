@@ -210,11 +210,21 @@ await ppage.evaluate(async()=>{
   const court=await window.PickleAPI.createCourt(tid,{name:"UI Court"});
   const club=await window.PickleAPI.createClub({name:"UI Club",city:"HCMC"});
   const player=await window.PickleAPI.createPlayer({fullName:"UI Player",clubId:club.id,rating:3});
+  const playerB=await window.PickleAPI.createPlayer({fullName:"UI Player B",clubId:club.id,rating:3.1});
+  const playerC=await window.PickleAPI.createPlayer({fullName:"UI Player C",clubId:club.id,rating:3.2});
+  const playerD=await window.PickleAPI.createPlayer({fullName:"UI Player D",clubId:club.id,rating:3.3});
+  const beforeImport=await window.PickleAPI.adminState();
+  let importError=null;
+  try{await window.PickleAPI.importTeams(did,[{name:"Invalid UI Import",player1:player.full_name,player2:"Missing UI Player"}])}
+  catch(error){importError=error}
+  const afterImport=await window.PickleAPI.adminState();
+  if(importError?.message!=="IMPORT_PLAYER_ISSUES"||importError?.issues?.[0]?.row!==1)throw new Error("preview import did not report missing registry player");
+  if(afterImport.players.length!==beforeImport.players.length||afterImport.teams.length!==beforeImport.teams.length)throw new Error("preview invalid import mutated state");
   const event=await window.PickleAPI.createClubEvent({clubId:club.id,title:"UI Social",eventType:"social",venue:"UI Court",startAt:new Date(Date.now()+3600000).toISOString(),endAt:new Date(Date.now()+7200000).toISOString()});
   await window.PickleAPI.addClubAttendance(event.id,player.id);
   await window.PickleAPI.createClubTransaction({clubId:club.id,direction:"income",category:"membership",amount:100000,note:"UI test"});
-  const a=await window.PickleAPI.createTeam(did,{name:"UI Team A",group:"A",seed:1});
-  const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2});
+  const a=await window.PickleAPI.createTeam(did,{name:"UI Team A",group:"A",seed:1,playerIds:[player.id,playerB.id]});
+  const b=await window.PickleAPI.createTeam(did,{name:"UI Team B",group:"A",seed:2,playerIds:[playerC.id,playerD.id]});
   await window.PickleAPI.createMatch(did,{teamAId:a.id,teamBId:b.id,courtId:court.id,stage:"UI Smoke"});
 });
 

@@ -4,6 +4,7 @@ import {ok,fail,bodyJson,route,uid,slugify,nowIso,safeJsonParse,publicUser} from
 import {loadAdminState} from "./state.js";
 import {generateBracket,rewindBracket} from "./bracket.js";
 import {broadcast} from "./realtime.js";
+import {validatePlayerIds} from "../../shared/team-player-selection.js";
 
 async function rows(env,sql,...args){const r=await env.DB.prepare(sql).bind(...args).all();return r.results||[]}
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
@@ -125,27 +126,58 @@ export async function handleOperations(request,env){
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),items=Array.isArray(b.rows)?b.rows:[];
     if(!items.length||items.length>5000)return fail("INVALID_IMPORT_SIZE",request,env,400);
-    let created=0,linkedPlayers=0;
-    for(const r of items){
-      const name=String(r.name||r.team||"").trim();if(!name)continue;
-      const club=r.clubId?await one(env,"SELECT * FROM clubs WHERE id=?",r.clubId):await getOrCreateClub(env,r.club);
-      const teamId=uid();
-      await env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
-        .bind(teamId,p.id,name,club?.id||null,Number(r.seed)||null,String(r.group||"A"),nowIso()).run();
-      for(const rawName of [r.player1,r.player2,r.player3,r.player4].filter(Boolean)){
-        const playerName=String(rawName).trim();if(!playerName)continue;
-        let pl=await one(env,"SELECT * FROM players WHERE lower(full_name)=lower(?) LIMIT 1",playerName);
-        if(!pl){
-          const playerId=uid();
-          await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,gender,rating,active,created_at,updated_at) VALUES(?,?,?,?,?,3,1,?,?)")
-            .bind(playerId,club?.id||null,user.id,playerName,"other",nowIso(),nowIso()).run();
-          pl=await one(env,"SELECT * FROM players WHERE id=?",playerId);
+    const division=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",p.id);
+    const plans=[],issues=[],plannedPlayerRows=new Map();
+    for(let index=0;index<items.length;index++){
+      const r=items[index],name=String(r.name||r.team||"").trim();if(!name)continue;
+      const playerIds=[];
+      for(let slot=0;slot<4;slot++){
+        const playerName=String(r[`player${slot+1}`]||"").trim();if(!playerName)continue;
+        const matches=await rows(env,"SELECT id,full_name FROM players WHERE lower(full_name)=lower(?) AND active=1 ORDER BY created_at",playerName);
+        if(matches.length!==1){
+          issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
+        }else{
+          playerIds.push(matches[0].id);
+          const refs=plannedPlayerRows.get(matches[0].id)||[];refs.push({row:index+1,field:`player${slot+1}`,name:playerName});plannedPlayerRows.set(matches[0].id,refs);
         }
-        await env.DB.prepare("INSERT OR IGNORE INTO team_players(team_id,player_id) VALUES(?,?)").bind(teamId,pl.id).run();
-        linkedPlayers++;
       }
-      created++;
+      try{validatePlayerIds(division.event_type,playerIds)}catch(error){issues.push({row:index+1,field:"players",reason:error.message})}
+      plans.push({row:index+1,raw:r,name,playerIds,teamId:uid()});
     }
+    for(const [playerId,refs] of plannedPlayerRows){
+      if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
+      const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=?",p.id,playerId);
+      if(assigned)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
+    }
+    if(issues.length)return fail("IMPORT_PLAYER_ISSUES",request,env,400,{issues});
+
+    const changedAt=nowIso(),newClubs=new Map(),statements=[];
+    for(const plan of plans){
+      const r=plan.raw;
+      let clubId=null;
+      if(r.clubId){
+        clubId=(await one(env,"SELECT id FROM clubs WHERE id=?",r.clubId))?.id||null;
+      }else{
+        const clubName=String(r.club||"").trim(),key=clubName.toLocaleLowerCase("vi");
+        if(clubName){
+          const existing=await one(env,"SELECT id FROM clubs WHERE lower(name)=lower(?) LIMIT 1",clubName);
+          if(existing)clubId=existing.id;
+          else{
+            if(!newClubs.has(key))newClubs.set(key,{id:uid(),name:clubName,slug:slugify(clubName)+"-"+uid().slice(0,8)});
+            clubId=newClubs.get(key).id;
+          }
+        }
+      }
+      plan.clubId=clubId;
+    }
+    for(const club of newClubs.values())statements.push(env.DB.prepare("INSERT INTO clubs(id,name,slug,city,active,created_at,updated_at) VALUES(?,?,?,?,1,?,?)").bind(club.id,club.name,club.slug,"",changedAt,changedAt));
+    for(const plan of plans){
+      statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
+        .bind(plan.teamId,p.id,plan.name,plan.clubId,Number(plan.raw.seed)||null,String(plan.raw.group||"A"),changedAt));
+      for(const playerId of plan.playerIds)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(plan.teamId,playerId));
+    }
+    if(statements.length)await env.DB.batch(statements);
+    const created=plans.length,linkedPlayers=plans.reduce((sum,plan)=>sum+plan.playerIds.length,0);
     await emit(env,"public:state",{tournamentId:tid});
     return ok({created,linkedPlayers},request,env,201);
   }

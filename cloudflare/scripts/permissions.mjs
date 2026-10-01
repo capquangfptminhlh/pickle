@@ -63,11 +63,32 @@ assert(atomicState.teams.length===beforeAtomic.teams.length+1,"failed team reque
 const teamB=(await raw("/api/divisions/"+division.id+"/teams",{
   method:"POST",token:admin,body:{name:"Perm Team B",clubId:clubB.id,playerIds:[pC.id,pD.id]}
 })).data;
+const importBefore=(await raw("/api/admin/state",{token:admin})).data;
+const missingName="Missing Registry Player "+stamp;
+const invalidImport=(await raw("/api/divisions/"+division.id+"/import-teams",{
+  method:"POST",token:admin,
+  body:{rows:[{name:"Invalid Imported Pair",player1:pA.full_name,player2:missingName}]},
+  ok:[400]
+})).data;
+assert(invalidImport.error==="IMPORT_PLAYER_ISSUES","missing import player is reported");
+assert(invalidImport.detail?.issues?.[0]?.row===1,"import issue includes row number");
+const importAfter=(await raw("/api/admin/state",{token:admin})).data;
+assert(importAfter.players.length===importBefore.players.length,"team import creates no player profiles");
+assert(importAfter.teams.length===importBefore.teams.length,"invalid import creates no teams");
+
 const secondTournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"Second Permission Tournament "+stamp,venue:"CI",eventType:"doubles"}})).data;
 const secondState=(await raw("/api/admin/state",{token:admin})).data;
 const secondDivision=secondState.divisions.find(x=>x.tournamentId===secondTournament.id);
 const pE=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player E "+stamp,rating:3.5}})).data;
 await raw("/api/divisions/"+secondDivision.id+"/teams",{method:"POST",token:admin,body:{name:"Cross Division Pair",playerIds:[pA.id,pE.id]}});
+const duplicateName="Ambiguous Registry Player "+stamp;
+await raw("/api/players",{method:"POST",token:admin,body:{fullName:duplicateName,rating:3}});
+await raw("/api/players",{method:"POST",token:admin,body:{fullName:duplicateName.toUpperCase(),rating:3.1}});
+const pF=(await raw("/api/players",{method:"POST",token:admin,body:{fullName:"Perm Player F "+stamp,rating:3.6}})).data;
+const ambiguousImport=(await raw("/api/divisions/"+secondDivision.id+"/import-teams",{
+  method:"POST",token:admin,body:{rows:[{name:"Ambiguous Imported Pair",player1:pF.full_name,player2:duplicateName}]},ok:[400]
+})).data;
+assert(ambiguousImport.detail?.issues?.some(issue=>issue.reason==="AMBIGUOUS_PLAYER"),"ambiguous import player is reported");
 const regA=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamA.id,amount:300000}})).data;
 const regB=(await raw("/api/divisions/"+division.id+"/registrations",{method:"POST",token:admin,body:{teamId:teamB.id,amount:900000}})).data;
 
