@@ -92,9 +92,24 @@ async function modalSmoke(page,pageId,selector,label){
 const matchesNav=page.locator('[data-page="matches"]');
 if(await matchesNav.count()){
   await matchesNav.click();await page.waitForTimeout(120);
-  const doneCards=page.locator('[data-match-card][data-match-status="done"]');
-  if(await doneCards.count()&&await doneCards.first().locator("[data-score-match]").count()){
-    failures.push({label:"prod completed match",errors:["completed match still exposes score action"]});
+  // Automatic byes with a TBD participant have no editable scoring history.
+  const completedId=await page.evaluate(()=>state.matches.find(m=>m.status==="done"&&m.a&&m.b&&m.a!=="TBD"&&m.b!=="TBD")?.id);
+  if(completedId){
+    const review=page.locator('[data-match-card="'+completedId+'"] [data-score-match]');
+    if(!(await review.count())){
+      failures.push({label:"prod completed match",errors:["completed score review and Undo entry missing"]});
+    }else{
+      await review.click();
+      await page.locator("#scoreDialog").waitFor({state:"visible"});
+      const controls=page.locator('#scoreDialog [data-score], #finishSet, #finishMatch, #saveQuickScore');
+      if(await controls.count()!==7||!(await controls.evaluateAll(els=>els.every(el=>el.disabled)))){
+        failures.push({label:"prod completed match",errors:["completed match still allows score changes"]});
+      }
+      if(!(await page.locator("#undoScore").isEnabled())){
+        failures.push({label:"prod completed match",errors:["completed match Undo is inaccessible"]});
+      }
+      await page.locator("#scoreDialog .icon-btn").click();
+    }
   }
   const statusFilter=page.locator("#statusFilter");
   if(await statusFilter.count()){
@@ -340,7 +355,8 @@ for(const mode of ["player","club","area"]){
 }
 
 await goto(ppage,preview+"/admin.html","preview populated admin return");
-await ppage.locator('[data-page="players"]').click();await ppage.waitForTimeout(100);
+await ppage.locator('[data-page="players"]').click();
+await ppage.locator('#content h2').filter({hasText:"Bảng VĐV / Rating hệ thống"}).waitFor({state:"visible"});
 const registryText=await ppage.locator("#content").innerText();
 if(!registryText.includes("Bảng VĐV / Rating hệ thống"))failures.push({label:"player registry label",errors:["system registry heading missing"]});
 if(!(await ppage.locator('[data-action="newPlayer"]').innerText()).includes("Tạo hồ sơ VĐV"))failures.push({label:"player registry action",errors:["profile action label missing"]});

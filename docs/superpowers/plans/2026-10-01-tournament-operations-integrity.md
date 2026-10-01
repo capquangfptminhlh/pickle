@@ -14,7 +14,7 @@
 - [x] Repair public player DTOs to expose persisted sets, points, results, partners and rating history. Filter private tournaments, inactive divisions/teams and inactive partners. Filter sponsors linked to private tournaments.
 - [x] Install same-origin Cloudflare WebSocket fallback, refresh after reconnect, and refetch partial invalidation messages without replacing complete UI state.
 - [x] Keep PWA updates waiting for explicit user acceptance and bypass API/auth/upload caches. Verify via regression tests.
-- [ ] Run native D1 and PostgreSQL HTTP regressions for operations and public privacy on local/CI fixtures; review the expanded final patch.
+- [x] Run native D1 and PostgreSQL HTTP regressions for operations and public privacy on local/CI fixtures; review the expanded final patch.
 
 ## Scoring repair
 
@@ -40,4 +40,6 @@
 
 Local checks: 84 unit regressions; 12 registry, 4 account and 2 scoring browser scenarios; native Wrangler D1 scoring, concurrency, permission, registry and R2 privacy HTTP suites; syntax/diff checks and Wrangler dry run passed. Spec and code quality reviews passed after repairing their reproduced history, receipt URL normalization and overlapping realtime findings.
 
-PostgreSQL HTTP tests run in the existing CI service. Main deployment and production read-only verification are the remaining release gates; do not report completion until both workflows finish successfully.
+Native PostgreSQL operations and public privacy HTTP tests passed in CI run 36852353130. That run exposed two outdated browser assertions; Cloudflare run 36852353258 passed validation but exposed remote D1 trigger parsing incompatibility. The release repair uses separate WHEN guards with single-statement trigger bodies, asserts completed read-only review/Undo, and waits for the registry heading. A full native Worker browser smoke also exposed missing Socket.IO requests; the Cloudflare asset build now omits the Node-only client while retaining the native WebSocket fallback.
+
+Main deployment and production read-only verification remain release gates; do not report completion until both replacement workflows finish successfully.

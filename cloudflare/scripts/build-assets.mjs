@@ -1,4 +1,4 @@
-import {cp,mkdir,readdir,rm} from "node:fs/promises";
+import {cp,mkdir,readdir,readFile,rm,writeFile} from "node:fs/promises";
 import {dirname,join,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 
@@ -11,7 +11,10 @@ await mkdir(outputDir,{recursive:true});
 
 for(const entry of await readdir(projectDir,{withFileTypes:true})){
   if(entry.isFile()&&entry.name.endsWith(".html")){
-    await cp(join(projectDir,entry.name),join(outputDir,entry.name));
+    // Socket.IO is served by the Node backend. Workers use the API's native
+    // WebSocket adapter; do not request a missing Node client on these pages.
+    const html=await readFile(join(projectDir,entry.name),"utf8");
+    await writeFile(join(outputDir,entry.name),html.replace(/<script src="\/socket\.io\/socket\.io\.js"><\/script>/g,""));
   }
 }
 
