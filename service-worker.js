@@ -1,4 +1,4 @@
-const VERSION="pickleup-v18-operations-integrity-20261001";
+const VERSION="pickleup-v19-professional-ui-20261004";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -6,6 +6,7 @@ const STATIC=[
   "/manifest.webmanifest",
   "/assets/styles.css",
   "/assets/public.css",
+  "/assets/pickleup-ui.css",
   "/assets/ui-motion.js",
   "/assets/pwa.js",
   "/assets/login.js",
