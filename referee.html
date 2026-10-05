@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b7a4b">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
+  <title>Courtside Referee | Pickleup.vn</title>
+  <link rel="stylesheet" href="assets/courtside.css?v=1">
+</head>
+<body class="courtside-body">
+  <header class="courtside-top">
+    <div class="courtside-brand">
+      <img src="assets/app-icon-v2.svg" alt="">
+      <div><strong>PICKLEUP.VN</strong><small>REFEREE COURTSIDE</small></div>
+    </div>
+    <div class="courtside-top-actions">
+      <span id="connectionState" class="connection-pill">Đang kết nối</span>
+      <button id="refreshBtn" class="icon-action" type="button" aria-label="Làm mới">↻</button>
+      <a class="icon-action" href="admin.html" aria-label="Quản trị">☰</a>
+    </div>
+  </header>
+
+  <main class="courtside-main">
+    <section id="refSummary" class="ref-summary"></section>
+    <section id="matchPicker" class="match-picker"></section>
+
+    <section id="scoreSurface" class="score-surface" hidden>
+      <div class="score-context">
+        <button id="backToMatches" class="back-link" type="button">← Danh sách trận</button>
+        <div><span id="courtLabel"></span><b id="stageLabel"></b></div>
+        <span id="queueLabel" class="queue-pill"></span>
+      </div>
+
+      <div class="serve-banner">
+        <span>ĐANG GIAO</span>
+        <strong id="serveBanner">—</strong>
+        <small id="modeBanner">Side-out</small>
+      </div>
+
+      <div class="ref-score-grid">
+        <article class="ref-team-card team-a">
+          <div class="ref-team-head"><small>ĐỘI A</small><strong id="refTeamA">—</strong></div>
+          <div id="refScoreA" class="ref-score">0</div>
+          <button class="rally-hit" type="button" data-rally="A"><span>🏓</span> THẮNG RALLY</button>
+          <div class="score-correct">
+            <button type="button" data-correct="A" data-delta="-1">−1</button>
+            <button type="button" data-correct="A" data-delta="1">+1</button>
+          </div>
+        </article>
+
+        <article class="ref-team-card team-b">
+          <div class="ref-team-head"><small>ĐỘI B</small><strong id="refTeamB">—</strong></div>
+          <div id="refScoreB" class="ref-score">0</div>
+          <button class="rally-hit" type="button" data-rally="B"><span>🏓</span> THẮNG RALLY</button>
+          <div class="score-correct">
+            <button type="button" data-correct="B" data-delta="-1">−1</button>
+            <button type="button" data-correct="B" data-delta="1">+1</button>
+          </div>
+        </article>
+      </div>
+
+      <div id="setHistory" class="set-strip"></div>
+      <div id="scoreHint" class="score-hint" hidden></div>
+
+      <section class="ref-control-card">
+        <div class="control-title"><span>Quyền giao</span><small id="serverHelp">Chỉnh khi trọng tài cần sửa</small></div>
+        <div id="serviceButtons" class="service-buttons">
+          <button type="button" data-service="A" data-server="1">A · S1</button>
+          <button type="button" data-service="A" data-server="2">A · S2</button>
+          <button type="button" data-service="B" data-server="1">B · S1</button>
+          <button type="button" data-service="B" data-server="2">B · S2</button>
+        </div>
+      </section>
+
+      <section class="ref-control-card">
+        <div class="control-title"><span>Timeout</span><small>Ghi nhận vào audit log</small></div>
+        <div class="timeout-grid">
+          <button type="button" data-timeout="A" data-kind="standard">⏱ A <b id="refTimeoutA">0/2</b></button>
+          <button type="button" data-timeout="B" data-kind="standard">⏱ B <b id="refTimeoutB">0/2</b></button>
+          <button type="button" data-timeout="A" data-kind="medical">🩺 A <b id="refMedicalA">0/1</b></button>
+          <button type="button" data-timeout="B" data-kind="medical">🩺 B <b id="refMedicalB">0/1</b></button>
+        </div>
+      </section>
+
+      <div class="ref-bottom-actions">
+        <button id="undoBtn" class="ref-btn secondary" type="button">↶ Undo</button>
+        <button id="finishSetBtn" class="ref-btn dark" type="button">Chốt set</button>
+        <button id="finishMatchBtn" class="ref-btn primary" type="button">Kết thúc trận</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="refToast" class="ref-toast" hidden></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="assets/api.js?v=45"></script>
+  <script src="assets/referee-courtside.js?v=1"></script>
+  <script src="/assets/pwa.js"></script>
+</body>
+</html>
