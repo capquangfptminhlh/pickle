@@ -175,6 +175,9 @@
       '<label class="field">Best of<select id="crudDBest">'+[1,3,5].map(v=>'<option value="'+v+'" '+(d.bestOf===v?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
       '<label class="field">Điểm/set<select id="crudDPoints">'+[11,15,21].map(v=>'<option value="'+v+'" '+(d.pointsToWin===v?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
       '<label class="field">Top đi tiếp<input id="crudDAdvance" type="number" min="1" value="'+d.advanceCount+'"></label>'+
+      '<label class="field">Cách tính điểm<select id="crudDScoring"><option value="side_out" '+(d.scoringMode!=="rally"?"selected":"")+'>Side-out</option><option value="rally" '+(d.scoringMode==="rally"?"selected":"")+'>Rally scoring</option></select></label>'+
+      '<label class="field">Nghỉ tối thiểu (phút)<input id="crudDRest" type="number" min="0" max="120" value="'+(d.minimumRestMinutes??15)+'"></label>'+
+      '<label class="field">Thời lượng/trận (phút)<input id="crudDSlot" type="number" min="5" max="180" value="'+(d.matchSlotMinutes??20)+'"></label>'+
       '<label class="field" style="align-content:end"><span><input id="crudDWin2" type="checkbox" '+(d.winByTwo?"checked":"")+'> Win by 2</span></label>'+
       '<label class="field full"><span><input id="crudDActive" type="checkbox" '+(d.active!==false?"checked":"")+'> Nội dung đang hoạt động</span></label>'+
       '<div class="field full"><button id="crudSaveD" type="button" class="btn primary">Lưu nội dung</button></div></div>');
@@ -183,7 +186,9 @@
         await API.updateDivisionFull(d.id,{
           name:$("#crudDName").value.trim(),eventType:$("#crudDType").value,format:$("#crudDFormat").value,
           bestOf:Number($("#crudDBest").value),pointsToWin:Number($("#crudDPoints").value),
-          advanceCount:Number($("#crudDAdvance").value),winByTwo:$("#crudDWin2").checked,active:$("#crudDActive").checked
+          advanceCount:Number($("#crudDAdvance").value),scoringMode:$("#crudDScoring").value,
+          minimumRestMinutes:Number($("#crudDRest").value),matchSlotMinutes:Number($("#crudDSlot").value),
+          winByTwo:$("#crudDWin2").checked,active:$("#crudDActive").checked
         });
         close();await ctx.refresh();ctx.toast("Đã cập nhật nội dung.");
       }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}

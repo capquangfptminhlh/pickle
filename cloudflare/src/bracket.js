@@ -1,5 +1,6 @@
 import {uid,nowIso} from "./util.js";
 import {loadState} from "./state.js";
+import {rankGroupStandings} from "../../shared/standings.js";
 
 async function rows(env,sql,...args){
   const r=await env.DB.prepare(sql).bind(...args).all();
@@ -35,15 +36,6 @@ async function insertMatch(env,m){
     m.status||"scheduled",m.winner||null,m.completedAt||null,nowIso()
   ).run();
 }
-function rankTeams(list){
-  return [...list].sort((a,b)=>
-    Number(b.w||0)-Number(a.w||0) ||
-    Number(b.diffSet||0)-Number(a.diffSet||0) ||
-    Number(b.diffPts||0)-Number(a.diffPts||0) ||
-    Number(a.seed||9999)-Number(b.seed||9999) ||
-    String(a.name||"").localeCompare(String(b.name||""),"vi")
-  );
-}
 async function qualifiers(env,division){
   const state=await loadState(env);
   const list=state.teams.filter(t=>t.divisionId===division.id&&t.status==="active");
@@ -51,8 +43,24 @@ async function qualifiers(env,division){
   const groups=[...new Set(list.map(t=>t.group||"A"))].sort();
   const selected=[];
   const count=Math.max(1,Number(division.advance_count||2));
-  for(const group of groups)selected.push(...rankTeams(list.filter(t=>(t.group||"A")===group)).slice(0,count));
+  const divisionMatches=state.matches.filter(m=>m.divisionId===division.id);
+  for(const group of groups){
+    const ranked=rankGroupStandings(list.filter(t=>(t.group||"A")===group),divisionMatches);
+    selected.push(...ranked.slice(0,count).map((team,index)=>({...team,groupRank:index+1})));
+  }
   return selected;
+}
+
+function protectedPoolSlots(division,teams,size){
+  if(division.format!=="pool_to_knockout"||Number(division.advance_count||2)!==2||size!==teams.length||!isPow2(size))return null;
+  const groups=[...new Set(teams.map(t=>t.group||"A"))].sort();
+  if(groups.length<2||groups.length*2!==teams.length)return null;
+  const first=groups.map(g=>teams.find(t=>(t.group||"A")===g&&Number(t.groupRank||t.standingRank)===1));
+  const second=groups.map(g=>teams.find(t=>(t.group||"A")===g&&Number(t.groupRank||t.standingRank)===2));
+  if(first.some(x=>!x)||second.some(x=>!x))return null;
+  const slots=[];
+  for(let i=0;i<groups.length;i++)slots.push(first[i].id,second[groups.length-1-i].id);
+  return slots;
 }
 
 async function generateSingle(env,division,teams){
@@ -64,9 +72,10 @@ async function generateSingle(env,division,teams){
     const count=size/2**r;
     for(let i=0;i<count;i++)ids[r][i]=uid();
   }
+  const protectedSlots=protectedPoolSlots(division,teams,size);
   const order=seedOrder(size);
-  const slots=Array(size).fill(null);
-  teams.forEach((t,i)=>{const pos=order.indexOf(i+1);if(pos>=0)slots[pos]=t.id});
+  const slots=protectedSlots||Array(size).fill(null);
+  if(!protectedSlots)teams.forEach((t,i)=>{const pos=order.indexOf(i+1);if(pos>=0)slots[pos]=t.id});
   const created=[];
   for(let r=1;r<=rounds;r++){
     const count=size/2**r;
@@ -85,7 +94,7 @@ async function generateSingle(env,division,teams){
   for(const m of created.filter(x=>x.winner&&x.nextId)){
     await env.DB.prepare(`UPDATE matches SET team_${m.nextSide.toLowerCase()}_id=? WHERE id=?`).bind(m.winner,m.nextId).run();
   }
-  return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length};
+  return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal:Boolean(protectedSlots)};
 }
 
 async function generateDouble(env,division,teams){
@@ -137,8 +146,29 @@ async function generateDouble(env,division,teams){
 export async function generateBracket(env,divisionId){
   const division=await one(env,"SELECT * FROM divisions WHERE id=?",divisionId);
   if(!division)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+  if(division.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
+
+  const existing=await rows(env,"SELECT id,status,winner_team_id,started_at,current_score_a,current_score_b FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL",divisionId);
+  if(existing.length){
+    const started=existing.some(m=>m.started_at||m.winner_team_id||["live","completed","walkover","cancelled"].includes(m.status)||Number(m.current_score_a||0)||Number(m.current_score_b||0));
+    throw Object.assign(new Error(started?"BRACKET_ALREADY_STARTED":"BRACKET_ALREADY_EXISTS"),{status:409});
+  }
+
+  if(division.format==="pool_to_knockout"){
+    const state=await loadState(env);
+    const active=state.teams.filter(t=>t.divisionId===divisionId&&t.status==="active");
+    const groups=[...new Set(active.map(t=>t.group||"A"))];
+    for(const group of groups){
+      const members=active.filter(t=>(t.group||"A")===group);
+      const expected=members.length*(members.length-1)/2;
+      const ids=new Set(members.map(t=>t.id));
+      const played=state.matches.filter(m=>m.divisionId===divisionId&&!m.bracketSlot&&ids.has(m.a)&&ids.has(m.b)&&["done","completed","walkover"].includes(m.status)&&m.winner);
+      if(played.length<expected)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+    }
+  }
+
   const teams=await qualifiers(env,division);
-  await env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL").bind(divisionId).run();
+  if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
   if(division.format==="double_elimination")return generateDouble(env,division,teams);
   return generateSingle(env,division,teams);
 }

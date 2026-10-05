@@ -376,16 +376,16 @@ async function handleApi(request,env){
     const user=await userRequired(request,env);await assertTournament(env,user,p.id);
     const b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
     const id=uid();
-    await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(id,p.id,name,b.eventType||"doubles",b.format||"pool_to_knockout",Number(b.bestOf||3),Number(b.pointsToWin||11),asBool(b.winByTwo??true)?1:0,Number(b.advanceCount||2),nowIso()).run();
+    await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
+      .bind(id,p.id,name,b.eventType||"doubles",b.format||"pool_to_knockout",Number(b.bestOf||3),Number(b.pointsToWin||11),asBool(b.winByTwo??true)?1:0,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),nowIso()).run();
     const row=await one(env,"SELECT * FROM divisions WHERE id=?",id);await createAudit(env,user,"division",id,"CREATE",null,row);await emitUpdate(env,p.id);
     return ok(row,request,env,201);
   }
   p=route(path,"/api/divisions/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),before=await one(env,"SELECT * FROM divisions WHERE id=?",p.id),b=await bodyJson(request);
-    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,active=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),b.eventType??before.event_type,b.format??before.format,Number(b.bestOf??before.best_of),Number(b.pointsToWin??before.points_to_win),b.winByTwo===undefined?before.win_by_two:(asBool(b.winByTwo)?1:0),Number(b.advanceCount??before.advance_count),b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
+    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,active=?,updated_at=? WHERE id=?")
+      .bind(String(b.name??before.name),b.eventType??before.event_type,b.format??before.format,Number(b.bestOf??before.best_of),Number(b.pointsToWin??before.points_to_win),b.winByTwo===undefined?before.win_by_two:(asBool(b.winByTwo)?1:0),Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);await createAudit(env,user,"division",p.id,"UPDATE",before,after);await emitUpdate(env,tid);return ok(after,request,env);
   }
   if(p&&method==="DELETE"){
@@ -652,11 +652,35 @@ async function handleApi(request,env){
   }
   p=route(path,"/api/divisions/:id/auto-schedule-courts");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),courts=await rows(env,"SELECT id FROM courts WHERE tournament_id=? AND active=1 ORDER BY sort_order,name",tid);
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id);
+    const courts=await rows(env,"SELECT id FROM courts WHERE tournament_id=? AND active=1 ORDER BY sort_order,name",tid);
     if(!courts.length)return fail("NO_COURTS",request,env,400);
-    const matches=await rows(env,"SELECT id FROM matches WHERE division_id=? AND status IN ('scheduled','ready') ORDER BY scheduled_at,created_at",p.id);
-    for(let i=0;i<matches.length;i++)await env.DB.prepare("UPDATE matches SET court_id=?,version=version+1 WHERE id=?").bind(courts[i%courts.length].id,matches[i].id).run();
-    await emitUpdate(env,tid);return ok({ok:true,assigned:matches.length},request,env);
+    const division=await one(env,"SELECT minimum_rest_minutes,match_slot_minutes FROM divisions WHERE id=?",p.id);
+    const tournament=await one(env,"SELECT start_at FROM tournaments WHERE id=?",tid);
+    const minRest=Math.max(0,Number(division?.minimum_rest_minutes??15));
+    const slotMinutes=Math.max(5,Number(division?.match_slot_minutes??20));
+    const parsedStart=Date.parse(tournament?.start_at||"");
+    const baseMs=Number.isFinite(parsedStart)?parsedStart:Date.now();
+    const pending=await rows(env,"SELECT id,team_a_id,team_b_id,created_at FROM matches WHERE division_id=? AND status IN ('scheduled','ready') AND team_a_id IS NOT NULL AND team_b_id IS NOT NULL ORDER BY created_at",p.id);
+    const courtFree=new Map(courts.map(c=>[c.id,baseMs])),teamFree=new Map();
+    const remaining=[...pending],plan=[];
+    while(remaining.length){
+      let best=null;
+      for(let mi=0;mi<remaining.length;mi++){
+        const m=remaining[mi];
+        const teamsReady=Math.max(teamFree.get(m.team_a_id)||baseMs,teamFree.get(m.team_b_id)||baseMs);
+        for(const court of courts){
+          const start=Math.max(baseMs,courtFree.get(court.id)||baseMs,teamsReady);
+          if(!best||start<best.start||(start===best.start&&mi<best.mi))best={mi,match:m,courtId:court.id,start};
+        }
+      }
+      const chosen=remaining.splice(best.mi,1)[0],end=best.start+slotMinutes*60000,restUntil=end+minRest*60000;
+      courtFree.set(best.courtId,end);teamFree.set(chosen.team_a_id,restUntil);teamFree.set(chosen.team_b_id,restUntil);
+      plan.push({id:chosen.id,courtId:best.courtId,scheduledAt:new Date(best.start).toISOString()});
+    }
+    for(const item of plan)await env.DB.prepare("UPDATE matches SET court_id=?,scheduled_at=?,version=version+1 WHERE id=?").bind(item.courtId,item.scheduledAt,item.id).run();
+    await createAudit(env,user,"division",p.id,"AUTO_SCHEDULE",null,{minRestMinutes:minRest,matchSlotMinutes:slotMinutes,courts:courts.length,matches:plan.length});
+    await emitUpdate(env,tid);return ok({ok:true,updated:plan.length,assigned:plan.length,courts:courts.length,minRestMinutes:minRest,matchSlotMinutes:slotMinutes},request,env);
   }
 
   if(path==="/api/users"&&method==="GET"){

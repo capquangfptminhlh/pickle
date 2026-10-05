@@ -1,4 +1,5 @@
 import {bool} from "./util.js";
+import {rankGroupStandings} from "../../shared/standings.js";
 
 async function rows(env,sql,...args){
   const r=await env.DB.prepare(sql).bind(...args).all();
@@ -90,8 +91,9 @@ export async function loadState(env,{publicOnly=false}={}){
   }
 
   const stats=new Map(teamsRaw.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
+  const activeTeamIds=new Set(teamsRaw.filter(t=>t.status==="active").map(t=>t.id));
   const groupMatch=m=>!m.bracket_slot&&(String(m.stage||"").startsWith("Bảng")||/bảng|group|vòng bảng/i.test(String(m.stage||""))||!/chung kết|bán kết|tứ kết/i.test(String(m.stage||"")));
-  for(const m of matchesRaw.filter(x=>x.status==="completed"&&groupMatch(x)&&x.winner_team_id)){
+  for(const m of matchesRaw.filter(x=>x.status==="completed"&&groupMatch(x)&&x.winner_team_id&&activeTeamIds.has(x.team_a_id)&&activeTeamIds.has(x.team_b_id))){
     const ms=setMap.get(m.id)||[];let ap=0,bp=0,asw=0,bsw=0;
     for(const [a,b] of ms){ap+=a;bp+=b;if(a>b)asw++;else if(b>a)bsw++}
     const sa=stats.get(m.team_a_id),sb=stats.get(m.team_b_id);
@@ -111,8 +113,19 @@ export async function loadState(env,{publicOnly=false}={}){
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,
     courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,
-    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null
+    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null
   }));
+
+  for(const division of divisionsRaw){
+    const groupNames=[...new Set(teams.filter(t=>t.divisionId===division.id&&t.status==="active").map(t=>t.group||"A"))];
+    for(const group of groupNames){
+      const ranked=rankGroupStandings(
+        teams.filter(t=>t.divisionId===division.id&&t.status==="active"&&(t.group||"A")===group),
+        matches.filter(m=>m.divisionId===division.id)
+      );
+      ranked.forEach((team,index)=>{team.standingRank=index+1});
+    }
+  }
 
   let audit=[];
   if(!publicOnly){
@@ -131,7 +144,8 @@ export async function loadState(env,{publicOnly=false}={}){
     divisions:divisionsRaw.map(d=>({
       id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,
       bestOf:Number(d.best_of||3),pointsToWin:Number(d.points_to_win||11),winByTwo:bool(d.win_by_two),
-      advanceCount:Number(d.advance_count||2),active:bool(d.active)
+      advanceCount:Number(d.advance_count||2),tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",
+      minimumRestMinutes:Number(d.minimum_rest_minutes??15),matchSlotMinutes:Number(d.match_slot_minutes??20),active:bool(d.active)
     })),
     courts:courtsRaw.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:Number(c.sort_order||0),active:bool(c.active)})),
     teams,players,teamPlayers,matches,audit
