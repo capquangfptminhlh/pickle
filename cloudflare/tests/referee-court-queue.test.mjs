@@ -102,9 +102,9 @@ test("finishing a court auto-calls the first eligible rested match and skips a t
     f.db.exec(`INSERT INTO courts(id,tournament_id,name,active) VALUES('court','tour','Court 1',1);
       UPDATE matches SET court_id='court' WHERE id='match';
       INSERT INTO teams(id,division_id,name) VALUES('d','division','D');
-      INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,status,court_state,scheduled_at,version)
-        VALUES('rest-blocked','division','court','a','c','scheduled','scheduled','2026-10-05T10:01:00Z',1),
-              ('eligible','division','court','c','d','scheduled','scheduled','2026-10-05T10:02:00Z',1);`);
+      INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,status,court_state,created_at,version)
+        VALUES('rest-blocked','division','court','a','c','scheduled','scheduled','2026-10-05T00:01:00Z',1),
+              ('eligible','division','court','c','d','scheduled','scheduled','2026-10-05T00:02:00Z',1);`);
     const r=await f.api("quick-score",{sets:[[11,3],[11,4]],expectedVersion:1});
     assert.equal(r.status,200);
     assert.equal(f.db.prepare("SELECT court_state FROM matches WHERE id='rest-blocked'").get().court_state,"scheduled");
