@@ -246,7 +246,7 @@ async function openTournamentDetail(tournamentId){
       ?(window.PickleBracket?.render(divisionMatches,teamName,{admin:true})||"")
       :(window.PickleBracket?.renderPlan(allTeams)||"");
     const completed=groupMatches.filter(m=>m.status==="done"||m.status==="completed").length;
-    const top2=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,2).map((x,i)=>({team:x,group:g,rank:i+1})));
+    const advanceCount=Math.max(1,Number(d.advanceCount||2));\n    const qualifiers=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,advanceCount).map((x,i)=>({team:x,group:g,rank:i+1})));
     const rosterRows=teams.map(team=>{
       const ps=(teamPlayers[team.id]||[]).map(pid=>allPlayers.find(p=>p.id===pid)).filter(Boolean);
       const rating=ps.length?(ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length).toFixed(2):"—";
@@ -261,15 +261,15 @@ async function openTournamentDetail(tournamentId){
       return `<tr><td><b style="display:block;margin-bottom:8px">${escHtml(team.name)}</b><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${playerList}</div></td><td>${escHtml(team.club||"Tự do")}</td><td>${rating}</td><td>${team.group?'<span class="badge blue">Bảng '+escHtml(team.group)+'</span>':'<span class="badge wait">Chưa bốc thăm</span>'}</td><td>${statusLabel(reg?.status)}</td></tr>`;
     }).join("");
     const groupSummary=groups.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${groups.map(g=>{const r=rankTournamentGroup(d.id,g);return `<span class="badge blue">Bảng ${g}: ${r.length} đội</span>`}).join("")}</div>`:"";
-    const topHtml=top2.length?`<div style="margin-top:14px;padding:12px;border-radius:14px;background:#f5f8f6"><b style="font-size:12px">Top 2 tạm thời / chính thức</b><div style="display:grid;gap:5px;margin-top:8px">${top2.map(q=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>Bảng ${q.group} • ${q.rank===1?"Nhất":"Nhì"}</span><b>${escHtml(q.team.name)}</b></div>`).join("")}</div></div>`:"";
+    const topHtml=qualifiers.length?`<div style="margin-top:14px;padding:12px;border-radius:14px;background:#f5f8f6"><b style="font-size:12px">Top ${advanceCount} mỗi bảng • tạm thời / chính thức</b><div style="display:grid;gap:5px;margin-top:8px">${qualifiers.map(q=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><span>Bảng ${q.group} • ${q.rank===1?"Nhất":q.rank===2?"Nhì":"Hạng "+q.rank}</span><b>${escHtml(q.team.name)}</b></div>`).join("")}</div></div>`:"";
     return `<section class="panel" style="box-shadow:none;margin:0 0 16px;border:1px solid #e7ece9">
       <div class="panel-head"><div><h2>${escHtml(d.name)}</h2><p>${[...new Set(teams.flatMap(team=>teamPlayers[team.id]||[]))].length} VĐV • ${teams.length} cặp/đội • ${groupMatches.length?completed+"/"+groupMatches.length+" trận vòng bảng đã xong":"Chưa tạo lịch vòng bảng"}</p></div>
-      ${canManage()?`<div class="actions"><button class="btn primary" data-add-participants="${d.id}">＋ Thêm VĐV tham gia</button><button class="btn secondary" data-auto-draw="${d.id}" data-team-count="${teams.length}">🎡 Bốc thăm + xếp sân AUTO</button><button class="btn secondary" data-auto-courts="${d.id}">🏟 Xếp lại sân</button><button class="btn secondary" data-top2-bracket="${d.id}">🏆 Tạo nhánh Top 2</button></div>`:""}</div>
+      ${canManage()?`<div class="actions"><button class="btn primary" data-add-participants="${d.id}">＋ Thêm VĐV tham gia</button><button class="btn secondary" data-auto-draw="${d.id}" data-team-count="${teams.length}">🎛 Thiết lập & bốc thăm</button><button class="btn secondary" data-auto-courts="${d.id}">🏟 Xếp lại sân</button><button class="btn secondary" data-top2-bracket="${d.id}" data-advance-count="${advanceCount}">🏆 Tạo nhánh Top ${advanceCount}</button></div>`:""}</div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Cặp / VĐV</th><th>CLB</th><th>Rating TB</th><th>Bảng</th><th>Đăng ký</th></tr></thead><tbody>${rosterRows||'<tr><td colspan="5">Chưa có VĐV/cặp đăng ký nội dung này.</td></tr>'}</tbody></table></div>
       ${groupSummary}${topHtml}
       <div class="tournament-ops-grid">
         <div class="tournament-ops-card"><b>🔴 Live trận đấu</b><small>${liveMatches.length} trận đang live • ${divisionMatches.length} trận tổng</small><div class="tournament-live-mini">${divisionMatches.slice(0,6).map(m=>`<div class="tournament-live-row"><button type="button" class="mini" data-center-score="${m.id}">${m.status==="live"?"🔴 ":""}${escHtml(m.stage)} • ${escHtml(teamName(m.a))} vs ${escHtml(teamName(m.b))}${m.refereeId?" • TT: "+escHtml(refs.find(r=>r.id===m.refereeId)?.display_name||"Đã gán"):""}</button><button type="button" class="mini" data-center-assign="${m.id}">👨‍⚖️ Phân công</button></div>`).join("")||'<span class="muted">Chưa có trận.</span>'}</div></div>
-        <div class="tournament-ops-card"><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":"Sau khi vòng bảng xong, bấm Tạo nhánh Top 2 để sinh toàn bộ bracket."}</small>${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}</div>
+        <div class="tournament-ops-card"><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":`Sau khi vòng bảng xong, bấm Tạo nhánh Top ${advanceCount} để sinh toàn bộ bracket.`}</small>${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}</div>
       </div>
     </section>`;
   }).join("");
@@ -280,31 +280,64 @@ async function openTournamentDetail(tournamentId){
   </div>`;
   $("#genericDialog").showModal();
 
-  const runDraw=async btn=>{
+  const openFlexibleDraw=async btn=>{
     const did=btn.dataset.autoDraw,n=Number(btn.dataset.teamCount||0);
-    if(n<4)return toast("Cần ít nhất 4 cặp/đội để bốc thăm vòng bảng.");
-    const groupCount=Math.max(1,Math.floor(n/4));
-    const oldGroupMatches=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
-    if(oldGroupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length))return toast("Vòng bảng đã bắt đầu nên không thể quay lại.");
-    if(!confirm(`Quay số ${n} cặp/đội → chia ${groupCount} bảng → tự xếp toàn bộ trận lên các sân đang hoạt động?`))return;
-    const names=state.teams.filter(x=>x.divisionId===did&&x.status!=="withdrawn").map(x=>x.name);
-    const overlay=document.createElement("div");overlay.className="draw-wheel-overlay";
-    overlay.innerHTML=`<div class="draw-wheel-card"><div class="draw-wheel"><div class="draw-wheel-ring">${names.slice(0,12).map((name,i)=>`<span style="--i:${i};--n:${Math.max(1,Math.min(12,names.length))}">${escHtml(name)}</span>`).join("")}</div><strong>🎡</strong></div><h3>Đang quay số chia bảng...</h3><p>Hệ thống đang xáo trộn và cân bằng các đội.</p></div>`;
-    document.body.appendChild(overlay);
-    try{
-      for(const m of oldGroupMatches)await API.deleteMatch(m.id);
-      await new Promise(r=>setTimeout(r,1800));
-      await API.autoSeedGroups(did,groupCount);
-      const rr=await API.generateRoundRobin(did);
-      overlay.querySelector("h3").textContent="✅ Đã bốc thăm & xếp sân";
-      overlay.querySelector("p").textContent=`${groupCount} bảng • ${rr.created} trận • ${rr.courts||state.courts.filter(x=>x.active!==false).length} sân`;
-      await new Promise(r=>setTimeout(r,700));
-      overlay.remove();await refresh();$("#genericDialog").close();await openTournamentDetail(tournamentId);
-      toast(`Đã bốc thăm ${groupCount} bảng, tạo ${rr.created} trận và tự xếp ${rr.courts||""} sân.`);
-    }catch(e){overlay.remove();toast("Không thể quay số: "+e.message)}
+    if(n<4)return toast("Cần ít nhất 4 cặp/đội để chia bảng.");
+    const d=state.divisions.find(x=>x.id===did),teams=state.teams.filter(x=>x.divisionId===did&&x.status!=="withdrawn");
+    const courts=state.courts.filter(x=>x.tournamentId===tournamentId&&x.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+    if(!courts.length)return toast("Giải chưa có sân hoạt động. Hãy tạo sân trước.");
+    const saved=await API.drawConfig(did).catch(()=>({}));
+    const modal=document.createElement("div");modal.className="draw-setup-overlay";
+    const initialTeamsPer=Math.max(2,Number(saved.teamsPerGroup||4));
+    const initialGroups=Math.max(1,Math.min(26,Number(saved.groupCount||Math.ceil(n/initialTeamsPer))));
+    modal.innerHTML=`<div class="draw-setup-card">
+      <div class="draw-setup-head"><div><span>THIẾT LẬP CHIA BẢNG</span><h2>${escHtml(d?.name||"Nội dung thi đấu")}</h2><p>${n} cặp/đội • cấu hình xong mới quay công khai realtime</p></div><button type="button" class="icon-btn" data-draw-close>✕</button></div>
+      <div class="draw-config-grid">
+        <label class="field">Cách chia<select data-draw-mode><option value="random">🎡 Quay ngẫu nhiên</option><option value="seeded">⚖️ Cân bằng hạt giống</option><option value="manual">✍️ Xếp thủ công</option></select></label>
+        <label class="field">Số bảng<input type="number" min="1" max="26" value="${initialGroups}" data-draw-groups></label>
+        <label class="field">Tối đa đội / bảng<input type="number" min="2" max="32" value="${initialTeamsPer}" data-draw-per-group></label>
+        <label class="field">Lấy vào vòng trong / bảng<input type="number" min="1" max="16" value="${Math.max(1,Number(saved.advanceCount||d?.advanceCount||2))}" data-draw-advance></label>
+      </div>
+      <div class="draw-setup-section"><div class="draw-section-title"><b>🏟 Sân được phép dùng</b><small>Có thể chọn nhiều sân</small></div><div class="draw-court-chips">${courts.map(court=>`<label><input type="checkbox" value="${court.id}" data-draw-court ${!saved.courtIds?.length||saved.courtIds.includes(court.id)?"checked":""}><span>${escHtml(court.name)}</span></label>`).join("")}</div></div>
+      <div class="draw-setup-section"><div class="draw-section-title"><b>📋 Bảng & sân ưu tiên</b><small>Mỗi bảng có thể khóa một sân hoặc luân phiên</small></div><div data-draw-group-courts></div></div>
+      <div class="draw-setup-section" data-manual-section hidden><div class="draw-section-title"><b>✍️ Xếp đội thủ công</b><small>Chọn bảng cho từng cặp/đội</small></div><div class="draw-manual-list"></div></div>
+      <div class="draw-setup-summary" data-draw-summary></div>
+      <div class="draw-setup-actions"><button type="button" class="btn secondary" data-draw-save>💾 Lưu thiết lập</button><button type="button" class="btn primary" data-draw-run>🎡 QUAY & CÔNG KHAI REALTIME</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    const modeEl=modal.querySelector("[data-draw-mode]"),groupsEl=modal.querySelector("[data-draw-groups]"),perEl=modal.querySelector("[data-draw-per-group]"),advanceEl=modal.querySelector("[data-draw-advance]");
+    modeEl.value=["random","seeded","manual"].includes(saved.mode)?saved.mode:"random";
+    const labels=()=>Array.from({length:Math.max(1,Math.min(26,Number(groupsEl.value||1)))},(_,i)=>String.fromCharCode(65+i));
+    const selectedCourts=()=>[...modal.querySelectorAll("[data-draw-court]:checked")].map(x=>x.value);
+    function rebuild(){
+      const gs=labels(),selected=selectedCourts(),groupHost=modal.querySelector("[data-draw-group-courts]"),manualHost=modal.querySelector(".draw-manual-list");
+      groupHost.innerHTML=gs.map(g=>{const prev=saved.groupCourts?.[g]?.[0]||"";return `<div class="draw-group-row"><b>Bảng ${g}</b><select data-group-court="${g}"><option value="">Luân phiên sân đã chọn</option>${courts.filter(x=>selected.includes(x.id)).map(c=>`<option value="${c.id}" ${prev===c.id?"selected":""}>${escHtml(c.name)}</option>`).join("")}</select></div>`}).join("");
+      manualHost.innerHTML=teams.map((team,i)=>{const current=saved.manualAssignments?.[team.id]||team.group||gs[i%gs.length];return `<label><span><b>${escHtml(team.name)}</b><small>${escHtml(team.club||"Tự do")}</small></span><select data-manual-team="${team.id}">${gs.map(g=>`<option value="${g}" ${current===g?"selected":""}>Bảng ${g}</option>`).join("")}</select></label>`}).join("");
+      modal.querySelector("[data-manual-section]").hidden=modeEl.value!=="manual";
+      const maxPer=Math.ceil(n/gs.length);advanceEl.max=Math.max(1,maxPer);if(Number(advanceEl.value)>maxPer)advanceEl.value=Math.max(1,Math.min(2,maxPer));
+      modal.querySelector("[data-draw-summary]").innerHTML=`<b>Dự kiến:</b> ${gs.length} bảng • khoảng ${Math.floor(n/gs.length)}–${Math.ceil(n/gs.length)} đội/bảng • lấy Top ${advanceEl.value} • ${selected.length} sân • ${modeEl.options[modeEl.selectedIndex].text}`;
+    }
+    modeEl.onchange=rebuild;
+    groupsEl.oninput=()=>{groupsEl.value=Math.max(1,Math.min(26,Number(groupsEl.value||1)));perEl.value=Math.max(2,Math.ceil(n/Number(groupsEl.value)));rebuild()};
+    perEl.oninput=()=>{perEl.value=Math.max(2,Math.min(32,Number(perEl.value||4)));groupsEl.value=Math.max(1,Math.ceil(n/Number(perEl.value)));rebuild()};
+    advanceEl.oninput=rebuild;modal.querySelectorAll("[data-draw-court]").forEach(x=>x.onchange=rebuild);
+    const payload=()=>{const courtIds=selectedCourts();if(!courtIds.length)throw new Error("Hãy chọn ít nhất 1 sân.");const groupCourts={};labels().forEach(g=>{const v=modal.querySelector(`[data-group-court="${g}"]`)?.value;groupCourts[g]=v?[v]:courtIds});const manualAssignments={};modal.querySelectorAll("[data-manual-team]").forEach(x=>manualAssignments[x.dataset.manualTeam]=x.value);return {mode:modeEl.value,groupCount:Number(groupsEl.value),teamsPerGroup:Number(perEl.value),advanceCount:Number(advanceEl.value),courtIds,groupCourts,manualAssignments}};
+    modal.querySelector("[data-draw-close]").onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};
+    modal.querySelector("[data-draw-save]").onclick=async()=>{try{await API.saveDrawConfig(did,payload());toast("Đã lưu thiết lập chia bảng.");}catch(e){toast("Không thể lưu: "+e.message)}};
+    modal.querySelector("[data-draw-run]").onclick=async()=>{
+      let p;try{p=payload()}catch(e){return toast(e.message)}
+      const oldGroupMatches=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&((m.stage||"").startsWith("Bảng ")||m.stage==="Vòng bảng"));
+      if(oldGroupMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||m.status==="walkover"||(m.sets||[]).length))return toast("Vòng bảng đã bắt đầu nên không thể bốc thăm lại.");
+      if(!confirm(`Bắt đầu quay ${n} cặp/đội thành ${p.groupCount} bảng và phát kết quả realtime cho người đang xem app?`))return;
+      modal.classList.add("is-running");
+      const card=modal.querySelector(".draw-setup-card");card.innerHTML=`<div class="draw-live-stage"><div class="draw-wheel"><div class="draw-wheel-ring">${teams.slice(0,12).map((team,i)=>`<span style="--i:${i};--n:${Math.max(1,Math.min(12,teams.length))}">${escHtml(team.name)}</span>`).join("")}</div><strong>🎡</strong></div><h2>Đang quay bốc thăm...</h2><p>Mọi người đang online cũng đang thấy phiên quay này.</p></div>`;
+      try{const r=await API.runDraw(did,p);await new Promise(resolve=>setTimeout(resolve,1200));card.innerHTML=`<div class="draw-live-stage is-done"><div class="draw-result-icon">✓</div><h2>Đã chia bảng</h2><p>${r.groupCount} bảng • ${r.created} trận vòng bảng • Top ${r.advanceCount} đi tiếp</p><div class="draw-result-groups">${(r.groups||[]).map(g=>`<span><b>Bảng ${g.group}</b><small>${g.count} đội</small></span>`).join("")}</div></div>`;await new Promise(resolve=>setTimeout(resolve,1000));modal.remove();await refresh();$("#genericDialog").close();await openTournamentDetail(tournamentId);toast(`Đã bốc thăm ${r.groupCount} bảng, tạo ${r.created} trận và phát realtime.`)}
+      catch(e){modal.remove();const msg={GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã bắt đầu.",GROUP_TOO_SMALL:"Mỗi bảng phải có ít nhất 2 đội.",GROUP_CAPACITY_EXCEEDED:"Số đội/bảng vượt cấu hình.",ADVANCE_COUNT_TOO_HIGH:"Số đội lấy vào vòng trong lớn hơn số đội của bảng.",MANUAL_GROUP_ASSIGNMENT_REQUIRED:"Chưa xếp đủ đội vào bảng.",NO_COURTS:"Chưa có sân hoạt động."}[e.message]||e.message;toast("Không thể bốc thăm: "+msg)}
+    };
+    rebuild();
   };
   document.querySelectorAll("[data-add-participants]").forEach(btn=>btn.onclick=()=>{const did=btn.dataset.addParticipants;$("#genericDialog").close();openTeamModal(did,true)});
-  document.querySelectorAll("[data-auto-draw]").forEach(btn=>btn.onclick=()=>runDraw(btn));
+  document.querySelectorAll("[data-auto-draw]").forEach(btn=>btn.onclick=()=>openFlexibleDraw(btn));
   document.querySelectorAll("[data-auto-courts]").forEach(btn=>btn.onclick=async()=>{
     try{
       const r=await API.autoScheduleCourts(btn.dataset.autoCourts);
@@ -322,12 +355,12 @@ async function openTournamentDetail(tournamentId){
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
   document.querySelectorAll("[data-top2-bracket]").forEach(btn=>btn.onclick=async()=>{
-    if(!confirm("Tạo nhánh đấu tự động từ Nhất/Nhì mỗi bảng?"))return;
+    const advance=Math.max(1,Number(btn.dataset.advanceCount||2));\n    if(!confirm(`Tạo nhánh đấu tự động từ Top ${advance} mỗi bảng?`))return;
     try{
       const r=await API.generateBracket(btn.dataset.top2Bracket);
       await refresh();
       await openTournamentDetail(tournamentId);
-      toast(`Đã tạo nhánh loại trực tiếp ${r.created||0} trận từ Top 2 mỗi bảng.`);
+      toast(`Đã tạo nhánh loại trực tiếp ${r.created||0} trận từ Top ${advance} mỗi bảng.`);
     }catch(e){
       const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",BRACKET_ALREADY_STARTED:"Nhánh đã có trận bắt đầu/kết quả nên không thể bốc lại.",NOT_ENOUGH_QUALIFIERS:"Chưa đủ đội đi tiếp.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung này chỉ thi đấu vòng tròn."}[e.message]||e.message;
       toast("Không thể tạo nhánh: "+m)
