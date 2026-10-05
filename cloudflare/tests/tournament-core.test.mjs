@@ -61,6 +61,7 @@ test("bracket generation refuses incomplete pools and refuses replacing an exist
 test("auto court scheduling respects minimum rest between a team's matches",async()=>{
   const f=await accountFixture();
   try{
+    f.env.ROOMS={idFromName:x=>x,get:()=>({fetch:async()=>new Response(null,{status:204})})};
     f.db.exec("UPDATE tournaments SET start_at='2026-10-05T01:00:00.000Z' WHERE id='own'");
     f.db.prepare("INSERT INTO divisions(id,tournament_id,name,format,minimum_rest_minutes,match_slot_minutes) VALUES(?,?,?,?,?,?)")
       .run("division","own","Đôi","round_robin",15,20);
