@@ -231,12 +231,16 @@ async function commit(env,user,m,sets,action,plan,at){
 
 async function autoCallNextOnCourt(env,user,m,at){
   if(!m.court_id)return null;
+  const existingQueue=await one(env,"SELECT id FROM matches WHERE court_id=? AND id<>? AND status IN ('scheduled','ready') AND court_state IN ('called','on_deck','warming_up') LIMIT 1",m.court_id,m.id);
+  if(existingQueue)return existingQueue.id;
   const candidates=await rows(env,
     "SELECT m.*,d.minimum_rest_minutes FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.court_id=? AND m.id<>? AND m.status IN ('scheduled','ready') AND COALESCE(m.court_state,'scheduled')='scheduled' AND m.team_a_id IS NOT NULL AND m.team_b_id IS NOT NULL ORDER BY COALESCE(m.scheduled_at,m.created_at),m.created_at",
     m.court_id,m.id
   );
-  const now=Date.parse(at);
+  const now=Date.parse(at),callAheadMs=15*60000;
   for(const next of candidates){
+    const scheduledMs=Date.parse(next.scheduled_at||"");
+    if(Number.isFinite(scheduledMs)&&scheduledMs>now+callAheadMs)continue;
     const restMs=Math.max(0,Number(next.minimum_rest_minutes??15))*60000;
     let eligible=true;
     for(const teamId of [next.team_a_id,next.team_b_id]){
