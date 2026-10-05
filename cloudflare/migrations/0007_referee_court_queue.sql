@@ -17,3 +17,14 @@ ALTER TABLE matches ADD COLUMN on_deck_at TEXT;
 ALTER TABLE matches ADD COLUMN warmup_at TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_matches_court_state ON matches(court_id,court_state,scheduled_at);
+
+CREATE TRIGGER IF NOT EXISTS court_state_version_guard
+BEFORE INSERT ON audit_logs
+WHEN NEW.entity_type='match' AND NEW.action='COURT_STATE'
+  AND NEW.before_data IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM matches
+    WHERE id=NEW.entity_id
+      AND version=json_extract(NEW.before_data,'$.version')
+  )
+BEGIN SELECT RAISE(ABORT,'VERSION_CONFLICT'); END;
