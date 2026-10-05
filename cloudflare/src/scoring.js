@@ -251,8 +251,8 @@ async function autoCallNextOnCourt(env,user,m,at){
     const before={...next},after={...next,court_state:"called",called_at:at,version:Number(next.version||1)+1};
     try{
       await env.DB.batch([
-        statement(env,"UPDATE matches SET court_state='called',called_at=?,version=version+1 WHERE id=? AND version=? AND COALESCE(court_state,'scheduled')='scheduled'",at,next.id,next.version),
-        statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,'AUTO_CALL_NEXT',?,?,?)",user.id,next.id,JSON.stringify(before),JSON.stringify(after),"Tự gọi trận tiếp theo sau khi sân trống")
+        statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,'AUTO_CALL_NEXT',?,?,?)",user.id,next.id,JSON.stringify(before),JSON.stringify(after),"Tự gọi trận tiếp theo sau khi sân trống"),
+        statement(env,"UPDATE matches SET court_state='called',called_at=?,version=version+1 WHERE id=? AND version=? AND COALESCE(court_state,'scheduled')='scheduled'",at,next.id,next.version)
       ]);
       return next.id;
     }catch(e){console.error("auto_call_next_failed",{matchId:next.id,error:String(e.message)})}
