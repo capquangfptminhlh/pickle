@@ -58,6 +58,12 @@ const rr=(await raw("/api/divisions/"+division.id+"/generate-round-robin",{metho
 assert(rr.created>=2,"round robin generated");
 await raw("/api/divisions/"+division.id+"/auto-schedule-courts",{method:"POST",token:admin,body:{}});
 
+state=(await raw("/api/admin/state",{token:admin})).data;
+const poolMatches=state.matches.filter(m=>m.divisionId===division.id&&!m.bracketSlot&&String(m.stage||"").startsWith("Bảng "));
+for(const match of poolMatches){
+  await raw("/api/matches/"+match.id+"/quick-score",{method:"POST",token:admin,body:{sets:[[11,5],[11,6]],expectedVersion:match.version}});
+}
+
 const bracket=(await raw("/api/divisions/"+division.id+"/generate-bracket",{method:"POST",token:admin,body:{}})).data;
 assert(bracket.bracketSize===4&&bracket.created===3,"knockout bracket generated");
 
