@@ -58,7 +58,7 @@ async function matchJson(env,id){
   const sets=await rows(env,"SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no",id);
   return {
     id:m.id,divisionId:m.division_id,stage:m.stage,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",
-    courtId:m.court_id||null,refereeId:m.referee_user_id||null,status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,
+    courtId:m.court_id||null,refereeId:m.referee_user_id||null,status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     sets:sets.map(s=>[Number(s.score_a||0),Number(s.score_b||0)]),
     winner:m.winner_team_id||null,version:Number(m.version||1),bracketSlot:m.bracket_slot||null,
