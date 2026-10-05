@@ -576,6 +576,7 @@ function openScore(id){
 function syncScoreDialog(){
   if(!activeMatch)return;
   const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
   $("#scoreA").textContent=a;$("#scoreB").textContent=b;
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
@@ -599,7 +600,6 @@ function syncScoreDialog(){
   });
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
   const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
-  const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
   $("#finishSet").disabled=locked||!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
