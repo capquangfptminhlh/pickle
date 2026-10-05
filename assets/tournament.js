@@ -81,8 +81,8 @@ function render(){
  }).join("")+'</div>':empty("🏓","Chưa có lịch đấu","Lịch thi đấu sẽ xuất hiện khi BTC xếp trận.");
 
   function sortGroupTeams(arr,mList){return [...arr].sort((a,b)=>{if(b.w!==a.w)return b.w-a.w;const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);if(sdB!==sdA)return sdB-sdA;if(mList&&mList.length){const h2h=mList.find(m=>(m.status==="done"||m.status==="completed")&&((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1;}}return ((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf)||((a.seed||999)-(b.seed||999));});}
-  const groups=[...new Set(teams.map(x=>x.group).filter(Boolean))];
-  $("#tourStandings").innerHTML=groups.map(g=>{const rows=sortGroupTeams(teams.filter(x=>x.group===g),matches);return '<div class="public-standings"><div class="panel-head"><div><span class="eyebrow">BẢNG '+esc(g)+'</span><h2>Xếp hạng Bảng '+esc(g)+'</h2></div><span class="badge blue">TOP 2 ĐI TIẾP</span></div><div class="standing-table-wrap"><div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>'+rows.map((r,i)=>{const rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span><small class="qualify-status">Vào vòng trong</small>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span><small class="qualify-status">Vào vòng trong</small>':'<span class="rank-badge rank-other">Hạng '+(i+1)+'</span>';const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';const diff=r.pf-r.pa;return '<div class="standing-row '+qCls+'"><b>'+(i+1)+'</b><span><b>'+esc(r.name)+'</b><small class="muted-block">'+esc(r.club||"")+'</small></span><span>'+r.w+'-'+r.l+'</span><span>'+(r.sw||0)+'-'+(r.sl||0)+'</span><span>'+r.pf+'-'+r.pa+'</span><b>'+(diff>0?'+':'')+diff+'</b><div>'+rankTag+'</div></div>';}).join("")+'</div></div>'}).join("")||empty("📊","Chưa có bảng xếp hạng","Kết quả vòng bảng sẽ tự cập nhật.");
+  const groupEntries=divs.flatMap(d=>[...new Set(teams.filter(x=>x.divisionId===d.id).map(x=>x.group).filter(Boolean))].sort().map(g=>({d,g})));
+  $("#tourStandings").innerHTML=groupEntries.map(({d,g})=>{const advance=Math.max(1,Number(d.advanceCount||2)),rows=sortGroupTeams(teams.filter(x=>x.divisionId===d.id&&x.group===g),matches.filter(m=>m.divisionId===d.id));return '<div class="public-standings"><div class="panel-head"><div><span class="eyebrow">'+esc(d.name)+' • BẢNG '+esc(g)+'</span><h2>Xếp hạng Bảng '+esc(g)+'</h2></div><span class="badge blue">TOP '+advance+' ĐI TIẾP</span></div><div class="standing-table-wrap"><div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>'+rows.map((r,i)=>{const qualified=i<advance,rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span>':'<span class="rank-badge rank-other">Hạng '+(i+1)+'</span>';const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';const diff=r.pf-r.pa;return '<div class="standing-row '+qCls+'"><b>'+(i+1)+'</b><span><b>'+esc(r.name)+'</b><small class="muted-block">'+esc(r.club||"")+'</small></span><span>'+r.w+'-'+r.l+'</span><span>'+(r.sw||0)+'-'+(r.sl||0)+'</span><span>'+r.pf+'-'+r.pa+'</span><b>'+(diff>0?'+':'')+diff+'</b><div>'+rankTag+(qualified?'<small class="qualify-status">Vào vòng trong</small>':'')+'</div></div>';}).join("")+'</div></div>'}).join("")||empty("📊","Chưa có bảng xếp hạng","Kết quả vòng bảng sẽ tự cập nhật.");
  const hasKnockout=matches.some(m=>m.bracketSlot)||matches.some(m=>/bán kết|chung kết|tứ kết/i.test(m.stage||""));
  const bracketHtml=hasKnockout
    ?(window.PickleBracket?.render(matches,team,{admin:false})||"")
@@ -132,6 +132,15 @@ function drawBracketConnectors(){
   tree.prepend(svg);
 }
 addEventListener("resize",()=>{clearTimeout(window.__pickleBracketResize);window.__pickleBracketResize=setTimeout(drawBracketConnectors,120)});
+function showTournamentDraw(payload,done=false){
+  if(payload?.tournamentId!==id)return;
+  let el=document.querySelector(".realtime-draw-overlay");
+  if(!el){el=document.createElement("div");el.className="realtime-draw-overlay";document.body.appendChild(el)}
+  const groups=Array.isArray(payload?.groups)?payload.groups:[];
+  el.innerHTML=`<div class="realtime-draw-card ${done?"is-done":""}"><div class="realtime-draw-icon">${done?"✓":"🎡"}</div><span>${done?"KẾT QUẢ BỐC THĂM":"ĐANG BỐC THĂM REALTIME"}</span><h3>${esc(payload?.divisionName||"Chia bảng")}</h3><p>${done?`${payload.groupCount||groups.length} bảng • Top ${payload.advanceCount||2} đi tiếp`:`${payload.teamCount||0} cặp/đội đang được quay`}</p>${done&&groups.length?`<div class="realtime-draw-groups">${groups.map(g=>`<b>Bảng ${esc(g.group)} <small>${g.count} đội</small></b>`).join("")}</div>`:""}</div>`;
+  el.classList.add("show");clearTimeout(window.__tourDrawTimer);
+  if(done)window.__tourDrawTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),250)},6000);
+}
 async function load(){
   if(realtimeRefreshBusy){realtimeRefreshAgain=true;return}
   realtimeRefreshBusy=true;
@@ -146,6 +155,8 @@ if(window.io){
   socket.on("disconnect",()=>{realtimeConnected=false;render()});
   socket.on("public:state",s=>{realtimeConnected=true;if(Array.isArray(s?.matches)&&Array.isArray(s?.teams)&&Array.isArray(s?.tournaments)){state=s;render()}else load().catch(console.error)});
   socket.on("match:update",()=>{realtimeConnected=true;load().catch(console.error)});
+  socket.on("draw:start",p=>{realtimeConnected=true;showTournamentDraw(p,false)});
+  socket.on("draw:complete",p=>{realtimeConnected=true;showTournamentDraw(p,true);load().catch(console.error)});
 }
 setInterval(()=>{if(!realtimeConnected)load().catch(console.error)},10000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load().catch(console.error)});
