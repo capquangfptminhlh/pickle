@@ -1,3 +1,2242 @@
+import "dotenv/config";
+import http from "node:http";
+import path from "node:path";
+import {fileURLToPath} from "node:url";
+import fs from "node:fs/promises";
+import {randomUUID} from "node:crypto";
+import express from "express";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import multer from "multer";
+import QRCode from "qrcode";
+import {Server as SocketServer} from "socket.io";
+import {pool,tx} from "./db.js";
+import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
+import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
+import {validateSet,validateSeries} from "../shared/scoring-rules.js";
+
+const __dirname=path.dirname(fileURLToPath(import.meta.url));
+const root=path.resolve(__dirname,"..");
+const app=express();
+const server=http.createServer(app);
+const publicBaseUrl=(()=>{try{return process.env.PUBLIC_BASE_URL?new URL(process.env.PUBLIC_BASE_URL):null}catch{return null}})();
+const publicOrigin=publicBaseUrl?.origin||null;
+const isProduction=process.env.NODE_ENV==="production";
+if(isProduction&&!publicOrigin)throw new Error("PUBLIC_BASE_URL is required in production");
+if(isProduction&&publicBaseUrl.protocol!=="https:")throw new Error("PUBLIC_BASE_URL must use HTTPS in production");
+const authCookieName=isProduction?"__Host-pickle_token":"pickle_token";
+const authCookieOptions={httpOnly:true,sameSite:"strict",secure:isProduction,path:"/",maxAge:12*60*60*1000};
+const io=new SocketServer(server,{cors:publicOrigin?{origin:publicOrigin,credentials:true}:undefined});
+const port=Number(process.env.PORT||8080);
+const uploadRoot=path.join(root,"uploads");
+const avatarDir=path.join(uploadRoot,"avatars");
+const mediaDir=path.join(uploadRoot,"media");
+const receiptDir=path.join(uploadRoot,"receipts");
+await fs.mkdir(avatarDir,{recursive:true});
+await fs.mkdir(mediaDir,{recursive:true});
+await fs.mkdir(receiptDir,{recursive:true});
+async function ensureAuthorizationSchema(){
+  await pool.query("alter table app_users add column if not exists tournament_id_scope uuid references tournaments(id) on delete set null");
+  await pool.query("alter table players add column if not exists created_by_user_id uuid references app_users(id) on delete set null");
+  await pool.query("create index if not exists idx_app_users_tournament_scope on app_users(tournament_id_scope)");
+  await pool.query("create index if not exists idx_players_created_by on players(created_by_user_id)");
+}
+await ensureAuthorizationSchema();
+const imageMimeExt={ "image/jpeg":".jpg","image/png":".png","image/webp":".webp" };
+const avatarUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,avatarDir),
+    filename:(req,file,cb)=>{
+      const ext=imageMimeExt[file.mimetype]||".img";
+      cb(null,`player-${randomUUID()}${ext}`);
+    }
+  }),
+  limits:{fileSize:3*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(imageMimeExt,file.mimetype))
+});
+const mediaUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,mediaDir),
+    filename:(req,file,cb)=>cb(null,`media-${randomUUID()}${imageMimeExt[file.mimetype]||".img"}`)
+  }),
+  limits:{fileSize:6*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(imageMimeExt,file.mimetype))
+});
+const receiptMimeExt={...imageMimeExt,"application/pdf":".pdf"};
+const receiptUpload=multer({
+  storage:multer.diskStorage({
+    destination:(req,file,cb)=>cb(null,receiptDir),
+    filename:(req,file,cb)=>cb(null,`receipt-${req.user.sub}-${randomUUID()}${receiptMimeExt[file.mimetype]||".bin"}`)
+  }),
+  limits:{fileSize:8*1024*1024},
+  fileFilter:(req,file,cb)=>cb(null,Object.hasOwn(receiptMimeExt,file.mimetype))
+});
+async function validUploadSignature(file){
+  if(!file)return false;
+  const data=await fs.readFile(file.path);
+  const b=(...xs)=>xs.every((x,i)=>data[i]===x);
+  if(file.mimetype==="image/jpeg")return data.length>=3&&b(0xff,0xd8,0xff);
+  if(file.mimetype==="image/png")return data.length>=8&&b(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
+  if(file.mimetype==="image/webp")return data.length>=12&&data.subarray(0,4).toString()==="RIFF"&&data.subarray(8,12).toString()==="WEBP";
+  if(file.mimetype==="application/pdf")return data.length>=5&&data.subarray(0,5).toString()==="%PDF-";
+  return false;
+}
+async function rejectInvalidUpload(file){
+  if(await validUploadSignature(file))return false;
+  if(file?.path)await fs.unlink(file.path).catch(()=>{});
+  return true;
+}
+if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is required");
+const jwtMinLength=isProduction?48:32;
+if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<jwtMinLength)throw new Error(`JWT_SECRET must be at least ${jwtMinLength} characters`);
+
+app.set("trust proxy",1);
+app.disable("x-powered-by");
+app.use(helmet({
+  contentSecurityPolicy:{
+    directives:{
+      defaultSrc:["'self'"],
+      scriptSrc:["'self'"],
+      scriptSrcAttr:["'none'"],
+      styleSrc:["'self'","'unsafe-inline'"],
+      imgSrc:["'self'","data:","https:"],
+      connectSrc:["'self'","ws:","wss:"],
+      fontSrc:["'self'","data:"],
+      objectSrc:["'none'"],
+      baseUri:["'self'"],
+      frameAncestors:["'none'"],
+      frameSrc:["'self'","blob:"]
+    }
+  },
+  referrerPolicy:{policy:"strict-origin-when-cross-origin"}
+}));
+app.use(express.json({limit:"2mb"}));
+app.use(cookieParser());
+app.use((req,res,next)=>{
+  res.set("Permissions-Policy","camera=(self), microphone=(), geolocation=(), payment=()");
+  next();
+});
+app.use((req,res,next)=>{
+  if(["POST","PUT","PATCH","DELETE"].includes(req.method)&&req.path.startsWith("/api/")){
+    const origin=req.get("origin"),bearer=/^Bearer\s+/i.test(req.get("authorization")||"");
+    const fetchSite=req.get("sec-fetch-site");
+    if(isProduction&&!bearer&&(!origin||origin!==publicOrigin))return res.status(403).json({error:"ORIGIN_NOT_ALLOWED"});
+    if(fetchSite&&!["same-origin","none"].includes(fetchSite)&&!bearer)return res.status(403).json({error:"CROSS_SITE_REQUEST_BLOCKED"});
+  }
+  next();
+});
+
+const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+const validEmail=s=>typeof s==="string"&&s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const validPassword=s=>typeof s==="string"&&s.length>=12&&s.length<=64;
+const validHexColor=s=>typeof s==="string"&&/^#[0-9a-f]{6}$/i.test(s);
+const validHttpsUrl=s=>{if(!s)return true;try{return new URL(String(s)).protocol==="https:"}catch{return false}};
+const validAssetUrl=s=>!s||String(s).startsWith("/uploads/media/")||String(s).startsWith("/uploads/avatars/")||validHttpsUrl(s);
+const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+const nowTime=d=>d?new Date(d).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";
+const publicStatus=s=>s==="scheduled"?"wait":s==="completed"?"done":s;
+const clubScope=(user,requested=null)=>{
+  if(user?.role==="club_manager")return user.clubId||null;
+  if(user?.role==="finance"&&user.clubId)return user.clubId;
+  return requested||null;
+};
+const canAccessClub=(user,clubId)=>{
+  if(!clubId)return false;
+  if(["super_admin","organizer"].includes(user?.role))return true;
+  if(user?.role==="club_manager")return user.clubId===clubId;
+  if(user?.role==="finance")return !user.clubId||user.clubId===clubId;
+  return false;
+};
+async function clubEventById(id){return (await pool.query("select * from club_events where id=$1",[id])).rows[0]}
+
+async function organizerTournamentIds(user,c=pool){
+  if(user?.role==="super_admin")return null;
+  if(user?.role!=="organizer")return [];
+  const {rows}=await c.query(
+    "select id from tournaments where owner_user_id=$1 or ($2::uuid is not null and id=$2)",
+    [user.sub,user.tournamentScope||null]
+  );
+  return rows.map(r=>r.id);
+}
+async function canManageTournament(user,tournamentId,c=pool){
+  if(!tournamentId)return false;
+  if(user?.role==="super_admin")return true;
+  if(user?.role!=="organizer")return false;
+  return Boolean((await c.query(
+    "select 1 from tournaments where id=$1 and (owner_user_id=$2 or ($3::uuid is not null and id=$3))",
+    [tournamentId,user.sub,user.tournamentScope||null]
+  )).rowCount);
+}
+async function requireTournamentManage(user,tournamentId,c=pool){
+  if(await canManageTournament(user,tournamentId,c))return true;
+  throw Object.assign(new Error("TOURNAMENT_SCOPE_FORBIDDEN"),{status:403});
+}
+async function tournamentIdForDivision(id,c=pool){
+  return (await c.query("select tournament_id from divisions where id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function tournamentIdForCourt(id,c=pool){
+  return (await c.query("select tournament_id from courts where id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function tournamentIdForTeam(id,c=pool){
+  return (await c.query("select d.tournament_id from teams t join divisions d on d.id=t.division_id where t.id=$1",[id])).rows[0]?.tournament_id||null;
+}
+async function canEditPlayer(user,playerId,c=pool){
+  if(user?.role==="super_admin")return true;
+  if(user?.role==="club_manager"){
+    if(!user.clubId)return false;
+    return Boolean((await c.query("select 1 from players where id=$1 and club_id=$2",[playerId,user.clubId])).rowCount);
+  }
+  if(user?.role==="organizer"){
+    return Boolean((await c.query(`
+      select 1
+      from players p
+      where p.id=$1 and (
+        p.created_by_user_id=$2
+        or exists (
+          select 1 from team_players tp
+          join teams t on t.id=tp.team_id
+          join divisions d on d.id=t.division_id
+          join tournaments tr on tr.id=d.tournament_id
+          where tp.player_id=p.id
+            and (tr.owner_user_id=$2 or ($3::uuid is not null and tr.id=$3))
+        )
+      )
+    `,[playerId,user.sub,user.tournamentScope||null])).rowCount);
+  }
+  if(user?.role==="referee"){
+    return Boolean((await c.query(`
+      select 1
+      from team_players tp
+      join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
+      join divisions d on d.id=m.division_id
+      where tp.player_id=$1 and m.referee_user_id=$2 and ($3::uuid is null or d.tournament_id=$3)
+    `,[playerId,user.sub,user.tournamentScope||null])).rowCount);
+  }
+  return false;
+}
+function filterStateToTournamentIds(state,ids,{includeAudit=false}={}){
+  const allowed=new Set(ids||[]);
+  const divisions=state.divisions.filter(d=>allowed.has(d.tournamentId));
+  const divisionIds=new Set(divisions.map(d=>d.id));
+  const teams=state.teams.filter(t=>divisionIds.has(t.divisionId));
+  const teamIds=new Set(teams.map(t=>t.id));
+  const teamPlayers={};const playerIds=new Set();
+  for(const tid of teamIds){
+    const idsForTeam=state.teamPlayers?.[tid]||[];
+    teamPlayers[tid]=idsForTeam;
+    idsForTeam.forEach(id=>playerIds.add(id));
+  }
+  return {
+    tournaments:state.tournaments.filter(t=>allowed.has(t.id)),
+    divisions,
+    courts:state.courts.filter(c=>allowed.has(c.tournamentId)),
+    teams,
+    players:(state.players||[]).filter(p=>playerIds.has(p.id)),
+    teamPlayers,
+    matches:state.matches.filter(m=>divisionIds.has(m.divisionId)),
+    audit:includeAudit?state.audit:[]
+  };
+}
+
+async function loadState({publicOnly=false}={}){
+  const tSql=publicOnly
+    ?"select * from tournaments where public_visible=true order by is_featured desc, featured_rank desc, start_at desc"
+    :"select * from tournaments order by is_featured desc, featured_rank desc, start_at desc";
+  const tournaments=(await pool.query(tSql)).rows.map(t=>({
+    id:t.id,name:t.name,date:t.start_at?new Date(t.start_at).toLocaleDateString("vi-VN"):"Chưa chốt",
+    startAt:t.start_at,endAt:t.end_at,venue:t.venue_name||"Chưa chốt",format:"Tournament",
+    status:t.status==="registration"?"open":t.status,publicVisible:t.public_visible,teams:0,
+    isFeatured:Boolean(t.is_featured),featuredRank:Number(t.featured_rank||0),sponsorPackage:t.sponsor_package||"free",
+    posterUrl:t.poster_url||null,prizePool:t.prize_pool||null,entryFee:t.entry_fee||null,
+    contactName:t.contact_name||null,contactPhone:t.contact_phone||null
+  }));
+  const tournamentIds=tournaments.map(t=>t.id);
+  if(!tournamentIds.length)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},matches:[],audit:[]};
+
+  const divisions=(await pool.query(
+    publicOnly
+      ?"select * from divisions where tournament_id=any($1::uuid[]) and active=true"
+      :"select * from divisions where tournament_id=any($1::uuid[])",
+    [tournamentIds]
+  )).rows;
+  for(const t of tournaments)t.format=divisions.filter(d=>d.tournament_id===t.id).map(d=>d.name).join(" • ")||"Tournament";
+  const divisionIds=divisions.map(d=>d.id);
+  const teamRows=divisionIds.length?(await pool.query(`
+    select t.*,c.name club_name from teams t left join clubs c on c.id=t.club_id
+    where t.division_id=any($1::uuid[]) ${publicOnly?"and t.status='active'":""} order by t.group_code,t.seed,t.name
+  `,[divisionIds])).rows:[];
+  const teamIds=teamRows.map(t=>t.id);
+  const rosterRows=teamIds.length?(await pool.query(`
+    select tp.team_id,p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.club_id,c.name club_name
+    from team_players tp
+    join players p on p.id=tp.player_id
+    left join clubs c on c.id=p.club_id
+    where tp.team_id=any($1::uuid[]) ${publicOnly?"and p.active=true":""}
+    order by tp.team_id,p.full_name
+  `,[teamIds])).rows:[];
+  const playerMap=new Map(),teamPlayers={};
+  for(const r of rosterRows){
+    if(!teamPlayers[r.team_id])teamPlayers[r.team_id]=[];
+    teamPlayers[r.team_id].push(r.id);
+    if(!playerMap.has(r.id))playerMap.set(r.id,{
+      id:r.id,full_name:r.full_name,nickname:r.nickname||"",gender:r.gender||"other",
+      rating:Number(r.rating||0),avatar_url:r.avatar_url||"",club_id:r.club_id||null,club_name:r.club_name||""
+    });
+  }
+  const players=[...playerMap.values()];
+  const matchRows=divisionIds.length?(await pool.query(`
+    select m.*, c.name court_name
+    from matches m left join courts c on c.id=m.court_id
+    where m.division_id=any($1::uuid[]) ${publicOnly?"and m.status<>'cancelled'":""}
+    order by m.scheduled_at,m.created_at
+  `,[divisionIds])).rows:[];
+
+  const matchIds=matchRows.map(m=>m.id);
+  const sets=matchIds.length?(await pool.query("select * from match_sets where match_id=any($1::uuid[]) order by set_no",[matchIds])).rows:[];
+  const setMap=new Map();
+  for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push([s.score_a,s.score_b]);}
+
+  const stats=new Map(teamRows.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
+  const isGroupMatch=m=>!m.bracket_slot&&(m.stage.startsWith("Bảng")||/bảng|group|vòng bảng/i.test(m.stage)||!/chung kết|bán kết|tứ kết/i.test(m.stage));
+  for(const m of matchRows.filter(x=>x.status==="completed"&&isGroupMatch(x)&&x.winner_team_id)){
+    const ms=setMap.get(m.id)||[];let ap=0,bp=0,asw=0,bsw=0;
+    for(const [a,b] of ms){ap+=a;bp+=b;if(a>b)asw++;else if(b>a)bsw++}
+    const sa=stats.get(m.team_a_id),sb=stats.get(m.team_b_id);
+    if(sa){sa.pf+=ap;sa.pa+=bp;sa.sw+=asw;sa.sl+=bsw;m.winner_team_id===m.team_a_id?sa.w++:sa.l++}
+    if(sb){sb.pf+=bp;sb.pa+=ap;sb.sw+=bsw;sb.sl+=asw;m.winner_team_id===m.team_b_id?sb.w++:sb.l++}
+  }
+  const teams=teamRows.map(t=>{const s=stats.get(t.id)||{w:0,l:0,sw:0,sl:0,pf:0,pa:0};return {id:t.id,divisionId:t.division_id,name:t.name,club:t.club_name||"Tự do",clubId:t.club_id||null,group:t.group_code||"",seed:t.seed,status:t.status,...s,diffSet:s.sw-s.sl,diffPts:s.pf-s.pa}});
+  const courtIndex={};
+  const courts=(await pool.query(
+    publicOnly
+      ?"select * from courts where tournament_id=any($1::uuid[]) and active=true order by sort_order"
+      :"select * from courts where tournament_id=any($1::uuid[]) order by sort_order",
+    [tournamentIds]
+  )).rows;
+  courts.forEach((c,i)=>courtIndex[c.id]=c.sort_order||i+1);
+
+  const matches=matchRows.map(m=>({
+    id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
+    a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
+    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,startedAt:m.started_at||null
+  }));
+  const audit=publicOnly?[]:(await pool.query(`
+    select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
+    order by a.created_at desc limit 100
+  `)).rows.map(a=>({
+    time:nowTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type
+  }));
+  for(const t of tournaments)t.teams=teamRows.filter(x=>divisions.some(d=>d.id===x.division_id&&d.tournament_id===t.id)).length;
+  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,players,teamPlayers,matches,audit};
+}
+
+async function loadAdminState(user){
+  if(user.role==="super_admin")return loadState();
+  if(user.role==="organizer"){
+    const state=await loadState();
+    const ids=await organizerTournamentIds(user);
+    return filterStateToTournamentIds(state,ids);
+  }
+  if(user.role==="referee"){
+    const state=await loadState();
+    const allowedDivisions=new Set(state.divisions.filter(d=>!user.tournamentScope||d.tournamentId===user.tournamentScope).map(d=>d.id));
+    const matches=state.matches.filter(m=>m.refereeId===user.sub&&allowedDivisions.has(m.divisionId));
+    const divisionIds=new Set(matches.map(m=>m.divisionId));
+    const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(id=>id&&id!=="TBD"));
+    const tournamentIds=new Set(state.divisions.filter(d=>divisionIds.has(d.id)).map(d=>d.tournamentId));
+    const teamPlayers={};const playerIds=new Set();
+    for(const tid of teamIds){const ids=state.teamPlayers?.[tid]||[];teamPlayers[tid]=ids;ids.forEach(id=>playerIds.add(id))}
+    return {
+      tournaments:state.tournaments.filter(t=>tournamentIds.has(t.id)),
+      divisions:state.divisions.filter(d=>divisionIds.has(d.id)),
+      courts:state.courts.filter(c=>tournamentIds.has(c.tournamentId)),
+      teams:state.teams.filter(t=>teamIds.has(t.id)),
+      players:(state.players||[]).filter(p=>playerIds.has(p.id)).map(p=>({...p,phone:""})),
+      teamPlayers,
+      matches,
+      audit:[]
+    };
+  }
+  const publicState=await loadState({publicOnly:true});
+  return {...publicState,audit:[]};
+}
+
+async function audit(c,user,entityType,entityId,action,beforeData,afterData,reason){
+  await c.query(`
+    insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason)
+    values($1,$2,$3,$4,$5,$6,$7)
+  `,[user?.sub||null,entityType,String(entityId||""),action,beforeData||null,afterData||null,reason||null]);
+}
+async function emitState(){
+  const state=await loadState({publicOnly:true});
+  io.emit("public:state",state);
+}
+async function getMatch(c,id,lock=false){
+  const q=`select m.*,d.best_of,d.points_to_win,d.win_by_two,d.tournament_id
+    from matches m join divisions d on d.id=m.division_id where m.id=$1 ${lock?"for update of m":""}`;
+  return (await c.query(q,[id])).rows[0];
+}
+async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null}={}){
+  const division=(await c.query("select id,event_type from divisions where id=$1 for update",[divisionId])).rows[0];
+  if(!division)throw Object.assign(new Error("DIVISION_NOT_FOUND"),{status:404});
+  let ids;
+  try{ids=validatePlayerIds(division.event_type,playerIds)}catch(error){throw Object.assign(error,{status:400})}
+  const players=[];
+  for(const id of ids){
+    const p=(await c.query("select * from players where id=$1",[id])).rows[0];
+    if(!p)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
+    if(!p.active)throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
+    const duplicate=(await c.query(
+      "select t.id from team_players tp join teams t on t.id=tp.team_id where tp.player_id=$1 and t.division_id=$2 and t.status<>'withdrawn' and ($3::uuid is null or t.id<>$3) limit 1",
+      [id,divisionId,currentTeamId]
+    )).rows[0];
+    if(duplicate)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    players.push(p);
+  }
+  return {division,ids,players};
+}
+async function assertRosterEditable(c,teamId){
+  // Lock scheduled matches too, so scoring cannot race a membership replacement.
+  const matches=(await c.query("select m.*,exists(select 1 from match_sets s where s.match_id=m.id) as has_sets from matches m where team_a_id=$1 or team_b_id=$1 for update of m",[teamId])).rows;
+  if(matches.some(m=>m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||m.has_sets))throw Object.assign(new Error("TEAM_ROSTER_LOCKED"),{status:409});
+}
+async function authorizeMatch(c,user,m){
+  if(user.role==="super_admin")return true;
+  if(user.role==="organizer")return canManageTournament(user,m.tournament_id,c);
+  if(user.role==="referee"&&m.referee_user_id===user.sub&&(!user.tournamentScope||user.tournamentScope===m.tournament_id))return true;
+  return false;
+}
+
+async function validRefereeForTournament(user,refereeId,tournamentId,c=pool){
+  if(!refereeId)return true;
+  const row=(await c.query("select id,role,active,tournament_id_scope from app_users where id=$1",[refereeId])).rows[0];
+  if(!row||row.role!=="referee"||!row.active)return false;
+  if(user?.role==="organizer")return row.tournament_id_scope===tournamentId&&await canManageTournament(user,tournamentId,c);
+  return !row.tournament_id_scope||row.tournament_id_scope===tournamentId;
+}
+async function validateMatchAssignment(c,user,m,b){
+  const a=b.teamAId===undefined?m.team_a_id:b.teamAId,bb=b.teamBId===undefined?m.team_b_id:b.teamBId;
+  const changed=m.id&&(a!==m.team_a_id||bb!==m.team_b_id);
+  if(changed&&(m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||
+    (await c.query("select 1 from score_events where match_id=$1 union all select 1 from match_sets where match_id=$1 limit 1",[m.id])).rowCount))throw Object.assign(new Error("MATCH_ROSTER_LOCKED"),{status:409});
+  if(a&&bb&&a===bb)throw Object.assign(new Error("INVALID_TEAMS"),{status:400});
+  for(const [id,previous] of [[a,m.team_a_id],[bb,m.team_b_id]])if(id&&(!m.id||id!==previous)&&!(await c.query("select 1 from teams where id=$1 and division_id=$2 and status='active'",[id,m.division_id])).rowCount)throw Object.assign(new Error("INVALID_TEAMS"),{status:400});
+  if(b.courtId&&(!m.id||b.courtId!==m.court_id)&&!(await c.query("select 1 from courts where id=$1 and tournament_id=$2 and active=true",[b.courtId,m.tournament_id])).rowCount)throw Object.assign(new Error("INVALID_COURT_SCOPE"),{status:400});
+  if(b.refereeUserId&&(!m.id||b.refereeUserId!==m.referee_user_id)&&!(await validRefereeForTournament(user,b.refereeUserId,m.tournament_id,c)))throw Object.assign(new Error("INVALID_REFEREE_SCOPE"),{status:400});
+  if(m.id&&b.expectedVersion!==undefined&&Number(b.expectedVersion)!==Number(m.version))throw Object.assign(new Error("VERSION_CONFLICT"),{status:409});
+  return {a:a||null,b:bb||null};
+}
+
+const scoreFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
+const scoreError=(code,status=400)=>Object.assign(new Error(code),{status});
+const scorePairs=sets=>sets.map(s=>[s.score_a,s.score_b]);
+const scoreSnapshot=(match,sets)=>({match:{...match},sets:sets.map(s=>({...s}))});
+const scoreSeries=(m,sets,requireComplete)=>validateSeries(scorePairs(sets),Number(m.best_of),Number(m.points_to_win),m.win_by_two,{requireComplete});
+function assertScoreSource(m,{undo=false}={}){
+  if(!undo&&(m.status==="completed"||m.status==="walkover"||m.winner_team_id))throw scoreError("MATCH_COMPLETED",409);
+  if(m.status==="cancelled")throw scoreError("MATCH_CANCELLED",409);
+  if(!m.team_a_id||!m.team_b_id||m.team_a_id==="TBD"||m.team_b_id==="TBD"||m.team_a_id===m.team_b_id)throw scoreError("MATCH_TEAMS_REQUIRED",409);
+}
+function assertScoreVersion(m,body){
+  if(body.expectedVersion!==undefined&&(!Number.isSafeInteger(Number(body.expectedVersion))||Number(body.expectedVersion)!==Number(m.version)))throw scoreError("VERSION_CONFLICT",409);
+}
+function finishScore(m,winner,at){
+  m.status="completed";m.winner_team_id=winner;m.completed_at=at;m.current_score_a=0;m.current_score_b=0;m.result_reason=null;m.result_note=null;
+}
+function scoreSet(id,no,a,b){return {id:randomUUID(),match_id:id,set_no:no,score_a:a,score_b:b,completed:true}}
+async function scoreBracketChanges(c,m,winner,restore=null){
+  const slots=restore||[{id:m.next_match_id,side:m.next_match_side,teamAfter:winner},
+    {id:m.loser_next_match_id,side:m.loser_next_match_side,teamAfter:winner===m.team_a_id?m.team_b_id:m.team_a_id}].filter(s=>s.id&&s.side);
+  if(!slots.length)return [];
+  if(slots.some(s=>!["A","B"].includes(s.side)||s.id===m.id))throw scoreError("INVALID_BRACKET_LINK",409);
+  // All scorers and metadata writers lock the match before touching its history.
+  // Lock destination rows in a stable order when both winner and loser advance.
+  const targets=(await c.query("select * from matches where id=any($1::uuid[]) order by id for update",[[...new Set(slots.map(s=>s.id))]])).rows;
+  const targetMap=new Map(targets.map(t=>[t.id,t])),changes=[];
+  for(const slot of slots){
+    const target=targetMap.get(slot.id);if(!target||target.division_id!==m.division_id)throw scoreError("INVALID_BRACKET_LINK",409);
+    const history=(await c.query("select 1 from match_sets where match_id=$1 union all select 1 from score_events where match_id=$1 limit 1",[target.id])).rowCount;
+    if(target.started_at||["live","completed","walkover","cancelled"].includes(target.status)||target.winner_team_id||target.current_score_a||target.current_score_b||history)throw scoreError("DOWNSTREAM_MATCH_LOCKED",409);
+    const column=slot.side==="A"?"team_a_id":"team_b_id",current=target[column]||null;
+    if(restore){
+      if(current!==(slot.teamAfter||null))throw scoreError("VERSION_CONFLICT",409);
+      changes.push({...slot,teamBefore:current,teamAfter:slot.teamBefore||null,version:target.version});
+    }else{
+      if(current&&current!==slot.teamAfter)throw scoreError("BRACKET_SLOT_OCCUPIED",409);
+      changes.push({...slot,teamBefore:current,version:target.version});
+    }
+  }
+  return changes;
+}
+async function legacyScoreSnapshot(c,m,sets,event,payload){
+  const before=scoreSnapshot(m,sets),p=payload.before;
+  const previous=(await c.query("select * from score_events where match_id=$1 and id<$2 and event_type<>'UNDO' and undone_at is null order by id desc limit 1",[m.id,event.id])).rows[0];
+  const wasLive=previous&&["POINT","SET_FINISH"].includes(previous.event_type);
+  if(event.event_type==="POINT"&&p){
+    if(Array.isArray(p)){
+      if(!wasLive)throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+      before.match.current_score_a=p[0];before.match.current_score_b=p[1];before.match.status="live";
+    }else if(Number.isSafeInteger(p.current_score_a)&&Number.isSafeInteger(p.current_score_b)&&p.status){
+      before.match.current_score_a=p.current_score_a;before.match.current_score_b=p.current_score_b;before.match.status=p.status;
+    }else throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }else if((event.event_type==="SET_FINISH"||event.event_type==="MATCH_FINISH")&&payload.setNo&&Array.isArray(payload.set)){
+    if(!wasLive||!sets.some(s=>s.set_no===payload.setNo&&s.score_a===payload.set[0]&&s.score_b===payload.set[1]))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+    before.sets=before.sets.filter(s=>s.set_no!==payload.setNo);before.match.current_score_a=payload.set[0];before.match.current_score_b=payload.set[1];
+    before.match.status="live";before.match.winner_team_id=null;before.match.completed_at=null;
+  }else if(event.event_type==="SET_FINISH"&&payload.addedSetNo&&p){
+    if(!sets.some(s=>s.set_no===payload.addedSetNo&&s.score_a===p.scoreA&&s.score_b===p.scoreB))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+    before.sets=before.sets.filter(s=>s.set_no!==payload.addedSetNo);before.match.current_score_a=p.scoreA;before.match.current_score_b=p.scoreB;
+  }else{
+    // Older PostgreSQL MATCH_FINISH records did not preserve a final set added by
+    // /finish, nor the prior downstream occupants. Reconstructing would lose data.
+    throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }
+  return before;
+}
+async function scoreUndoPlan(c,m,sets){
+  assertScoreSource(m,{undo:true});
+  const event=(await c.query("select * from score_events where match_id=$1 and event_type<>'UNDO' and undone_at is null order by id desc limit 1 for update",[m.id])).rows[0];
+  if(!event)throw scoreError("NOTHING_TO_UNDO");
+  const payload=event.payload||{};
+  const before=payload.before?.match&&Array.isArray(payload.before.sets)?payload.before:await legacyScoreSnapshot(c,m,sets,event,payload);
+  for(const field of scoreFields)if(!(field in before.match))throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  const after=scoreSnapshot(m,before.sets);for(const field of scoreFields)after.match[field]=before.match[field];
+  after.match.started_at=m.started_at||before.match.started_at||null;
+  let downstream=[];
+  if(m.winner_team_id!==after.match.winner_team_id){
+    if(Array.isArray(payload.downstream))downstream=await scoreBracketChanges(c,m,m.winner_team_id,payload.downstream);
+    else if(m.next_match_id||m.loser_next_match_id)throw scoreError("UNDO_HISTORY_UNAVAILABLE",409);
+  }
+  return {after,eventType:"UNDO",payload:{undoEventId:event.id},undoEvent:event,downstream};
+}
+async function scoreMutationPlan(c,m,sets,action,body,at){
+  assertScoreSource(m);
+  const after=scoreSnapshot(m,sets),next=after.match;let eventType="POINT",payload={},done=false;
+  if(action==="point"){
+    const delta=Number(body.delta);if(!["A","B"].includes(body.side)||![1,-1].includes(delta))throw scoreError("BAD_SCORE_ACTION");
+    if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw scoreError("INVALID_CURRENT_SCORE",409);
+    const existing=scoreSeries(m,sets,false);if(!existing.valid||existing.winner)throw scoreError("MATCH_NOT_PLAYABLE",409);
+    const column=body.side==="A"?"current_score_a":"current_score_b";next[column]=Math.max(0,next[column]+delta);
+    if(next[column]>32767)throw scoreError("INVALID_CURRENT_SCORE",409);
+    next.status="live";payload={side:body.side,delta};
+  }else if(action==="quick-score"){
+    if(!Array.isArray(body.sets)||!body.sets.length)throw scoreError("NO_SETS_PROVIDED");
+    const result=validateSeries(body.sets,Number(m.best_of),Number(m.points_to_win),m.win_by_two);
+    if(!result.valid)throw scoreError(result.error);
+    if(body.sets.some(s=>s.some(n=>n>32767)))throw scoreError("INVALID_SET_SCORE");
+    after.sets=body.sets.map((s,i)=>scoreSet(m.id,i+1,...s));finishScore(next,result.winner==="A"?m.team_a_id:m.team_b_id,at);done=true;eventType="MATCH_FINISH";payload={quickScore:true};
+  }else if(action==="finish-set"||action==="finish"){
+    if(action==="finish-set"||m.current_score_a!==0||m.current_score_b!==0){
+      if(!validateSet(m.current_score_a,m.current_score_b,Number(m.points_to_win),m.win_by_two))throw scoreError("INVALID_SET_SCORE");
+      after.sets.push(scoreSet(m.id,Math.max(0,...sets.map(s=>s.set_no))+1,m.current_score_a,m.current_score_b));
+    }
+    const result=scoreSeries(m,after.sets,action==="finish");if(!result.valid)throw scoreError(result.error);
+    next.current_score_a=0;next.current_score_b=0;next.status="live";
+    if(result.winner){
+      const winner=result.winner==="A"?m.team_a_id:m.team_b_id;
+      if(body.winnerTeamId&&body.winnerTeamId!==winner)throw scoreError("INVALID_WINNER");
+      finishScore(next,winner,at);done=true;
+    }else if(body.winnerTeamId)throw scoreError("MATCH_NOT_FINISHED");
+    eventType=done?"MATCH_FINISH":"SET_FINISH";
+  }else if(action==="special-result"){
+    if(![m.team_a_id,m.team_b_id].includes(body.winnerTeamId)||!["walkover","no_show","retired","injury","disqualified"].includes(body.reason))throw scoreError("INVALID_SPECIAL_RESULT");
+    finishScore(next,body.winnerTeamId,at);next.result_reason=body.reason;next.result_note=String(body.note||"");done=true;eventType="MATCH_FINISH";payload={special:true};
+  }
+  next.started_at=m.started_at||at;
+  const downstream=done?await scoreBracketChanges(c,m,next.winner_team_id):[];
+  return {after,eventType,payload,downstream};
+}
+async function applyScore(c,user,m,sets,action,plan){
+  const before=scoreSnapshot(m,sets),next=plan.after.match;
+  const updated=(await c.query("update matches set "+scoreFields.map((field,i)=>`${field}=$${i+1}`).join(",")+",version=version+1 where id=$9 and version=$10 returning *",[...scoreFields.map(f=>next[f]),m.id,m.version])).rows[0];
+  if(!updated)throw scoreError("VERSION_CONFLICT",409);
+  await c.query("delete from match_sets where match_id=$1",[m.id]);
+  for(const s of plan.after.sets)await c.query("insert into match_sets(id,match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,$5,$6)",[s.id,m.id,s.set_no,s.score_a,s.score_b,s.completed]);
+  for(const slot of plan.downstream){const column=slot.side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${column}=$1,version=version+1 where id=$2`,[slot.teamAfter||null,slot.id])}
+  if(plan.undoEvent){const consumed=await c.query("update score_events set undone_at=now() where id=$1 and undone_at is null",[plan.undoEvent.id]);if(!consumed.rowCount)throw scoreError("VERSION_CONFLICT",409)}
+  plan.after.match={...next,...updated};
+  const payload={...plan.payload,expectedVersion:m.version,before,after:plan.after,downstream:plan.downstream};
+  await c.query("insert into score_events(match_id,actor_user_id,event_type,payload,match_version) values($1,$2,$3,$4,$5)",[m.id,user.sub,plan.eventType,payload,updated.version]);
+  await audit(c,user,"match",m.id,action.toUpperCase().replaceAll("-","_"),before,plan.after,plan.undoEvent?`Undo event ${plan.undoEvent.id}`:null);
+  return updated;
+}
+
+const tournamentManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"&&!(await canManageTournament(req.user,req.params.id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  next();
+});
+const divisionManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForDivision(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const courtManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForCourt(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const teamManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const tid=await tournamentIdForTeam(req.params.id);
+    if(!tid||!(await canManageTournament(req.user,tid)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const matchManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const m=await getMatch(pool,req.params.id,false);
+    if(!m||!(await canManageTournament(req.user,m.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const registrationManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const row=(await pool.query(`
+      select d.tournament_id from registrations r join divisions d on d.id=r.division_id where r.id=$1
+    `,[req.params.id])).rows[0];
+    if(!row||!(await canManageTournament(req.user,row.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+const paymentManageParam=wrap(async(req,res,next)=>{
+  if(req.user.role==="organizer"){
+    const row=(await pool.query(`
+      select d.tournament_id from payment_records p
+      join registrations r on r.id=p.registration_id
+      join divisions d on d.id=r.division_id
+      where p.id=$1
+    `,[req.params.id])).rows[0];
+    if(!row||!(await canManageTournament(req.user,row.tournament_id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  next();
+});
+
+const loginAttempts=new Map(),loginIpAttempts=new Map();
+const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_ATTEMPTS=6,LOGIN_IP_MAX_ATTEMPTS=30;
+function loginKey(req,email){return String(req.ip||"")+"|"+email}
+function loginIpKey(req){return String(req.ip||"unknown")}
+function bucketBlocked(map,key,max){
+  const now=Date.now(),x=map.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS){map.delete(key);return false}
+  return x.count>=max;
+}
+function recordBucketFailure(map,key){
+  const now=Date.now(),x=map.get(key);
+  if(!x||now-x.startedAt>LOGIN_WINDOW_MS)map.set(key,{count:1,startedAt:now});
+  else{x.count++;map.set(key,x)}
+}
+const pruneLoginBuckets=()=>{
+  const cutoff=Date.now()-LOGIN_WINDOW_MS;
+  for(const map of [loginAttempts,loginIpAttempts])for(const [k,v] of map)if(v.startedAt<cutoff)map.delete(k);
+};
+setInterval(pruneLoginBuckets,LOGIN_WINDOW_MS).unref();
+const dummyPasswordHash=await hashPassword("invalid-"+randomUUID());
+app.post("/api/auth/login",wrap(async(req,res)=>{
+  const email=String(req.body.email||"").toLowerCase().trim();
+  const password=String(req.body.password||"");
+  if(!validEmail(email)||!password||password.length>64)return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  const key=loginKey(req,email),ipKey=loginIpKey(req);
+  if(bucketBlocked(loginAttempts,key,LOGIN_MAX_ATTEMPTS)||bucketBlocked(loginIpAttempts,ipKey,LOGIN_IP_MAX_ATTEMPTS))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
+  const u=(await pool.query("select * from app_users where email=$1 and active=true",[email])).rows[0];
+  const hash=u?.password_hash||dummyPasswordHash;
+  const passwordOk=await verifyPassword(password,hash);
+  if(!u||!u.password_hash||!passwordOk){
+    recordBucketFailure(loginAttempts,key);recordBucketFailure(loginIpAttempts,ipKey);
+    return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  }
+  loginAttempts.delete(key);
+  const token=signUser(u);
+  res.cookie(authCookieName,token,authCookieOptions);
+  res.set("Cache-Control","no-store");
+  res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
+}));
+app.post("/api/auth/logout",(req,res)=>{
+  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:false,path:"/"});
+  res.clearCookie("__Host-pickle_token",{httpOnly:true,sameSite:"strict",secure:true,path:"/"});
+  res.set("Cache-Control","no-store");res.json({ok:true})
+});
+app.get("/api/auth/session",wrap(async(req,res)=>{
+  res.set("Cache-Control","no-store");
+  const user=await sessionUser(req);res.json({user});
+}));
+app.post("/api/auth/change-password",authRequired,wrap(async(req,res)=>{
+  const current=String(req.body.currentPassword||""),next=String(req.body.newPassword||"");
+  if(!validPassword(next))return res.status(400).json({error:"PASSWORD_POLICY"});
+  if(current===next)return res.status(400).json({error:"PASSWORD_REUSE"});
+  const u=(await pool.query("select * from app_users where id=$1",[req.user.sub])).rows[0];
+  if(!u||!u.password_hash||!(await verifyPassword(current,u.password_hash)))return res.status(401).json({error:"INVALID_CURRENT_PASSWORD"});
+  const h=await hashPassword(next);
+  await pool.query("update app_users set password_hash=$1,auth_version=auth_version+1 where id=$2",[h,u.id]);
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,reason) values($1,'user',$2,'CHANGE_PASSWORD','Self-service password change')",[u.id,u.id]);
+  res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:false,path:"/"});
+  res.clearCookie("__Host-pickle_token",{httpOnly:true,sameSite:"strict",secure:true,path:"/"});
+  res.set("Cache-Control","no-store");
+  res.json({ok:true,reauthenticate:true});
+}));
+app.get("/api/auth/me",authRequired,(req,res)=>res.json({user:req.user}));
+
+app.get("/api/public/players",wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,c.name club_name,c.city club_city
+    from players p left join clubs c on c.id=p.club_id
+    where p.active=true order by p.rating desc nulls last,p.full_name
+  `);
+  res.json(rows);
+}));
+app.get("/api/public/players/:id",wrap(async(req,res)=>{
+  const p=(await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,
+      c.id club_id,c.name club_name,c.city club_city
+    from players p left join clubs c on c.id=p.club_id
+    where p.id=$1 and p.active=true
+  `,[req.params.id])).rows[0];
+  if(!p)return res.status(404).json({error:"NOT_FOUND"});
+
+  const teamRows=(await pool.query(`
+    select t.id,t.name,t.division_id,d.name division_name,tr.id tournament_id,tr.name tournament_name,tr.start_at,tr.status tournament_status
+    from team_players tp
+    join teams t on t.id=tp.team_id
+    join divisions d on d.id=t.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    where tp.player_id=$1 and tr.public_visible=true and d.active=true and t.status='active'
+    order by tr.start_at desc nulls last
+  `,[p.id])).rows;
+  const teamIds=teamRows.map(t=>t.id);
+
+  const partnerRows=teamIds.length?(await pool.query(`
+    select distinct p2.id,p2.full_name,p2.nickname,p2.avatar_url,p2.rating,c.name club_name
+    from team_players mine
+    join team_players other on other.team_id=mine.team_id and other.player_id<>mine.player_id
+    join players p2 on p2.id=other.player_id
+    left join clubs c on c.id=p2.club_id
+    where mine.player_id=$1 and mine.team_id=any($2::uuid[]) and p2.active=true
+    order by p2.full_name
+  `,[p.id,teamIds])).rows:[];
+
+  const matchRows=teamIds.length?(await pool.query(`
+    select m.*,d.name division_name,tr.id tournament_id,tr.name tournament_name,tr.start_at tournament_start,
+      ta.name team_a_name,tb.name team_b_name
+    from matches m
+    join divisions d on d.id=m.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    left join teams ta on ta.id=m.team_a_id
+    left join teams tb on tb.id=m.team_b_id
+    where (m.team_a_id=any($1::uuid[]) or m.team_b_id=any($1::uuid[])) and tr.public_visible=true and d.active=true and m.status<>'cancelled'
+    order by coalesce(m.completed_at,m.scheduled_at,m.created_at) desc
+    limit 100
+  `,[teamIds])).rows:[];
+  const matchIds=matchRows.map(m=>m.id);
+  const sets=matchIds.length?(await pool.query("select * from match_sets where match_id=any($1::uuid[]) order by match_id,set_no",[matchIds])).rows:[];
+  const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push([s.score_a,s.score_b])}
+
+  let wins=0,losses=0,pf=0,pa=0;
+  const matches=matchRows.map(m=>{
+    const myTeam=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
+    const side=myTeam===m.team_a_id?"A":"B";
+    const ms=setMap.get(m.id)||[];
+    let myPoints=0,oppPoints=0;
+    for(const s of ms){if(side==="A"){myPoints+=s[0];oppPoints+=s[1]}else{myPoints+=s[1];oppPoints+=s[0]}}
+    pf+=myPoints;pa+=oppPoints;
+    const won=m.status==="completed"&&m.winner_team_id===myTeam;
+    const lost=m.status==="completed"&&m.winner_team_id&&m.winner_team_id!==myTeam;
+    if(won)wins++;if(lost)losses++;
+    return {
+      id:m.id,tournamentId:m.tournament_id,tournamentName:m.tournament_name,divisionName:m.division_name,
+      stage:m.stage,status:publicStatus(m.status),scheduledAt:m.scheduled_at,completedAt:m.completed_at,
+      teamAId:m.team_a_id,teamBId:m.team_b_id,teamAName:m.team_a_name||"TBD",teamBName:m.team_b_name||"TBD",
+      myTeamId:myTeam,mySide:side,winnerTeamId:m.winner_team_id,won,lost,sets:ms,myPoints,oppPoints
+    };
+  });
+
+  const ratingHistory=(await pool.query(`
+    select before_rating,delta,after_rating,reason,created_at
+    from rating_history where player_id=$1 order by created_at desc limit 100
+  `,[p.id])).rows;
+
+  res.json({
+    profile:{
+      id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:Number(p.rating||0),
+      avatarUrl:p.avatar_url,bio:p.bio,dominantHand:p.dominant_hand,birthYear:p.birth_year,
+      clubId:p.club_id,clubName:p.club_name,clubCity:p.club_city
+    },
+    stats:{wins,losses,matches:wins+losses,winRate:(wins+losses)?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},
+    teams:teamRows,partners:partnerRows,matches,ratingHistory
+  });
+}));
+
+app.get("/api/public/clubs",wrap(async(req,res)=>{
+  const {rows}=await pool.query("select id,name,slug,city from clubs where active=true order by name");res.json(rows);
+}));
+
+app.get("/api/public/state",wrap(async(req,res)=>{res.set("Cache-Control","no-store");res.json(await loadState({publicOnly:true}))}));
+
+app.get("/api/public/posts",wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select id,tournament_id,title,slug,excerpt,body,cover_url,published_at
+    from content_posts where status='published'
+    order by published_at desc nulls last,created_at desc limit 100
+  `);
+  res.json(rows);
+}));
+app.get("/api/public/posts/:slug",wrap(async(req,res)=>{
+  const row=(await pool.query(`
+    select id,tournament_id,title,slug,excerpt,body,cover_url,published_at
+    from content_posts where slug=$1 and status='published'
+  `,[req.params.slug])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+app.get("/api/public/sponsors",wrap(async(req,res)=>{
+  const {rows}=await pool.query("select s.id,s.tournament_id,s.name,s.logo_url,s.website_url,s.tier,s.sort_order from sponsors s left join tournaments t on t.id=s.tournament_id where s.tournament_id is null or t.public_visible=true order by s.sort_order,s.name");
+  res.json(rows);
+}));
+app.get("/api/public/branding",wrap(async(req,res)=>{
+  const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];
+  res.json(row?.value||{});
+}));
+app.get("/api/checkin/:token",wrap(async(req,res)=>{
+  const row=(await pool.query(`
+    select r.id,r.checked_in_at,t.name team_name,d.name division_name,tr.name tournament_name,tr.start_at
+    from registrations r
+    join divisions d on d.id=r.division_id
+    join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id
+    where r.checkin_token=$1
+  `,[req.params.token])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+
+app.post("/api/public/tournaments/submit",mediaUpload.single("banner"),wrap(async(req,res)=>{
+  const name=String(req.body.name||"").trim();
+  const venue=String(req.body.venue||req.body.venueName||"").trim();
+  const contactName=String(req.body.contactName||"").trim();
+  const contactPhone=String(req.body.contactPhone||"").trim();
+  const contactEmail=String(req.body.contactEmail||"").trim();
+  const startAt=req.body.startAt||null;
+  const endAt=req.body.endAt||null;
+  const entryFee=String(req.body.entryFee||"").trim();
+  const prizePool=String(req.body.prizePool||"").trim();
+  if(req.file&&req.file.size>5*1024*1024){await fs.unlink(req.file.path).catch(()=>{});return res.status(413).json({error:"BANNER_TOO_LARGE"})}
+  if(req.file&&await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_BANNER"});
+  const posterUrl=req.file?`/uploads/media/${req.file.filename}`:String(req.body.posterUrl||"").trim();
+  const sponsorPackage=["free","highlight","top_sponsor"].includes(req.body.sponsorPackage)?req.body.sponsorPackage:"free";
+  const discardBanner=async()=>{if(req.file?.path)await fs.unlink(req.file.path).catch(()=>{})};
+
+  if(!name||name.length<3||name.length>120){await discardBanner();return res.status(400).json({error:"INVALID_TOURNAMENT_NAME"})}
+  if(!venue){await discardBanner();return res.status(400).json({error:"VENUE_REQUIRED"})}
+  if(!contactName||!contactPhone){await discardBanner();return res.status(400).json({error:"CONTACT_INFO_REQUIRED"})}
+
+  const isFeatured=sponsorPackage==="top_sponsor"||sponsorPackage==="highlight";
+  const featuredRank=sponsorPackage==="top_sponsor"?100:(sponsorPackage==="highlight"?50:0);
+
+  const data=await tx(async c=>{
+    let slug=slugify(name);
+    const exists=(await c.query("select 1 from tournaments where slug=$1",[slug])).rowCount;
+    if(exists)slug+=`-${Date.now().toString().slice(-6)}`;
+
+    const t=(await c.query(`
+      insert into tournaments(
+        name, slug, venue_name, start_at, end_at, status, public_visible,
+        is_featured, featured_rank, contact_name, contact_phone, contact_email,
+        prize_pool, entry_fee, poster_url, sponsor_package
+      )
+      values($1,$2,$3,$4,$5,'registration',true,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      returning *
+    `,[
+      name, slug, venue, startAt||null, endAt||null,
+      isFeatured, featuredRank, contactName, contactPhone, contactEmail||null,
+      prizePool||null, entryFee||null, posterUrl||null, sponsorPackage
+    ])).rows[0];
+
+    const d=(await c.query(`
+      insert into divisions(tournament_id, name, event_type, format)
+      values($1,$2,$3,$4) returning *
+    `,[t.id, req.body.divisionName||"Open", req.body.eventType||"doubles", req.body.format||"pool_to_knockout"])).rows[0];
+
+    await audit(c, null, "tournament", t.id, "PUBLIC_SUBMIT_TOURNAMENT", null, t, `Package: ${sponsorPackage}`);
+    return {tournament:t, division:d};
+  });
+
+  await emitState();
+  res.status(201).json({success:true, ...data});
+}));
+
+app.get("/api/admin/state",authRequired,allow("super_admin","organizer","referee","club_manager","finance"),wrap(async(req,res)=>res.json(await loadAdminState(req.user))));
+
+app.get("/api/players",authRequired,allow("super_admin","organizer","referee","club_manager"),wrap(async(req,res)=>{
+  let where="",params=[];
+  if(req.user.role==="club_manager"){
+    if(!req.user.clubId)return res.json([]);
+    where="where p.club_id=$1";params=[req.user.clubId];
+  }else if(req.user.role==="referee"){
+    where=`where exists (
+      select 1 from team_players tp
+      join matches m on (m.team_a_id=tp.team_id or m.team_b_id=tp.team_id)
+      join divisions d on d.id=m.division_id
+      where tp.player_id=p.id and m.referee_user_id=$1 and ($2::uuid is null or d.tournament_id=$2)
+    )`;
+    params=[req.user.sub,req.user.tournamentScope||null];
+  }
+  const {rows}=await pool.query(`
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
+    from players p left join clubs c on c.id=p.club_id ${where} order by p.full_name
+  `,params);res.json(req.user.role==="referee"?rows.map(p=>({...p,phone:""})):rows);
+}));
+app.post("/api/players",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const {fullName,nickname,gender,phone}=req.body;if(!fullName)return res.status(400).json({error:"NAME_REQUIRED"});
+  const clubId=req.user.role==="club_manager"?req.user.clubId:(req.body.clubId||null);
+  if(req.user.role==="club_manager"&&!clubId)return res.status(403).json({error:"CLUB_SCOPE_REQUIRED"});
+  const rating=req.user.role==="club_manager"?3:Number(req.body.rating??3);
+  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id,created_by_user_id) values($1,$2,$3,$4,$5,$6,$7) returning *",[fullName,nickname||null,gender||null,rating,phone||null,clubId,req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'CREATE_PLAYER',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
+}));
+app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","referee","club_manager"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from players where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!(await canEditPlayer(req.user,before.id)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
+  const referee=req.user.role==="referee";
+  const clubId=referee||req.user.role==="club_manager"?before.club_id:(req.body.clubId===undefined?before.club_id:(req.body.clubId||null));
+  const phone=referee?null:(req.body.phone??null),active=referee?null:(req.body.active??null);
+  const row=(await pool.query(`
+    update players set full_name=coalesce($1,full_name),nickname=coalesce($2,nickname),gender=coalesce($3,gender),
+      phone=coalesce($4,phone),club_id=$5,active=coalesce($6,active)
+    where id=$7 returning *
+  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,phone,clubId,active,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'UPDATE_PLAYER',$3,$4)",[req.user.sub,row.id,before,row]);
+  res.json(row);
+}));
+app.post("/api/players/:id/avatar",authRequired,allow("super_admin","organizer","referee","club_manager"),avatarUpload.single("avatar"),wrap(async(req,res)=>{
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_AVATAR"});
+  const p=(await pool.query("select id,avatar_url,club_id from players where id=$1",[req.params.id])).rows[0];
+  if(!p){await fs.unlink(req.file.path).catch(()=>{});return res.status(404).json({error:"NOT_FOUND"})}
+  if(!(await canEditPlayer(req.user,p.id))){await fs.unlink(req.file.path).catch(()=>{});return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"})}
+  const avatarUrl=`/uploads/avatars/${req.file.filename}`;
+  await pool.query("update players set avatar_url=$1 where id=$2",[avatarUrl,p.id]);
+  if(p.avatar_url?.startsWith("/uploads/avatars/")){
+    const old=path.join(root,p.avatar_url.replace(/^\//,""));await fs.unlink(old).catch(()=>{});
+  }
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'UPDATE_AVATAR',$3)",[req.user.sub,p.id,{avatarUrl}]);
+  res.json({avatarUrl});
+}));
+
+app.post("/api/players/:id/rating-adjust",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const delta=Number(req.body.delta),reason=String(req.body.reason||"").trim();
+  if(!Number.isFinite(delta)||Math.abs(delta)>1||!reason)return res.status(400).json({error:"DELTA_AND_REASON_REQUIRED"});
+  const row=await tx(async c=>{
+    if(!(await canEditPlayer(req.user,req.params.id,c)))throw Object.assign(new Error("PLAYER_SCOPE_FORBIDDEN"),{status:403});
+    const p=(await c.query("select * from players where id=$1 for update",[req.params.id])).rows[0];
+    if(!p)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const before=Number(p.rating||0),after=Math.max(0,before+delta);
+    await c.query("update players set rating=$1 where id=$2",[after,p.id]);
+    await c.query("insert into rating_history(player_id,before_rating,delta,after_rating,reason) values($1,$2,$3,$4,$5)",[p.id,before,delta,after,reason]);
+    await audit(c,req.user,"player",p.id,"ADJUST_RATING",{rating:before},{rating:after},reason);
+    return {...p,rating:after};
+  });res.json(row);
+}));
+app.get("/api/clubs",authRequired,allow("super_admin","organizer","club_manager","finance"),wrap(async(req,res)=>{
+  if(["club_manager","finance"].includes(req.user.role)&&req.user.clubId){
+    const {rows}=await pool.query("select * from clubs where id=$1",[req.user.clubId]);return res.json(rows);
+  }
+  if(req.user.role==="club_manager")return res.json([]);
+  const {rows}=await pool.query("select * from clubs order by name");res.json(rows);
+}));
+app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const name=String(req.body.name||"").trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  let slug=slugify(name);if((await pool.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-4)}`;
+  const row=(await pool.query("insert into clubs(name,slug,city) values($1,$2,$3) returning *",[name,slug,req.body.city||null])).rows[0];res.status(201).json(row);
+}));
+app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
+  const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
+  await tx(async c=>{
+    const team=(await c.query("select t.id,t.division_id,d.event_type from teams t join divisions d on d.id=t.division_id where t.id=$1",[req.params.id])).rows[0];
+    if(!team)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    await c.query("select id from divisions where id=$1 for update",[team.division_id]);
+    const player=(await c.query("select id,active from players where id::text=$1",[String(playerId)])).rows[0];
+    if(!player)throw Object.assign(new Error("PLAYER_NOT_FOUND"),{status:404});
+    if(!player.active)throw Object.assign(new Error("PLAYER_INACTIVE"),{status:400});
+    if((await c.query("select 1 from team_players where team_id=$1 and player_id=$2",[team.id,player.id])).rowCount)return;
+    await assertRosterEditable(c,team.id);
+    if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.id<>$3 and t.status<>'withdrawn'",[team.division_id,player.id,team.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
+    const count=Number((await c.query("select count(*)::int as count from team_players where team_id=$1",[team.id])).rows[0]?.count||0);
+    if(count>=playerCountRange(team.event_type).max)throw Object.assign(new Error("INVALID_PLAYER_COUNT"),{status:400});
+    await c.query("insert into team_players(team_id,player_id) values($1,$2)",[team.id,player.id]);
+  });
+  await emitState();res.status(201).json({ok:true});
+}));
+
+app.post("/api/import/players",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const rows=Array.isArray(req.body.rows)?req.body.rows:[];
+  if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
+  const result=await tx(async c=>{
+    let created=0;
+    const ids=[];
+    for(const raw of rows){
+      const fullName=String(raw.fullName||raw.name||"").trim();if(!fullName)continue;
+      let clubId=null;
+      const clubName=String(raw.club||raw.clubName||"").trim();
+      if(clubName){
+        let club=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[clubName])).rows[0];
+        if(!club){
+          let slug=slugify(clubName);if((await c.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+          club=(await c.query("insert into clubs(name,slug,active) values($1,$2,true) returning id",[clubName,slug])).rows[0];
+        }
+        clubId=club.id;
+      }
+      const gender=["male","female","other"].includes(raw.gender)?raw.gender:null;
+      const rating=Number.isFinite(Number(raw.rating))?Number(raw.rating):3;
+      const avatarUrl=String(raw.avatarUrl||raw.avatar_url||raw.avatar||"").trim()||null;
+      const existing=(await c.query("select id from players where lower(full_name)=lower($1) and (phone=$2 or phone is null or $2 is null) limit 1",[fullName,String(raw.phone||"").trim()||null])).rows[0];
+      let pId;
+      if(existing){
+        if(avatarUrl)await c.query("update players set avatar_url=coalesce($1,avatar_url) where id=$2",[avatarUrl,existing.id]);
+        pId=existing.id;
+      }else{
+        const p=(await c.query("insert into players(full_name,nickname,gender,rating,phone,club_id,avatar_url,active,created_by_user_id) values($1,$2,$3,$4,$5,$6,$7,true,$8) returning id",[fullName,String(raw.nickname||"").trim()||null,gender,rating,String(raw.phone||"").trim()||null,clubId,avatarUrl,req.user.sub])).rows[0];
+        pId=p.id;
+      }
+      ids.push(pId);created++;
+    }
+    await audit(c,req.user,"player_import","batch","IMPORT_PLAYERS",null,{created,ids},`${created} players`);
+    return {created,ids};
+  });
+  res.status(201).json(result);
+}));
+
+app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const rows=Array.isArray(req.body.rows)?req.body.rows:[];
+  if(!rows.length||rows.length>5000)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
+  const result=await tx(async c=>{
+    const d=(await c.query("select id,event_type from divisions where id=$1 for update",[req.params.id])).rows[0];if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const plans=[],issues=[],plannedPlayerRows=new Map(),byName=new Map();
+    for(const player of (await c.query("select id,full_name from players where active=true")).rows){const key=registryNameKey(player.full_name),matches=byName.get(key)||[];matches.push(player);byName.set(key,matches)}
+    for(let index=0;index<rows.length;index++){
+      const raw=rows[index],name=String(raw.name||raw.team||"").trim();if(!name)continue;
+      const playerIds=[];
+      for(let slot=0;slot<4;slot++){
+        const playerName=String(raw[`player${slot+1}`]||"").trim();if(!playerName)continue;
+        const matches=byName.get(registryNameKey(playerName))||[];
+        if(matches.length!==1){
+          issues.push({row:index+1,field:`player${slot+1}`,name:playerName,reason:matches.length?"AMBIGUOUS_PLAYER":"PLAYER_NOT_FOUND"});
+        }else{
+          playerIds.push(matches[0].id);
+          const refs=plannedPlayerRows.get(matches[0].id)||[];refs.push({row:index+1,field:`player${slot+1}`,name:playerName});plannedPlayerRows.set(matches[0].id,refs);
+        }
+      }
+      try{validatePlayerIds(d.event_type,playerIds)}catch(error){issues.push({row:index+1,field:"players",reason:error.message})}
+      plans.push({row:index+1,raw,name,playerIds});
+    }
+    for(const [playerId,refs] of plannedPlayerRows){
+      if(refs.length>1)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_IMPORT"});
+      const assigned=(await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.status<>'withdrawn' limit 1",[d.id,playerId])).rowCount;
+      if(assigned)for(const ref of refs)issues.push({...ref,reason:"PLAYER_ALREADY_IN_DIVISION"});
+    }
+    if(issues.length)throw Object.assign(new Error("IMPORT_PLAYER_ISSUES"),{status:400,issues});
+
+    let created=0,linkedPlayers=0;const ids=[];
+    for(const plan of plans){
+      const {raw,name,playerIds}=plan;
+      let clubId=null;
+      const clubName=String(raw.club||raw.clubName||"").trim();
+      if(clubName){
+        let club=(await c.query("select id from clubs where lower(name)=lower($1) limit 1",[clubName])).rows[0];
+        if(!club){
+          let slug=slugify(clubName);if((await c.query("select 1 from clubs where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+          club=(await c.query("insert into clubs(name,slug,active) values($1,$2,true) returning id",[clubName,slug])).rows[0];
+        }
+        clubId=club.id;
+      }
+      const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed,status) values($1,$2,$3,$4,$5,'active') returning id",[d.id,name,clubId,String(raw.group||"A").trim()||"A",Number(raw.seed)||null])).rows[0];
+      ids.push(t.id);created++;
+      for(const playerId of playerIds){
+        await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);linkedPlayers++;
+      }
+    }
+    await audit(c,req.user,"team_import",d.id,"IMPORT_TEAMS",null,{created,linkedPlayers,ids},`${created} teams`);
+    return {created,linkedPlayers,ids};
+  });
+  await emitState();res.status(201).json(result);
+}));
+
+app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {name,venue,startAt,eventType="doubles",format="pool_to_knockout"}=req.body;
+  if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const data=await tx(async c=>{
+    let slug=slugify(name);const exists=(await c.query("select 1 from tournaments where slug=$1",[slug])).rowCount;
+    if(exists)slug+=`-${Date.now().toString().slice(-6)}`;
+    const t=(await c.query(`
+      insert into tournaments(owner_user_id,name,slug,venue_name,start_at,status,public_visible)
+      values($1,$2,$3,$4,$5,'registration',true) returning *
+    `,[req.user.sub,name,slug,venue||null,startAt||null])).rows[0];
+    const d=(await c.query(`
+      insert into divisions(tournament_id,name,event_type,format) values($1,$2,$3,$4) returning *
+    `,[t.id,req.body.divisionName||"Open",eventType,format])).rows[0];
+    await audit(c,req.user,"tournament",t.id,"CREATE_TOURNAMENT",null,t,name);
+    return {tournament:t,division:d};
+  });
+  await emitState();res.status(201).json(data);
+}));
+
+
+app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
+  const {name,eventType="doubles",format="pool_to_knockout",bestOf=3,pointsToWin=11,winByTwo=true,advanceCount=2}=req.body;
+  if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
+  if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return res.status(400).json({error:"INVALID_FORMAT"});
+  const row=(await pool.query(`
+    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count)
+    values($1,$2,$3,$4,$5,$6,$7,$8) returning *
+  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'division',$2,'CREATE_DIVISION',$3)",[req.user.sub,row.id,row]);
+  await emitState();res.status(201).json(row);
+}));
+
+app.post("/api/tournaments/:id/courts",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
+  const name=String(req.body.name||"").trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const sortOrder=req.body.sortOrder??Number((await pool.query("select coalesce(max(sort_order),0)+1 n from courts where tournament_id=$1",[req.params.id])).rows[0].n);
+  const row=(await pool.query("insert into courts(tournament_id,name,sort_order,active) values($1,$2,$3,true) returning *",[req.params.id,name,sortOrder])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'court',$2,'CREATE_COURT',$3)",[req.user.sub,row.id,row]);
+  await emitState();res.status(201).json(row);
+}));
+
+app.patch("/api/courts/:id",authRequired,allow("super_admin","organizer"),courtManageParam,wrap(async(req,res)=>{
+  const row=(await pool.query("update courts set name=coalesce($1,name),active=coalesce($2,active),sort_order=coalesce($3,sort_order) where id=$4 returning *",[req.body.name??null,req.body.active??null,req.body.sortOrder??null,req.params.id])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});await emitState();res.json(row);
+}));
+
+app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
+  const fields=["name","venue_name","start_at","end_at","status","public_visible","is_featured","featured_rank","sponsor_package"];const vals=[];const sets=[];
+  for(const f of fields){const key=f==="venue_name"?"venue":f==="start_at"?"startAt":f==="end_at"?"endAt":f==="public_visible"?"publicVisible":f==="is_featured"?"isFeatured":f==="featured_rank"?"featuredRank":f==="sponsor_package"?"sponsorPackage":f;if(req.body[key]!==undefined){vals.push(req.body[key]);sets.push(`${f}=$${vals.length}`)}}
+  if(!sets.length)return res.status(400).json({error:"NO_CHANGES"});
+  vals.push(req.params.id);
+  const before=(await pool.query("select * from tournaments where id=$1",[req.params.id])).rows[0];
+  const after=(await pool.query(`update tournaments set ${sets.join(",")} where id=$${vals.length} returning *`,vals)).rows[0];
+  if(!after)return res.status(404).json({error:"NOT_FOUND"});
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'tournament',$2,'UPDATE_TOURNAMENT',$3,$4)",[req.user.sub,after.id,before,after]);
+  await emitState();res.json(after);
+}));
+
+app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const {club,clubId:requestedClubId,group="A",seed}=req.body;
+  const row=await tx(async c=>{
+    const roster=await validateDivisionRoster(c,req.params.id,req.body.playerIds);
+    const name=String(req.body.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
+    if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
+    let clubId=null;
+    if(requestedClubId){
+      const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
+      if(!cr)throw Object.assign(new Error("INVALID_CLUB"),{status:400});
+      clubId=cr.id;
+    }else if(club&&registryNameKey(club)!==registryNameKey("Tự do")){
+      const name=String(club).normalize("NFC").trim();
+      let cr=(await c.query("select id,name from clubs where active=true")).rows.find(row=>registryNameKey(row.name)===registryNameKey(name));
+      if(!cr)cr=(await c.query("insert into clubs(name,slug) values($1,$2) returning id",[name,slugify(name)+"-"+crypto.randomUUID()])).rows[0];
+      clubId=cr.id;
+    }
+    const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed) values($1,$2,$3,$4,$5) returning *",[req.params.id,name,clubId,group,seed||null])).rows[0];
+    for(const playerId of roster.ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);
+    const after={...t,playerIds:roster.ids};await audit(c,req.user,"team",t.id,"CREATE_TEAM_WITH_ROSTER",null,after,name);return after;
+  });
+  await emitState();res.status(201).json(row);
+}));
+
+app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
+  const after=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw scoreError("NOT_FOUND",404);
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    const b=req.body||{};assertScoreVersion(before,b);
+    if(b.status!==undefined&&b.status!==before.status)throw scoreError("USE_SCORE_ACTION");
+    await validateMatchAssignment(c,req.user,before,b);
+    const after=(await c.query("update matches set court_id=$1,referee_user_id=$2,scheduled_at=$3,version=version+1 where id=$4 returning *",
+      [b.courtId===undefined?before.court_id:b.courtId,b.refereeUserId===undefined?before.referee_user_id:b.refereeUserId,b.scheduledAt===undefined?before.scheduled_at:b.scheduledAt,before.id])).rows[0];
+    await audit(c,req.user,"match",before.id,"ASSIGN_MATCH",before,after);return after;
+  });
+  await emitState();res.json(after);
+}));
+
+for(const action of ["point","finish-set","quick-score","finish","special-result","undo"]){
+  app.post("/api/matches/:id/"+action,authRequired,wrap(async(req,res)=>{
+    const updated=await tx(async c=>{
+      const m=await getMatch(c,req.params.id,true);if(!m)throw scoreError("NOT_FOUND",404);
+      if(!(await authorizeMatch(c,req.user,m)))throw scoreError("FORBIDDEN",403);
+      const body=req.body||{};assertScoreVersion(m,body);
+      const sets=(await c.query("select * from match_sets where match_id=$1 order by set_no",[m.id])).rows;
+      const plan=action==="undo"?await scoreUndoPlan(c,m,sets):await scoreMutationPlan(c,m,sets,action,body,new Date().toISOString());
+      return applyScore(c,req.user,m,sets,action,plan);
+    });
+    // Scoring history commits before observers receive the updated version.
+    try{io.emit("match:update",{id:updated.id,version:updated.version});await emitState()}catch(e){console.error("score_broadcast_failed",{matchId:updated.id,error:String(e.message)})}
+    res.json(updated);
+  }));
+}
+
+app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const bestOf=req.body.bestOf??before.best_of,points=req.body.pointsToWin??before.points_to_win,winByTwo=req.body.winByTwo??before.win_by_two,advance=req.body.advanceCount??before.advance_count;
+  if(![1,3,5].includes(Number(bestOf))||![11,15,21].includes(Number(points)))return res.status(400).json({error:"INVALID_RULES"});
+  const after=(await pool.query("update divisions set best_of=$1,points_to_win=$2,win_by_two=$3,advance_count=$4 where id=$5 returning *",[bestOf,points,Boolean(winByTwo),advance,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_RULES',$3,$4)",[req.user.sub,after.id,before,after]);
+  await emitState();res.json(after);
+}));
+
+
+app.post("/api/divisions/:id/auto-seed-groups",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const groupCount=Number(req.body.groupCount||2);
+  if(!Number.isInteger(groupCount)||groupCount<1||groupCount>26)return res.status(400).json({error:"INVALID_GROUP_COUNT"});
+  const result=await tx(async c=>{
+    const d=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const teams=(await c.query(`
+      select t.id,t.name,t.club_id,t.seed,
+        coalesce(avg(p.rating),0)::numeric avg_rating
+      from teams t
+      left join team_players tp on tp.team_id=t.id
+      left join players p on p.id=tp.player_id and p.active=true
+      where t.division_id=$1 and t.status='active'
+      group by t.id
+      order by coalesce(avg(p.rating),0) desc,t.seed nulls last,t.name
+    `,[d.id])).rows;
+    if(teams.length<groupCount)throw Object.assign(new Error("MORE_GROUPS_THAN_TEAMS"),{status:400});
+    const labels=Array.from({length:groupCount},(_,i)=>String.fromCharCode(65+i));
+    const groups=labels.map(label=>({label,teams:[]}));
+    const maxSize=Math.ceil(teams.length/groupCount);
+    for(let i=0;i<teams.length;i++){
+      const t=teams[i];
+      const cycle=Math.floor(i/groupCount),pos=i%groupCount;
+      const preferred=cycle%2===0?pos:groupCount-1-pos;
+      const candidates=[preferred,...groups.map((_,idx)=>idx).filter(idx=>idx!==preferred)]
+        .filter(idx=>groups[idx].teams.length<maxSize)
+        .sort((a,b)=>{
+          const aSame=t.club_id&&groups[a].teams.some(x=>x.club_id===t.club_id)?1:0;
+          const bSame=t.club_id&&groups[b].teams.some(x=>x.club_id===t.club_id)?1:0;
+          return aSame-bSame||groups[a].teams.length-groups[b].teams.length;
+        });
+      const idx=candidates[0]??preferred;
+      groups[idx].teams.push(t);
+      await c.query("update teams set group_code=$1,seed=$2,updated_at=now() where id=$3",[groups[idx].label,i+1,t.id]);
+    }
+    const assignments=groups.map(g=>({group:g.label,teams:g.teams.map(t=>({id:t.id,name:t.name,avgRating:Number(t.avg_rating||0),clubId:t.club_id}))}));
+    await audit(c,req.user,"division",d.id,"AUTO_SEED_GROUPS",null,{groupCount,assignments},"Rating-balanced snake seeding");
+    return {groupCount,assignments};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/generate-round-robin",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by group_code,seed nulls last,name",[d.id])).rows;
+    const courts=(await c.query("select id,sort_order from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
+    if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
+
+    const rounds=[];
+    for(const group of groups){
+      let ids=teams.filter(t=>t.group_code===group).map(t=>t.id);
+      if(ids.length<2)continue;
+      if(ids.length%2===1)ids=[...ids,null];
+      const n=ids.length;let arr=[...ids];
+      for(let round=0;round<n-1;round++){
+        const pairs=[];
+        for(let i=0;i<n/2;i++){const a=arr[i],b=arr[n-1-i];if(a&&b)pairs.push({a,b,group,round})}
+        (rounds[round]||(rounds[round]=[])).push(...pairs);
+        arr=[arr[0],arr[n-1],...arr.slice(1,n-1)];
+      }
+    }
+
+    let created=0,slot=0;
+    for(const pairs of rounds){
+      if(!pairs?.length)continue;
+      for(let i=0;i<pairs.length;i++){
+        const {a,b,group,round}=pairs[i];
+        const exists=(await c.query(`select 1 from matches where division_id=$1 and ((team_a_id=$2 and team_b_id=$3) or (team_a_id=$3 and team_b_id=$2)) limit 1`,[d.id,a,b])).rowCount;
+        if(exists)continue;
+        const batch=Math.floor(i/courts.length);
+        const court=courts[i%courts.length].id;
+        const minuteOffset=(slot+batch)*35;
+        await c.query(`
+          insert into matches(division_id,court_id,team_a_id,team_b_id,stage,round_no,scheduled_at,status)
+          values($1,$2,$3,$4,$5,$6,coalesce($7,now())+($8||' minutes')::interval,'scheduled')
+        `,[d.id,court,a,b,`Bảng ${group}`,round+1,d.start_at,String(minuteOffset)]);
+        created++;
+      }
+      slot+=Math.max(1,Math.ceil(pairs.length/courts.length))+1;
+    }
+    await audit(c,req.user,"division",d.id,"GENERATE_ROUND_ROBIN",null,{created,courts:courts.length,slots:slot},`${created} matches across ${courts.length} courts`);
+    return {created,courts:courts.length,slots:slot};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query("select d.*,t.start_at,t.id tournament_id from divisions d join tournaments t on t.id=d.tournament_id where d.id=$1 for update",[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const courts=(await c.query("select id,sort_order from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const matches=(await c.query(`
+      select id,team_a_id,team_b_id,stage,round_no
+      from matches
+      where division_id=$1 and bracket_slot is null and stage like 'Bảng %' and status='scheduled'
+      order by round_no nulls last,stage,created_at
+      for update
+    `,[d.id])).rows;
+    if(!matches.length)throw Object.assign(new Error("NO_UNSTARTED_MATCHES"),{status:409});
+
+    const slots=[];
+    for(const m of matches){
+      let si=0;
+      while(true){
+        const s=slots[si]||(slots[si]={matches:[],teams:new Set()});
+        if(s.matches.length<courts.length&&!s.teams.has(m.team_a_id)&&!s.teams.has(m.team_b_id)){
+          s.matches.push(m);s.teams.add(m.team_a_id);s.teams.add(m.team_b_id);break;
+        }
+        si++;
+      }
+    }
+    let updated=0;
+    for(let si=0;si<slots.length;si++){
+      for(let i=0;i<slots[si].matches.length;i++){
+        const m=slots[si].matches[i],court=courts[i%courts.length];
+        await c.query("update matches set court_id=$1,scheduled_at=coalesce($2,now())+($3||' minutes')::interval,version=version+1 where id=$4",[court.id,d.start_at,String(si*35),m.id]);
+        updated++;
+      }
+    }
+    await audit(c,req.user,"division",d.id,"AUTO_SCHEDULE_COURTS",null,{updated,courts:courts.length,slots:slots.length},"Conflict-free court scheduling");
+    return {updated,courts:courts.length,slots:slots.length};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const d=(await c.query(`
+      select d.*,t.start_at,t.id tournament_id
+      from divisions d join tournaments t on t.id=d.tournament_id
+      where d.id=$1 for update
+    `,[req.params.id])).rows[0];
+    if(!d)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(!d.active)throw Object.assign(new Error("DIVISION_ARCHIVED"),{status:409});
+
+    const existing=Number((await c.query("select count(*)::int n from matches where division_id=$1 and bracket_slot is not null",[d.id])).rows[0].n);
+    if(existing>0)throw Object.assign(new Error("BRACKET_ALREADY_EXISTS"),{status:409});
+
+    const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
+    if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
+    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by seed nulls last,name",[d.id])).rows;
+    if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_TEAMS"),{status:400});
+    const startAt=(await c.query("select coalesce(max(scheduled_at),$2::timestamptz,now()) + interval '45 minutes' t from matches where division_id=$1",[d.id,d.start_at])).rows[0].t;
+
+    const addMinutes=(base,min)=>new Date(new Date(base).getTime()+min*60000);
+    const courtFor=i=>courts[i%courts.length].id;
+    const create=async({a=null,b=null,stage,slot,minutes=0,index=0})=>{
+      return (await c.query(`
+        insert into matches(division_id,court_id,team_a_id,team_b_id,stage,bracket_slot,scheduled_at,status)
+        values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
+      `,[d.id,courtFor(index),a,b,stage,slot,addMinutes(startAt,minutes)])).rows[0];
+    };
+    const linkWinner=async(from,to,side)=>c.query("update matches set next_match_id=$1,next_match_side=$2 where id=$3",[to,side,from]);
+    const linkLoser=async(from,to,side)=>c.query("update matches set loser_next_match_id=$1,loser_next_match_side=$2 where id=$3",[to,side,from]);
+
+    if(d.format==="double_elimination"){
+      const sorted=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi"));
+      if(![4,8].includes(sorted.length))throw Object.assign(new Error("DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS"),{status:400});
+
+      if(sorted.length===4){
+        const order=[sorted[0],sorted[3],sorted[1],sorted[2]];
+        const w1=await create({a:order[0].id,b:order[1].id,stage:"Nhánh thắng - Vòng 1",slot:"DE-W-R1-M1",minutes:0,index:0});
+        const w2=await create({a:order[2].id,b:order[3].id,stage:"Nhánh thắng - Vòng 1",slot:"DE-W-R1-M2",minutes:0,index:1});
+        const wf=await create({stage:"Nhánh thắng - Chung kết",slot:"DE-W-F",minutes:50,index:0});
+        const l1=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M1",minutes:50,index:1});
+        const lf=await create({stage:"Nhánh thua - Chung kết",slot:"DE-L-F",minutes:100,index:0});
+        const gf=await create({stage:"Chung kết tổng",slot:"DE-GF",minutes:150,index:0});
+        await linkWinner(w1.id,wf.id,"A");await linkWinner(w2.id,wf.id,"B");
+        await linkLoser(w1.id,l1.id,"A");await linkLoser(w2.id,l1.id,"B");
+        await linkWinner(l1.id,lf.id,"A");await linkLoser(wf.id,lf.id,"B");
+        await linkWinner(wf.id,gf.id,"A");await linkWinner(lf.id,gf.id,"B");
+        await audit(c,req.user,"division",d.id,"GENERATE_DOUBLE_ELIM",null,{teams:4,grandFinal:gf.id},"Basic double elimination");
+        return {format:"double_elimination",teams:4,created:6,grandFinal:gf.id};
+      }
+
+      const seedOrder=[1,8,4,5,2,7,3,6].map(n=>sorted[n-1]);
+      const wq=[];
+      for(let i=0;i<4;i++)wq.push(await create({a:seedOrder[i*2].id,b:seedOrder[i*2+1].id,stage:"Nhánh thắng - Tứ kết",slot:`DE-W-QF-M${i+1}`,minutes:0,index:i}));
+      const ws1=await create({stage:"Nhánh thắng - Bán kết 1",slot:"DE-W-SF-M1",minutes:50,index:0});
+      const ws2=await create({stage:"Nhánh thắng - Bán kết 2",slot:"DE-W-SF-M2",minutes:50,index:1});
+      const wf=await create({stage:"Nhánh thắng - Chung kết",slot:"DE-W-F",minutes:100,index:0});
+      const l1=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M1",minutes:50,index:2});
+      const l2=await create({stage:"Nhánh thua - Vòng 1",slot:"DE-L-R1-M2",minutes:50,index:3});
+      const l3=await create({stage:"Nhánh thua - Vòng 2",slot:"DE-L-R2-M1",minutes:100,index:1});
+      const l4=await create({stage:"Nhánh thua - Vòng 2",slot:"DE-L-R2-M2",minutes:100,index:2});
+      const l5=await create({stage:"Nhánh thua - Bán kết",slot:"DE-L-SF",minutes:150,index:0});
+      const lf=await create({stage:"Nhánh thua - Chung kết",slot:"DE-L-F",minutes:200,index:0});
+      const gf=await create({stage:"Chung kết tổng",slot:"DE-GF",minutes:250,index:0});
+
+      await linkWinner(wq[0].id,ws1.id,"A");await linkWinner(wq[1].id,ws1.id,"B");
+      await linkWinner(wq[2].id,ws2.id,"A");await linkWinner(wq[3].id,ws2.id,"B");
+      await linkLoser(wq[0].id,l1.id,"A");await linkLoser(wq[1].id,l1.id,"B");
+      await linkLoser(wq[2].id,l2.id,"A");await linkLoser(wq[3].id,l2.id,"B");
+      await linkWinner(ws1.id,wf.id,"A");await linkWinner(ws2.id,wf.id,"B");
+      await linkWinner(l1.id,l3.id,"A");await linkLoser(ws1.id,l3.id,"B");
+      await linkWinner(l2.id,l4.id,"A");await linkLoser(ws2.id,l4.id,"B");
+      await linkWinner(l3.id,l5.id,"A");await linkWinner(l4.id,l5.id,"B");
+      await linkWinner(l5.id,lf.id,"A");await linkLoser(wf.id,lf.id,"B");
+      await linkWinner(wf.id,gf.id,"A");await linkWinner(lf.id,gf.id,"B");
+      await audit(c,req.user,"division",d.id,"GENERATE_DOUBLE_ELIM",null,{teams:8,grandFinal:gf.id},"Basic double elimination");
+      return {format:"double_elimination",teams:8,created:14,grandFinal:gf.id};
+    }
+
+    if(d.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
+
+    let qualifiers=[];
+    if(d.format==="pool_to_knockout"){
+      const unfinished=Number((await c.query("select count(*)::int n from matches where division_id=$1 and stage like 'Bảng %' and status<>'completed'",[d.id])).rows[0].n);
+      if(unfinished>0)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+      const completed=(await c.query("select * from matches where division_id=$1 and stage like 'Bảng %' and status='completed'",[d.id])).rows;
+      const mids=completed.map(m=>m.id);
+      const sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
+      const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push(s)}
+      const stats=new Map(teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
+      for(const m of completed){
+        let ap=0,bp=0,asw=0,bsw=0;
+        for(const s of setMap.get(m.id)||[]){
+          ap+=s.score_a;bp+=s.score_b;
+          if(s.score_a>s.score_b)asw++;else if(s.score_b>s.score_a)bsw++;
+        }
+        const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);
+        if(a){a.pf+=ap;a.pa+=bp;a.sw+=asw;a.sl+=bsw;m.winner_team_id===m.team_a_id?a.w++:a.l++}
+        if(b){b.pf+=bp;b.pa+=ap;b.sw+=bsw;b.sl+=asw;m.winner_team_id===m.team_b_id?b.w++:b.l++}
+      }
+      const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
+      if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
+      const rank=g=>teams.filter(t=>t.group_code===g).sort((x,y)=>{
+        const a=stats.get(x.id),b=stats.get(y.id);
+        if(b.w!==a.w)return b.w-a.w;
+        const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
+        if(sdB!==sdA)return sdB-sdA;
+        const h2h=completed.find(m=>((m.team_a_id===x.id&&m.team_b_id===y.id)||(m.team_a_id===y.id&&m.team_b_id===x.id))&&m.winner_team_id);
+        if(h2h){if(h2h.winner_team_id===x.id)return -1;if(h2h.winner_team_id===y.id)return 1;}
+        return ((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999));
+      });
+      const advanceCount=Number(d.advance_count)||2;
+      if(advanceCount===2){
+        // Keep the top two from every group on opposite bracket halves.
+        // Qualifier order A1,A2,B1,B2,... maps through standard seeding so
+        // same-group teams can only meet again in the final.
+        for(const g of groups){
+          const ranked=rank(g);
+          if(ranked[0])qualifiers.push({...ranked[0],qualifierGroup:g,qualifierPlace:1});
+          if(ranked[1])qualifiers.push({...ranked[1],qualifierGroup:g,qualifierPlace:2});
+        }
+      }else{
+        for(let place=0;place<advanceCount;place++){
+          for(const g of groups){
+            const t=rank(g)[place];if(t)qualifiers.push({...t,qualifierGroup:g,qualifierPlace:place+1});
+          }
+        }
+      }
+    }else{
+      qualifiers=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi")).map(t=>({...t,qualifierGroup:t.group_code||null}));
+    }
+    if(qualifiers.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
+
+    let bracketSize=2;while(bracketSize<qualifiers.length)bracketSize*=2;
+    let order=[1,2];for(let size=4;size<=bracketSize;size*=2){const next=[];for(const seed of order)next.push(seed,size+1-seed);order=next}
+    const slots=order.map(seed=>qualifiers[seed-1]||null);
+    for(let i=0;i<slots.length;i+=2){
+      if(slots[i]&&slots[i+1]&&slots[i].qualifierGroup&&slots[i].qualifierGroup===slots[i+1].qualifierGroup){
+        const j=slots.findIndex((x,idx)=>idx>i+1&&x&&x.qualifierGroup!==slots[i].qualifierGroup);
+        if(j>0)[slots[i+1],slots[j]]=[slots[j],slots[i+1]];
+      }
+    }
+
+    const roundCount=Math.log2(bracketSize);
+    const rounds=[];
+    const stageName=(r,i,count)=>{
+      if(count===1)return "Chung kết";
+      if(count===2)return `Bán kết ${i+1}`;
+      if(count===4)return `Tứ kết ${i+1}`;
+      if(count===8)return `Vòng 1/8 ${i+1}`;
+      return `Knockout R${r+1} - Trận ${i+1}`;
+    };
+    for(let r=0;r<roundCount;r++){
+      const count=bracketSize/(2**(r+1));rounds[r]=[];
+      for(let i=0;i<count;i++){
+        const a=r===0?slots[i*2]?.id||null:null,b=r===0?slots[i*2+1]?.id||null:null;
+        rounds[r].push(await create({a,b,stage:stageName(r,i,count),slot:`SE-R${r+1}-M${i+1}`,minutes:r*55+Math.floor(i/courts.length)*30,index:i}));
+      }
+    }
+    for(let r=0;r<rounds.length-1;r++){
+      for(let i=0;i<rounds[r].length;i++)await linkWinner(rounds[r][i].id,rounds[r+1][Math.floor(i/2)].id,i%2===0?"A":"B");
+    }
+    for(let i=0;i<rounds[0].length;i++){
+      const m=rounds[0][i];
+      const only=m.team_a_id&&!m.team_b_id?m.team_a_id:(!m.team_a_id&&m.team_b_id?m.team_b_id:null);
+      if(only){
+        const after=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason='bye',version=version+1 where id=$2 returning *",[only,m.id])).rows[0];
+        if(rounds.length>1){
+          const target=rounds[1][Math.floor(i/2)],side=i%2===0?"A":"B",col=side==="A"?"team_a_id":"team_b_id";
+          await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[only,target.id]);
+        }
+        await audit(c,req.user,"match",m.id,"AUTO_BYE",m,after,"Automatic bracket bye");
+      }
+    }
+    const final=rounds.at(-1)[0];
+    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,{format:d.format,qualifiers:qualifiers.length,bracketSize,final:final.id},"Generic elimination bracket");
+    return {format:d.format,qualifiers:qualifiers.length,bracketSize,created:rounds.flat().length,final:final.id};
+  });
+  await emitState();res.json(result);
+}));
+
+app.post("/api/divisions/:id/matches",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const row=await tx(async c=>{
+    const b=req.body||{};
+    if(!b.teamAId||!b.teamBId||b.teamAId===b.teamBId)throw scoreError("INVALID_TEAMS");
+    if(b.status!==undefined&&b.status!=="scheduled")throw scoreError("USE_SCORE_ACTION");
+    const d=(await c.query("select * from divisions where id=$1 for share",[req.params.id])).rows[0];if(!d)throw scoreError("NOT_FOUND",404);
+    if(!(await canManageTournament(req.user,d.tournament_id,c)))throw scoreError("FORBIDDEN",403);
+    const pair=await validateMatchAssignment(c,req.user,{division_id:d.id,tournament_id:d.tournament_id},b);
+    const created=(await c.query("insert into matches(division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status) values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *",
+      [d.id,b.courtId||null,b.refereeUserId||null,pair.a,pair.b,b.stage||"Vòng bảng",b.scheduledAt||null])).rows[0];
+    await audit(c,req.user,"match",created.id,"CREATE_MATCH",null,created);return created;
+  });
+  await emitState();res.status(201).json(row);
+}));
+
+app.get("/api/registrations",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res)=>{
+  const financeClub=req.user.role==="finance"?req.user.clubId:null;
+  const tournamentIds=req.user.role==="organizer"?await organizerTournamentIds(req.user):null;
+  const {rows}=await pool.query(`
+    select r.id,r.team_id,r.division_id,d.tournament_id,r.status,r.payment_status,r.amount,r.created_at,r.checked_in_at,r.checkin_token,t.name team_name,d.name division_name,tr.name tournament_name,
+      p.id payment_id,p.status payment_review_status,p.method,p.reference_code,p.receipt_url
+    from registrations r
+    join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id
+    left join lateral (select * from payment_records where registration_id=r.id order by created_at desc limit 1) p on true
+    where ($1::uuid is null or t.club_id=$1)
+      and ($2::uuid[] is null or d.tournament_id=any($2::uuid[]))
+    order by r.created_at desc
+  `,[financeClub,tournamentIds]);res.json(rows);
+}));
+app.post("/api/divisions/:id/registrations",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const {teamId,amount}=req.body;if(!teamId)return res.status(400).json({error:"TEAM_REQUIRED"});
+  const row=await tx(async c=>{
+    const team=(await c.query("select id from teams where id=$1 and division_id=$2 and status<>'withdrawn'",[teamId,req.params.id])).rows[0];
+    if(!team)throw Object.assign(new Error("TEAM_DIVISION_MISMATCH"),{status:400});
+    const linked=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[teamId])).rows.map(x=>x.player_id);
+    await validateDivisionRoster(c,req.params.id,linked,{currentTeamId:teamId});
+    if((await c.query("select 1 from registrations where division_id=$1 and team_id=$2 and status<>'cancelled' limit 1",[req.params.id,teamId])).rowCount)throw Object.assign(new Error("REGISTRATION_EXISTS"),{status:409});
+    const reg=(await c.query("insert into registrations(division_id,team_id,status,payment_status,amount) values($1,$2,'approved','unpaid',$3) returning *",[req.params.id,teamId,amount||null])).rows[0];
+    await audit(c,req.user,"registration",reg.id,"CREATE_REGISTRATION",null,reg);
+    return reg;
+  });
+  res.status(201).json(row);
+}));
+app.post("/api/registrations/:id/payment",authRequired,allow("super_admin","organizer","finance"),registrationManageParam,wrap(async(req,res)=>{
+  const reg=(await pool.query(`
+    select r.id,t.club_id from registrations r left join teams t on t.id=r.team_id where r.id=$1
+  `,[req.params.id])).rows[0];
+  if(!reg)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="finance"&&req.user.clubId&&reg.club_id!==req.user.clubId)return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const {method,referenceCode,receiptUrl}=req.body;
+  const row=(await pool.query("insert into payment_records(registration_id,method,reference_code,receipt_url,status) values($1,$2,$3,$4,'pending') returning *",[req.params.id,method||"bank_transfer",referenceCode||null,receiptUrl||null])).rows[0];
+  await pool.query("update registrations set payment_status='pending' where id=$1",[req.params.id]);res.status(201).json(row);
+}));
+app.patch("/api/payment-records/:id",authRequired,allow("super_admin","organizer","finance"),paymentManageParam,wrap(async(req,res)=>{
+  if(!["approved","rejected","refunded"].includes(req.body.status))return res.status(400).json({error:"INVALID_STATUS"});
+  const row=await tx(async c=>{
+    const before=(await c.query(`
+      select p.*,t.club_id from payment_records p
+      join registrations r on r.id=p.registration_id
+      left join teams t on t.id=r.team_id
+      where p.id=$1 for update
+    `,[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(req.user.role==="finance"&&req.user.clubId&&before.club_id!==req.user.clubId)throw Object.assign(new Error("CLUB_SCOPE_FORBIDDEN"),{status:403});
+    const p=(await c.query("update payment_records set status=$1,reviewed_by=$2,reviewed_at=now() where id=$3 returning *",[req.body.status,req.user.sub,req.params.id])).rows[0];
+    const mapped=req.body.status==="approved"?"paid":req.body.status==="refunded"?"refunded":"unpaid";
+    await c.query("update registrations set payment_status=$1 where id=$2",[mapped,p.registration_id]);
+    await audit(c,req.user,"payment",p.id,"REVIEW_PAYMENT",before,p,req.body.status);return p;
+  });res.json(row);
+}));
+
+
+app.post("/api/uploads/image",authRequired,allow("super_admin","organizer"),mediaUpload.single("image"),wrap(async(req,res)=>{
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_IMAGE"});
+  res.status(201).json({url:`/uploads/media/${req.file.filename}`});
+}));
+app.post("/api/uploads/receipt",authRequired,allow("super_admin","organizer","finance"),receiptUpload.single("receipt"),wrap(async(req,res)=>{
+  if(!req.file||await rejectInvalidUpload(req.file))return res.status(400).json({error:"INVALID_RECEIPT"});
+  res.status(201).json({url:`/uploads/receipts/${req.file.filename}`,mime:req.file.mimetype,size:req.file.size});
+}));
+
+app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
+  const row=await tx(async c=>{
+    const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const after=(await c.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,req.params.id])).rows[0];
+    await audit(c,req.user,"registration",after.id,"CHECK_IN",before,after,"Tournament check-in");
+    return after;
+  });
+  res.json(row);
+}));
+app.post("/api/registrations/:id/undo-checkin",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
+  const row=await tx(async c=>{
+    const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const after=(await c.query("update registrations set checked_in_at=null,checked_in_by=null where id=$1 returning *",[req.params.id])).rows[0];
+    await audit(c,req.user,"registration",after.id,"UNDO_CHECK_IN",before,after,"Undo check-in");
+    return after;
+  });res.json(row);
+}));
+app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
+  const row=(await pool.query("select id,checkin_token from registrations where id=$1",[req.params.id])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+  const url=`${base}/checkin.html?token=${row.checkin_token}`;
+  const dataUrl=await QRCode.toDataURL(url,{margin:1,width:420,color:{dark:"#0d2118",light:"#ffffff"}});
+  res.json({token:row.checkin_token,url,dataUrl});
+}));
+app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const row=(await pool.query("select id from registrations where checkin_token=$1",[req.params.token])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  req.params.id=row.id;
+  const updated=(await pool.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,row.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) values($1,'registration',$2,'QR_CHECK_IN',$3,'QR check-in')",[req.user.sub,row.id,updated]);
+  res.json(updated);
+}));
+
+app.get("/api/sponsors",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from sponsors order by sort_order,name");res.json(rows);
+}));
+app.post("/api/sponsors",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {tournamentId,name,logoUrl,websiteUrl,tier,sortOrder=0}=req.body;if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!validAssetUrl(logoUrl)||!validHttpsUrl(websiteUrl))return res.status(400).json({error:"INVALID_URL"});
+  const row=(await pool.query("insert into sponsors(tournament_id,name,logo_url,website_url,tier,sort_order) values($1,$2,$3,$4,$5,$6) returning *",[tournamentId||null,name,logoUrl||null,websiteUrl||null,tier||null,sortOrder])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'sponsor',$2,'CREATE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
+}));
+app.patch("/api/sponsors/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from sponsors where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.body.logoUrl!==undefined&&!validAssetUrl(req.body.logoUrl))return res.status(400).json({error:"INVALID_URL"});
+  if(req.body.websiteUrl!==undefined&&!validHttpsUrl(req.body.websiteUrl))return res.status(400).json({error:"INVALID_URL"});
+  const row=(await pool.query("update sponsors set name=coalesce($1,name),logo_url=coalesce($2,logo_url),website_url=coalesce($3,website_url),tier=coalesce($4,tier),sort_order=coalesce($5,sort_order),tournament_id=coalesce($6,tournament_id) where id=$7 returning *",[req.body.name??null,req.body.logoUrl??null,req.body.websiteUrl??null,req.body.tier??null,req.body.sortOrder??null,req.body.tournamentId??null,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'sponsor',$2,'UPDATE_SPONSOR',$3,$4)",[req.user.sub,row.id,before,row]);res.json(row);
+}));
+app.delete("/api/sponsors/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const row=(await pool.query("delete from sponsors where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'sponsor',$2,'DELETE_SPONSOR',$3)",[req.user.sub,row.id,row]);res.json({ok:true});
+}));
+
+app.get("/api/posts",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from content_posts order by created_at desc");res.json(rows);
+}));
+app.post("/api/posts",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {title,excerpt,body,coverUrl,status="draft",tournamentId}=req.body;if(!title)return res.status(400).json({error:"TITLE_REQUIRED"});
+  if(!validAssetUrl(coverUrl))return res.status(400).json({error:"INVALID_URL"});
+  let slug=slugify(title);if((await pool.query("select 1 from content_posts where slug=$1",[slug])).rowCount)slug+=`-${Date.now().toString().slice(-5)}`;
+  const publishedAt=status==="published"?new Date():null;
+  const row=(await pool.query("insert into content_posts(tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[tournamentId||null,title,slug,excerpt||null,body||null,coverUrl||null,status,publishedAt,req.user.sub])).rows[0];
+  res.status(201).json(row);
+}));
+app.patch("/api/posts/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from content_posts where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.body.coverUrl!==undefined&&!validAssetUrl(req.body.coverUrl))return res.status(400).json({error:"INVALID_URL"});
+  const status=req.body.status??before.status;
+  const publishedAt=status==="published"?(before.published_at||new Date()):before.published_at;
+  const row=(await pool.query("update content_posts set title=coalesce($1,title),excerpt=coalesce($2,excerpt),body=coalesce($3,body),cover_url=coalesce($4,cover_url),status=$5,published_at=$6,tournament_id=coalesce($7,tournament_id),updated_at=now() where id=$8 returning *",[req.body.title??null,req.body.excerpt??null,req.body.body??null,req.body.coverUrl??null,status,publishedAt,req.body.tournamentId??null,req.params.id])).rows[0];
+  await audit(pool,req.user,"post",row.id,"UPDATE_POST",before,row,status);res.json(row);
+}));
+app.delete("/api/posts/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const row=(await pool.query("delete from content_posts where id=$1 returning *",[req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json({ok:true});
+}));
+
+app.get("/api/settings/branding",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const row=(await pool.query("select value from app_settings where key='branding'")).rows[0];res.json(row?.value||{});
+}));
+app.put("/api/settings/branding",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const raw=req.body||{};
+  const name=String(raw.name||"Pickleup.vn").trim();
+  const primaryColor=String(raw.primaryColor||"#0a8b55"),accentColor=String(raw.accentColor||"#dfff69");
+  const logoUrl=raw.logoUrl?String(raw.logoUrl):"";
+  if(!name||name.length>80)return res.status(400).json({error:"INVALID_BRAND_NAME"});
+  if(!validHexColor(primaryColor)||!validHexColor(accentColor)||!validAssetUrl(logoUrl))return res.status(400).json({error:"INVALID_BRANDING"});
+  const value={name,primaryColor,accentColor,logoUrl};
+  const row=(await pool.query(`
+    insert into app_settings(key,value,updated_by) values('branding',$1,$2)
+    on conflict(key) do update set value=excluded.value,updated_by=excluded.updated_by,updated_at=now()
+    returning value
+  `,[value,req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'setting','branding','UPDATE_BRANDING',$2)",[req.user.sub,value]);
+  res.json(row.value);
+}));
+
+
+app.get("/api/club-events",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
+  const scope=clubScope(req.user,req.query.clubId||null);
+  if(req.user.role==="club_manager"&&!scope)return res.json([]);
+  const {rows}=await pool.query(`
+    select e.*,c.name club_name,
+      count(a.player_id)::int participants,
+      count(a.player_id) filter(where a.status='attended')::int attended
+    from club_events e join clubs c on c.id=e.club_id
+    left join club_event_attendance a on a.event_id=e.id
+    where ($1::uuid is null or e.club_id=$1)
+    group by e.id,c.name
+    order by (e.start_at>=now()) desc,case when e.start_at>=now() then e.start_at end asc,e.start_at desc limit 500
+  `,[scope]);
+  res.json(rows);
+}));
+app.post("/api/club-events",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const clubId=clubScope(req.user,req.body.clubId||null);
+  if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const title=String(req.body.title||"").trim(),startAt=req.body.startAt,endAt=req.body.endAt||null;
+  if(!title||!startAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const startMs=Date.parse(startAt),endMs=endAt?Date.parse(endAt):null;
+  if(!Number.isFinite(startMs)||(endAt&&(!Number.isFinite(endMs)||endMs<=startMs)))return res.status(400).json({error:"INVALID_EVENT_TIME"});
+  const eventType=["social","training","match","meeting","other"].includes(req.body.eventType)?req.body.eventType:"social";
+  const row=(await pool.query(`
+    insert into club_events(club_id,title,event_type,venue,start_at,end_at,max_participants,fee,created_by)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *
+  `,[clubId,title,eventType,req.body.venue||null,startAt,endAt,Number(req.body.maxParticipants)||null,Math.max(0,Number(req.body.fee)||0),req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'club_event',$2,'CREATE_CLUB_EVENT',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.patch("/api/club-events/:id",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const title=String(req.body.title??before.title).trim();
+  const startAt=req.body.startAt??before.start_at,endAt=req.body.endAt===undefined?before.end_at:(req.body.endAt||null);
+  if(!title)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(endAt&&Date.parse(endAt)<=Date.parse(startAt))return res.status(400).json({error:"INVALID_EVENT_TIME"});
+  const status=req.body.status??before.status;
+  if(!["scheduled","live","completed","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  const after=(await pool.query(`
+    update club_events set title=$1,event_type=$2,venue=$3,start_at=$4,end_at=$5,max_participants=$6,fee=$7,status=$8,updated_at=now()
+    where id=$9 returning *
+  `,[title,req.body.eventType??before.event_type,req.body.venue??before.venue,startAt,endAt,req.body.maxParticipants??before.max_participants,req.body.fee??before.fee,status,before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'UPDATE_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
+  res.json(after);
+}));
+app.delete("/api/club-events/:id",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const before=await clubEventById(req.params.id);if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,before.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const after=(await pool.query("update club_events set status='cancelled',updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club_event',$2,'CANCEL_CLUB_EVENT',$3,$4)",[req.user.sub,after.id,before,after]);
+  res.json({mode:"cancelled",entity:after});
+}));
+app.get("/api/club-events/:id/attendance",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const {rows}=await pool.query(`
+    select a.event_id,a.player_id,a.status,a.checked_in_at,p.full_name,p.nickname,p.avatar_url,p.rating
+    from club_event_attendance a join players p on p.id=a.player_id
+    where a.event_id=$1 order by p.full_name
+  `,[event.id]);res.json(rows);
+}));
+app.post("/api/club-events/:id/attendance",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const playerId=req.body.playerId;
+  const player=(await pool.query("select id,club_id from players where id=$1 and active=true",[playerId])).rows[0];
+  if(!player||player.club_id!==event.club_id)return res.status(400).json({error:"PLAYER_CLUB_MISMATCH"});
+  const row=(await pool.query(`
+    insert into club_event_attendance(event_id,player_id,status) values($1,$2,'registered')
+    on conflict(event_id,player_id) do update set status='registered',checked_in_at=null,checked_in_by=null
+    returning *
+  `,[event.id,player.id])).rows[0];res.status(201).json(row);
+}));
+app.patch("/api/club-events/:id/attendance/:playerId",authRequired,allow("super_admin","club_manager"),wrap(async(req,res)=>{
+  const event=await clubEventById(req.params.id);if(!event)return res.status(404).json({error:"NOT_FOUND"});
+  if(!canAccessClub(req.user,event.club_id))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const status=String(req.body.status||"");
+  if(!["registered","attended","absent","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  const row=(await pool.query(`
+    update club_event_attendance set status=$1,checked_in_at=case when $1='attended' then coalesce(checked_in_at,now()) else null end,
+      checked_in_by=case when $1='attended' then $2::uuid else null::uuid end
+    where event_id=$3 and player_id=$4 returning *
+  `,[status,req.user.sub,event.id,req.params.playerId])).rows[0];
+  if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  res.json(row);
+}));
+
+app.get("/api/club-transactions",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
+  const scope=clubScope(req.user,req.query.clubId||null);
+  if(req.user.role==="club_manager"&&!scope)return res.json([]);
+  const {rows}=await pool.query(`
+    select x.*,c.name club_name,u.display_name created_by_name
+    from club_transactions x join clubs c on c.id=x.club_id left join app_users u on u.id=x.created_by
+    where ($1::uuid is null or x.club_id=$1)
+    order by x.occurred_at desc,x.created_at desc limit 1000
+  `,[scope]);res.json(rows);
+}));
+app.post("/api/club-transactions",authRequired,allow("super_admin","club_manager","finance"),wrap(async(req,res)=>{
+  const clubId=clubScope(req.user,req.body.clubId||null);
+  if(!canAccessClub(req.user,clubId))return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const direction=String(req.body.direction||""),amount=Number(req.body.amount);
+  if(!["income","expense"].includes(direction)||!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:"INVALID_TRANSACTION"});
+  const row=(await pool.query(`
+    insert into club_transactions(club_id,direction,category,amount,note,occurred_at,created_by)
+    values($1,$2,$3,$4,$5,coalesce($6::timestamptz,now()),$7) returning *
+  `,[clubId,direction,String(req.body.category||"other"),amount,req.body.note||null,req.body.occurredAt||null,req.user.sub])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'club_transaction',$2,'CREATE_CLUB_TRANSACTION',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+
+app.get("/api/bookings",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {rows}=await pool.query(`
+    select b.*,c.name court_name,t.name tournament_name from court_bookings b
+    join courts c on c.id=b.court_id join tournaments t on t.id=c.tournament_id
+    order by b.start_at desc limit 500
+  `);res.json(rows);
+}));
+app.post("/api/bookings",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {courtId,title,contactName,contactPhone,startAt,endAt,notes}=req.body;
+  if(!courtId||!title||!startAt||!endAt)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const startMs=Date.parse(startAt),endMs=Date.parse(endAt);
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)||endMs<=startMs)return res.status(400).json({error:"INVALID_BOOKING_TIME"});
+  const clash=Number((await pool.query("select count(*)::int n from court_bookings where court_id=$1 and status<>'cancelled' and tstzrange(start_at,end_at,'[)') && tstzrange($2::timestamptz,$3::timestamptz,'[)')",[courtId,startAt,endAt])).rows[0].n);
+  if(clash)return res.status(409).json({error:"BOOKING_CONFLICT"});
+  const row=(await pool.query("insert into court_bookings(court_id,title,contact_name,contact_phone,start_at,end_at,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[courtId,title,contactName||null,contactPhone||null,startAt,endAt,notes||null,req.user.sub])).rows[0];res.status(201).json(row);
+}));
+app.patch("/api/bookings/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const row=(await pool.query("update court_bookings set title=coalesce($1,title),contact_name=coalesce($2,contact_name),contact_phone=coalesce($3,contact_phone),status=coalesce($4,status),notes=coalesce($5,notes) where id=$6 returning *",[req.body.title??null,req.body.contactName??null,req.body.contactPhone??null,req.body.status??null,req.body.notes??null,req.params.id])).rows[0];if(!row)return res.status(404).json({error:"NOT_FOUND"});res.json(row);
+}));
+
+app.get("/api/reports/overview",authRequired,allow("super_admin","finance","club_manager"),wrap(async(req,res)=>{
+  let reg={registrations:0,checked_in:0,paid_count:0,revenue:0},mat={matches:0,live:0,completed:0};
+  if(req.user.role==="finance"&&req.user.clubId){
+    reg=(await pool.query(`
+      select count(*)::int registrations,
+        count(*) filter(where r.checked_in_at is not null)::int checked_in,
+        count(*) filter(where r.payment_status='paid')::int paid_count,
+        coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
+      from registrations r
+      join teams t on t.id=r.team_id
+      where t.club_id=$1
+    `,[req.user.clubId])).rows[0];
+  }else if(req.user.role!=="club_manager"){
+    const tournamentId=req.query.tournamentId||null;
+    const params=tournamentId?[tournamentId]:[];
+    const dWhere=tournamentId?"where d.tournament_id=$1":"";
+    const mWhere=tournamentId?"where d.tournament_id=$1":"";
+    reg=(await pool.query(`
+      select count(*)::int registrations,
+        count(*) filter(where r.checked_in_at is not null)::int checked_in,
+        count(*) filter(where r.payment_status='paid')::int paid_count,
+        coalesce(sum(r.amount) filter(where r.payment_status='paid'),0)::numeric revenue
+      from registrations r join divisions d on d.id=r.division_id ${dWhere}
+    `,params)).rows[0];
+    mat=(await pool.query(`
+      select count(*)::int matches,
+        count(*) filter(where m.status='live')::int live,
+        count(*) filter(where m.status='completed')::int completed
+      from matches m join divisions d on d.id=m.division_id ${mWhere}
+    `,params)).rows[0];
+  }
+  const scope=clubScope(req.user,req.query.clubId||null);
+  const clubStats=(await pool.query(`
+    select
+      (select count(*)::int from players p where p.active=true and ($1::uuid is null or p.club_id=$1)) members,
+      (select count(*)::int from club_events e where e.status<>'cancelled' and e.start_at>=now() and ($1::uuid is null or e.club_id=$1)) upcoming_activities,
+      (select count(*)::int from club_event_attendance a join club_events e on e.id=a.event_id
+        where a.status='attended' and a.checked_in_at::date=current_date and ($1::uuid is null or e.club_id=$1)) attendance_today,
+      (select coalesce(sum(case when x.direction='income' then x.amount else 0 end),0)::numeric from club_transactions x where ($1::uuid is null or x.club_id=$1)) club_income,
+      (select coalesce(sum(case when x.direction='expense' then x.amount else 0 end),0)::numeric from club_transactions x where ($1::uuid is null or x.club_id=$1)) club_expense
+  `,[scope])).rows[0];
+  const players=Number(clubStats.members||0);
+  const clubIncome=Number(clubStats.club_income||0),clubExpense=Number(clubStats.club_expense||0);
+  res.json({...reg,...mat,players,members:players,upcomingActivities:Number(clubStats.upcoming_activities||0),attendanceToday:Number(clubStats.attendance_today||0),clubIncome,clubExpense,clubBalance:clubIncome-clubExpense});
+}));
+app.get("/api/reports/export.csv",authRequired,allow("super_admin","finance"),wrap(async(req,res)=>{
+  const financeClub=req.user.role==="finance"?req.user.clubId:null;
+  const rows=(await pool.query(`
+    select tr.name tournament,d.name division,t.name team,r.status registration_status,r.payment_status,r.amount,r.checked_in_at
+    from registrations r join divisions d on d.id=r.division_id join tournaments tr on tr.id=d.tournament_id
+    left join teams t on t.id=r.team_id
+    where ($1::uuid is null or t.club_id=$1)
+    order by tr.start_at desc,t.name
+  `,[financeClub])).rows;
+  const q=v=>'"'+String(v??"").replaceAll('"','""')+'"';
+  const csv=["Tournament,Division,Team,Registration,Payment,Amount,CheckedIn",...rows.map(x=>[x.tournament,x.division,x.team,x.registration_status,x.payment_status,x.amount,x.checked_in_at].map(q).join(","))].join("\n");
+  res.setHeader("Content-Disposition","attachment; filename=pickle-tour-report.csv");res.type("text/csv; charset=utf-8").send("\ufeff"+csv);
+}));
+
+
+app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from tournaments where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=(await c.query(`
+      select
+        (select count(*)::int from registrations r join divisions d on d.id=r.division_id where d.tournament_id=$1) registrations,
+        (select count(*)::int from matches m join divisions d on d.id=m.division_id where d.tournament_id=$1) matches
+    `,[before.id])).rows[0];
+    if(deps.registrations>0||deps.matches>0){
+      const after=(await c.query("update tournaments set status='cancelled',public_visible=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"tournament",before.id,"ARCHIVE_TOURNAMENT",before,after,"Tournament has operational history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from tournaments where id=$1",[before.id]);
+    await audit(c,req.user,"tournament",before.id,"DELETE_TOURNAMENT",before,null,"Unused tournament");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const next={
+    name:req.body.name??before.name,
+    eventType:req.body.eventType??before.event_type,
+    format:req.body.format??before.format,
+    bestOf:Number(req.body.bestOf??before.best_of),
+    pointsToWin:Number(req.body.pointsToWin??before.points_to_win),
+    winByTwo:req.body.winByTwo??before.win_by_two,
+    advanceCount:Number(req.body.advanceCount??before.advance_count),
+    active:req.body.active??before.active
+  };
+  if(!next.name.trim())return res.status(400).json({error:"NAME_REQUIRED"});
+  if(!["singles","doubles","mixed_doubles","team"].includes(next.eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
+  if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(next.format))return res.status(400).json({error:"INVALID_FORMAT"});
+  if(![1,3,5].includes(next.bestOf)||![11,15,21].includes(next.pointsToWin)||next.advanceCount<1)return res.status(400).json({error:"INVALID_RULES"});
+  const after=(await pool.query(`
+    update divisions set name=$1,event_type=$2,format=$3,best_of=$4,points_to_win=$5,win_by_two=$6,advance_count=$7,active=$8,updated_at=now()
+    where id=$9 returning *
+  `,[next.name.trim(),next.eventType,next.format,next.bestOf,next.pointsToWin,Boolean(next.winByTwo),next.advanceCount,Boolean(next.active),req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_DIVISION',$3,$4)",[req.user.sub,after.id,before,after]);
+  await emitState();res.json(after);
+}));
+
+app.delete("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from divisions where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=(await c.query("select (select count(*)::int from matches where division_id=$1) matches,(select count(*)::int from registrations where division_id=$1) registrations",[before.id])).rows[0];
+    if(deps.matches>0||deps.registrations>0){
+      const after=(await c.query("update divisions set active=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"division",before.id,"ARCHIVE_DIVISION",before,after,"Division has history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from divisions where id=$1",[before.id]);
+    await audit(c,req.user,"division",before.id,"DELETE_DIVISION",before,null,"Unused division");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.delete("/api/courts/:id",authRequired,allow("super_admin","organizer"),courtManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from courts where id=$1 for update",[req.params.id])).rows[0];
+    if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from matches where court_id=$1)+(select count(*) from court_bookings where court_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update courts set active=false,updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"court",before.id,"ARCHIVE_COURT",before,after,"Court has usage history");
+      return {mode:"archived",entity:after};
+    }
+    await c.query("delete from courts where id=$1",[before.id]);
+    await audit(c,req.user,"court",before.id,"DELETE_COURT",before,null,"Unused court");
+    return {mode:"deleted"};
+  });
+  await emitState();res.json(result);
+}));
+
+app.patch("/api/clubs/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  if(req.user.role==="club_manager"&&req.params.id!==req.user.clubId)return res.status(403).json({error:"CLUB_SCOPE_FORBIDDEN"});
+  const before=(await pool.query("select * from clubs where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const name=String(req.body.name??before.name).trim();if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
+  const after=(await pool.query("update clubs set name=$1,city=$2,active=$3 where id=$4 returning *",[name,req.body.city??before.city,req.body.active??before.active,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'club',$2,'UPDATE_CLUB',$3,$4)",[req.user.sub,after.id,before,after]);res.json(after);
+}));
+app.delete("/api/clubs/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from clubs where id=$1 for update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from players where club_id=$1)+(select count(*) from teams where club_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update clubs set active=false where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"club",before.id,"ARCHIVE_CLUB",before,after,"Club has linked players/teams");return {mode:"archived",entity:after};
+    }
+    await c.query("delete from clubs where id=$1",[before.id]);await audit(c,req.user,"club",before.id,"DELETE_CLUB",before,null,"Unused club");return {mode:"deleted"};
+  });res.json(result);
+}));
+
+app.delete("/api/players/:id",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from players where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(!(await canEditPlayer(req.user,before.id)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
+  const after=(await pool.query("update players set active=false,updated_at=now() where id=$1 returning *",[req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'DEACTIVATE_PLAYER',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"deactivated",entity:after});
+}));
+
+app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
+  const after=await tx(async c=>{
+    const tid=(await c.query("select division_id from teams where id=$1",[req.params.id])).rows[0];if(!tid)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const d=(await c.query("select id,event_type from divisions where id=$1 for update",[tid.division_id])).rows[0];
+    // Team identity is stable; permit score-result FK checks while locking metadata.
+    const before=(await c.query("select * from teams where id=$1 for no key update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const oldIds=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[before.id])).rows.map(x=>x.player_id);
+    const status=req.body.status??before.status;
+    if(!["active","withdrawn"].includes(status))throw Object.assign(new Error("INVALID_TEAM_STATUS"),{status:400});
+    let ids=oldIds;
+    if(req.body.playerIds!==undefined){try{ids=validatePlayerIds(d.event_type,req.body.playerIds)}catch(error){throw Object.assign(error,{status:400})}}
+    const changed=ids.length!==oldIds.length||ids.some(id=>!oldIds.includes(id));
+    if(changed)await assertRosterEditable(c,before.id);
+    if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(c,before.division_id,ids,{currentTeamId:before.id});
+    let clubId=before.club_id;
+    if(req.body.clubId!==undefined){clubId=req.body.clubId||null;if(clubId&&clubId!==before.club_id&&!(await c.query("select id from clubs where id=$1 and active=true",[clubId])).rowCount)throw Object.assign(new Error("INVALID_CLUB"),{status:400})}
+    const name=String(req.body.name??before.name).trim();if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
+    if(changed)await c.query("delete from team_players where team_id=$1",[before.id]);
+    const row=(await c.query("update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *",[name,clubId,req.body.group??before.group_code,req.body.seed??before.seed,status,before.id])).rows[0];
+    if(changed)for(const id of ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[before.id,id]);
+    const result={...row,playerIds:ids};await audit(c,req.user,"team",before.id,"UPDATE_TEAM",{...before,playerIds:oldIds},result,"Cập nhật đội / cặp");return result;
+  });
+  await emitState();res.json(after);
+}));
+app.delete("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=(await c.query("select * from teams where id=$1 for update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    const deps=Number((await c.query("select ((select count(*) from matches where team_a_id=$1 or team_b_id=$1)+(select count(*) from registrations where team_id=$1))::int n",[before.id])).rows[0].n);
+    if(deps>0){
+      const after=(await c.query("update teams set status='withdrawn',updated_at=now() where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"team",before.id,"WITHDRAW_TEAM",before,after,"Team has operational history");return {mode:"withdrawn",entity:after};
+    }
+    await c.query("delete from teams where id=$1",[before.id]);await audit(c,req.user,"team",before.id,"DELETE_TEAM",before,null,"Unused team");return {mode:"deleted"};
+  });await emitState();res.json(result);
+}));
+
+app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
+  const after=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw scoreError("NOT_FOUND",404);
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    const b=req.body||{};assertScoreVersion(before,b);
+    if(b.status!==undefined&&b.status!==before.status)throw scoreError("USE_SCORE_ACTION");
+    const pair=await validateMatchAssignment(c,req.user,before,b);
+    const updated=(await c.query("update matches set stage=$1,scheduled_at=$2,court_id=$3,referee_user_id=$4,team_a_id=$5,team_b_id=$6,version=version+1 where id=$7 returning *",
+      [b.stage??before.stage,b.scheduledAt===undefined?before.scheduled_at:b.scheduledAt,b.courtId===undefined?before.court_id:b.courtId,b.refereeUserId===undefined?before.referee_user_id:b.refereeUserId,pair.a,pair.b,before.id])).rows[0];
+    await audit(c,req.user,"match",before.id,"UPDATE_MATCH",before,updated);return updated;
+  });await emitState();res.json(after);
+}));
+app.delete("/api/matches/:id",authRequired,allow("super_admin","organizer"),matchManageParam,wrap(async(req,res)=>{
+  const result=await tx(async c=>{
+    const before=await getMatch(c,req.params.id,true);if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(!(await authorizeMatch(c,req.user,before)))throw scoreError("FORBIDDEN",403);
+    assertScoreVersion(before,req.body||{});
+    if(["completed","walkover"].includes(before.status)||before.winner_team_id)throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});
+    const history=(await c.query("select 1 from score_events where match_id=$1 union all select 1 from match_sets where match_id=$1 limit 1",[before.id])).rowCount;
+    if(before.started_at||["live","cancelled"].includes(before.status)||before.current_score_a||before.current_score_b||history){
+      const after=(await c.query("update matches set status='cancelled',version=version+1 where id=$1 returning *",[before.id])).rows[0];
+      await audit(c,req.user,"match",before.id,"CANCEL_MATCH",before,after,"Match has started/history");return {mode:"cancelled",entity:after};
+    }
+    await c.query("delete from matches where id=$1",[before.id]);await audit(c,req.user,"match",before.id,"DELETE_MATCH",before,null,"Unused match");return {mode:"deleted"};
+  });await emitState();res.json(result);
+}));
+
+app.patch("/api/registrations/:id",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
+  const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const status=req.body.status??before.status,paymentStatus=req.body.paymentStatus??before.payment_status;
+  if(!["pending","approved","waitlist","cancelled"].includes(status))return res.status(400).json({error:"INVALID_STATUS"});
+  if(!["unpaid","pending","paid","refunded"].includes(paymentStatus))return res.status(400).json({error:"INVALID_PAYMENT_STATUS"});
+  const after=(await pool.query("update registrations set status=$1,payment_status=$2,amount=$3 where id=$4 returning *",[status,paymentStatus,req.body.amount??before.amount,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'registration',$2,'UPDATE_REGISTRATION',$3,$4)",[req.user.sub,after.id,before,after]);res.json(after);
+}));
+app.delete("/api/registrations/:id",authRequired,allow("super_admin","organizer"),registrationManageParam,wrap(async(req,res)=>{
+  const before=(await pool.query("select * from registrations where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const hasPayment=Number((await pool.query("select count(*)::int n from payment_records where registration_id=$1",[before.id])).rows[0].n);
+  if(hasPayment||before.checked_in_at){
+    const after=(await pool.query("update registrations set status='cancelled' where id=$1 returning *",[before.id])).rows[0];
+    await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'registration',$2,'CANCEL_REGISTRATION',$3,$4)",[req.user.sub,after.id,before,after]);return res.json({mode:"cancelled",entity:after});
+  }
+  await pool.query("delete from registrations where id=$1",[before.id]);await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data) values($1,'registration',$2,'DELETE_REGISTRATION',$3)",[req.user.sub,before.id,before]);res.json({mode:"deleted"});
+}));
+
+app.delete("/api/bookings/:id",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const before=(await pool.query("select * from court_bookings where id=$1",[req.params.id])).rows[0];if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const after=(await pool.query("update court_bookings set status='cancelled' where id=$1 returning *",[before.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'booking',$2,'CANCEL_BOOKING',$3,$4)",[req.user.sub,after.id,before,after]);res.json({mode:"cancelled",entity:after});
+}));
+
+app.get("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  let where="",params=[];
+  if(req.user.role==="organizer"){
+    const ids=await organizerTournamentIds(req.user);
+    where="where u.id=$1 or (u.role='referee' and u.tournament_id_scope=any($2::uuid[]))";
+    params=[req.user.sub,ids];
+  }
+  const {rows}=await pool.query(`
+    select u.id,u.email,u.display_name,u.role,u.active,u.created_at,u.club_id,c.name club_name,
+      u.tournament_id_scope,tr.name tournament_name
+    from app_users u
+    left join clubs c on c.id=u.club_id
+    left join tournaments tr on tr.id=u.tournament_id_scope
+    ${where}
+    order by case when u.role='super_admin' then 0 else 1 end,u.display_name
+  `,params);
+  res.json(rows);
+}));
+app.post("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const email=String(req.body.email||"").toLowerCase().trim(),name=String(req.body.name||"").trim();
+  const password=String(req.body.password||""),role=String(req.body.role||"");
+  if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(req.user.role==="organizer"&&role!=="referee")return res.status(403).json({error:"ORGANIZER_CAN_ONLY_CREATE_REFEREE"});
+  if(!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
+  if(!validPassword(password))return res.status(400).json({error:"PASSWORD_POLICY"});
+  if((await pool.query("select 1 from app_users where email=$1",[email])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const scopedRole=["club_manager","finance"].includes(role);
+  const clubId=scopedRole?(req.body.clubId||null):null;
+  if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
+  if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
+  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId||null):null;
+  if(req.user.role==="organizer"){
+    if(!tournamentId)return res.status(400).json({error:"TOURNAMENT_REQUIRED"});
+    if(!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
+  const h=await hashPassword(password);
+  const row=(await pool.query(`
+    insert into app_users(email,display_name,role,password_hash,club_id,tournament_id_scope)
+    values($1,$2,$3,$4,$5,$6)
+    returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
+  `,[email,name,role,h,clubId,tournamentId])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_CHILD_ACCOUNT',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  if(req.params.id===req.user.sub&&req.body.active===false)return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
+  const before=(await pool.query("select id,email,display_name,role,active,club_id,tournament_id_scope from app_users where id=$1",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="organizer"){
+    if(before.role!=="referee")return res.status(403).json({error:"ORGANIZER_CAN_ONLY_EDIT_REFEREE"});
+    if(!before.tournament_id_scope||!(await canManageTournament(req.user,before.tournament_id_scope)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }
+  if(before.role==="super_admin"&&before.id!==req.user.sub)return res.status(403).json({error:"OWNER_ACCOUNT_PROTECTED"});
+  const role=req.user.role==="organizer"?"referee":(before.role==="super_admin"?"super_admin":(req.body.role===undefined?before.role:String(req.body.role)));
+  if(before.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
+  const scopedRole=["club_manager","finance"].includes(role);
+  let clubId=scopedRole?(req.body.clubId??before.club_id??null):null;
+  if(role==="club_manager"&&!clubId)return res.status(400).json({error:"CLUB_REQUIRED"});
+  if(clubId&&!(await pool.query("select 1 from clubs where id=$1 and active=true",[clubId])).rowCount)return res.status(400).json({error:"INVALID_CLUB"});
+  let tournamentId=["organizer","referee"].includes(role)?(req.body.tournamentId===undefined?(before.tournament_id_scope||null):req.body.tournamentId):null;
+  if(req.user.role==="organizer"){
+    if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
+  let passwordHash=null;
+  if(req.body.password){
+    if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
+    passwordHash=await hashPassword(String(req.body.password));
+  }
+  const email=req.body.email?String(req.body.email).toLowerCase().trim():before.email;
+  const name=req.body.name===undefined?before.display_name:String(req.body.name).trim();
+  if(!name||!email)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  const duplicate=(await pool.query("select 1 from app_users where email=$1 and id<>$2",[email,req.params.id])).rowCount;
+  if(duplicate)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const after=(await pool.query(`
+    update app_users set display_name=$1,email=$2,role=$3,active=$4,password_hash=coalesce($5,password_hash),club_id=$6,tournament_id_scope=$7,
+      auth_version=auth_version+case when $5::text is null then 0 else 1 end
+    where id=$8 returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
+  `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,clubId,tournamentId,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_CHILD_ACCOUNT',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
+  res.json(after);
+}));
+
+app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  let where="where u.role='referee'",params=[];
+  if(req.user.role==="organizer"){
+    const ids=await organizerTournamentIds(req.user);
+    where+=" and u.tournament_id_scope=any($1::uuid[])";params=[ids];
+  }
+  const {rows}=await pool.query(`
+    select u.id,u.email,u.display_name,u.active,u.tournament_id_scope,tr.name tournament_name
+    from app_users u left join tournaments tr on tr.id=u.tournament_id_scope
+    ${where} order by u.display_name
+  `,params);res.json(rows);
+}));
+app.post("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const {email,name,password}=req.body;if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const normalized=String(email).toLowerCase().trim(),tournamentId=req.body.tournamentId||null;
+  if(!validEmail(normalized))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(String(name).trim().length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(!validPassword(String(password)))return res.status(400).json({error:"PASSWORD_POLICY"});
+  if((await pool.query("select 1 from app_users where email=$1",[normalized])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  if(req.user.role==="organizer"){
+    if(!tournamentId)return res.status(400).json({error:"TOURNAMENT_REQUIRED"});
+    if(!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
+  const h=await hashPassword(String(password));
+  const row=(await pool.query(`
+    insert into app_users(email,display_name,role,password_hash,tournament_id_scope)
+    values($1,$2,'referee',$3,$4)
+    returning id,email,display_name,role,active,tournament_id_scope
+  `,[normalized,String(name).trim(),h,tournamentId])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_REFEREE',$3)",[req.user.sub,row.id,row]);
+  res.status(201).json(row);
+}));
+app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
+  const before=(await pool.query("select id,email,display_name,role,active,tournament_id_scope from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
+  if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role==="organizer"&&(!before.tournament_id_scope||!(await canManageTournament(req.user,before.tournament_id_scope))))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  let tournamentId=req.body.tournamentId===undefined?(before.tournament_id_scope||null):req.body.tournamentId;
+  if(req.user.role==="organizer"){
+    if(!tournamentId||!(await canManageTournament(req.user,tournamentId)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});
+  }else if(tournamentId&&!(await pool.query("select 1 from tournaments where id=$1",[tournamentId])).rowCount){
+    return res.status(400).json({error:"INVALID_TOURNAMENT"});
+  }
+  let passwordHash=null;
+  if(req.body.password!==undefined){
+    if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
+    passwordHash=await hashPassword(String(req.body.password));
+  }
+  const nextEmail=req.body.email?String(req.body.email).toLowerCase().trim():null;
+  const nextName=req.body.name===undefined?null:String(req.body.name).trim();
+  if(nextEmail&&!validEmail(nextEmail))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(nextName&&nextName.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
+  if(nextEmail&&(await pool.query("select 1 from app_users where email=$1 and id<>$2",[nextEmail,req.params.id])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
+  const after=(await pool.query(`
+    update app_users set display_name=coalesce($1,display_name),email=coalesce($2,email),active=coalesce($3,active),
+      password_hash=coalesce($4,password_hash),tournament_id_scope=$5,
+      auth_version=auth_version+case when $4::text is null then 0 else 1 end
+    where id=$6 and role='referee'
+    returning id,email,display_name,role,active,tournament_id_scope
+  `,[nextName,nextEmail,req.body.active??null,passwordHash,tournamentId,req.params.id])).rows[0];
+  await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_REFEREE',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
+  res.json(after);
+}));
+
+app.get("/api/audit",authRequired,allow("super_admin"),wrap(async(req,res)=>{
+  const {rows}=await pool.query("select * from audit_logs order by created_at desc limit 500");res.json(rows);
+}));
+
+app.get("/api/health",wrap(async(req,res)=>{
+  const db=(await pool.query("select now() as now")).rows[0];
+  res.json({status:"ok",service:"pickle-tour",database:"ok",time:db.now});
+}));
+
+io.on("connection",socket=>{socket.emit("connected",{ok:true})});
+
+app.use("/assets",express.static(path.join(root,"assets"),{fallthrough:false,maxAge:isProduction?"1h":0}));
+app.use("/uploads/avatars",express.static(avatarDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
+app.use("/uploads/media",express.static(mediaDir,{fallthrough:false,maxAge:isProduction?"7d":0}));
+app.use("/uploads/receipts",authRequired,allow("super_admin","organizer","finance"),wrap(async(req,res,next)=>{
+  res.set("Cache-Control","private, no-store");
+  const filename=decodeURIComponent(req.path).replace(/^\//,"");
+  if(!/^receipt-[\w-]+\.(jpg|png|webp|pdf)$/.test(filename))return res.status(404).json({error:"NOT_FOUND"});
+  if(req.user.role!=="super_admin"){
+    const candidates=(await pool.query("select p.receipt_url,d.tournament_id,t.club_id from payment_records p join registrations r on r.id=p.registration_id join divisions d on d.id=r.division_id left join teams t on t.id=r.team_id where p.receipt_url is not null")).rows;
+    const linked=candidates.filter(r=>{try{return decodeURIComponent(new URL(r.receipt_url,"https://receipt.invalid").pathname)==="/uploads/receipts/"+filename}catch{return false}});
+    if(linked.length){
       const allowed=await Promise.all(linked.map(r=>req.user.role==="organizer"?canManageTournament(req.user,r.tournament_id):(!req.user.clubId||req.user.clubId===r.club_id)));
       if(!allowed.every(Boolean))return res.status(403).json({error:"FORBIDDEN"});
     }else if(!filename.startsWith(`receipt-${req.user.sub}-`))return res.status(403).json({error:"FORBIDDEN"});
@@ -31,3 +2270,21 @@ app.get("/robots.txt",(req,res)=>{
   res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nSitemap: ${base}/sitemap.xml\n`);
 });
 app.get("/sitemap.xml",wrap(async(req,res)=>{
+  const base=(process.env.PUBLIC_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+  const tours=(await pool.query("select id from tournaments where public_visible=true order by start_at desc")).rows;
+  const urls=[`${base}/`,`${base}/ranking.html`,`${base}/about.html`,...tours.map(t=>`${base}/tournament.html?id=${encodeURIComponent(t.id)}`)];
+  const xml='<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+urls.map(u=>`<url><loc>${u.replace(/&/g,"&amp;")}</loc></url>`).join("")+"</urlset>";
+  res.type("application/xml").send(xml);
+}));
+
+app.use((err,req,res,next)=>{
+  console.error(err);
+  if(err instanceof multer.MulterError){
+    const status=err.code==="LIMIT_FILE_SIZE"?413:400;
+    return res.status(status).json({error:err.code==="LIMIT_FILE_SIZE"?"UPLOAD_TOO_LARGE":"INVALID_UPLOAD"});
+  }
+  const status=Number(err.status)||500;
+  const error=status>=500?"SERVER_ERROR":(err.message||"REQUEST_FAILED");
+  res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{}),...(status<500&&Array.isArray(err.issues)?{issues:err.issues}:{})});
+});
+server.listen(port,()=>console.log(`Pickleup.vn listening on :${port}`));
