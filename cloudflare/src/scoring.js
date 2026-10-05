@@ -229,6 +229,37 @@ async function commit(env,user,m,sets,action,plan,at){
   }
 }
 
+async function autoCallNextOnCourt(env,user,m,at){
+  if(!m.court_id)return null;
+  const candidates=await rows(env,
+    "SELECT m.*,d.minimum_rest_minutes FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.court_id=? AND m.id<>? AND m.status IN ('scheduled','ready') AND COALESCE(m.court_state,'scheduled')='scheduled' AND m.team_a_id IS NOT NULL AND m.team_b_id IS NOT NULL ORDER BY COALESCE(m.scheduled_at,m.created_at),m.created_at",
+    m.court_id,m.id
+  );
+  const now=Date.parse(at);
+  for(const next of candidates){
+    const restMs=Math.max(0,Number(next.minimum_rest_minutes??15))*60000;
+    let eligible=true;
+    for(const teamId of [next.team_a_id,next.team_b_id]){
+      const last=await one(env,
+        "SELECT MAX(completed_at) AS completed_at FROM matches WHERE id<>? AND completed_at IS NOT NULL AND (team_a_id=? OR team_b_id=?)",
+        next.id,teamId,teamId
+      );
+      const lastMs=Date.parse(last?.completed_at||"");
+      if(Number.isFinite(lastMs)&&now-lastMs<restMs){eligible=false;break}
+    }
+    if(!eligible)continue;
+    const before={...next},after={...next,court_state:"called",called_at:at,version:Number(next.version||1)+1};
+    try{
+      await env.DB.batch([
+        statement(env,"UPDATE matches SET court_state='called',called_at=?,version=version+1 WHERE id=? AND version=? AND COALESCE(court_state,'scheduled')='scheduled'",at,next.id,next.version),
+        statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,'AUTO_CALL_NEXT',?,?,?)",user.id,next.id,JSON.stringify(before),JSON.stringify(after),"Tự gọi trận tiếp theo sau khi sân trống")
+      ]);
+      return next.id;
+    }catch(e){console.error("auto_call_next_failed",{matchId:next.id,error:String(e.message)})}
+  }
+  return null;
+}
+
 export async function handleScoring(request,env){
   const match=/^\/api\/matches\/([^/]+)\/([^/]+)\/?$/.exec(new URL(request.url).pathname);
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
@@ -242,6 +273,9 @@ export async function handleScoring(request,env){
   const sets=await rows(env,"SELECT * FROM match_sets WHERE match_id=? ORDER BY set_no",id),at=nowIso();
   const plan=action==="undo"?await undoPlan(env,m,sets):await mutationPlan(env,m,sets,action,body,at);
   await commit(env,user,m,sets,action,plan,at);
+  if(plan.after.match.status==="completed"){
+    try{await autoCallNextOnCourt(env,user,plan.after.match,at)}catch(e){console.error("auto_call_queue_failed",{matchId:id,error:String(e.message)})}
+  }
   // Delivery failure must never turn a committed score into a retryable failure.
   try{
     for(const room of ["public",m.tournament_id]){
