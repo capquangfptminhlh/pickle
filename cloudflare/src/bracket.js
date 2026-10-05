@@ -146,8 +146,29 @@ async function generateDouble(env,division,teams){
 export async function generateBracket(env,divisionId){
   const division=await one(env,"SELECT * FROM divisions WHERE id=?",divisionId);
   if(!division)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+  if(division.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
+
+  const existing=await rows(env,"SELECT id,status,winner_team_id,started_at,current_score_a,current_score_b FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL",divisionId);
+  if(existing.length){
+    const started=existing.some(m=>m.started_at||m.winner_team_id||["live","completed","walkover","cancelled"].includes(m.status)||Number(m.current_score_a||0)||Number(m.current_score_b||0));
+    throw Object.assign(new Error(started?"BRACKET_ALREADY_STARTED":"BRACKET_ALREADY_EXISTS"),{status:409});
+  }
+
+  if(division.format==="pool_to_knockout"){
+    const state=await loadState(env);
+    const active=state.teams.filter(t=>t.divisionId===divisionId&&t.status==="active");
+    const groups=[...new Set(active.map(t=>t.group||"A"))];
+    for(const group of groups){
+      const members=active.filter(t=>(t.group||"A")===group);
+      const expected=members.length*(members.length-1)/2;
+      const ids=new Set(members.map(t=>t.id));
+      const played=state.matches.filter(m=>m.divisionId===divisionId&&!m.bracketSlot&&ids.has(m.a)&&ids.has(m.b)&&["done","completed","walkover"].includes(m.status)&&m.winner);
+      if(played.length<expected)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+    }
+  }
+
   const teams=await qualifiers(env,division);
-  await env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL").bind(divisionId).run();
+  if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
   if(division.format==="double_elimination")return generateDouble(env,division,teams);
   return generateSingle(env,division,teams);
 }
