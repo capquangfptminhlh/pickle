@@ -530,7 +530,7 @@ async function handleApi(request,env){
     const at=nowIso();
     const after={...m,court_state:courtState,called_at:m.called_at,on_deck_at:m.on_deck_at,warmup_at:m.warmup_at,version:Number(m.version)+1};
     if(courtState==="scheduled"){after.called_at=null;after.on_deck_at=null;after.warmup_at=null}
-    if(courtState==="called")after.called_at=m.called_at||at;
+    if(courtState==="called")after.called_at=at;
     if(courtState==="on_deck"){after.called_at=m.called_at||at;after.on_deck_at=m.on_deck_at||at}
     if(courtState==="warming_up"){after.called_at=m.called_at||at;after.on_deck_at=m.on_deck_at||at;after.warmup_at=m.warmup_at||at}
     await env.DB.batch([
