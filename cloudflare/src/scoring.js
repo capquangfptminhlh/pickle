@@ -42,7 +42,7 @@ function ensureServeState(m){
 }
 function view(m,sets){
   return {id:m.id,divisionId:m.division_id,stage:m.stage,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",courtId:m.court_id||null,refereeId:m.referee_user_id||null,
-    status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,current:[m.current_score_a,m.current_score_b],sets:pairs(sets),winner:m.winner_team_id||null,
+    status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,current:[m.current_score_a,m.current_score_b],sets:pairs(sets),winner:m.winner_team_id||null,
     version:m.version,bracketSlot:m.bracket_slot||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||initialServerNumber(m)),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)}};
