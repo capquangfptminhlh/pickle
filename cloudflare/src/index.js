@@ -515,6 +515,122 @@ async function handleApi(request,env){
       .bind(after.court_id,after.referee_user_id,after.scheduled_at,p.id)]);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
+  p=route(path,"/api/divisions/:id/draw-config");
+  if(p&&method==="GET"){
+    const user=await userRequired(request,env);await assertDivision(env,user,p.id);
+    const row=await one(env,"SELECT value FROM app_settings WHERE key=?",`draw_config:${p.id}`);
+    return ok(safeJsonParse(row?.value,{}),request,env);
+  }
+  if(p&&method==="PUT"){
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    await assertDivision(env,user,p.id);
+    const b=await bodyJson(request),mode=["random","seeded","manual"].includes(String(b.mode))?String(b.mode):"random";
+    const groupCount=Math.max(1,Math.min(26,Number(b.groupCount||2)));
+    const teamsPerGroup=Math.max(2,Math.min(32,Number(b.teamsPerGroup||4)));
+    const advanceCount=Math.max(1,Math.min(16,Number(b.advanceCount||2)));
+    const config={mode,groupCount,teamsPerGroup,advanceCount,courtIds:Array.isArray(b.courtIds)?b.courtIds.filter(Boolean):[],groupCourts:b.groupCourts&&typeof b.groupCourts==="object"?b.groupCourts:{},manualAssignments:b.manualAssignments&&typeof b.manualAssignments==="object"?b.manualAssignments:{}};
+    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at")
+      .bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()).run();
+    return ok(config,request,env);
+  }
+  p=route(path,"/api/divisions/:id/run-draw");
+  if(p&&method==="POST"){
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
+    const tournament=await one(env,"SELECT id,name,public_visible FROM tournaments WHERE id=?",tid);
+    const teams=await rows(env,"SELECT id,name,seed,group_code FROM teams WHERE division_id=? AND status='active' ORDER BY COALESCE(seed,9999),name",p.id);
+    if(teams.length<2)return fail("NOT_ENOUGH_TEAMS",request,env,400);
+    const old=await rows(env,"SELECT id,status,winner_team_id FROM matches WHERE division_id=? AND bracket_slot IS NULL AND (stage LIKE 'Bảng %' OR stage='Vòng bảng')",p.id);
+    if(old.some(m=>["live","completed","walkover"].includes(m.status)||m.winner_team_id))return fail("GROUP_STAGE_ALREADY_STARTED",request,env,409);
+    if(old.length){
+      const history=await one(env,"SELECT COUNT(*) AS n FROM score_events se JOIN matches m ON m.id=se.match_id WHERE m.division_id=? AND m.bracket_slot IS NULL AND (m.stage LIKE 'Bảng %' OR m.stage='Vòng bảng')",p.id);
+      if(Number(history?.n||0)>0)return fail("GROUP_STAGE_ALREADY_STARTED",request,env,409);
+    }
+    const mode=["random","seeded","manual"].includes(String(b.mode))?String(b.mode):"random";
+    const teamsPerGroup=Math.max(2,Math.min(32,Number(b.teamsPerGroup||4)));
+    let groupCount=Math.max(1,Math.min(26,Number(b.groupCount||Math.ceil(teams.length/teamsPerGroup))));
+    groupCount=Math.min(groupCount,teams.length);
+    if(teams.length<groupCount*2)return fail("GROUP_TOO_SMALL",request,env,400);
+    const labels=Array.from({length:groupCount},(_,i)=>String.fromCharCode(65+i));
+    const assignments={};
+    if(mode==="manual"){
+      const manual=b.manualAssignments&&typeof b.manualAssignments==="object"?b.manualAssignments:{};
+      for(const team of teams){
+        const g=String(manual[team.id]||"").toUpperCase();
+        if(!labels.includes(g))return fail("MANUAL_GROUP_ASSIGNMENT_REQUIRED",request,env,400);
+        assignments[team.id]=g;
+      }
+    }else{
+      let ordered=[...teams];
+      if(mode==="random"){
+        for(let i=ordered.length-1;i>0;i--){
+          const r=new Uint32Array(1);crypto.getRandomValues(r);
+          const j=Math.floor((r[0]/4294967296)*(i+1));
+          [ordered[i],ordered[j]]=[ordered[j],ordered[i]];
+        }
+        ordered.forEach((team,i)=>assignments[team.id]=labels[i%groupCount]);
+      }else{
+        ordered.sort((a,b)=>Number(a.seed||9999)-Number(b.seed||9999)||String(a.name).localeCompare(String(b.name),"vi"));
+        ordered.forEach((team,i)=>{
+          const cycle=Math.floor(i/groupCount),offset=i%groupCount;
+          const gi=cycle%2===0?offset:(groupCount-1-offset);
+          assignments[team.id]=labels[gi];
+        });
+      }
+    }
+    const grouped=new Map(labels.map(g=>[g,[]]));
+    for(const team of teams)grouped.get(assignments[team.id]).push(team);
+    const sizes=[...grouped.values()].map(x=>x.length);
+    if(Math.min(...sizes)<2)return fail("GROUP_TOO_SMALL",request,env,400);
+    if(mode!=="manual"&&Math.max(...sizes)>teamsPerGroup)return fail("GROUP_CAPACITY_EXCEEDED",request,env,400);
+    const advanceCount=Math.max(1,Math.min(16,Number(b.advanceCount||division.advance_count||2)));
+    if(advanceCount>Math.min(...sizes))return fail("ADVANCE_COUNT_TOO_HIGH",request,env,400);
+
+    const activeCourts=await rows(env,"SELECT id,name,sort_order FROM courts WHERE tournament_id=? AND active=1 ORDER BY sort_order,name",tid);
+    if(!activeCourts.length)return fail("NO_COURTS",request,env,400);
+    const activeCourtIds=new Set(activeCourts.map(x=>x.id));
+    let courtIds=(Array.isArray(b.courtIds)?b.courtIds:[]).filter(id=>activeCourtIds.has(id));
+    if(!courtIds.length)courtIds=activeCourts.map(x=>x.id);
+    const rawGroupCourts=b.groupCourts&&typeof b.groupCourts==="object"?b.groupCourts:{};
+    const groupCourts={};
+    for(const g of labels){
+      let chosen=(Array.isArray(rawGroupCourts[g])?rawGroupCourts[g]:[]).filter(id=>courtIds.includes(id));
+      if(!chosen.length)chosen=[...courtIds];
+      groupCourts[g]=chosen;
+    }
+    const publicPayload={tournamentId:tid,tournamentName:tournament?.name||"",divisionId:p.id,divisionName:division?.name||"",teamCount:teams.length,groupCount,mode};
+    if(tournament?.public_visible)await broadcast(env,"draw:start",publicPayload,"public");
+    await broadcast(env,"draw:start",publicPayload,tid);
+
+    await env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NULL AND (stage LIKE 'Bảng %' OR stage='Vòng bảng')").bind(p.id).run();
+    await env.DB.prepare("UPDATE divisions SET advance_count=?,updated_at=? WHERE id=?").bind(advanceCount,nowIso(),p.id).run();
+    for(const team of teams)await env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(assignments[team.id],nowIso(),team.id).run();
+
+    let created=0;
+    const groupSummary=[];
+    for(const g of labels){
+      const list=grouped.get(g),courtPool=groupCourts[g];let ci=0;
+      for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+        const courtId=courtPool[ci++%courtPool.length];
+        await env.DB.prepare("INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,?,'scheduled',1,?)")
+          .bind(uid(),p.id,courtId,list[i].id,list[j].id,"Bảng "+g,nowIso()).run();
+        created++;
+      }
+      groupSummary.push({group:g,count:list.length,courtIds:courtPool});
+    }
+    const config={mode,groupCount,teamsPerGroup,advanceCount,courtIds,groupCourts,manualAssignments:mode==="manual"?assignments:{}};
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()),
+      env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) VALUES(?,'division',?,'RUN_GROUP_DRAW',?,?)").bind(user.id,p.id,JSON.stringify({config,groupSummary,created}),"Bốc thăm chia bảng và xếp sân")
+    ]);
+    const teamById=new Map(teams.map(x=>[x.id,x]));
+    const donePayload={...publicPayload,advanceCount,created,groups:groupSummary,assignments:Object.entries(assignments).map(([teamId,group])=>({teamId,teamName:teamById.get(teamId)?.name||"",group}))};
+    if(tournament?.public_visible)await broadcast(env,"draw:complete",donePayload,"public");
+    await broadcast(env,"draw:complete",donePayload,tid);
+    await emitUpdate(env,tid);
+    return ok({ok:true,...donePayload,config},request,env);
+  }
   p=route(path,"/api/divisions/:id/auto-seed-groups");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),count=Math.max(1,Math.min(26,Number(b.groupCount||2)));
