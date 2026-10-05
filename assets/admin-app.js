@@ -53,9 +53,12 @@ const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa
 const escHtml=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
 const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
+const courtStateMeta=s=>({scheduled:["Chờ","scheduled"],called:["Đang gọi VĐV","called"],on_deck:["On deck","on_deck"],warming_up:["Khởi động","warming_up"],live:["Đang đấu","live"],done:["Hoàn tất","done"]}[s]||["Chờ","scheduled"]);
+const nextCourtState=s=>({scheduled:["called","📣 Gọi VĐV"],called:["on_deck","⏭ On deck"],on_deck:["warming_up","🔥 Khởi động"]}[s]||null);
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
+const canOperateMatch=()=>canManage()||user?.role==="referee";
 const canRoster=()=>["super_admin","organizer","referee","club_manager"].includes(user?.role);
 const canCreatePlayer=()=>["super_admin","organizer","club_manager"].includes(user?.role);
 const canFinance=()=>["super_admin","organizer","finance"].includes(user?.role);
@@ -100,14 +103,17 @@ function renderNav(){
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){
   const scoreBtn=m.status!=="cancelled"&&m.a!=="TBD"&&m.b!=="TBD"?`<button class="mini" data-score-match="${m.id}">${m.status==="done"?"Xem điểm / Undo":"Nhập điểm"}</button>`:"";
+  const queueState=m.status==="live"?"live":m.status==="done"?"done":(m.courtState||"scheduled"),meta=courtStateMeta(queueState),next=nextCourtState(queueState);
+  const queueActions=canOperateMatch()&&m.status==="wait"&&next?`<button class="mini" data-court-state-value="${next[0]}" data-court-state-match="${m.id}">${next[1]}</button>`:"";
+  const resetQueue=canManage()&&m.status==="wait"&&queueState!=="scheduled"?`<button class="mini" data-court-state-value="scheduled" data-court-state-match="${m.id}">↶ Chờ</button>`:"";
   return `<div class="match-card" data-match-card="${m.id}" data-match-court="${m.courtId||""}" data-match-status="${m.status}">
-    <div class="match-top"><span>${m.time} • Sân ${m.court} • ${m.stage}</span>${statusBadge(m.status)}</div>
+    <div class="match-top"><span>${m.time} • Sân ${m.court} • ${m.stage}</span><div class="actions">${statusBadge(m.status)}<span class="court-state-chip ${meta[1]}">${meta[0]}</span></div></div>
     <div class="versus">
       <div class="team"><strong>${teamName(m.a)}</strong><small>${state.teams.find(t=>t.id===m.a)?.club||""}</small></div>
       <div class="vs">${m.status==="done"?`<span class="score-final">${resultText(m)}</span>`:"VS"}</div>
       <div class="team"><strong>${teamName(m.b)}</strong><small>${state.teams.find(t=>t.id===m.b)?.club||""}</small></div>
     </div>
-    <div class="actions" style="margin-top:12px">${scoreBtn}<button class="mini" data-match-detail="${m.id}">Chi tiết</button></div>
+    <div class="actions" style="margin-top:12px">${queueActions}${resetQueue}${scoreBtn}<button class="mini" data-match-detail="${m.id}">Chi tiết</button></div>
   </div>`;
 }
 async function dashboard(){
@@ -349,7 +355,7 @@ function matchesPage(scoreOnly=false){
       <div id="matchList">${arr.map(matchCard).join("")||'<div class="empty">Không có trận.</div>'}<div class="empty" id="matchFilterEmpty" hidden>Không có trận phù hợp bộ lọc.</div></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h2>Tình trạng sân</h2><p>Live court monitor</p></div></div>
-      ${state.courts.length?state.courts.map(c=>{const m=state.matches.find(x=>x.courtId===c.id&&x.status==="live");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
+      ${state.courts.length?state.courts.map(c=>{const live=state.matches.find(x=>x.courtId===c.id&&x.status==="live"),queued=state.matches.filter(x=>x.courtId===c.id&&x.status==="wait"&&x.courtState&&x.courtState!=="scheduled").sort((a,b)=>({warming_up:0,on_deck:1,called:2}[a.courtState]??9)-({warming_up:0,on_deck:1,called:2}[b.courtState]??9))[0],m=live||queued,meta=courtStateMeta(live?"live":queued?.courtState||"scheduled");return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #edf1ef"><div><strong>${c.name}</strong><div style="font-size:12px;color:#73847b;margin-top:4px">${m?teamName(m.a)+" vs "+teamName(m.b):"Đang trống"}</div></div>${m?`<span class="court-state-chip ${meta[1]}">${meta[0]}</span>`:'<span class="badge done">TRỐNG</span>'}</div>`}).join(""):'<div class="empty">Chưa khai báo sân.</div>'}
     </div></div>`;
 }
 function calcGroup(did,g){
@@ -388,7 +394,7 @@ function bracket(){
 function courts(){
   setHeader("Sân thi đấu","Theo dõi và cấu hình sân theo giải");
   const activeCourts=state.courts.filter(c=>c.active!==false);
-  const cards=activeCourts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),next=state.matches.find(m=>m.courtId===c.id&&m.status==="wait");return `<div class="panel" data-court-card="${c.id}"><div class="panel-head"><h2>${c.name}</h2>${live?'<span class="badge live">LIVE</span>':'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${live?teamName(live.a)+" vs "+teamName(live.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
+  const cards=activeCourts.map(c=>{const live=state.matches.find(m=>m.courtId===c.id&&m.status==="live"),waiting=state.matches.filter(m=>m.courtId===c.id&&m.status==="wait").sort((a,b)=>({warming_up:0,on_deck:1,called:2,scheduled:3}[a.courtState||"scheduled"]??4)-({warming_up:0,on_deck:1,called:2,scheduled:3}[b.courtState||"scheduled"]??4)||String(a.scheduledAt||"").localeCompare(String(b.scheduledAt||""))),active=live||waiting.find(m=>(m.courtState||"scheduled")!=="scheduled"),next=waiting.find(m=>m.id!==active?.id),meta=courtStateMeta(live?"live":active?.courtState||"scheduled");return `<div class="panel" data-court-card="${c.id}"><div class="panel-head"><h2>${c.name}</h2>${active?`<span class="court-state-chip ${meta[1]}">${meta[0]}</span>`:'<span class="badge done">TRỐNG</span>'}</div><p style="font-size:13px"><b>Hiện tại:</b> ${active?teamName(active.a)+" vs "+teamName(active.b):"Không có trận"}</p><p style="font-size:12px;color:#73847b"><b>Tiếp theo:</b> ${next?next.time+" • "+teamName(next.a)+" vs "+teamName(next.b):"Chưa xếp"}</p></div>`});
   return `<div class="panel-head"><div><h2>Danh sách sân</h2><p>${activeCourts.length} sân hoạt động • mặc định 6 sân / giải</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="courtCount">Cấu hình số sân</button><button class="btn primary" data-action="newCourt">Thêm sân</button></div>':""}</div><div class="page-grid">${cards.join("")||'<div class="panel empty">Chưa khai báo sân.</div>'}</div>`;
 }
 async function refereesPage(){
@@ -492,6 +498,7 @@ function bindDynamic(){
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=e=>{e.stopPropagation();switchAdminPage(b.dataset.goto)});
   document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
+  document.querySelectorAll("[data-court-state-value]").forEach(b=>b.onclick=()=>updateCourtState(b.dataset.courtStateMatch,b.dataset.courtStateValue));
   document.querySelectorAll('[data-action="newTournament"]').forEach(b=>b.onclick=openTournamentModal);
   document.querySelectorAll('[data-action="newDivision"]').forEach(b=>b.onclick=openDivisionModal);
   document.querySelectorAll('[data-action="newCourt"]').forEach(b=>b.onclick=openCourtModal);
@@ -534,6 +541,11 @@ async function openReceiptModal(value){
   }catch(e){toast(e.status===403?"Bạn không có quyền xem biên nhận này.":e.status===401?"Phiên đăng nhập đã hết hạn.":"Không thể mở biên nhận.")}
 }
 function divisionForMatch(m){return state.divisions.find(d=>d.id===m.divisionId)}
+async function updateCourtState(id,courtState){
+  const m=state.matches.find(x=>x.id===id);if(!m)return;
+  try{await API.setCourtState(id,{courtState,expectedVersion:m.version});await refresh();toast("Đã cập nhật điều phối sân.")}
+  catch(e){if(e.message==="VERSION_CONFLICT")await refresh();toast(scoreError(e))}
+}
 function openScore(id){
   activeMatch=state.matches.find(m=>m.id===id);if(!activeMatch)return;
   if(activeMatch.a==="TBD"||activeMatch.b==="TBD"){toast("Chưa xác định đủ hai đội.");return}
@@ -564,11 +576,30 @@ function openScore(id){
 function syncScoreDialog(){
   if(!activeMatch)return;
   const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
   $("#scoreA").textContent=a;$("#scoreB").textContent=b;
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
+  const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
+  const serveSide=activeMatch.servingSide||"A",serverNo=Number(activeMatch.serverNumber||(isDoubles?2:1));
+  if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=mode==="rally"?"Rally scoring":"Side-out";
+  if($("#serveStatus"))$("#serveStatus").textContent=(serveSide==="A"?teamName(activeMatch.a):teamName(activeMatch.b))+(mode==="rally"?" • quyền giao":" • Server "+serverNo);
+  if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/2";
+  if($("#timeoutB"))$("#timeoutB").textContent=Number(activeMatch.timeouts?.B||0)+"/2";
+  if($("#medicalA"))$("#medicalA").textContent=Number(activeMatch.medicalTimeouts?.A||0)+"/1";
+  if($("#medicalB"))$("#medicalB").textContent=Number(activeMatch.medicalTimeouts?.B||0)+"/1";
+  document.querySelectorAll("[data-service-side]").forEach(btn=>{
+    const side=btn.dataset.serviceSide,no=Number(btn.dataset.serverNumber);
+    btn.classList.toggle("active",side===serveSide&&(mode==="rally"||no===serverNo));
+    btn.disabled=locked||(!isDoubles&&no===2)||(mode==="rally"&&no===2);
+  });
+  document.querySelectorAll("[data-rally]").forEach(btn=>btn.disabled=locked);
+  document.querySelectorAll("[data-timeout-side]").forEach(btn=>{
+    const side=btn.dataset.timeoutSide,kind=btn.dataset.timeoutKind;
+    const used=Number((kind==="medical"?activeMatch.medicalTimeouts:activeMatch.timeouts)?.[side]||0),limit=kind==="medical"?1:2;
+    btn.disabled=locked||used>=limit;
+  });
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
   const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
-  const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
   $("#finishSet").disabled=locked||!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
@@ -604,6 +635,7 @@ function scoreError(e){
     MATCH_COMPLETED:"Trận đã kết thúc. Hãy Undo trước khi sửa điểm.",MATCH_CANCELLED:"Trận đã hủy.",MATCH_TEAMS_REQUIRED:"Chưa xác định đủ hai đội.",
     INVALID_WINNER:"Đội thắng không khớp với tỉ số.",MATCH_ROSTER_LOCKED:"Trận đã có lịch sử thi đấu, không thể đổi hai đội.",
     INVALID_COURT_SCOPE:"Sân phải đang hoạt động và thuộc giải này.",INVALID_REFEREE_SCOPE:"Trọng tài phải đang hoạt động và được cấp quyền cho giải này.",
+    INVALID_SERVICE:"Trạng thái giao bóng không hợp lệ.",INVALID_TIMEOUT:"Timeout không hợp lệ.",TIMEOUT_LIMIT:"Đội này đã dùng đủ 2 timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội này đã dùng medical timeout.",INVALID_COURT_STATE:"Trạng thái điều phối sân không hợp lệ.",
     INVALID_TEAMS:"Chọn hai đội đang hoạt động thuộc cùng nội dung.",BRACKET_SLOT_OCCUPIED:"Vị trí ở nhánh sau đã có đội khác. Hãy kiểm tra bracket."}[e.message]||"Không thể lưu: "+e.message;
 }
 async function showScoreError(e){if(e.message==="VERSION_CONFLICT")await refresh({keepDialog:true});toast(scoreError(e))}
@@ -651,6 +683,21 @@ async function scorePoint(side,delta){
     await refresh({keepDialog:true});
   }catch(e){await showScoreError(e)}
   finally{busy=false}
+}
+async function rallyPoint(side){
+  if(busy||!activeMatch)return;busy=true;
+  try{await API.rally(activeMatch.id,{side,expectedVersion:activeMatch.version});await refresh({keepDialog:true})}
+  catch(e){await showScoreError(e)}finally{busy=false}
+}
+async function setService(side,serverNumber){
+  if(busy||!activeMatch)return;busy=true;
+  try{await API.service(activeMatch.id,{side,serverNumber:Number(serverNumber),expectedVersion:activeMatch.version});await refresh({keepDialog:true})}
+  catch(e){await showScoreError(e)}finally{busy=false}
+}
+async function useTimeout(side,kind){
+  if(busy||!activeMatch)return;busy=true;
+  try{await API.timeout(activeMatch.id,{side,kind,expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast(kind==="medical"?"Đã ghi medical timeout.":"Đã ghi timeout.")}
+  catch(e){await showScoreError(e)}finally{busy=false}
 }
 async function finishSet(){
   if(busy||!activeMatch)return;busy=true;
@@ -1186,7 +1233,12 @@ async function openEditUserModal(id){
     $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
   }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",ORGANIZER_CAN_ONLY_EDIT_REFEREE:"Chủ giải chỉ được quản lý tài khoản trọng tài.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
-document.addEventListener("click",e=>{const b=e.target.closest("[data-score]");if(b&&activeMatch)scorePoint(b.dataset.score,Number(b.dataset.delta))});
+document.addEventListener("click",e=>{
+  const score=e.target.closest("[data-score]");if(score&&activeMatch)return scorePoint(score.dataset.score,Number(score.dataset.delta));
+  const rally=e.target.closest("[data-rally]");if(rally&&activeMatch)return rallyPoint(rally.dataset.rally);
+  const service=e.target.closest("[data-service-side]");if(service&&activeMatch)return setService(service.dataset.serviceSide,service.dataset.serverNumber);
+  const timeout=e.target.closest("[data-timeout-side]");if(timeout&&activeMatch)return useTimeout(timeout.dataset.timeoutSide,timeout.dataset.timeoutKind);
+});
 $("#finishSet").onclick=finishSet;$("#finishMatch").onclick=finishMatch;$("#undoScore").onclick=undoScore;
 $("#saveQuickScore")?.addEventListener("click",saveQuickScore);
 $("#mobileMenu").onclick=()=>$("#sidebar").classList.toggle("open");

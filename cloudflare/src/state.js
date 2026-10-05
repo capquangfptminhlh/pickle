@@ -13,7 +13,7 @@ function fmtDate(value){
   if(!value)return "Chưa chốt";
   try{return new Date(value).toLocaleDateString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}catch{return "Chưa chốt"}
 }
-function publicStatus(s){return s==="scheduled"?"wait":s==="completed"?"done":s}
+function publicStatus(s){return ["scheduled","ready"].includes(s)?"wait":s==="completed"?"done":s}
 
 export async function loadState(env,{publicOnly=false}={}){
   const tournamentsRaw=await rows(env,
@@ -113,7 +113,10 @@ export async function loadState(env,{publicOnly=false}={}){
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,
     courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,
-    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null
+    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
+    courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
+    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   }));
 
   for(const division of divisionsRaw){

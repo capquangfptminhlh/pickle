@@ -633,3 +633,28 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
   .player-picker-selected{align-items:flex-start;flex-direction:column}
   .player-picker-selected>.mini{width:100%;justify-content:center}
 }
+
+.referee-console{margin:12px 0;padding:13px;border:1px solid var(--line);border-radius:18px;background:#f8fbf9;display:grid;gap:10px}
+.referee-console-head{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.referee-console-head>div{padding:10px 12px;border-radius:14px;background:#fff;border:1px solid #e7ece9}
+.referee-console-head small{display:block;font-size:9px;letter-spacing:.12em;color:var(--muted);font-weight:850}
+.referee-console-head strong{display:block;margin-top:3px;font-size:14px;color:#173c2c}
+.rally-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rally-controls .btn{min-height:48px}
+.service-controls,.timeout-controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.service-controls>span{font-size:11px;font-weight:850;color:var(--muted);margin-right:2px}
+.service-controls .mini.active{background:#173c2c;color:#fff}
+.timeout-controls .mini{background:#fff;border:1px solid #e2e9e5}
+.referee-console-note{color:var(--muted);line-height:1.4}
+.court-state-chip{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#eef4f1;color:#416052;font-size:10px;font-weight:850}
+.court-state-chip.called{background:#fff2cc;color:#8a6200}
+.court-state-chip.on_deck{background:#e8f0ff;color:#285aa8}
+.court-state-chip.warming_up{background:#f0e9ff;color:#6e46a5}
+.court-state-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+@media(max-width:760px){
+  .referee-console{background:#fff;border:0;box-shadow:0 6px 18px rgba(17,45,30,.04)}
+  .rally-controls .btn{min-height:54px;font-size:13px}
+  .service-controls,.timeout-controls{display:grid;grid-template-columns:1fr 1fr}
+  .service-controls>span{grid-column:1/-1}
+  .service-controls .mini,.timeout-controls .mini{width:100%;min-height:40px}
+}

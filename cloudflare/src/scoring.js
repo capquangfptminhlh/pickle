@@ -3,8 +3,9 @@ import {bodyJson,ok,fail,nowIso,uid,safeJsonParse} from "./util.js";
 import {broadcast} from "./realtime.js";
 import {validateSet,validateSeries} from "../../shared/scoring-rules.js";
 
-const scoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
-const actions=new Set(["point","finish-set","quick-score","finish","special-result","undo"]);
+const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
+const scoringFields=[...legacyScoringFields,"court_state","serving_side","server_number","timeout_a","timeout_b","medical_timeout_a","medical_timeout_b"];
+const actions=new Set(["point","rally","service","timeout","finish-set","quick-score","finish","special-result","undo"]);
 const error=(code,status=400)=>Object.assign(new Error(code),{status});
 const one=(env,sql,...args)=>env.DB.prepare(sql).bind(...args).first();
 const rows=async(env,sql,...args)=>(await env.DB.prepare(sql).bind(...args).all()).results||[];
@@ -30,13 +31,21 @@ function locked(m,sets){
 }
 function setRow(id,no,a,b){return {id:uid(),match_id:id,set_no:no,score_a:a,score_b:b,completed:1}}
 function complete(m,winner,at){
-  m.status="completed";m.winner_team_id=winner;m.completed_at=at;
+  m.status="completed";m.court_state="done";m.winner_team_id=winner;m.completed_at=at;
   m.current_score_a=0;m.current_score_b=0;m.result_reason=null;m.result_note=null;
+}
+function initialServerNumber(m){return ["doubles","mixed_doubles","team"].includes(String(m.event_type||""))?2:1}
+function ensureServeState(m){
+  if(!["A","B"].includes(m.serving_side))m.serving_side="A";
+  if(![1,2].includes(Number(m.server_number)))m.server_number=initialServerNumber(m);
+  if(!["doubles","mixed_doubles","team"].includes(String(m.event_type||"")))m.server_number=1;
 }
 function view(m,sets){
   return {id:m.id,divisionId:m.division_id,stage:m.stage,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",courtId:m.court_id||null,refereeId:m.referee_user_id||null,
-    status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,current:[m.current_score_a,m.current_score_b],sets:pairs(sets),winner:m.winner_team_id||null,
-    version:m.version,bracketSlot:m.bracket_slot||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,startedAt:m.started_at||null,completedAt:m.completed_at||null};
+    status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,current:[m.current_score_a,m.current_score_b],sets:pairs(sets),winner:m.winner_team_id||null,
+    version:m.version,bracketSlot:m.bracket_slot||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
+    courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||initialServerNumber(m)),
+    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)}};
 }
 
 async function bracketChanges(env,m,winner,restore=null){
@@ -108,7 +117,8 @@ async function undoPlan(env,m,sets){
   if(!event)throw error("NOTHING_TO_UNDO");
   const payload=safeJsonParse(event.payload,{});
   const before=payload.before?.match&&Array.isArray(payload.before.sets)?payload.before:await legacyBefore(env,m,sets,event,payload);
-  for(const field of scoringFields)if(!(field in before.match))throw error("UNDO_HISTORY_UNAVAILABLE",409);
+  for(const field of legacyScoringFields)if(!(field in before.match))throw error("UNDO_HISTORY_UNAVAILABLE",409);
+  for(const field of scoringFields)if(!(field in before.match))before.match[field]=m[field]??null;
   const after=snapshot(m,before.sets);
   for(const field of scoringFields)after.match[field]=before.match[field];
   // Participation history remains durable even after reversing the first point.
@@ -131,9 +141,44 @@ async function mutationPlan(env,m,sets,action,body,at){
     if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw error("INVALID_CURRENT_SCORE",409);
     if(!series(m,sets,false).valid||series(m,sets,false).winner)throw error("MATCH_NOT_PLAYABLE",409);
     const column=body.side==="A"?"current_score_a":"current_score_b";
-    next[column]=Math.max(0,next[column]+delta);next.status="live";next.started_at=m.started_at||at;
+    next[column]=Math.max(0,next[column]+delta);next.status="live";next.court_state="live";next.started_at=m.started_at||at;
     if(!Number.isSafeInteger(next[column]))throw error("INVALID_CURRENT_SCORE",409);
-    payload={side:body.side,delta};
+    payload={side:body.side,delta,manual:true};
+  }else if(action==="rally"){
+    const side=String(body.side||"").toUpperCase();
+    if(!["A","B"].includes(side))throw error("BAD_SCORE_ACTION");
+    if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw error("INVALID_CURRENT_SCORE",409);
+    if(!series(m,sets,false).valid||series(m,sets,false).winner)throw error("MATCH_NOT_PLAYABLE",409);
+    ensureServeState(next);
+    const serveBefore=next.serving_side,serverBefore=Number(next.server_number);
+    let scored=false,sideOut=false;
+    if(String(m.scoring_mode||"side_out")==="rally"){
+      const column=side==="A"?"current_score_a":"current_score_b";
+      next[column]+=1;next.serving_side=side;next.server_number=1;scored=true;
+    }else if(side===next.serving_side){
+      const column=side==="A"?"current_score_a":"current_score_b";
+      next[column]+=1;scored=true;
+    }else if(["doubles","mixed_doubles","team"].includes(String(m.event_type||""))&&Number(next.server_number)===1){
+      next.server_number=2;
+    }else{
+      next.serving_side=side;next.server_number=1;sideOut=true;
+    }
+    next.status="live";next.court_state="live";next.started_at=m.started_at||at;
+    payload={side,scored,sideOut,serveBefore,serverBefore,serveAfter:next.serving_side,serverAfter:Number(next.server_number),mode:m.scoring_mode||"side_out"};
+  }else if(action==="service"){
+    const side=String(body.side||"").toUpperCase();
+    if(!["A","B"].includes(side))throw error("INVALID_SERVICE");
+    next.serving_side=side;
+    next.server_number=["doubles","mixed_doubles","team"].includes(String(m.event_type||""))?Number(body.serverNumber||1):1;
+    if(![1,2].includes(Number(next.server_number)))throw error("INVALID_SERVICE");
+    eventType="CORRECTION";payload={service:true,side,serverNumber:Number(next.server_number)};
+  }else if(action==="timeout"){
+    const side=String(body.side||"").toUpperCase(),kind=String(body.kind||"standard");
+    if(!["A","B"].includes(side)||!["standard","medical"].includes(kind))throw error("INVALID_TIMEOUT");
+    const column=(kind==="medical"?"medical_timeout_":"timeout_")+side.toLowerCase();
+    const limit=kind==="medical"?1:2,current=Number(next[column]||0);
+    if(current>=limit)throw error(kind==="medical"?"MEDICAL_TIMEOUT_LIMIT":"TIMEOUT_LIMIT",409);
+    next[column]=current+1;eventType="CORRECTION";payload={timeout:true,side,kind,count:next[column]};
   }else if(action==="quick-score"){
     if(!Array.isArray(body.sets)||!body.sets.length)throw error("NO_SETS_PROVIDED");
     const result=validateSeries(body.sets,Number(m.best_of),Number(m.points_to_win),Boolean(m.win_by_two));
@@ -146,7 +191,8 @@ async function mutationPlan(env,m,sets,action,body,at){
       after.sets.push(setRow(m.id,Math.max(0,...sets.map(s=>s.set_no))+1,m.current_score_a,m.current_score_b));
     }
     const result=series(m,after.sets,action==="finish");if(!result.valid)throw error(result.error);
-    next.current_score_a=0;next.current_score_b=0;next.status="live";
+    next.current_score_a=0;next.current_score_b=0;next.status="live";next.court_state="warming_up";
+    next.timeout_a=0;next.timeout_b=0;next.server_number=initialServerNumber(m);
     if(result.winner){
       const winner=result.winner==="A"?m.team_a_id:m.team_b_id;
       if(body.winnerTeamId&&body.winnerTeamId!==winner)throw error("INVALID_WINNER");
@@ -157,7 +203,7 @@ async function mutationPlan(env,m,sets,action,body,at){
     if(![m.team_a_id,m.team_b_id].includes(body.winnerTeamId)||!["walkover","no_show","retired","injury","disqualified"].includes(body.reason))throw error("INVALID_SPECIAL_RESULT");
     complete(next,body.winnerTeamId,at);next.result_reason=body.reason;next.result_note=String(body.note||"");done=true;eventType="MATCH_FINISH";payload={special:true};
   }
-  next.started_at=m.started_at||at;
+  if(["point","rally","finish-set","finish","quick-score","special-result"].includes(action))next.started_at=m.started_at||at;
   const bracket=done?await bracketChanges(env,m,next.winner_team_id):{changes:[],guards:[]};
   return {after,eventType,payload,bracket};
 }
@@ -183,12 +229,47 @@ async function commit(env,user,m,sets,action,plan,at){
   }
 }
 
+async function autoCallNextOnCourt(env,user,m,at){
+  if(!m.court_id)return null;
+  const existingQueue=await one(env,"SELECT id FROM matches WHERE court_id=? AND id<>? AND status IN ('scheduled','ready') AND court_state IN ('called','on_deck','warming_up') LIMIT 1",m.court_id,m.id);
+  if(existingQueue)return existingQueue.id;
+  const candidates=await rows(env,
+    "SELECT m.*,d.minimum_rest_minutes FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.court_id=? AND m.id<>? AND m.status IN ('scheduled','ready') AND COALESCE(m.court_state,'scheduled')='scheduled' AND m.team_a_id IS NOT NULL AND m.team_b_id IS NOT NULL ORDER BY COALESCE(m.scheduled_at,m.created_at),m.created_at",
+    m.court_id,m.id
+  );
+  const now=Date.parse(at),callAheadMs=15*60000;
+  for(const next of candidates){
+    const scheduledMs=Date.parse(next.scheduled_at||"");
+    if(Number.isFinite(scheduledMs)&&scheduledMs>now+callAheadMs)continue;
+    const restMs=Math.max(0,Number(next.minimum_rest_minutes??15))*60000;
+    let eligible=true;
+    for(const teamId of [next.team_a_id,next.team_b_id]){
+      const last=await one(env,
+        "SELECT MAX(completed_at) AS completed_at FROM matches WHERE id<>? AND completed_at IS NOT NULL AND (team_a_id=? OR team_b_id=?)",
+        next.id,teamId,teamId
+      );
+      const lastMs=Date.parse(last?.completed_at||"");
+      if(Number.isFinite(lastMs)&&now-lastMs<restMs){eligible=false;break}
+    }
+    if(!eligible)continue;
+    const before={...next},after={...next,court_state:"called",called_at:at,version:Number(next.version||1)+1};
+    try{
+      await env.DB.batch([
+        statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,'AUTO_CALL_NEXT',?,?,?)",user.id,next.id,JSON.stringify(before),JSON.stringify(after),"Tự gọi trận tiếp theo sau khi sân trống"),
+        statement(env,"UPDATE matches SET court_state='called',called_at=?,version=version+1 WHERE id=? AND version=? AND COALESCE(court_state,'scheduled')='scheduled'",at,next.id,next.version)
+      ]);
+      return next.id;
+    }catch(e){console.error("auto_call_next_failed",{matchId:next.id,error:String(e.message)})}
+  }
+  return null;
+}
+
 export async function handleScoring(request,env){
   const match=/^\/api\/matches\/([^/]+)\/([^/]+)\/?$/.exec(new URL(request.url).pathname);
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
   const id=decodeURIComponent(match[1]),action=match[2];
   const user=await authenticate(request,env);if(!user)return fail("AUTH_REQUIRED",request,env,401);
-  const m=await one(env,"SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
+  const m=await one(env,"SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
   if(!m)return fail("NOT_FOUND",request,env,404);
   if(!(await authorize(env,user,m)))return fail("FORBIDDEN",request,env,403);
   const body=await bodyJson(request);
@@ -196,6 +277,9 @@ export async function handleScoring(request,env){
   const sets=await rows(env,"SELECT * FROM match_sets WHERE match_id=? ORDER BY set_no",id),at=nowIso();
   const plan=action==="undo"?await undoPlan(env,m,sets):await mutationPlan(env,m,sets,action,body,at);
   await commit(env,user,m,sets,action,plan,at);
+  if(plan.after.match.status==="completed"){
+    try{await autoCallNextOnCourt(env,user,plan.after.match,at)}catch(e){console.error("auto_call_queue_failed",{matchId:id,error:String(e.message)})}
+  }
   // Delivery failure must never turn a committed score into a retryable failure.
   try{
     for(const room of ["public",m.tournament_id]){

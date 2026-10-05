@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/assets/app-icon-v2.svg" sizes="192x192">
   <title>Pickleup.vn Admin</title>
   <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">  <meta name="robots" content="noindex,nofollow">
-  <link rel="stylesheet" href="assets/styles.css?v=27">
+  <link rel="stylesheet" href="assets/styles.css?v=28">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=6">
 </head>
 <body>
@@ -85,6 +85,31 @@
         </div>
       </div>
 
+      <div class="referee-console" id="refereeConsole">
+        <div class="referee-console-head">
+          <div><small>CHẾ ĐỘ CHẤM</small><strong id="scoringModeLabel">Side-out</strong></div>
+          <div><small>ĐANG GIAO</small><strong id="serveStatus">Chưa chọn</strong></div>
+        </div>
+        <div class="rally-controls">
+          <button type="button" class="btn primary" data-rally="A">🏓 Rally đội A</button>
+          <button type="button" class="btn primary" data-rally="B">🏓 Rally đội B</button>
+        </div>
+        <div class="service-controls">
+          <span>Chỉnh người giao:</span>
+          <button type="button" class="mini" data-service-side="A" data-server-number="1">A • S1</button>
+          <button type="button" class="mini" data-service-side="A" data-server-number="2">A • S2</button>
+          <button type="button" class="mini" data-service-side="B" data-server-number="1">B • S1</button>
+          <button type="button" class="mini" data-service-side="B" data-server-number="2">B • S2</button>
+        </div>
+        <div class="timeout-controls">
+          <button type="button" class="mini" data-timeout-side="A" data-timeout-kind="standard">⏱ Timeout A <b id="timeoutA">0/2</b></button>
+          <button type="button" class="mini" data-timeout-side="B" data-timeout-kind="standard">⏱ Timeout B <b id="timeoutB">0/2</b></button>
+          <button type="button" class="mini" data-timeout-side="A" data-timeout-kind="medical">🩺 Medical A <b id="medicalA">0/1</b></button>
+          <button type="button" class="mini" data-timeout-side="B" data-timeout-kind="medical">🩺 Medical B <b id="medicalB">0/1</b></button>
+        </div>
+        <small class="referee-console-note">Nút Rally tự xử lý side-out/server. Nút +/− phía trên chỉ dùng để sửa điểm thủ công.</small>
+      </div>
+
       <div class="score-options">
         <label>Điểm thắng set
           <select id="targetScore">
@@ -125,13 +150,13 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/members-binh-loi-data.js"></script>
-  <script src="assets/api.js?v=43"></script>
+  <script src="assets/api.js?v=44"></script>
   <script src="assets/csv-import.js"></script>
   <script src="assets/admin-modules.js"></script>
   <script src="assets/bracket-ui.js?v=26"></script>
   <script src="assets/admin-crud.js?v=4"></script>
   <script src="assets/player-picker.js?v=2"></script>
-  <script src="assets/admin-app.js?v=44"></script>
+  <script src="assets/admin-app.js?v=45"></script>
   <script src="assets/draw-flex.js?v=1"></script>
   <script src="assets/ui-motion.js"></script>
   <script src="/assets/pwa.js"></script>

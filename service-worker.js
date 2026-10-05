@@ -1,4 +1,4 @@
-const VERSION="pickleup-v22-tournament-core-20261005";
+const VERSION="pickleup-v23-referee-queue-20261005";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",

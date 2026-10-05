@@ -58,11 +58,14 @@ async function matchJson(env,id){
   const sets=await rows(env,"SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no",id);
   return {
     id:m.id,divisionId:m.division_id,stage:m.stage,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",
-    courtId:m.court_id||null,refereeId:m.referee_user_id||null,status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,
+    courtId:m.court_id||null,refereeId:m.referee_user_id||null,status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     sets:sets.map(s=>[Number(s.score_a||0),Number(s.score_b||0)]),
     winner:m.winner_team_id||null,version:Number(m.version||1),bracketSlot:m.bracket_slot||null,
-    resultReason:m.result_reason||null,resultNote:m.result_note||null
+    resultReason:m.result_reason||null,resultNote:m.result_note||null,
+    courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
+    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   };
 }
 async function matchHasHistory(env,m){
@@ -515,6 +518,29 @@ async function handleApi(request,env){
       .bind(after.court_id,after.referee_user_id,after.scheduled_at,p.id)]);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
+  p=route(path,"/api/matches/:id/court-state");
+  if(p&&method==="PATCH"){
+    const user=await userRequired(request,env),m=await getMatch(env,p.id);
+    if(!m)return fail("NOT_FOUND",request,env,404);
+    if(!(await authorizeMatch(env,user,m)))return fail("FORBIDDEN",request,env,403);
+    if(["completed","walkover","cancelled"].includes(m.status)||m.winner_team_id)return fail("COMPLETED_MATCH_LOCKED",request,env,409);
+    const b=await bodyJson(request),courtState=String(b.courtState||"");
+    if(!["scheduled","called","on_deck","warming_up"].includes(courtState))return fail("INVALID_COURT_STATE",request,env,400);
+    if(b.expectedVersion!==undefined&&Number(b.expectedVersion)!==Number(m.version))return fail("VERSION_CONFLICT",request,env,409);
+    const at=nowIso();
+    const after={...m,court_state:courtState,called_at:m.called_at,on_deck_at:m.on_deck_at,warmup_at:m.warmup_at,version:Number(m.version)+1};
+    if(courtState==="scheduled"){after.called_at=null;after.on_deck_at=null;after.warmup_at=null}
+    if(courtState==="called")after.called_at=m.called_at||at;
+    if(courtState==="on_deck"){after.called_at=m.called_at||at;after.on_deck_at=m.on_deck_at||at}
+    if(courtState==="warming_up"){after.called_at=m.called_at||at;after.on_deck_at=m.on_deck_at||at;after.warmup_at=m.warmup_at||at}
+    await env.DB.batch([
+      matchAudit(env,user,m,"COURT_STATE",after),
+      env.DB.prepare("UPDATE matches SET court_state=?,called_at=?,on_deck_at=?,warmup_at=?,version=version+1 WHERE id=? AND version=?")
+        .bind(after.court_state,after.called_at,after.on_deck_at,after.warmup_at,p.id,m.version)
+    ]);
+    await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
+  }
+
   p=route(path,"/api/divisions/:id/draw-config");
   if(p&&method==="GET"){
     const user=await userRequired(request,env);await assertDivision(env,user,p.id);
