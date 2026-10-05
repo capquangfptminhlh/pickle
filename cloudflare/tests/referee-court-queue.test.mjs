@@ -95,3 +95,22 @@ test("court queue transitions are versioned and visible through admin state",asy
     assert.ok(f.db.prepare("SELECT id FROM audit_logs WHERE entity_id='m' AND action='COURT_STATE'").get());
   }finally{f.db.close()}
 });
+
+test("finishing a court auto-calls the first eligible rested match and skips a team that just played",async()=>{
+  const f=await scoringFixture();
+  try{
+    f.db.exec(`INSERT INTO courts(id,tournament_id,name,active) VALUES('court','tour','Court 1',1);
+      UPDATE matches SET court_id='court' WHERE id='match';
+      INSERT INTO teams(id,division_id,name) VALUES('d','division','D');
+      INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,status,court_state,scheduled_at,version)
+        VALUES('rest-blocked','division','court','a','c','scheduled','scheduled','2026-10-05T10:01:00Z',1),
+              ('eligible','division','court','c','d','scheduled','scheduled','2026-10-05T10:02:00Z',1);`);
+    const r=await f.api("quick-score",{sets:[[11,3],[11,4]],expectedVersion:1});
+    assert.equal(r.status,200);
+    assert.equal(f.db.prepare("SELECT court_state FROM matches WHERE id='rest-blocked'").get().court_state,"scheduled");
+    const next=f.db.prepare("SELECT court_state,called_at FROM matches WHERE id='eligible'").get();
+    assert.equal(next.court_state,"called");
+    assert.ok(next.called_at);
+    assert.ok(f.db.prepare("SELECT id FROM audit_logs WHERE entity_id='eligible' AND action='AUTO_CALL_NEXT'").get());
+  }finally{f.db.close()}
+});
