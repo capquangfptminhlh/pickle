@@ -610,7 +610,7 @@ function syncScoreDialog(){
   document.querySelectorAll('#quickSetsList input').forEach(input=>input.disabled=locked);
   $("#undoScore").disabled=activeMatch.status==="cancelled";
   document.querySelectorAll('[data-score]').forEach(btn=>{
-    btn.disabled=locked||(btn.dataset.delta==="-1"&&(btn.dataset.score==="a"?a:b)<=0);
+    btn.disabled=locked||setWon||(btn.dataset.delta==="-1"&&(btn.dataset.score==="a"?a:b)<=0);
   });
   const tip=$("#scoreStatusTip");
   if(tip){
@@ -631,7 +631,7 @@ function scoreError(e){
     DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
     UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",
     MATCH_NOT_FINISHED:"Chưa đủ số set thắng để kết thúc trận.",NOT_ENOUGH_SET_WINS:"Chưa đủ số set thắng để kết thúc trận.",
-    INVALID_SET_SCORE:"Tỉ số set chưa hợp lệ theo điểm thắng và cách biệt đã cấu hình.",INVALID_SERIES:"Dãy set không hợp lệ.",TOO_MANY_SETS:"Số set vượt quá luật thi đấu.",EXTRA_SET_AFTER_WINNER:"Không nhập thêm set sau khi đã đủ số set thắng.",
+    INVALID_SET_SCORE:"Tỉ số set chưa hợp lệ theo điểm thắng và cách biệt đã cấu hình.",SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set trước khi nhập tiếp.",INVALID_SERIES:"Dãy set không hợp lệ.",TOO_MANY_SETS:"Số set vượt quá luật thi đấu.",EXTRA_SET_AFTER_WINNER:"Không nhập thêm set sau khi đã đủ số set thắng.",
     MATCH_COMPLETED:"Trận đã kết thúc. Hãy Undo trước khi sửa điểm.",MATCH_CANCELLED:"Trận đã hủy.",MATCH_TEAMS_REQUIRED:"Chưa xác định đủ hai đội.",
     INVALID_WINNER:"Đội thắng không khớp với tỉ số.",MATCH_ROSTER_LOCKED:"Trận đã có lịch sử thi đấu, không thể đổi hai đội.",
     INVALID_COURT_SCOPE:"Sân phải đang hoạt động và thuộc giải này.",INVALID_REFEREE_SCOPE:"Trọng tài phải đang hoạt động và được cấp quyền cho giải này.",
