@@ -51,6 +51,8 @@ jobs:
           node --check server/index.js
           node --check server/seed.js
           node --check assets/admin-app.js
+          node --check assets/referee-courtside.js
+          node --check assets/court-board.js
           node --check assets/admin-modules.js
           node --check assets/admin-crud.js
           node --check assets/player-picker.js
