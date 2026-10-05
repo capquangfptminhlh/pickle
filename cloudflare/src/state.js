@@ -13,7 +13,7 @@ function fmtDate(value){
   if(!value)return "Chưa chốt";
   try{return new Date(value).toLocaleDateString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}catch{return "Chưa chốt"}
 }
-function publicStatus(s){return s==="scheduled"?"wait":s==="completed"?"done":s}
+function publicStatus(s){return ["scheduled","ready"].includes(s)?"wait":s==="completed"?"done":s}
 
 export async function loadState(env,{publicOnly=false}={}){
   const tournamentsRaw=await rows(env,
