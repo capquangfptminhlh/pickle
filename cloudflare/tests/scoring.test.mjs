@@ -124,3 +124,17 @@ test('historical downstream score events lock rewind even when undone with blank
 test('historical downstream score event appearing after precheck aborts the scoring batch',async()=>{
   const f=await scoringFixture();f.downstream();await f.api('quick-score',{sets:[[11,3],[11,4]]});f.controls.beforeBatch=async()=>f.db.exec("INSERT INTO score_events(match_id,event_type,payload,match_version,undone_at) VALUES('loser','POINT','{}',1,'2026-09-30')");const before=f.match();assert.equal((await f.api('undo')).status,409);assert.deepEqual(f.match(),before);
 });
+
+test('current-set winner locks additional point and rally actions until the set is closed',async()=>{
+  for(const action of ['point','rally']){
+    const f=await scoringFixture();
+    try{
+      f.db.exec("UPDATE matches SET status='live',current_score_a=11,current_score_b=5,started_at='2026-10-05T00:00:00Z' WHERE id='match'");
+      const body=action==='point'?{side:'A',delta:1,expectedVersion:1}:{side:'A',expectedVersion:1};
+      const r=await f.api(action,body);
+      assert.equal(r.status,409,action);
+      assert.equal(r.data.error,'SET_ALREADY_WON',action);
+      assert.equal(f.match().current_score_a,11);
+    }finally{f.db.close()}
+  }
+});

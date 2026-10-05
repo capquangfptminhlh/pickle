@@ -11,7 +11,8 @@
     if(res.status===401){
       localStorage.removeItem(TOKEN_KEY);
       if(location.pathname!="/login"&&!location.pathname.endsWith("login.html")){
-        location.href="login.html"; throw new Error("AUTH_REQUIRED");
+        const current=(location.pathname.split("/").pop()||"admin.html")+location.search;
+        location.href="login.html?next="+encodeURIComponent(current); throw new Error("AUTH_REQUIRED");
       }
     }
     if(!res.ok){

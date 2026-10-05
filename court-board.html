@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07120d">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Live Court Board | Pickleup.vn</title>
+  <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/court-board.css?v=1">
+</head>
+<body class="board-body">
+  <header class="board-header">
+    <div class="board-brand">
+      <img src="assets/pickleup-logo-v2.svg" alt="Pickleup.vn">
+      <div><strong id="boardTournament">LIVE COURT BOARD</strong><span id="boardMeta">Đang tải dữ liệu giải...</span></div>
+    </div>
+    <div class="board-tools">
+      <select id="tournamentSelect" aria-label="Chọn giải"></select>
+      <span id="boardClock">--:--:--</span>
+      <span id="boardConnection" class="board-live">● LIVE</span>
+      <button id="fullscreenBtn" type="button">⛶ Toàn màn hình</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="callTicker" class="call-ticker" hidden></section>
+    <section id="courtGrid" class="court-grid"></section>
+    <section id="boardEmpty" class="board-empty" hidden>
+      <div>🏟️</div><strong>Chưa có lịch sân</strong><span>Khi BTC xếp trận, màn hình sẽ tự cập nhật.</span>
+    </section>
+  </main>
+
+  <footer class="board-footer">
+    <span>Pickleup.vn · Tournament OS</span>
+    <span>Tự động cập nhật theo bàn điều hành</span>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="assets/api.js?v=45"></script>
+  <script src="assets/court-board.js?v=1"></script>
+</body>
+</html>

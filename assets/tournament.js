@@ -28,6 +28,7 @@ function render(){
  document.title=t.name+" | Pickle Tour";
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");
+ const boardLink=$("#tourBoardLink");if(boardLink)boardLink.href="court-board.html?tournament="+encodeURIComponent(t.id);
  const banner=$("#tourBannerImage"),hero=document.querySelector(".tournament-app-hero");
  if(banner&&t.posterUrl){
    banner.src=t.posterUrl;banner.alt="Banner "+t.name;banner.hidden=false;hero?.classList.add("has-banner");

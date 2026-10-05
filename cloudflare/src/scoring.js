@@ -139,6 +139,7 @@ async function mutationPlan(env,m,sets,action,body,at){
     const delta=Number(body.delta);
     if(!["A","B"].includes(body.side)||![1,-1].includes(delta))throw error("BAD_SCORE_ACTION");
     if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw error("INVALID_CURRENT_SCORE",409);
+    if(validateSet(m.current_score_a,m.current_score_b,Number(m.points_to_win),Boolean(m.win_by_two)))throw error("SET_ALREADY_WON",409);
     if(!series(m,sets,false).valid||series(m,sets,false).winner)throw error("MATCH_NOT_PLAYABLE",409);
     const column=body.side==="A"?"current_score_a":"current_score_b";
     next[column]=Math.max(0,next[column]+delta);next.status="live";next.court_state="live";next.started_at=m.started_at||at;
@@ -148,6 +149,7 @@ async function mutationPlan(env,m,sets,action,body,at){
     const side=String(body.side||"").toUpperCase();
     if(!["A","B"].includes(side))throw error("BAD_SCORE_ACTION");
     if(![m.current_score_a,m.current_score_b].every(s=>Number.isSafeInteger(s)&&s>=0))throw error("INVALID_CURRENT_SCORE",409);
+    if(validateSet(m.current_score_a,m.current_score_b,Number(m.points_to_win),Boolean(m.win_by_two)))throw error("SET_ALREADY_WON",409);
     if(!series(m,sets,false).valid||series(m,sets,false).winner)throw error("MATCH_NOT_PLAYABLE",409);
     ensureServeState(next);
     const serveBefore=next.serving_side,serverBefore=Number(next.server_number);
