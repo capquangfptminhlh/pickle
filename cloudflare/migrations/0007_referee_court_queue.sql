@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_matches_court_state ON matches(court_id,court_sta
 
 CREATE TRIGGER IF NOT EXISTS court_state_version_guard
 BEFORE INSERT ON audit_logs
-WHEN NEW.entity_type='match' AND NEW.action='COURT_STATE'
+WHEN NEW.entity_type='match' AND NEW.action IN ('COURT_STATE','AUTO_CALL_NEXT')
   AND NEW.before_data IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM matches
