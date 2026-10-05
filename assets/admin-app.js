@@ -148,17 +148,8 @@ async function dashboard(){
   </div>`;
 }
 function rankTournamentGroup(did,g){
-  const teams=state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn");
-  const gm=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g))&&(m.status==="done"||m.status==="completed")&&m.winner);
-  return [...teams].sort((a,b)=>{
-    if((b.w||0)!==(a.w||0))return (b.w||0)-(a.w||0);
-    const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
-    if(sdB!==sdA)return sdB-sdA;
-    const h2h=gm.find(m=>((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
-    if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1}
-    const pdA=(a.pf||0)-(a.pa||0),pdB=(b.pf||0)-(b.pa||0);
-    return pdB-pdA||(b.pf||0)-(a.pf||0)||(a.seed||999)-(b.seed||999);
-  });
+  return state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn")
+    .sort((a,b)=>Number(a.standingRank||999)-Number(b.standingRank||999)||(a.seed||999)-(b.seed||999));
 }
 function tournamentCard(t){
   const dids=state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id);
@@ -444,6 +435,9 @@ function settings(){
       <label class="field">Best of<select data-rule-best="${d.id}" ${canManage()?"":"disabled"}><option value="1" ${d.bestOf===1?"selected":""}>1</option><option value="3" ${d.bestOf===3?"selected":""}>3</option><option value="5" ${d.bestOf===5?"selected":""}>5</option></select></label>
       <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}><option value="11" ${d.pointsToWin===11?"selected":""}>11</option><option value="15" ${d.pointsToWin===15?"selected":""}>15</option><option value="21" ${d.pointsToWin===21?"selected":""}>21</option></select></label>
       <label class="field">Top đi tiếp<input data-rule-advance="${d.id}" type="number" min="1" max="16" value="${d.advanceCount}" ${canManage()?"":"disabled"}></label>
+      <label class="field">Cách tính điểm<select data-rule-scoring="${d.id}" ${canManage()?"":"disabled"}><option value="side_out" ${d.scoringMode!=="rally"?"selected":""}>Side-out</option><option value="rally" ${d.scoringMode==="rally"?"selected":""}>Rally scoring</option></select></label>
+      <label class="field">Nghỉ tối thiểu (phút)<input data-rule-rest="${d.id}" type="number" min="0" max="120" value="${d.minimumRestMinutes??15}" ${canManage()?"":"disabled"}></label>
+      <label class="field">Thời lượng/trận (phút)<input data-rule-slot="${d.id}" type="number" min="5" max="180" value="${d.matchSlotMinutes??20}" ${canManage()?"":"disabled"}></label>
       <label class="field" style="align-content:end"><span><input data-rule-win2="${d.id}" type="checkbox" ${d.winByTwo?"checked":""} ${canManage()?"":"disabled"}> Thắng cách 2</span></label>
       ${canManage()?`<div class="field full"><button class="btn primary" data-save-rules="${d.id}">Lưu cấu hình</button></div>`:""}
     </div></div>`).join("")}</div>`;
@@ -766,11 +760,14 @@ function openDivisionModal(){
     <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></label>
     <label class="field">Điểm/set<select id="dPoints"><option value="11">11</option><option value="15">15</option><option value="21">21</option></select></label>
     <label class="field">Top đi tiếp<input id="dAdvance" type="number" value="2" min="1"></label>
+    <label class="field">Cách tính điểm<select id="dScoring"><option value="side_out">Side-out</option><option value="rally">Rally scoring</option></select></label>
+    <label class="field">Nghỉ tối thiểu (phút)<input id="dRest" type="number" value="15" min="0" max="120"></label>
+    <label class="field">Thời lượng/trận (phút)<input id="dSlot" type="number" value="20" min="5" max="180"></label>
     <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox" checked> Thắng cách 2</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveDivision">Thêm nội dung</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),winByTwo:$("#dWin2").checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
+  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),scoringMode:$("#dScoring").value,minimumRestMinutes:Number($("#dRest").value),matchSlotMinutes:Number($("#dSlot").value),winByTwo:$("#dWin2").checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
 }
 function openCourtModal(){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
@@ -1057,6 +1054,9 @@ async function saveRules(id){
       bestOf:Number(document.querySelector(`[data-rule-best="${id}"]`).value),
       pointsToWin:Number(document.querySelector(`[data-rule-points="${id}"]`).value),
       advanceCount:Number(document.querySelector(`[data-rule-advance="${id}"]`).value),
+      scoringMode:document.querySelector(`[data-rule-scoring="${id}"]`).value,
+      minimumRestMinutes:Number(document.querySelector(`[data-rule-rest="${id}"]`).value),
+      matchSlotMinutes:Number(document.querySelector(`[data-rule-slot="${id}"]`).value),
       winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked
     });
     await refresh();toast("Đã lưu rule thi đấu.");
