@@ -42,6 +42,8 @@ if(prodState.tournaments?.[0]?.id){
   await goto(page,prod+"/tournament.html?id="+encodeURIComponent(prodState.tournaments[0].id),"prod tournament detail");
   if(!(await page.locator("#tourName").innerText()).trim())failures.push({label:"prod tournament detail",errors:["empty tournament name"]});
 }
+await goto(page,prod+"/court-board.html","prod TV court board");
+if(!(await page.locator(".board-brand").isVisible()))failures.push({label:"prod TV court board",errors:["TV board shell not visible"]});
 await goto(page,prod+"/ranking.html","prod ranking");
 const players=await fetch(prod+"/api/public/players").then(r=>r.json());
 if(players[0]?.id){
@@ -178,6 +180,10 @@ await page.waitForTimeout(150);
 if(!(await page.locator(".mobile-dock").isVisible()))failures.push({label:"mobile admin dock",errors:["mobile dock not visible"]});
 const dockScores=page.locator('[data-dock-page="scores"]');
 if(await dockScores.count()){await dockScores.click();await page.waitForTimeout(100);if(!(await page.locator("#content").innerText()).includes("Nhập điểm"))failures.push({label:"mobile admin dock",errors:["scores dock navigation failed"]});}
+
+await goto(page,prod+"/referee.html","prod referee courtside");
+if(!(await page.locator(".courtside-brand").isVisible()))failures.push({label:"prod referee courtside",errors:["courtside shell not visible"]});
+if(!(await page.locator("#matchPicker").count())||!(await page.locator("#scoreSurface").count()))failures.push({label:"prod referee courtside",errors:["courtside match/score surfaces missing"]});
 await page.setViewportSize({width:1280,height:900});
 
 const ppage=await browser.newPage({viewport:{width:1280,height:900}});
