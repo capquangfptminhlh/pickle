@@ -1,4 +1,4 @@
-const VERSION="pickleup-v19-professional-ui-20261004";
+const VERSION="pickleup-v20-flexible-draw-20261005";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
