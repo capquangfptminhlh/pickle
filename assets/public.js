@@ -27,6 +27,14 @@ function renderPlayers(){if($("#desktopPlayerCount"))$("#desktopPlayerCount").te
 function renderPosts(){if($("#desktopPostCount"))$("#desktopPostCount").textContent=posts.length;const el=$("#publicNews");if(!el)return;el.innerHTML=posts.slice(0,6).map(p=>'<article class="news-card"><div class="news-card-body"><span class="eyebrow">UPDATE</span><h3>'+esc(p.title)+'</h3><p>'+esc(p.excerpt||"")+'</p><small>'+(p.published_at?new Date(p.published_at).toLocaleDateString("vi-VN"):"")+'</small></div></article>').join("")||'<div class="empty">Chưa có tin mới.</div>'}
 function renderSponsors(){const el=$("#publicSponsors");if(!el)return;el.innerHTML=sponsors.map(s=>'<a class="public-sponsor" href="'+esc(s.website_url||"#")+'" '+(s.website_url?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có sponsor công khai.</span>'}
 function applyBranding(){if(branding.primaryColor)document.documentElement.style.setProperty("--brand",branding.primaryColor);if(branding.accentColor)document.documentElement.style.setProperty("--acid",branding.accentColor);const brandName=(!branding.name||branding.name==="Pickle Tour")?"Pickleup.vn":branding.name;document.querySelectorAll(".public-brand b").forEach(el=>{el.textContent=brandName})}
+function showRealtimeDraw(payload,done=false){
+  let el=document.querySelector(".realtime-draw-overlay");
+  if(!el){el=document.createElement("div");el.className="realtime-draw-overlay";document.body.appendChild(el)}
+  const groups=Array.isArray(payload?.groups)?payload.groups:[];
+  el.innerHTML=`<div class="realtime-draw-card ${done?"is-done":""}"><div class="realtime-draw-icon">${done?"✓":"🎡"}</div><span>${done?"KẾT QUẢ BỐC THĂM":"ĐANG BỐC THĂM REALTIME"}</span><h3>${esc(payload?.tournamentName||"Giải đấu")}</h3><p>${done?`${payload.groupCount||groups.length} bảng • Top ${payload.advanceCount||2} đi tiếp`:`${payload.teamCount||0} cặp/đội • ${payload.groupCount||0} bảng`}</p>${done&&groups.length?`<div class="realtime-draw-groups">${groups.map(g=>`<b>Bảng ${esc(g.group)} <small>${g.count} đội</small></b>`).join("")}</div>`:""}</div>`;
+  el.classList.add("show");clearTimeout(window.__drawNoticeTimer);
+  if(done)window.__drawNoticeTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),250)},5000);
+}
 async function load(){try{const [,p,news,partners,brand]=await Promise.all([refreshCore(),PickleAPI.publicPlayers().catch(()=>[]),PickleAPI.publicPosts().catch(()=>[]),PickleAPI.publicSponsors().catch(()=>[]),PickleAPI.publicBranding().catch(()=>({}))]);players=p;posts=news;sponsors=partners;branding=brand;applyBranding();renderCore();renderPlayers();renderPosts();renderSponsors()}catch(e){console.error(e)}}
 let coreRefresh=null,coreDirty=false;
 function refreshCore(){
@@ -37,4 +45,4 @@ function refreshCore(){
 load();if(window.io){const socket=io();socket.on("public:state",s=>{
   if(Array.isArray(s?.matches)&&Array.isArray(s?.teams)&&Array.isArray(s?.tournaments)){state=s;renderCore();if(coreRefresh)coreDirty=true}
   else refreshCore();
-})}
+});socket.on("draw:start",p=>showRealtimeDraw(p,false));socket.on("draw:complete",p=>{showRealtimeDraw(p,true);refreshCore()})}
