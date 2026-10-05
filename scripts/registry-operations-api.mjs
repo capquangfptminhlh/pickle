@@ -59,7 +59,7 @@ const scoped=await newMatch({refereeUserId:ref.id}),refSession=await login(local
 await api(`/api/users/referees/${ref.id}`,{tournamentId:otherTid},{method:"PATCH"});
 await api(`/api/matches/${scoped.id}/point`,{side:"A",delta:1},{actor:refSession,expected:[401,403]});
 
-const reversible=await newMatch();await point(reversible.id,"A",11);await point(reversible.id,"B",4);await action(reversible.id,"finish-set");
+const reversible=await newMatch();await point(reversible.id,"B",4);await point(reversible.id,"A",11);await action(reversible.id,"finish-set");
 await point(reversible.id,"A",3);await point(reversible.id,"B",2);const beforeQuick=await current(reversible.id);
 await action(reversible.id,"quick-score",{sets:[[3,11],[4,11]]});await action(reversible.id,"undo");const afterQuick=await current(reversible.id);
 assert.deepEqual(afterQuick.sets,beforeQuick.sets);assert.deepEqual(afterQuick.current,beforeQuick.current);assert.equal(afterQuick.status,beforeQuick.status);assert.equal(afterQuick.winner,beforeQuick.winner);
