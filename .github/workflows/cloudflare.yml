@@ -40,6 +40,10 @@ jobs:
           node scripts/registry-scoring-ui.mjs
           node --test scripts/registry-realtime.test.mjs
           node --test scripts/registry-preview.test.mjs
+      - name: Courtside client syntax
+        run: |
+          node --check assets/referee-courtside.js
+          node --check assets/court-board.js
       - name: Wrangler dry run
         working-directory: cloudflare
         run: npm run check
