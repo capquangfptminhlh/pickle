@@ -1,10 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-<defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020d1e"/><stop offset=".55" stop-color="#064584"/><stop offset="1" stop-color="#020b16"/></linearGradient><linearGradient id="g" x1="0" x2="1"><stop stop-color="#ecff17"/><stop offset="1" stop-color="#8eff00"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="14" stdDeviation="10" flood-opacity=".5"/></filter></defs>
-<rect width="1600" height="900" fill="url(#b)"/><path d="M-50 180C400-20 650 330 1660 45" fill="none" stroke="#bfff00" stroke-width="28" opacity=".9"/><path d="M-80 250C420 20 760 400 1670 110" fill="none" stroke="#22aaff" stroke-width="22" opacity=".7"/>
-<g opacity=".16" stroke="#6ec8ff" stroke-width="3"><path d="M0 700H1600"/><path d="M800 460V900"/><path d="M250 520L100 900"/><path d="M1350 520L1500 900"/></g>
-<text x="90" y="95" fill="#fff" font-family="Arial Black,Arial" font-size="54">PICKLEUP</text><text x="92" y="150" fill="#bcd8f8" font-family="Arial" font-size="23" letter-spacing="8">MORE PICKLEBALL • MORE FRIENDS</text>
-<text x="86" y="350" fill="#fff" font-family="Arial Black,Arial" font-size="132" filter="url(#s)">PICKLEUP</text><text x="90" y="495" fill="url(#g)" font-family="Arial Black,Arial" font-size="174" font-style="italic">TOUR</text><rect x="84" y="520" width="780" height="105" rx="18" fill="#128cf0" transform="skewX(-8)"/><text x="130" y="600" fill="#fff" font-family="Arial Black,Arial" font-size="78" font-style="italic">BÌNH LỢI</text>
-<g transform="translate(1010 145) rotate(-12)" filter="url(#s)"><ellipse cx="200" cy="210" rx="145" ry="190" fill="#102540" stroke="#74c7ff" stroke-width="8"/><rect x="174" y="375" width="52" height="210" rx="24" fill="#121820"/><circle cx="198" cy="205" r="58" fill="#182e4a"/><path d="M150 145c45-40 115-30 145 22" fill="none" stroke="#e8f5ff" stroke-width="24" stroke-linecap="round"/><path d="M130 300l-140 105M275 300l150 80" stroke="#eaf5ff" stroke-width="42" stroke-linecap="round"/><path d="M100 410l-75 220M300 410l80 220" stroke="#dbeeff" stroke-width="50" stroke-linecap="round"/></g>
-<g transform="translate(1330 135)"><circle r="88" fill="url(#g)" filter="url(#s)"/><g fill="#174026"><circle cx="-35" cy="-30" r="7"/><circle cx="20" cy="-48" r="7"/><circle cx="48" cy="-8" r="7"/><circle cx="-10" cy="20" r="7"/><circle cx="38" cy="43" r="7"/><circle cx="-48" cy="42" r="7"/></g></g>
-<rect x="70" y="690" width="1460" height="145" rx="28" fill="#03101d" stroke="#2b9eff" stroke-width="3"/><text x="120" y="745" fill="#bcd8f8" font-family="Arial" font-size="24">THỜI GIAN</text><text x="120" y="800" fill="#fff" font-family="Arial Black,Arial" font-size="46">15.10.2026 • 13H00</text><line x1="565" y1="720" x2="565" y2="810" stroke="#2a5277"/><text x="610" y="745" fill="#bcd8f8" font-family="Arial" font-size="24">NỘI DUNG</text><text x="610" y="800" fill="#fff" font-family="Arial Black,Arial" font-size="42">ĐÔI NAM TỰ DO</text><line x1="1085" y1="720" x2="1085" y2="810" stroke="#2a5277"/><text x="1130" y="745" fill="#bcd8f8" font-family="Arial" font-size="24">LỆ PHÍ</text><text x="1130" y="800" fill="url(#g)" font-family="Arial Black,Arial" font-size="46">190K / VĐV</text>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07131f"/><stop offset=".62" stop-color="#0b2234"/><stop offset="1" stop-color="#081018"/></linearGradient>
+  <linearGradient id="lime" x1="0" x2="1"><stop stop-color="#e7ff3b"/><stop offset="1" stop-color="#9dff1f"/></linearGradient>
+  <filter id="shadow"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-opacity=".35"/></filter>
+</defs>
+<rect width="1600" height="900" fill="url(#bg)"/>
+<circle cx="1380" cy="120" r="290" fill="#183b55" opacity=".32"/>
+<circle cx="1420" cy="90" r="155" fill="#bfff22" opacity=".06"/>
+<path d="M0 90H1600" stroke="#bfff22" stroke-width="6"/>
+<text x="78" y="82" fill="#fff" font-family="Arial Black,Arial" font-size="42">PICKLEUP.VN</text>
+<text x="78" y="220" fill="#fff" font-family="Arial Black,Arial" font-size="118">PICKLEUP TOUR</text>
+<text x="80" y="350" fill="url(#lime)" font-family="Arial Black,Arial" font-size="142" font-style="italic">BÌNH LỢI</text>
+<text x="82" y="410" fill="#9fb3c2" font-family="Arial" font-size="25" letter-spacing="5">PLAY • COMPETE • CONNECT</text>
+
+<g transform="translate(1000 120)" filter="url(#shadow)">
+  <rect width="500" height="520" rx="48" fill="#0f1e2b" stroke="#29475c" stroke-width="3"/>
+  <circle cx="250" cy="170" r="118" fill="#bfff22"/>
+  <g fill="#173019"><circle cx="215" cy="120" r="8"/><circle cx="276" cy="102" r="8"/><circle cx="316" cy="150" r="8"/><circle cx="205" cy="205" r="8"/><circle cx="280" cy="224" r="8"/></g>
+  <text x="250" y="344" text-anchor="middle" fill="#fff" font-family="Arial Black,Arial" font-size="40">ĐÔI NAM TỰ DO</text>
+  <text x="250" y="402" text-anchor="middle" fill="#9fb3c2" font-family="Arial" font-size="30">Tối đa 16 cặp VĐV</text>
+  <rect x="84" y="448" width="332" height="54" rx="27" fill="url(#lime)"/>
+  <text x="250" y="485" text-anchor="middle" fill="#0b1520" font-family="Arial Black,Arial" font-size="28">190.000đ / VĐV</text>
+</g>
+
+<g transform="translate(78 500)">
+  <rect width="850" height="140" rx="28" fill="#0d1a26" stroke="#223b4d" stroke-width="2"/>
+  <text x="34" y="45" fill="#8399a9" font-family="Arial" font-size="23">THỜI GIAN</text>
+  <text x="34" y="100" fill="#fff" font-family="Arial Black,Arial" font-size="42">15.10.2026 • 13H00</text>
+  <line x1="390" y1="28" x2="390" y2="112" stroke="#29475c" stroke-width="2"/>
+  <text x="430" y="45" fill="#8399a9" font-family="Arial" font-size="23">ĐỊA ĐIỂM</text>
+  <text x="430" y="83" fill="#fff" font-family="Arial Black,Arial" font-size="29">PICKLEBALL BÌNH LỢI</text>
+  <text x="430" y="115" fill="#a9bbc8" font-family="Arial" font-size="21">171/4 Bình Lợi, Bình Thạnh, TP.HCM</text>
+</g>
+
+<g transform="translate(78 675)">
+  <rect width="1444" height="145" rx="28" fill="#10151b" stroke="#2d3740" stroke-width="2"/>
+  <text x="32" y="42" fill="#8399a9" font-family="Arial" font-size="21">GIẢI THƯỞNG</text>
+  <text x="32" y="82" fill="#fff" font-family="Arial Black,Arial" font-size="31">🥇 1.000.000đ + 2 cúp + 2 HC + 2 áo</text>
+  <text x="32" y="121" fill="#fff" font-family="Arial Black,Arial" font-size="28">🥈 500.000đ + 2 HC + cuốn cán • 🥉 2 HC</text>
+  <line x1="970" y1="28" x2="970" y2="118" stroke="#2d3740" stroke-width="2"/>
+  <text x="1010" y="48" fill="#8399a9" font-family="Arial" font-size="21">LIÊN HỆ / ZALO</text>
+  <text x="1010" y="101" fill="url(#lime)" font-family="Arial Black,Arial" font-size="42">0932 034 466</text>
+</g>
 </svg>
