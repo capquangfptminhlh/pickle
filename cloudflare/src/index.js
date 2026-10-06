@@ -15,6 +15,17 @@ async function userRequired(request,env){
 }
 function httpError(code,status=400){return Object.assign(new Error(code),{status})}
 function asBool(v){return v===true||v===1||v==="1"||v==="true"}
+const SKILL_LEVELS=["A+","A","B+","B","C+","C"];
+const SKILL_WEIGHT={"A+":6,"A":5,"B+":4,"B":3,"C+":2,"C":1};
+function skillLevel(v,fallback="B"){
+  const s=String(v||"").trim().toUpperCase();
+  return SKILL_LEVELS.includes(s)?s:fallback;
+}
+function shuffleCrypto(items){
+  const out=[...items];
+  for(let i=out.length-1;i>0;i--){const r=new Uint32Array(1);crypto.getRandomValues(r);const j=Math.floor((r[0]/4294967296)*(i+1));[out[i],out[j]]=[out[j],out[i]]}
+  return out;
+}
 function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||""))&&String(v||"").length<=254}
 function accountUser(row){
   return {...publicUser(row),display_name:row.display_name,tournament_id_scope:row.tournament_id_scope||null,
@@ -93,12 +104,15 @@ function matchAudit(env,user,m,action,after){
     .bind(user.id,m.id,action,JSON.stringify(m),after?JSON.stringify(after):null);
 }
 async function emitUpdate(env,tournamentId,matchId=null){
-  await broadcast(env,"public:state",{tournamentId},"public");
-  if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},"public");
-  if(tournamentId){
-    await broadcast(env,"public:state",{tournamentId},tournamentId);
-    if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},tournamentId);
-  }
+  if(!env?.ROOMS)return;
+  try{
+    await broadcast(env,"public:state",{tournamentId},"public");
+    if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},"public");
+    if(tournamentId){
+      await broadcast(env,"public:state",{tournamentId},tournamentId);
+      if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},tournamentId);
+    }
+  }catch(error){console.error("REALTIME_EMIT_FAILED",error)}
 }
 async function saveR2Upload(request,env,folder,maxBytes,allowed,ownerUserId=null){
   const form=await request.formData();
@@ -270,7 +284,7 @@ async function handleApi(request,env){
     return ok(data.map(x=>({
       ...x,
       phone:user.role==="referee"?"":x.phone,
-      active:Boolean(x.active),rating:Number(x.rating||0)
+      active:Boolean(x.active),rating:Number(x.rating||0),skillLevel:skillLevel(x.skill_level)
     })),request,env);
   }
   if(path==="/api/players"&&method==="POST"){
@@ -280,9 +294,9 @@ async function handleApi(request,env){
     const clubId=user.role==="club_manager"?user.clubId:(b.clubId||user.clubId||null);
     if(user.role==="club_manager"&&!clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
     if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
-    const id=uid(),rating=user.role==="club_manager"?3:Number(b.rating||3);
-    await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)")
-      .bind(id,clubId,user.id,fullName,String(b.nickname||""),String(b.gender||"other"),rating,String(b.phone||""),nowIso(),nowIso()).run();
+    const id=uid(),rating=user.role==="club_manager"?3:Number(b.rating||3),level=skillLevel(b.skillLevel||b.skill_level);
+    await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,skill_level,phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)")
+      .bind(id,clubId,user.id,fullName,String(b.nickname||""),String(b.gender||"other"),rating,level,String(b.phone||""),nowIso(),nowIso()).run();
     const row=await one(env,"SELECT * FROM players WHERE id=?",id);await createAudit(env,user,"player",id,"CREATE",null,row);
     return ok(row,request,env,201);
   }
@@ -307,14 +321,16 @@ async function handleApi(request,env){
     const active=referee?before.active:(b.active===undefined?before.active:(asBool(b.active)?1:0));
     const oldRating=Number(before.rating||0);
     const rating=canCorrectRating&&b.rating!==undefined?Number(b.rating):oldRating;
+    const level=canCorrectRating&&b.skillLevel!==undefined?skillLevel(b.skillLevel,""):skillLevel(before.skill_level);
     if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
+    if(!level)return fail("INVALID_SKILL_LEVEL",request,env,400);
     const ratingChanged=Math.abs(rating-oldRating)>1e-9;
     const ratingReason=String(b.ratingReason||"").trim();
     if(ratingChanged&&!ratingReason)return fail("RATING_REASON_REQUIRED",request,env,400);
     const changedAt=nowIso();
     const statements=[env.DB.prepare(
-      "UPDATE players SET club_id=?,full_name=?,nickname=?,gender=?,rating=?,phone=?,active=?,updated_at=? WHERE id=?"
-    ).bind(clubId,fullName,nickname,gender,rating,phone,active,changedAt,p.id)];
+      "UPDATE players SET club_id=?,full_name=?,nickname=?,gender=?,rating=?,skill_level=?,phone=?,active=?,updated_at=? WHERE id=?"
+    ).bind(clubId,fullName,nickname,gender,rating,level,phone,active,changedAt,p.id)];
     if(ratingChanged)statements.push(env.DB.prepare(
       "INSERT INTO rating_history(id,player_id,before_rating,delta,after_rating,reason,created_at) VALUES(?,?,?,?,?,?,?)"
     ).bind(uid(),p.id,oldRating,rating-oldRating,rating,ratingReason,changedAt));
@@ -410,6 +426,58 @@ async function handleApi(request,env){
   }
   if(p&&method==="DELETE"){
     const user=await userRequired(request,env),tid=await assertCourt(env,user,p.id);await env.DB.prepare("DELETE FROM courts WHERE id=?").bind(p.id).run();await emitUpdate(env,tid);return ok({ok:true},request,env);
+  }
+
+  p=route(path,"/api/divisions/:id/draw-balanced-teams");
+  if(p&&method==="POST"){
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    const division=await one(env,"SELECT id,event_type FROM divisions WHERE id=?",p.id);
+    if(!division||!["doubles","mixed_doubles"].includes(division.event_type))return fail("TEAM_DRAW_DOUBLES_ONLY",request,env,400);
+    if(await one(env,"SELECT id FROM matches WHERE division_id=? LIMIT 1",p.id))return fail("TEAM_DRAW_LOCKED",request,env,409);
+    const requested=Array.isArray(b.playerIds)?[...new Set(b.playerIds.map(String).filter(Boolean))]:[];
+    const assignedRows=await rows(env,"SELECT DISTINCT tp.player_id FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND t.status<>'withdrawn'",p.id);
+    const assigned=new Set(assignedRows.map(x=>String(x.player_id)));
+    let pool;
+    if(requested.length){
+      pool=await rows(env,"SELECT id,full_name,gender,skill_level,club_id,active FROM players WHERE id IN ("+requested.map(()=>"?").join(",")+")",...requested);
+      if(pool.length!==requested.length)return fail("PLAYER_NOT_FOUND",request,env,404);
+      if(pool.some(x=>!x.active))return fail("PLAYER_INACTIVE",request,env,400);
+      if(pool.some(x=>assigned.has(String(x.id))))return fail("PLAYER_ALREADY_IN_DIVISION",request,env,409);
+    }else{
+      pool=await rows(env,"SELECT id,full_name,gender,skill_level,club_id,active FROM players WHERE active=1 ORDER BY full_name");
+      pool=pool.filter(x=>!assigned.has(String(x.id)));
+    }
+    if(pool.length<2)return fail("NOT_ENOUGH_PLAYERS",request,env,400);
+    if(pool.length%2)return fail("ODD_PLAYER_COUNT",request,env,400);
+    pool=pool.map(x=>({...x,skill_level:skillLevel(x.skill_level)}));
+    let pairs=[];
+    if(division.event_type==="mixed_doubles"){
+      const males=shuffleCrypto(pool.filter(x=>x.gender==="male")).sort((x,y)=>SKILL_WEIGHT[y.skill_level]-SKILL_WEIGHT[x.skill_level]);
+      const females=shuffleCrypto(pool.filter(x=>x.gender==="female")).sort((x,y)=>SKILL_WEIGHT[x.skill_level]-SKILL_WEIGHT[y.skill_level]);
+      if(males.length!==females.length||males.length*2!==pool.length)return fail("MIXED_GENDER_COUNT_MISMATCH",request,env,400);
+      pairs=males.map((m,i)=>[m,females[i]]);
+    }else{
+      const ordered=shuffleCrypto(pool).sort((x,y)=>SKILL_WEIGHT[y.skill_level]-SKILL_WEIGHT[x.skill_level]);
+      while(ordered.length)pairs.push([ordered.shift(),ordered.pop()]);
+    }
+    const prepared=pairs.map(pair=>({
+      pair,
+      score:pair.reduce((n,x)=>n+SKILL_WEIGHT[x.skill_level],0),
+      clubId:pair[0].club_id&&pair[0].club_id===pair[1].club_id?pair[0].club_id:null
+    })).sort((x,y)=>y.score-x.score);
+    const changedAt=nowIso(),statements=[],result=[];
+    for(let i=0;i<prepared.length;i++){
+      const item=prepared[i],id=uid(),name=item.pair.map(x=>x.full_name).join(" / ");
+      statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
+        .bind(id,p.id,name,item.clubId,i+1,null,"active",changedAt));
+      for(const player of item.pair)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,player.id));
+      statements.push(env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason,created_at) VALUES(?,'team',?,'DRAW_BALANCED_TEAM',?,?,?)")
+        .bind(user.id,id,JSON.stringify({divisionId:p.id,playerIds:item.pair.map(x=>x.id),skills:item.pair.map(x=>x.skill_level),seed:i+1}),name,changedAt));
+      result.push({id,name,seed:i+1,totalSkill:item.score,players:item.pair.map(x=>({id:x.id,name:x.full_name,gender:x.gender,skillLevel:x.skill_level}))});
+    }
+    await env.DB.batch(statements);await emitUpdate(env,tid);
+    return ok({created:result.length,divisionId:p.id,mode:"balanced_skill",teams:result},request,env,201);
   }
 
   p=route(path,"/api/divisions/:id/teams");
