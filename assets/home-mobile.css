@@ -186,3 +186,35 @@
 @media (min-width:761px){.mobile-admin-link{display:none!important}}
 
 @media(max-width:760px){.home-screen .public-brand .brand-mark{background:#0b1513 url("app-icon-sport-v3.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}.home-screen .mobile-app-badge{background:#0b1513 url("app-icon-sport-v3.svg") center/cover no-repeat!important;color:transparent!important;font-size:0!important}}
+
+
+/* MOBILE TOURNAMENT POSTER CARDS v20261006 */
+@media(max-width:760px){
+  .home-screen #publicTours.page-grid{gap:14px!important}
+  .home-screen #publicTours .tour-card{
+    border:1px solid rgba(21,38,29,.08)!important;border-radius:22px!important;
+    box-shadow:0 14px 34px rgba(18,36,27,.09)!important;background:#fff!important;
+  }
+  .home-screen #publicTours .tour-media{height:auto!important;aspect-ratio:16/9!important;background:#111!important}
+  .home-screen #publicTours .tour-media img.tour-poster-image{
+    display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important
+  }
+  .home-screen #publicTours .tour-media-shade{display:block!important;background:linear-gradient(180deg,rgba(0,0,0,0) 58%,rgba(0,0,0,.22) 100%)!important}
+  .home-screen #publicTours .tour-cover{padding:0!important}
+  .home-screen #publicTours .tour-cover>div{display:none!important}
+  .home-screen #publicTours .tour-cover .badge{top:10px!important;right:10px!important;font-size:7px!important;padding:5px 8px!important}
+  .home-screen #publicTours .tour-featured-badge{top:10px!important;left:10px!important;font-size:6.5px!important;padding:5px 8px!important}
+  .home-screen #publicTours .tour-body{padding:14px!important}
+  .home-screen #publicTours .tour-body h3{margin:0 0 12px!important;font-size:17px!important;line-height:1.18!important}
+  .home-screen #publicTours .tour-meta-premium{grid-template-columns:.82fr .72fr 1.46fr!important;gap:6px!important}
+  .home-screen #publicTours .tour-meta-premium span{padding:8px 7px!important;border-radius:11px!important;background:#f6f8f7!important}
+  .home-screen #publicTours .tour-meta-premium small{font-size:6.8px!important;margin-bottom:3px!important}
+  .home-screen #publicTours .tour-meta-premium b{font-size:8.5px!important}
+  .home-screen #publicTours .tour-venue-line{margin-top:9px!important;gap:6px!important}
+  .home-screen #publicTours .tour-venue-line span{font-size:14px!important}
+  .home-screen #publicTours .tour-venue-line b{font-size:8.5px!important;line-height:1.35!important}
+  .home-screen #publicTours .tour-card-footer{margin-top:11px!important;padding-top:10px!important}
+  .home-screen #publicTours .tour-card-footer>span:first-child b{font-size:8.5px!important}
+  .home-screen #publicTours .tour-detail-cta{min-width:112px!important;padding:9px 11px!important;font-size:8.5px!important}
+  .home-screen #publicTours .tour-detail-cta b{font-size:13px!important}
+}
