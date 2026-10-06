@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/assets/app-icon-v2.svg" sizes="192x192">
 <title>Chi tiết giải | Pickleup.vn</title>
 <meta name="description" content="Thông tin giải, nội dung thi đấu, đội tham dự, lịch, live score, bảng xếp hạng và bracket.">
-<link rel="stylesheet" href="assets/styles.css?v=24"><link rel="stylesheet" href="assets/public.css?v=36">
+<link rel="stylesheet" href="assets/styles.css?v=24"><link rel="stylesheet" href="assets/public.css?v=37">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=6">
 </head>
 <body class="public-body community-public tournament-app-page">
@@ -22,19 +22,38 @@
 <nav><a href="/#tournaments">Giải đấu</a><a href="/#live">Live Score</a><a href="/ranking.html">Ranking</a><a href="/about.html">Giới thiệu</a></nav><a class="btn primary" href="/login">Đăng nhập quản trị</a>
 </div></header>
 <main class="tournament-app-main">
-<section class="public-container tournament-app-hero">
-  <img id="tourBannerImage" class="tournament-hero-banner" alt="" hidden>
-  <div class="tournament-app-kicker">🏆 GIẢI ĐẤU PICKLEBALL</div>
-  <div id="tourStatus" class="tournament-status-chip"></div>
-  <h1 id="tourName">Đang tải...</h1><p id="tourMeta"></p>
-  <div id="tourHeroStats" class="tournament-hero-stats"></div>
-  <div class="tournament-hero-actions">
-    <a href="#participants">👥 VĐV đăng ký</a>
-    <a href="#schedule">🔴 Live / Lịch đấu</a>
-    <a id="tourBoardLink" href="court-board.html">📺 Bảng gọi sân</a>
-    <a href="#knockout">🧩 Sơ đồ đến Chung kết</a>
+<section class="public-container tournament-event-hero">
+  <div class="tournament-event-banner-wrap">
+    <img id="tourBannerImage" class="tournament-hero-banner" alt="" hidden>
+    <div class="tournament-banner-fallback" aria-hidden="true"><span>🏓</span><b>PICKLEUP TOUR</b></div>
+    <div id="tourStatus" class="tournament-status-chip tournament-status-overlay"></div>
   </div>
-  <div class="tournament-app-ball" aria-hidden="true"></div>
+  <div class="tournament-event-summary">
+    <div class="tournament-summary-top">
+      <div>
+        <span class="tournament-app-kicker">PICKLEUP • GIẢI ĐẤU</span>
+        <h1 id="tourName">Đang tải...</h1>
+        <p id="tourMeta"></p>
+      </div>
+      <div class="tournament-summary-actions">
+        <a id="tourRegisterLink" class="tournament-register-cta" href="#participants">Đăng ký tham gia ↗</a>
+        <a id="tourBoardLink" class="tournament-secondary-cta" href="court-board.html">Bảng gọi sân</a>
+      </div>
+    </div>
+    <div id="tourEventFacts" class="tournament-event-facts"></div>
+    <div class="tournament-prize-contact-grid">
+      <article class="tournament-prize-card">
+        <span>🏆 CƠ CẤU GIẢI THƯỞNG</span>
+        <p id="tourPrizePool">Đang cập nhật</p>
+      </article>
+      <article class="tournament-contact-card">
+        <span>☎ LIÊN HỆ BTC</span>
+        <b id="tourContactName">BTC giải đấu</b>
+        <p id="tourContactPhone">Đang cập nhật</p>
+      </article>
+    </div>
+    <div id="tourHeroStats" class="tournament-hero-stats"></div>
+  </div>
 </section>
 <nav class="public-container tournament-tabs tournament-focus-tabs">
   <a href="#knockout">🏆 Sơ đồ thi đấu</a><a href="#schedule">🗓 Bảng đấu / Lịch</a><a href="#participants">👥 VĐV</a><a href="#standings">📊 BXH</a>
@@ -62,5 +81,5 @@
 </div></section>
 </main>
 <footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
-<script src="/socket.io/socket.io.js"></script><script src="assets/members-binh-loi-data.js"></script><script src="assets/api.js?v=45"></script><script src="assets/bracket-ui.js?v=34"></script><script src="assets/tournament.js?v=45"></script><script src="assets/ui-motion.js?v=32"></script><script src="/assets/pwa.js"></script>
+<script src="/socket.io/socket.io.js"></script><script src="assets/members-binh-loi-data.js"></script><script src="assets/api.js?v=45"></script><script src="assets/bracket-ui.js?v=34"></script><script src="assets/tournament.js?v=46"></script><script src="assets/ui-motion.js?v=32"></script><script src="/assets/pwa.js"></script>
 </body></html>
