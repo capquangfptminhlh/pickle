@@ -1,4 +1,4 @@
-const score=value=>typeof value==="number"&&Number.isSafeInteger(value)&&value>=0;
+const score=value=>typeof value==="number"&&Number.isSafeInteger(value)&&value>=0&&value<=32767;
 
 export function validateSet(a,b,target=11,winByTwo=true){
   if(!score(a)||!score(b)||!Number.isSafeInteger(target)||target<1)return false;
