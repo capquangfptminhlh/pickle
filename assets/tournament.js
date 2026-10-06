@@ -19,7 +19,7 @@ const initials=n=>(n||"VĐV").trim().split(/\s+/).slice(-2).map(x=>x[0]||"").joi
 const fmtRating=v=>{const n=Number(v);return Number.isFinite(n)?(Math.round(n*100)/100).toFixed((Math.round(n*100)%100)===0?1:2):"—"};
 const athleteChip=p=>{const av=p?.avatar_url?`<img src="${esc(p.avatar_url)}" alt="${esc(p.full_name||"VĐV")}" loading="lazy" class="tour-athlete-avatar">`:`<span class="tour-athlete-avatar tour-athlete-fallback">${esc(initials(p?.full_name))}</span>`;return `<span class="tour-athlete-chip">${av}<span class="tour-athlete-copy"><b>${esc(p?.full_name||"VĐV")}</b><small><strong>${fmtRating(p?.rating)}</strong> điểm</small></span></span>`}
 const badge=s=>s==="live"?'<span class="badge live">LIVE</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':'<span class="badge wait">SẮP ĐẤU</span>';
-const statusMeta=s=>({live:["ĐANG DIỄN RA","live"],registration:["ĐANG NHẬN ĐĂNG KÝ","blue"],open:["ĐANG NHẬN ĐĂNG KÝ","blue"],completed:["ĐÃ KẾT THÚC","done"],cancelled:["ĐÃ HỦY","done"]}[s]||["SẮP DIỄN RA","wait"]);
+const statusMeta=s=>({live:["ĐANG DIỄN RA","live"],registration:["ĐANG NHẬN ĐĂNG KÝ","blue"],open:["ĐANG NHẬN ĐĂNG KÝ","blue"],completed:["ĐÃ KẾT THÚC","done"],cancelled:["ĐÃ HỦY","done"]}[s]||["SẮP DIỄN RA","wait"]);\nconst formatLabel=f=>({pool_to_knockout:"Vòng bảng → Loại trực tiếp",round_robin:"Vòng tròn",knockout:"Loại trực tiếp"}[f]||String(f||""));
 const safeHttps=s=>{if(!s)return "#";try{const u=new URL(s,location.origin);return u.protocol==="https:"?s:"#"}catch{return "#"}};
 function empty(icon,title,copy){return '<div class="app-empty-card"><span>'+icon+'</span><b>'+title+'</b><small>'+copy+'</small></div>'}
 function render(){
