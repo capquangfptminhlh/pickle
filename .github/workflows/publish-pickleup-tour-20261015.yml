@@ -40,7 +40,7 @@ jobs:
             '2026-10-15T06:00:00.000Z',NULL,'registration',1,1,100,
             'BTC PickleUp Tour Bình Lợi','0932034466','',
             'Giải nhất: 1.000.000đ + 2 cúp + 2 huy chương + 2 áo thi đấu Pickleball; Giải nhì: 500.000đ + 2 huy chương + cuốn cán vợt; Giải ba: 2 huy chương',
-            '190.000đ / VĐV','/assets/tournaments/pickleup-tour-binh-loi-20261015.svg','free',
+            '190.000đ / VĐV','/assets/tournaments/pickleup-tour-binh-loi-20261015-v2.svg?v=3','free',
             datetime('now'),datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
@@ -65,11 +65,11 @@ jobs:
             id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,
             advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at
           ) VALUES(
-            'division-pickleup-binh-loi-20261015','tour-pickleup-binh-loi-20261015','Đôi nam tự do',
+            'division-pickleup-binh-loi-20261015','tour-pickleup-binh-loi-20261015','Đôi nam tự do • Tối đa 16 cặp',
             'doubles','pool_to_knockout',3,11,1,2,'head_to_head','side_out',15,20,1,datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
-            name='Đôi nam tự do',
+            name='Đôi nam tự do • Tối đa 16 cặp',
             event_type='doubles',
             format='pool_to_knockout',
             active=1,
