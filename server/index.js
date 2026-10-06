@@ -2258,6 +2258,7 @@ app.get("/login.html",(req,res)=>res.sendFile(path.join(root,"login.html")));
 app.get("/tournament.html",(req,res)=>res.sendFile(path.join(root,"tournament.html")));
 app.get("/court-board.html",(req,res)=>res.sendFile(path.join(root,"court-board.html")));
 app.get("/referee.html",(req,res)=>res.sendFile(path.join(root,"referee.html")));
+app.get("/match.html",(req,res)=>res.sendFile(path.join(root,"match.html")));
 app.get("/ranking.html",(req,res)=>res.sendFile(path.join(root,"ranking.html")));
 app.get("/player.html",(req,res)=>res.sendFile(path.join(root,"player.html")));
 app.get("/checkin.html",(req,res)=>res.sendFile(path.join(root,"checkin.html")));
