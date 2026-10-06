@@ -20,7 +20,10 @@
 <main>
   <section class="card">
     <h1>Chuyển dữ liệu Pickleup cũ</h1>
-    <p>Trang này đọc dữ liệu <b>pickle-local-state-v1</b> đang lưu trong trình duyệt GitHub Pages này và chuyển sang D1 production tại <b>pickleup.vn</b>. Không tạo dữ liệu mẫu.</p>
+    <p>Chọn tệp sao lưu JSON để khôi phục dữ liệu lên <b>Pickleup.vn</b>. Nếu đang dùng trang cũ trên đúng trình duyệt trước đây, dữ liệu đã lưu sẽ được nhận diện tự động.</p>
+    <label for="backupFile">Chọn bản sao JSON (tối đa 20 MB)</label>
+    <input id="backupFile" type="file" accept=".json,application/json">
+    <small class="note">Chọn tệp chưa gửi dữ liệu lên website. Chỉ tài khoản Super Admin được khôi phục. Bản ghi đã có trên hệ thống được giữ nguyên; tệp sao lưu và dữ liệu cũ không bị xóa.</small>
     <div id="legacyStatus" class="status">Đang kiểm tra dữ liệu cũ…</div>
     <div id="metrics" class="grid" style="margin-top:12px"></div>
     <div class="actions">
@@ -34,7 +37,7 @@
     <p style="margin-top:0">Mật khẩu chỉ dùng để đăng nhập trực tiếp vào <b>https://pickleup.vn</b>, không lưu tại GitHub Pages.</p>
     <label>Email</label><input id="email" type="email" autocomplete="username" value="admin@pickleup.vn">
     <label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password">
-    <div class="actions"><button id="migrateBtn" class="primary" type="button">Chuyển dữ liệu sang D1</button></div>
+    <div class="actions"><button id="migrateBtn" class="primary" type="button">Khôi phục lên Pickleup.vn</button></div>
     <small class="note">Tài khoản trọng tài cũ không được import mật khẩu. Sau khi chuyển xong, tạo lại tài khoản trọng tài trong Admin để đảm bảo bảo mật.</small>
   </section>
 
@@ -44,6 +47,6 @@
     <div class="actions"><a class="btn secondary" href="https://pickleup.vn/admin.html">Mở Admin mới</a><a class="btn secondary" href="https://pickleup.vn/court-board.html">Mở TV Board</a></div>
   </section>
 </main>
-<script src="assets/legacy-migrate.js?v=1"></script>
+<script src="assets/legacy-migrate.js?v=2"></script>
 </body>
 </html>

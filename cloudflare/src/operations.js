@@ -128,16 +128,38 @@ function legacyScheduledAt(m,tournament){
   const time=String(m?.time||"").match(/^(\d{1,2}):(\d{2})$/);
   const start=tournament?.startAt||tournament?.start_at||null;
   if(time&&start){
-    const d=new Date(start);
-    if(Number.isFinite(d.getTime())){
-      d.setHours(Number(time[1]),Number(time[2]),0,0);
-      return d.toISOString();
+    const date=String(start).match(/^(\d{4}-\d{2}-\d{2})/);
+    const offset=String(start).match(/(Z|[+-]\d{2}:?\d{2})$/i)?.[1]||"+07:00";
+    if(date&&Number(time[1])<24&&Number(time[2])<60){
+      const d=new Date(`${date[1]}T${time[1].padStart(2,"0")}:${time[2]}:00${offset}`);
+      if(Number.isFinite(d.getTime()))return d.toISOString();
     }
   }
   return null;
 }
-async function runBatches(env,statements,size=60){
-  for(let i=0;i<statements.length;i+=size)await env.DB.batch(statements.slice(i,i+size));
+async function runBatches(env,statements,onBatch,size=60){
+  for(let i=0;i<statements.length;i+=size){
+    const batch=statements.slice(i,i+size);
+    onBatch(batch,await env.DB.batch(batch));
+  }
+}
+// D1 batches are atomic. Never split a new parent from its imported children.
+async function runLegacyGroups(env,groups,onBatch,size=60){
+  let batch=[];
+  const flush=async()=>{
+    if(!batch.length)return;
+    try{onBatch(batch,await env.DB.batch(batch))}catch(error){
+      if(/UNIQUE constraint failed: (teams|matches)\.id/.test(String(error.message)))throw httpError("LEGACY_IMPORT_CONFLICT",409);
+      throw error;
+    }
+    batch=[];
+  };
+  for(const group of groups){
+    if(group.length>size)throw httpError("LEGACY_RECORD_TOO_LARGE",413);
+    if(batch.length+group.length>size)await flush();
+    batch.push(...group);
+  }
+  await flush();
 }
 function uniqueSlugFactory(existing=[]){
   const used=new Set(existing.filter(Boolean).map(String));
@@ -168,6 +190,18 @@ async function importLegacyState(env,user,state){
   if(tournaments.length>300||divisions.length>1000||courts.length>3000||players.length>10000||teams.length>10000||matches.length>50000)throw httpError("LEGACY_STATE_TOO_LARGE",413);
 
   const now=nowIso(),counts={clubs:0,players:0,tournaments:0,divisions:0,courts:0,teams:0,teamPlayers:0,matches:0,sets:0,registrations:0,sponsors:0,posts:0,bookings:0,clubEvents:0,attendance:0,transactions:0};
+  const skipped={...counts},statementKeys=new WeakMap();
+  const tableCounts={clubs:"clubs",players:"players",tournaments:"tournaments",divisions:"divisions",courts:"courts",teams:"teams",team_players:"teamPlayers",matches:"matches",match_sets:"sets",registrations:"registrations",sponsors:"sponsors",content_posts:"posts",court_bookings:"bookings",club_events:"clubEvents",club_event_attendance:"attendance",club_transactions:"transactions"};
+  const prepareImport=sql=>({bind:(...args)=>{
+    const statement=env.DB.prepare(sql).bind(...args);
+    statementKeys.set(statement,tableCounts[sql.match(/^INSERT INTO (\w+)/)?.[1]]);
+    return statement;
+  }});
+  const countResults=(batch,results)=>batch.forEach((statement,index)=>{
+    const key=statementKeys.get(statement);if(!key)return;
+    const changed=Number(results[index]?.meta?.changes??results[index]?.changes??0);
+    counts[key]+=changed;if(!changed)skipped[key]++;
+  });
   const warnings=[];
   const existingClubSlugs=(await rows(env,"SELECT slug FROM clubs")).map(x=>x.slug);
   const existingTournamentSlugs=(await rows(env,"SELECT slug FROM tournaments")).map(x=>x.slug);
@@ -181,70 +215,86 @@ async function importLegacyState(env,user,state){
     if(!c?.id||!String(c.name||"").trim())continue;
     const existing=await one(env,"SELECT slug FROM clubs WHERE id=?",String(c.id));
     const slug=existing?.slug||clubSlug(c.slug||c.name);
-    statements.push(env.DB.prepare("INSERT INTO clubs(id,name,slug,city,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,city=excluded.city,active=excluded.active,updated_at=excluded.updated_at")
-      .bind(String(c.id),String(c.name).trim(),slug,String(c.city||""),c.active===false?0:1,now,now));counts.clubs++;
+    statements.push(prepareImport("INSERT INTO clubs(id,name,slug,city,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(c.id),String(c.name).trim(),slug,String(c.city||""),c.active===false?0:1,now,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const p of players){
     if(!p?.id||!String(p.full_name||p.fullName||"").trim())continue;
     const clubId=p.club_id||p.clubId||null;
-    statements.push(env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET club_id=excluded.club_id,full_name=excluded.full_name,nickname=excluded.nickname,gender=excluded.gender,rating=excluded.rating,phone=excluded.phone,avatar_url=COALESCE(excluded.avatar_url,players.avatar_url),active=excluded.active,updated_at=excluded.updated_at")
-      .bind(String(p.id),clubId?String(clubId):null,user.id,String(p.full_name||p.fullName).trim(),String(p.nickname||""),genderValue(p.gender),Number(p.rating)||3,String(p.phone||""),safeLegacyAvatar(p.avatar_url||p.avatarUrl),p.active===false?0:1,now,now));counts.players++;
+    statements.push(prepareImport("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(p.id),clubId?String(clubId):null,user.id,String(p.full_name||p.fullName).trim(),String(p.nickname||""),genderValue(p.gender),Number(p.rating)||3,String(p.phone||""),safeLegacyAvatar(p.avatar_url||p.avatarUrl),p.active===false?0:1,now,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const t of tournaments){
     if(!t?.id||!String(t.name||"").trim())continue;
     const existing=await one(env,"SELECT slug FROM tournaments WHERE id=?",String(t.id));
     const slug=existing?.slug||tourSlug(t.slug||t.name);
-    statements.push(env.DB.prepare("INSERT INTO tournaments(id,owner_user_id,name,slug,venue_name,start_at,end_at,status,public_visible,is_featured,featured_rank,contact_name,contact_phone,prize_pool,entry_fee,poster_url,sponsor_package,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET owner_user_id=excluded.owner_user_id,name=excluded.name,venue_name=excluded.venue_name,start_at=excluded.start_at,end_at=excluded.end_at,status=excluded.status,public_visible=excluded.public_visible,is_featured=excluded.is_featured,featured_rank=excluded.featured_rank,contact_name=excluded.contact_name,contact_phone=excluded.contact_phone,prize_pool=excluded.prize_pool,entry_fee=excluded.entry_fee,poster_url=excluded.poster_url,sponsor_package=excluded.sponsor_package,updated_at=excluded.updated_at")
-      .bind(String(t.id),user.id,String(t.name).trim(),slug,String(t.venue||t.venue_name||""),t.startAt||t.start_at||null,t.endAt||t.end_at||null,legacyTournamentStatus(t.status),t.publicVisible===false?0:1,t.isFeatured?1:0,Number(t.featuredRank||0),String(t.contactName||""),String(t.contactPhone||""),t.prizePool==null?null:String(t.prizePool),t.entryFee==null?null:String(t.entryFee),String(t.posterUrl||t.coverUrl||"")||null,String(t.sponsorPackage||"free"),now,now));counts.tournaments++;
+    statements.push(prepareImport("INSERT INTO tournaments(id,owner_user_id,name,slug,venue_name,start_at,end_at,status,public_visible,is_featured,featured_rank,contact_name,contact_phone,prize_pool,entry_fee,poster_url,sponsor_package,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(t.id),user.id,String(t.name).trim(),slug,String(t.venue||t.venue_name||""),t.startAt||t.start_at||null,t.endAt||t.end_at||null,legacyTournamentStatus(t.status),t.publicVisible===false?0:1,t.isFeatured?1:0,Number(t.featuredRank||0),String(t.contactName||""),String(t.contactPhone||""),t.prizePool==null?null:String(t.prizePool),t.entryFee==null?null:String(t.entryFee),String(t.posterUrl||t.coverUrl||"")||null,String(t.sponsorPackage||"free"),now,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const d of divisions){
     if(!d?.id||!d?.tournamentId)continue;
-    statements.push(env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tournament_id=excluded.tournament_id,name=excluded.name,event_type=excluded.event_type,format=excluded.format,best_of=excluded.best_of,points_to_win=excluded.points_to_win,win_by_two=excluded.win_by_two,advance_count=excluded.advance_count,tie_break_mode=excluded.tie_break_mode,scoring_mode=excluded.scoring_mode,minimum_rest_minutes=excluded.minimum_rest_minutes,match_slot_minutes=excluded.match_slot_minutes,active=excluded.active,updated_at=excluded.updated_at")
-      .bind(String(d.id),String(d.tournamentId),String(d.name||"Open"),legacyEventType(d.eventType),legacyDivisionFormat(d.format),[1,3,5].includes(Number(d.bestOf))?Number(d.bestOf):3,Math.max(1,Number(d.pointsToWin)||11),d.winByTwo===false?0:1,Math.max(1,Number(d.advanceCount)||2),"head_to_head",d.scoringMode==="rally"?"rally":"side_out",Math.max(0,Number(d.minimumRestMinutes??15)),Math.max(5,Number(d.matchSlotMinutes??20)),d.active===false?0:1,now));counts.divisions++;
+    statements.push(prepareImport("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(d.id),String(d.tournamentId),String(d.name||"Open"),legacyEventType(d.eventType),legacyDivisionFormat(d.format),[1,3,5].includes(Number(d.bestOf))?Number(d.bestOf):3,Math.max(1,Number(d.pointsToWin)||11),d.winByTwo===false?0:1,Math.max(1,Number(d.advanceCount)||2),"head_to_head",d.scoringMode==="rally"?"rally":"side_out",Math.max(0,Number(d.minimumRestMinutes??15)),Math.max(5,Number(d.matchSlotMinutes??20)),d.active===false?0:1,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const c of courts){
     if(!c?.id||!c?.tournamentId)continue;
-    statements.push(env.DB.prepare("INSERT INTO courts(id,tournament_id,name,sort_order,active,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tournament_id=excluded.tournament_id,name=excluded.name,sort_order=excluded.sort_order,active=excluded.active,updated_at=excluded.updated_at")
-      .bind(String(c.id),String(c.tournamentId),String(c.name||"Sân"),Number(c.sortOrder||0),c.active===false?0:1,now));counts.courts++;
+    statements.push(prepareImport("INSERT INTO courts(id,tournament_id,name,sort_order,active,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(c.id),String(c.tournamentId),String(c.name||"Sân"),Number(c.sortOrder||0),c.active===false?0:1,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
+  const knownTeams=new Set((await rows(env,"SELECT id FROM teams")).map(t=>String(t.id)));
+  let groups=[];
   for(const t of teams){
     if(!t?.id||!t?.divisionId)continue;
+    // Existing parents may have live rosters or history, including an empty roster.
+    if(knownTeams.has(String(t.id))){
+      skipped.teams++;skipped.teamPlayers+=Array.isArray(teamPlayers[t.id])?teamPlayers[t.id].length:0;
+      continue;
+    }
+    knownTeams.add(String(t.id));
+    const group=[];
     let clubId=t.clubId||t.club_id||null;
     if(!clubId&&t.club)clubId=clubIdByName.get(String(t.club).trim().toLowerCase())||null;
-    statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET division_id=excluded.division_id,name=excluded.name,club_id=excluded.club_id,seed=excluded.seed,group_code=excluded.group_code,status=excluded.status,updated_at=excluded.updated_at")
-      .bind(String(t.id),String(t.divisionId),String(t.name||"Đội"),clubId?String(clubId):null,t.seed==null?null:Number(t.seed),String(t.group||t.group_code||"")||null,String(t.status||"active"),now));counts.teams++;
-  }
-  await runBatches(env,statements);statements=[];
-
-  for(const [teamId,pids] of Object.entries(teamPlayers)){
-    if(!Array.isArray(pids))continue;
+    // Plain INSERT makes a concurrent parent creation abort this whole group.
+    group.push(prepareImport("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(String(t.id),String(t.divisionId),String(t.name||"Đội"),clubId?String(clubId):null,t.seed==null?null:Number(t.seed),String(t.group||t.group_code||"")||null,String(t.status||"active"),now));
+    const pids=Array.isArray(teamPlayers[t.id])?teamPlayers[t.id]:[];
     for(const pid of pids){
-      statements.push(env.DB.prepare("INSERT OR IGNORE INTO team_players(team_id,player_id) VALUES(?,?)").bind(String(teamId),String(pid)));counts.teamPlayers++;
+      // OR IGNORE still runs BEFORE INSERT guards; exclude duplicates before INSERT.
+      group.push(prepareImport("INSERT INTO team_players(team_id,player_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM team_players WHERE team_id=? AND player_id=?)").bind(String(t.id),String(pid),String(t.id),String(pid)));
     }
+    groups.push(group);
   }
-  await runBatches(env,statements);statements=[];
+  await runLegacyGroups(env,groups,countResults);groups=[];
 
   const tournamentByDivision=new Map(divisions.map(d=>[String(d.id),tournaments.find(t=>String(t.id)===String(d.tournamentId))]));
+  const knownMatches=new Set((await rows(env,"SELECT id FROM matches")).map(m=>String(m.id)));
   for(const m of matches){
     if(!m?.id||!m?.divisionId)continue;
+    if(knownMatches.has(String(m.id))){
+      skipped.matches++;skipped.sets+=Array.isArray(m.sets)?m.sets.filter(Array.isArray).length:0;
+      continue;
+    }
+    knownMatches.add(String(m.id));
+    const group=[];
     const status=legacyMatchStatus(m.status),current=Array.isArray(m.current)?m.current:[0,0],t=tournamentByDivision.get(String(m.divisionId));
     const courtState=status==="live"?"live":status==="completed"?"done":String(m.courtState||"scheduled");
-    statements.push(env.DB.prepare("INSERT INTO matches(id,division_id,court_id,referee_user_id,team_a_id,team_b_id,winner_team_id,stage,round_no,bracket_slot,scheduled_at,started_at,completed_at,status,current_score_a,current_score_b,result_reason,result_note,version,court_state,serving_side,server_number,timeout_a,timeout_b,medical_timeout_a,medical_timeout_b,called_at,on_deck_at,warmup_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET division_id=excluded.division_id,court_id=excluded.court_id,team_a_id=excluded.team_a_id,team_b_id=excluded.team_b_id,winner_team_id=excluded.winner_team_id,stage=excluded.stage,round_no=excluded.round_no,bracket_slot=excluded.bracket_slot,scheduled_at=excluded.scheduled_at,started_at=excluded.started_at,completed_at=excluded.completed_at,status=excluded.status,current_score_a=excluded.current_score_a,current_score_b=excluded.current_score_b,result_reason=excluded.result_reason,result_note=excluded.result_note,version=excluded.version,court_state=excluded.court_state,serving_side=excluded.serving_side,server_number=excluded.server_number,timeout_a=excluded.timeout_a,timeout_b=excluded.timeout_b,medical_timeout_a=excluded.medical_timeout_a,medical_timeout_b=excluded.medical_timeout_b,called_at=excluded.called_at,on_deck_at=excluded.on_deck_at,warmup_at=excluded.warmup_at")
-      .bind(String(m.id),String(m.divisionId),m.courtId?String(m.courtId):null,null,m.a&&m.a!=="TBD"?String(m.a):null,m.b&&m.b!=="TBD"?String(m.b):null,m.winner?String(m.winner):null,String(m.stage||"Vòng bảng"),m.roundNo==null?null:Number(m.roundNo),String(m.bracketSlot||"")||null,legacyScheduledAt(m,t),m.startedAt||null,m.completedAt||(status==="completed"?now:null),status,Number(current[0]||0),Number(current[1]||0),m.resultReason||null,m.resultNote||null,Math.max(1,Number(m.version)||1),["scheduled","called","on_deck","warming_up","live","done"].includes(courtState)?courtState:"scheduled",["A","B"].includes(m.servingSide)?m.servingSide:null,[1,2].includes(Number(m.serverNumber))?Number(m.serverNumber):2,Number(m.timeouts?.A||0),Number(m.timeouts?.B||0),Number(m.medicalTimeouts?.A||0),Number(m.medicalTimeouts?.B||0),m.calledAt||null,m.onDeckAt||null,m.warmupAt||null,now));counts.matches++;
+    group.push(prepareImport("INSERT INTO matches(id,division_id,court_id,referee_user_id,team_a_id,team_b_id,winner_team_id,stage,round_no,bracket_slot,scheduled_at,started_at,completed_at,status,current_score_a,current_score_b,result_reason,result_note,version,court_state,serving_side,server_number,timeout_a,timeout_b,medical_timeout_a,medical_timeout_b,called_at,on_deck_at,warmup_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+      .bind(String(m.id),String(m.divisionId),m.courtId?String(m.courtId):null,null,m.a&&m.a!=="TBD"?String(m.a):null,m.b&&m.b!=="TBD"?String(m.b):null,m.winner?String(m.winner):null,String(m.stage||"Vòng bảng"),m.roundNo==null?null:Number(m.roundNo),String(m.bracketSlot||"")||null,legacyScheduledAt(m,t),m.startedAt||null,m.completedAt||(status==="completed"?now:null),status,Number(current[0]||0),Number(current[1]||0),m.resultReason||null,m.resultNote||null,Math.max(1,Number(m.version)||1),["scheduled","called","on_deck","warming_up","live","done"].includes(courtState)?courtState:"scheduled",["A","B"].includes(m.servingSide)?m.servingSide:null,[1,2].includes(Number(m.serverNumber))?Number(m.serverNumber):2,Number(m.timeouts?.A||0),Number(m.timeouts?.B||0),Number(m.medicalTimeouts?.A||0),Number(m.medicalTimeouts?.B||0),m.calledAt||null,m.onDeckAt||null,m.warmupAt||null,now));
     const sets=Array.isArray(m.sets)?m.sets:[];
-    sets.forEach((s,i)=>{if(!Array.isArray(s))return;statements.push(env.DB.prepare("INSERT INTO match_sets(id,match_id,set_no,score_a,score_b,completed) VALUES(?,?,?,?,?,1) ON CONFLICT(match_id,set_no) DO UPDATE SET score_a=excluded.score_a,score_b=excluded.score_b,completed=1").bind(String(m.id)+"-set-"+(i+1),String(m.id),i+1,Number(s[0]||0),Number(s[1]||0)));counts.sets++});
+    sets.forEach((s,i)=>{if(!Array.isArray(s))return;group.push(prepareImport("INSERT INTO match_sets(id,match_id,set_no,score_a,score_b,completed) VALUES(?,?,?,?,?,1)").bind(String(m.id)+"-set-"+(i+1),String(m.id),i+1,Number(s[0]||0),Number(s[1]||0)))});
+    groups.push(group);
   }
-  await runBatches(env,statements);statements=[];
+  await runLegacyGroups(env,groups,countResults);
 
   const divisionKey=new Map(divisions.map(d=>[String(tournaments.find(t=>String(t.id)===String(d.tournamentId))?.name||"").toLowerCase()+"|"+String(d.name||"").toLowerCase(),String(d.id)]));
   const teamKey=new Map(teams.map(t=>[String(t.divisionId)+"|"+String(t.name||"").toLowerCase(),String(t.id)]));
@@ -254,55 +304,56 @@ async function importLegacyState(env,user,state){
     const teamId=teamKey.get(did+"|"+String(r.team_name||"").toLowerCase())||null;
     const id=String(r.id||uid()),status=["pending","approved","waitlist","cancelled"].includes(r.status)?r.status:"approved";
     const pay=["unpaid","pending","paid","refunded"].includes(r.payment_status)?r.payment_status:"unpaid";
-    statements.push(env.DB.prepare("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,checked_in_at,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET division_id=excluded.division_id,team_id=excluded.team_id,status=excluded.status,payment_status=excluded.payment_status,amount=excluded.amount,checked_in_at=excluded.checked_in_at")
-      .bind(id,did,teamId,status,pay,r.amount==null?null:Number(r.amount),id,r.checked_in_at||null,now));counts.registrations++;
+    statements.push(prepareImport("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,checked_in_at,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(id,did,teamId,status,pay,r.amount==null?null:Number(r.amount),id,r.checked_in_at||null,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const s of sponsors){
     if(!s?.id||!s?.name)continue;
-    statements.push(env.DB.prepare("INSERT INTO sponsors(id,tournament_id,name,logo_url,website_url,tier,sort_order) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tournament_id=excluded.tournament_id,name=excluded.name,logo_url=excluded.logo_url,website_url=excluded.website_url,tier=excluded.tier,sort_order=excluded.sort_order")
-      .bind(String(s.id),s.tournamentId||s.tournament_id||null,String(s.name),s.logo_url||s.logoUrl||null,String(s.website_url||s.websiteUrl||""),String(s.tier||""),Number(s.sort_order||s.sortOrder||0)));counts.sponsors++;
+    statements.push(prepareImport("INSERT INTO sponsors(id,tournament_id,name,logo_url,website_url,tier,sort_order) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(s.id),s.tournamentId||s.tournament_id||null,String(s.name),s.logo_url||s.logoUrl||null,String(s.website_url||s.websiteUrl||""),String(s.tier||""),Number(s.sort_order||s.sortOrder||0)));
   }
   for(const p of posts){
     if(!p?.id||!p?.title)continue;
     const existing=await one(env,"SELECT slug FROM content_posts WHERE id=?",String(p.id));
-    statements.push(env.DB.prepare("INSERT INTO content_posts(id,tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tournament_id=excluded.tournament_id,title=excluded.title,excerpt=excluded.excerpt,body=excluded.body,cover_url=excluded.cover_url,status=excluded.status,published_at=excluded.published_at,updated_at=excluded.updated_at")
-      .bind(String(p.id),p.tournamentId||p.tournament_id||null,String(p.title),existing?.slug||postSlug(p.slug||p.title),String(p.excerpt||""),String(p.body||""),p.cover_url||p.coverUrl||null,["draft","published","archived"].includes(p.status)?p.status:"draft",p.published_at||null,user.id,now,now));counts.posts++;
+    statements.push(prepareImport("INSERT INTO content_posts(id,tournament_id,title,slug,excerpt,body,cover_url,status,published_at,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(p.id),p.tournamentId||p.tournament_id||null,String(p.title),existing?.slug||postSlug(p.slug||p.title),String(p.excerpt||""),String(p.body||""),p.cover_url||p.coverUrl||null,["draft","published","archived"].includes(p.status)?p.status:"draft",p.published_at||null,user.id,now,now));
   }
-  await runBatches(env,statements);statements=[];
+  await runBatches(env,statements,countResults);statements=[];
 
   for(const b of bookings){
     if(!b?.id||!b?.court_id||!b?.start_at||!b?.end_at)continue;
-    statements.push(env.DB.prepare("INSERT INTO court_bookings(id,court_id,title,contact_name,contact_phone,start_at,end_at,status,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET court_id=excluded.court_id,title=excluded.title,contact_name=excluded.contact_name,contact_phone=excluded.contact_phone,start_at=excluded.start_at,end_at=excluded.end_at,status=excluded.status,notes=excluded.notes")
-      .bind(String(b.id),String(b.court_id),String(b.title||"Booking"),String(b.contact_name||""),String(b.contact_phone||""),String(b.start_at),String(b.end_at),["pending","confirmed","cancelled","completed"].includes(b.status)?b.status:"confirmed",String(b.notes||""),user.id,now));counts.bookings++;
+    statements.push(prepareImport("INSERT INTO court_bookings(id,court_id,title,contact_name,contact_phone,start_at,end_at,status,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(b.id),String(b.court_id),String(b.title||"Booking"),String(b.contact_name||""),String(b.contact_phone||""),String(b.start_at),String(b.end_at),["pending","confirmed","cancelled","completed"].includes(b.status)?b.status:"confirmed",String(b.notes||""),user.id,now));
   }
   for(const e of clubEvents){
     if(!e?.id||!e?.club_id||!e?.start_at)continue;
-    statements.push(env.DB.prepare("INSERT INTO club_events(id,club_id,title,event_type,venue,start_at,end_at,max_participants,fee,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET club_id=excluded.club_id,title=excluded.title,event_type=excluded.event_type,venue=excluded.venue,start_at=excluded.start_at,end_at=excluded.end_at,max_participants=excluded.max_participants,fee=excluded.fee,status=excluded.status,updated_at=excluded.updated_at")
-      .bind(String(e.id),String(e.club_id),String(e.title||"Hoạt động"),["social","training","match","meeting","other"].includes(e.event_type)?e.event_type:"other",String(e.venue||""),String(e.start_at),e.end_at||null,e.max_participants==null?null:Number(e.max_participants),Number(e.fee||0),["scheduled","live","completed","cancelled"].includes(e.status)?e.status:"scheduled",user.id,now,now));counts.clubEvents++;
+    statements.push(prepareImport("INSERT INTO club_events(id,club_id,title,event_type,venue,start_at,end_at,max_participants,fee,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(e.id),String(e.club_id),String(e.title||"Hoạt động"),["social","training","match","meeting","other"].includes(e.event_type)?e.event_type:"other",String(e.venue||""),String(e.start_at),e.end_at||null,e.max_participants==null?null:Number(e.max_participants),Number(e.fee||0),["scheduled","live","completed","cancelled"].includes(e.status)?e.status:"scheduled",user.id,now,now));
     const arr=Array.isArray(clubAttendance[e.id])?clubAttendance[e.id]:[];
     for(const a of arr){
       if(!a?.player_id)continue;
-      statements.push(env.DB.prepare("INSERT INTO club_event_attendance(event_id,player_id,status,checked_in_at,checked_in_by,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(event_id,player_id) DO UPDATE SET status=excluded.status,checked_in_at=excluded.checked_in_at")
-        .bind(String(e.id),String(a.player_id),["registered","attended","absent","cancelled"].includes(a.status)?a.status:"registered",a.checked_in_at||null,null,now));counts.attendance++;
+      statements.push(prepareImport("INSERT INTO club_event_attendance(event_id,player_id,status,checked_in_at,checked_in_by,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(event_id,player_id) DO NOTHING")
+        .bind(String(e.id),String(a.player_id),["registered","attended","absent","cancelled"].includes(a.status)?a.status:"registered",a.checked_in_at||null,null,now));
     }
   }
   for(const x of clubTransactions){
     if(!x?.id||!x?.club_id||!(Number(x.amount)>0))continue;
-    statements.push(env.DB.prepare("INSERT INTO club_transactions(id,club_id,direction,category,amount,note,occurred_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET club_id=excluded.club_id,direction=excluded.direction,category=excluded.category,amount=excluded.amount,note=excluded.note,occurred_at=excluded.occurred_at")
-      .bind(String(x.id),String(x.club_id),x.direction==="expense"?"expense":"income",String(x.category||"other"),Number(x.amount),String(x.note||""),x.occurred_at||now,user.id,now));counts.transactions++;
+    statements.push(prepareImport("INSERT INTO club_transactions(id,club_id,direction,category,amount,note,occurred_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING")
+      .bind(String(x.id),String(x.club_id),x.direction==="expense"?"expense":"income",String(x.category||"other"),Number(x.amount),String(x.note||""),x.occurred_at||now,user.id,now));
   }
-  await runBatches(env,statements);
+  await runBatches(env,statements,countResults);
 
   if(src.branding&&typeof src.branding==="object"){
-    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES('branding',?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at")
+    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES('branding',?,?,?) ON CONFLICT(key) DO NOTHING")
       .bind(JSON.stringify(src.branding),user.id,now).run();
   }
+  if(skipped.teams||skipped.matches)warnings.push("Đội/trận đấu đã tồn tại được giữ nguyên, kể cả danh sách VĐV hoặc set đang trống; dữ liệu còn thiếu cần được kiểm tra thủ công.");
   if(Array.isArray(src.referees)&&src.referees.length)warnings.push("Không import mật khẩu/tài khoản trọng tài cũ; hãy tạo lại tài khoản trọng tài trong hệ thống mới.");
   await env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason,created_at) VALUES(?,'system','legacy-localstorage','IMPORT_LEGACY_STATE',?,?,?)")
     .bind(user.id,JSON.stringify(counts),"Import dữ liệu thật từ GitHub Pages localStorage",now).run();
-  return {ok:true,counts,warnings};
+  return {ok:true,counts,skipped,warnings};
 }
 
 export async function handleOperations(request,env){

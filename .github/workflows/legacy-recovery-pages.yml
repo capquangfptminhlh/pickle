@@ -20,7 +20,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  availability:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.site.outputs.enabled }}
+    steps:
+      - name: Check optional GitHub Pages availability
+        id: site
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getPages({owner: context.repo.owner, repo: context.repo.repo});
+              core.setOutput('enabled', 'true');
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.setOutput('enabled', 'false');
+              core.notice('GitHub Pages is unavailable. JSON recovery remains available at https://pickleup.vn/legacy-migrate.html.');
+            }
   deploy:
+    needs: availability
+    if: needs.availability.outputs.enabled == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

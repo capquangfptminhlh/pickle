@@ -38,6 +38,7 @@ jobs:
           node scripts/registry-ui.mjs
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-scoring-ui.mjs
+          node scripts/registry-legacy-ui.mjs
           node --test scripts/registry-realtime.test.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Courtside client syntax
@@ -85,6 +86,7 @@ jobs:
           node ../scripts/registry-accounts-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-operations-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-public-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-legacy-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate
