@@ -1,4 +1,4 @@
-const VERSION="pickleup-v26-board-voice-qr-20261006";
+const VERSION="pickleup-v27-flexible-realtime-draw-20261006";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
