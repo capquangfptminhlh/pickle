@@ -1,8 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-<defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1b0612"/><stop offset=".55" stop-color="#6d123d"/><stop offset="1" stop-color="#13040d"/></linearGradient><linearGradient id="r" x1="0" x2="1"><stop stop-color="#ffbfdc"/><stop offset=".45" stop-color="#ff4f9a"/><stop offset="1" stop-color="#d80065"/></linearGradient><linearGradient id="gold" x1="0" x2="1"><stop stop-color="#ffe28a"/><stop offset="1" stop-color="#d89b24"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="14" stdDeviation="10" flood-opacity=".5"/></filter></defs>
-<rect width="1600" height="900" fill="url(#p)"/><g opacity=".2" fill="#ff8fc1"><circle cx="100" cy="120" r="60"/><circle cx="1500" cy="90" r="90"/><circle cx="1430" cy="740" r="130"/></g><path d="M-40 210C400-50 680 260 1640 40" fill="none" stroke="#ff4f9a" stroke-width="34" opacity=".75"/><path d="M0 275C450 20 760 350 1640 110" fill="none" stroke="#ffb5d6" stroke-width="14" opacity=".75"/>
-<text x="90" y="100" fill="#fff" font-family="Arial Black,Arial" font-size="48">MLP CHỊ ĐẸP</text><text x="88" y="290" fill="url(#gold)" font-family="Arial Black,Arial" font-size="148" font-style="italic" filter="url(#s)">XÉ TÚI MÙ</text><text x="94" y="390" fill="#fff" font-family="Arial Black,Arial" font-size="68">PHỤ NỮ VIỆT NAM • 20/10</text>
-<g transform="translate(1110 135)" filter="url(#s)"><circle cx="170" cy="130" r="62" fill="#ffd5e7"/><path d="M110 88q60-85 130 0" fill="#29121c"/><path d="M95 210q75-80 150 0l80 260H20z" fill="url(#r)"/><path d="M90 245L-10 390M250 245l120 110" stroke="#ffd5e7" stroke-width="38" stroke-linecap="round"/><ellipse cx="390" cy="355" rx="90" ry="125" fill="#1b1720" stroke="#ff66ab" stroke-width="8" transform="rotate(18 390 355)"/><rect x="405" y="455" width="38" height="135" rx="18" fill="#171117" transform="rotate(18 405 455)"/></g>
-<g transform="translate(100 520)"><rect width="1420" height="235" rx="30" fill="#13070f" stroke="#ff5da7" stroke-width="3"/><text x="45" y="55" fill="#ffb1d2" font-family="Arial" font-size="24">THỜI GIAN</text><text x="45" y="112" fill="#fff" font-family="Arial Black,Arial" font-size="44">11/10/2026 • 16H00–18H00</text><text x="45" y="170" fill="#ffb1d2" font-family="Arial" font-size="24">THỂ THỨC</text><text x="45" y="218" fill="#fff" font-family="Arial Black,Arial" font-size="38">MLP TEAM • 3 NỮ / TEAM</text><line x1="820" y1="35" x2="820" y2="205" stroke="#6a2849"/><text x="875" y="72" fill="#ffb1d2" font-family="Arial" font-size="24">LỆ PHÍ THAM GIA</text><text x="875" y="145" fill="url(#gold)" font-family="Arial Black,Arial" font-size="76">200K / VĐV</text><text x="875" y="195" fill="#fff" font-family="Arial" font-size="28">AB • BC • CA • Bốc thăm ngẫu nhiên</text></g>
-<text x="100" y="820" fill="#ffd0e4" font-family="Arial" font-size="25">BÌNH LỢI PICKLEBALL • 171/4 Bình Lợi, Bình Lợi Trung, TP.HCM</text><text x="1180" y="820" fill="#fff" font-family="Arial Black,Arial" font-size="27">0968 976 902 • 0947 669 929</text>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1a0815"/><stop offset=".58" stop-color="#3a102d"/><stop offset="1" stop-color="#120711"/></linearGradient>
+  <linearGradient id="pink" x1="0" x2="1"><stop stop-color="#ffd0e4"/><stop offset=".45" stop-color="#ff6caf"/><stop offset="1" stop-color="#ff2d86"/></linearGradient>
+  <linearGradient id="gold" x1="0" x2="1"><stop stop-color="#ffe8a7"/><stop offset="1" stop-color="#f3b536"/></linearGradient>
+  <filter id="shadow"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-opacity=".35"/></filter>
+</defs>
+<rect width="1600" height="900" fill="url(#bg)"/>
+<circle cx="1400" cy="110" r="320" fill="#ff4d9b" opacity=".11"/>
+<path d="M0 86H1600" stroke="#ff5da8" stroke-width="6"/>
+<text x="78" y="79" fill="#fff" font-family="Arial Black,Arial" font-size="40">MLP CHỊ ĐẸP • 20/10</text>
+<text x="78" y="232" fill="#fff" font-family="Arial Black,Arial" font-size="90">XÉ TÚI MÙ</text>
+<text x="80" y="345" fill="url(#pink)" font-family="Arial Black,Arial" font-size="118" font-style="italic">PICKLEBALL PARTY</text>
+<text x="82" y="404" fill="#d5a9c1" font-family="Arial" font-size="25" letter-spacing="4">VUI • NGẪU NHIÊN • ĐÚNG CHẤT MLP</text>
+
+<g transform="translate(1040 120)" filter="url(#shadow)">
+  <rect width="480" height="500" rx="46" fill="#25101f" stroke="#69314f" stroke-width="3"/>
+  <circle cx="240" cy="150" r="104" fill="url(#pink)"/>
+  <text x="240" y="315" text-anchor="middle" fill="#fff" font-family="Arial Black,Arial" font-size="38">3 NỮ / TEAM</text>
+  <text x="240" y="367" text-anchor="middle" fill="#e3b5cc" font-family="Arial" font-size="29">AB • BC • CA</text>
+  <text x="240" y="410" text-anchor="middle" fill="#e3b5cc" font-family="Arial" font-size="26">Bốc thăm ngẫu nhiên</text>
+  <rect x="78" y="442" width="324" height="52" rx="26" fill="url(#gold)"/>
+  <text x="240" y="478" text-anchor="middle" fill="#31150a" font-family="Arial Black,Arial" font-size="27">200.000đ / VĐV</text>
+</g>
+
+<g transform="translate(78 500)">
+  <rect width="880" height="140" rx="28" fill="#24101f" stroke="#5c2b47" stroke-width="2"/>
+  <text x="34" y="45" fill="#c89aae" font-family="Arial" font-size="23">THỜI GIAN</text>
+  <text x="34" y="100" fill="#fff" font-family="Arial Black,Arial" font-size="42">11.10.2026 • 16H00–18H00</text>
+  <line x1="462" y1="28" x2="462" y2="112" stroke="#5c2b47" stroke-width="2"/>
+  <text x="502" y="45" fill="#c89aae" font-family="Arial" font-size="23">THỂ THỨC</text>
+  <text x="502" y="96" fill="#fff" font-family="Arial Black,Arial" font-size="32">MLP TEAM • ROUND ROBIN</text>
+</g>
+
+<g transform="translate(78 675)">
+  <rect width="1444" height="145" rx="28" fill="#21101d" stroke="#5c2b47" stroke-width="2"/>
+  <text x="32" y="43" fill="#c89aae" font-family="Arial" font-size="21">ĐỊA ĐIỂM</text>
+  <text x="32" y="84" fill="#fff" font-family="Arial Black,Arial" font-size="31">BÌNH LỢI PICKLEBALL</text>
+  <text x="32" y="119" fill="#e0bfd0" font-family="Arial" font-size="22">171/4 Bình Lợi, Bình Lợi Trung, TP.HCM</text>
+  <line x1="860" y1="28" x2="860" y2="118" stroke="#5c2b47" stroke-width="2"/>
+  <text x="900" y="48" fill="#c89aae" font-family="Arial" font-size="21">LIÊN HỆ</text>
+  <text x="900" y="101" fill="url(#gold)" font-family="Arial Black,Arial" font-size="38">0968 976 902 • 0947 669 929</text>
+</g>
 </svg>
