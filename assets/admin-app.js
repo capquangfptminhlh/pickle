@@ -161,9 +161,10 @@ function tournamentCard(t){
   const dids=state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id);
   const teamCount=state.teams.filter(x=>dids.includes(x.divisionId)&&x.status!=="withdrawn").length;
   const courtCount=state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length;
-  return `<article class="tour-card" data-open-tournament="${t.id}" style="cursor:pointer"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong>${statusBadge(t.status)}</div><div class="tour-body">
+  const visibility=t.publicVisible===false?'<span class="badge wait">RIÊNG TƯ</span>':'<span class="badge done">CÔNG KHAI</span>';
+  return `<article class="tour-card" data-open-tournament="${t.id}" style="cursor:pointer"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong><div class="actions">${visibility}${statusBadge(t.status)}</div></div><div class="tour-body">
     <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đăng ký</small><b>${teamCount} cặp/đội</b></span><span><small>Sân</small><b>${courtCount||6} sân</b></span></div>
-    <div class="actions tournament-quick-actions"><button type="button" class="mini" data-tournament-roster="${t.id}">👥 VĐV đăng ký</button><button type="button" class="mini" data-share-roster="${t.id}">🔗 Chia sẻ VĐV</button><button type="button" class="mini draw-mini" data-tournament-draw="${t.id}">🎡 Quay số</button><button type="button" class="mini" data-tournament-bracket="${t.id}">🧩 Sơ đồ</button><a class="mini" href="tournament.html?id=${encodeURIComponent(t.id)}#schedule" target="_blank" rel="noopener">🔴 Live</a></div>
+    <div class="actions tournament-quick-actions"><button type="button" class="mini" data-toggle-public="${t.id}">${t.publicVisible===false?"🌐 Bật công khai":"🔒 Chuyển riêng tư"}</button><button type="button" class="mini" data-tournament-roster="${t.id}">👥 VĐV đăng ký</button><button type="button" class="mini" data-share-roster="${t.id}">🔗 Chia sẻ VĐV</button><button type="button" class="mini draw-mini" data-tournament-draw="${t.id}">🎡 Quay số</button><button type="button" class="mini" data-tournament-bracket="${t.id}">🧩 Sơ đồ</button><a class="mini" href="tournament.html?id=${encodeURIComponent(t.id)}#schedule" target="_blank" rel="noopener">🔴 Live</a><a class="mini" href="court-board.html?tournament=${encodeURIComponent(t.id)}" target="_blank" rel="noopener">📺 TV Board</a></div>
   </div></article>`;
 }
 async function shareTournamentRoster(tournamentId){
@@ -493,6 +494,16 @@ function bindDynamic(){
   document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{if(e.target.closest("button,a,select,input"))return;openTournamentDetail(card.dataset.openTournament)});
   document.querySelectorAll("[data-tournament-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTournamentDetail(b.dataset.tournamentRoster)});
   document.querySelectorAll("[data-share-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();shareTournamentRoster(b.dataset.shareRoster)});
+  document.querySelectorAll("[data-toggle-public]").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const t=state.tournaments.find(x=>x.id===b.dataset.togglePublic);if(!t)return;
+    try{
+      const makePublic=t.publicVisible===false;
+      await API.updateTournament(t.id,{publicVisible:makePublic});
+      await refresh();
+      toast(makePublic?"Đã bật công khai. TV Board và link khách dùng được ngay.":"Đã chuyển giải sang riêng tư.");
+    }catch(err){toast("Không thể đổi trạng thái công khai: "+err.message)}
+  });
   document.querySelectorAll("[data-tournament-draw]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentDraw);setTimeout(()=>document.querySelector("[data-auto-draw]")?.click(),30)});
   document.querySelectorAll("[data-tournament-bracket]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentBracket);setTimeout(()=>document.querySelector(".tournament-bracket-preview")?.scrollIntoView({behavior:"smooth",block:"center"}),60)});
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=e=>{e.stopPropagation();switchAdminPage(b.dataset.goto)});
@@ -869,10 +880,11 @@ function openTournamentModal(){
     <label class="field">Nội dung<select id="fType"><option value="doubles">Đôi nam/nữ</option><option value="mixed_doubles">Đôi nam nữ</option><option value="singles">Đơn</option><option value="team">Đồng đội</option></select></label>
     <label class="field full">Địa điểm<input id="fVenue" placeholder="Tên sân / CLB"></label>
     <label class="field full">Số sân sử dụng<input id="fCourtCount" type="number" min="1" max="20" step="1" value="6"><span>Mặc định 6 sân, có thể chỉnh lại sau.</span></label>
+    <label class="field full"><span style="display:flex;align-items:center;gap:9px"><input id="fPublic" type="checkbox" checked> <b>Công khai giải ngay</b></span><span>Bật để TV Board, Live và link khách xem được dữ liệu giải.</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveTournament">Tạo giải</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");const courtCount=Math.max(1,Math.min(20,Number($("#fCourtCount").value)||6));try{const created=await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value});const tid=created?.tournament?.id||created?.id;if(tid)for(let i=1;i<=courtCount;i++)await API.createCourt(tid,{name:"Sân "+i,sortOrder:i});$("#genericDialog").close();await refresh();toast("Đã tạo giải với "+courtCount+" sân.")}catch(e){toast("Không thể tạo giải: "+e.message)}};
+  $("#saveTournament").onclick=async()=>{const name=$("#fName").value.trim();if(!name)return toast("Nhập tên giải.");const courtCount=Math.max(1,Math.min(20,Number($("#fCourtCount").value)||6)),publicVisible=$("#fPublic").checked;try{const created=await API.createTournament({name,venue:$("#fVenue").value,startAt:$("#fDate").value||null,eventType:$("#fType").value,publicVisible});const tid=created?.tournament?.id||created?.id;if(tid)for(let i=1;i<=courtCount;i++)await API.createCourt(tid,{name:"Sân "+i,sortOrder:i});$("#genericDialog").close();await refresh();toast("Đã tạo giải với "+courtCount+" sân"+(publicVisible?" và đã công khai.":"."))}catch(e){toast("Không thể tạo giải: "+e.message)}};
 }
 function openCsvImportModal(){
   $("#genericTitle").textContent="Import VĐV / Hội viên (Hỗ trợ Zalo)";
