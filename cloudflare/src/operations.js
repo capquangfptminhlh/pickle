@@ -247,7 +247,7 @@ async function importLegacyState(env,user,state){
   }
   await runBatches(env,statements);statements=[];
 
-  const divisionKey=new Map(divisions.map(d=>[(String(tournaments.find(t=>String(t.id)===String(d.tournamentId))?.name||"").toLowerCase()+"|"+String(d.name||"").toLowerCase(),String(d.id)]));
+  const divisionKey=new Map(divisions.map(d=>[String(tournaments.find(t=>String(t.id)===String(d.tournamentId))?.name||"").toLowerCase()+"|"+String(d.name||"").toLowerCase(),String(d.id)]));
   const teamKey=new Map(teams.map(t=>[String(t.divisionId)+"|"+String(t.name||"").toLowerCase(),String(t.id)]));
   for(const r of registrations){
     const did=divisionKey.get(String(r.tournament_name||"").toLowerCase()+"|"+String(r.division_name||"").toLowerCase());
