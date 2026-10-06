@@ -22,7 +22,7 @@ test("super admin imports legacy localStorage state into D1 idempotently",async(
       referees:[{id:"r-old",email:"legacy@test.vn",password:"plaintext-legacy"}]
     };
     let r=await f.api("/api/admin/import-legacy-state",{state:legacy},"POST","admin");
-    assert.equal(r.status,200);
+    assert.equal(r.status,200,JSON.stringify(r.data));
     assert.equal(r.data.ok,true);
     assert.equal(r.data.counts.tournaments,1);
     assert.equal(r.data.counts.players,2);
