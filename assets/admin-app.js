@@ -200,7 +200,7 @@ function operationsDashboard(){
     ["tournaments","trophy","GIẢI ĐẤU",state.tournaments.length,"Trong phạm vi quản lý"],
     ["teams","users","CẶP / ĐỘI",state.teams.filter(t=>t.status!=="withdrawn").length,"Đội đang tham dự giải"],
     ["live","score","ĐANG THI ĐẤU",live,"Trận cần theo dõi"],
-    ["completed","standings","ĐÃ HOÀN TẤT",history.length,"Giải đã lưu lịch sử"]
+    ["completed","standings","ĐÃ HOÀN TẤT",state.matches.filter(m=>["done","completed"].includes(m.status)).length,"Trận đã chốt kết quả"]
   ];
   setHeader("Điều hành giải đấu","Tạo giải → thêm VĐV → bốc thăm → thi đấu → lưu lịch sử");
   return `<div class="sport-dashboard">
