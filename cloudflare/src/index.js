@@ -294,9 +294,11 @@ async function handleApi(request,env){
     const clubId=user.role==="club_manager"?user.clubId:(b.clubId||user.clubId||null);
     if(user.role==="club_manager"&&!clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
     if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
-    const id=uid(),rating=user.role==="club_manager"?3:Number(b.rating||3),level=skillLevel(b.skillLevel||b.skill_level);
+    const gender=String(b.gender||"other");if(!["male","female","other"].includes(gender))return fail("INVALID_GENDER",request,env,400);
+    const rating=user.role==="club_manager"?3:(b.rating===undefined?3:Number(b.rating));if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
+    const id=uid(),level=skillLevel(b.skillLevel||b.skill_level);
     await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,skill_level,phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)")
-      .bind(id,clubId,user.id,fullName,String(b.nickname||""),String(b.gender||"other"),rating,level,String(b.phone||""),nowIso(),nowIso()).run();
+      .bind(id,clubId,user.id,fullName,String(b.nickname||""),gender,rating,level,String(b.phone||""),nowIso(),nowIso()).run();
     const row=await one(env,"SELECT * FROM players WHERE id=?",id);await createAudit(env,user,"player",id,"CREATE",null,row);
     return ok(row,request,env,201);
   }
@@ -397,17 +399,23 @@ async function handleApi(request,env){
   if(p&&method==="POST"){
     const user=await userRequired(request,env);await assertTournament(env,user,p.id);
     const b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
+    const eventType=String(b.eventType||"doubles"),format=String(b.format||"pool_to_knockout");
+    if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
+    if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
     const id=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(id,p.id,name,b.eventType||"doubles",b.format||"pool_to_knockout",Number(b.bestOf||3),Number(b.pointsToWin||11),asBool(b.winByTwo??true)?1:0,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),nowIso()).run();
+      .bind(id,p.id,name,eventType,format,Number(b.bestOf||3),Number(b.pointsToWin||11),asBool(b.winByTwo??true)?1:0,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),nowIso()).run();
     const row=await one(env,"SELECT * FROM divisions WHERE id=?",id);await createAudit(env,user,"division",id,"CREATE",null,row);await emitUpdate(env,p.id);
     return ok(row,request,env,201);
   }
   p=route(path,"/api/divisions/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),before=await one(env,"SELECT * FROM divisions WHERE id=?",p.id),b=await bodyJson(request);
+    const eventType=String(b.eventType??before.event_type),format=String(b.format??before.format);
+    if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
+    if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
     await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,active=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),b.eventType??before.event_type,b.format??before.format,Number(b.bestOf??before.best_of),Number(b.pointsToWin??before.points_to_win),b.winByTwo===undefined?before.win_by_two:(asBool(b.winByTwo)?1:0),Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
+      .bind(String(b.name??before.name),eventType,format,Number(b.bestOf??before.best_of),Number(b.pointsToWin??before.points_to_win),b.winByTwo===undefined?before.win_by_two:(asBool(b.winByTwo)?1:0),Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);await createAudit(env,user,"division",p.id,"UPDATE",before,after);await emitUpdate(env,tid);return ok(after,request,env);
   }
   if(p&&method==="DELETE"){
@@ -910,7 +918,10 @@ async function handleApi(request,env){
     await validateDivisionRoster(env,p.id,linked.map(x=>x.player_id),{currentTeamId:teamId});
     const dup=await one(env,"SELECT id FROM registrations WHERE division_id=? AND team_id=? AND status<>'cancelled' LIMIT 1",p.id,teamId);
     if(dup)return fail("REGISTRATION_EXISTS",request,env,409);
-    await env.DB.prepare("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(id,p.id,teamId,b.status||"approved",b.paymentStatus||"unpaid",Number(b.amount||0),uid(),nowIso()).run();await emitUpdate(env,tid);return ok(await one(env,"SELECT * FROM registrations WHERE id=?",id),request,env,201);
+    const status=String(b.status||"approved"),paymentStatus=String(b.paymentStatus||"unpaid");
+    if(!["pending","approved","waitlist","cancelled"].includes(status))return fail("INVALID_REGISTRATION_STATUS",request,env,400);
+    if(!["unpaid","pending","paid","refunded"].includes(paymentStatus))return fail("INVALID_PAYMENT_STATUS",request,env,400);
+    await env.DB.prepare("INSERT INTO registrations(id,division_id,team_id,status,payment_status,amount,checkin_token,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(id,p.id,teamId,status,paymentStatus,Number(b.amount||0),uid(),nowIso()).run();await emitUpdate(env,tid);return ok(await one(env,"SELECT * FROM registrations WHERE id=?",id),request,env,201);
   }
   p=route(path,"/api/registrations/:id/checkin");
   if(p&&method==="POST"){
