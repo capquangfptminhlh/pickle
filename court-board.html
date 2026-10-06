@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Live Court Board | Pickleup.vn</title>
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/court-board.css?v=1">
+  <link rel="stylesheet" href="assets/court-board.css?v=2">
 </head>
 <body class="board-body">
   <header class="board-header">
@@ -17,8 +17,11 @@
     </div>
     <div class="board-tools">
       <select id="tournamentSelect" aria-label="Chọn giải"></select>
+      <span id="dataMode" class="board-mode">PUBLIC</span>
       <span id="boardClock">--:--:--</span>
       <span id="boardConnection" class="board-live">● LIVE</span>
+      <button id="voiceBtn" type="button">🔇 Bật loa</button>
+      <button id="announceNowBtn" type="button" hidden>🔊 Phát lại gọi sân</button>
       <button id="fullscreenBtn" type="button">⛶ Toàn màn hình</button>
     </div>
   </header>
@@ -27,7 +30,8 @@
     <section id="callTicker" class="call-ticker" hidden></section>
     <section id="courtGrid" class="court-grid"></section>
     <section id="boardEmpty" class="board-empty" hidden>
-      <div>🏟️</div><strong>Chưa có lịch sân</strong><span>Khi BTC xếp trận, màn hình sẽ tự cập nhật.</span>
+      <div>🏟️</div><strong id="boardEmptyTitle">Chưa có lịch sân</strong><span id="boardEmptyText">Khi BTC xếp trận, màn hình sẽ tự cập nhật.</span>
+      <a id="boardLoginLink" href="login.html?next=court-board.html" hidden>Đăng nhập BTC để xem giải nội bộ</a>
     </section>
   </main>
 
@@ -36,8 +40,19 @@
     <span>Tự động cập nhật theo bàn điều hành</span>
   </footer>
 
+  <dialog id="qrDialog" class="qr-dialog">
+    <button id="qrCloseBtn" class="qr-close" type="button" aria-label="Đóng">×</button>
+    <div class="qr-dialog-body">
+      <small>QR TRẬN ĐẤU</small>
+      <strong id="qrMatchTitle">—</strong>
+      <div id="qrImage" class="qr-image"></div>
+      <p>VĐV quét mã để xem sân, trạng thái và điểm live trên điện thoại.</p>
+      <a id="qrOpenLink" href="#" target="_blank" rel="noopener">Mở trang trận đấu</a>
+    </div>
+  </dialog>
+
   <script src="/socket.io/socket.io.js"></script>
-  <script src="assets/api.js?v=45"></script>
-  <script src="assets/court-board.js?v=1"></script>
+  <script src="assets/api.js?v=46"></script>
+  <script src="assets/court-board.js?v=2"></script>
 </body>
 </html>
