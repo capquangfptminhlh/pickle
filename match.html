@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b7a4b">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Trận đấu | Pickleup.vn</title>
+  <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/match-live.css?v=1">
+</head>
+<body>
+  <header class="match-topbar">
+    <a href="index.html" class="brand"><img src="assets/app-icon-v2.svg" alt=""><span><b>PICKLEUP.VN</b><small>LIVE MATCH</small></span></a>
+    <span id="matchConnection" class="live-pill">● LIVE</span>
+  </header>
+
+  <main id="matchApp" class="match-shell">
+    <section id="matchLoading" class="match-empty"><div>🏓</div><strong>Đang tải trận đấu...</strong></section>
+    <section id="matchNotFound" class="match-empty" hidden><div>🔒</div><strong>Trận chưa được công khai</strong><span>BTC cần bật Công khai cho giải để VĐV xem bằng QR.</span><a href="index.html">Về trang giải đấu</a></section>
+    <section id="matchCard" class="live-match-card" hidden>
+      <div class="match-meta-row">
+        <div><small id="matchTournament">GIẢI ĐẤU</small><strong id="matchStage">—</strong></div>
+        <span id="matchState" class="state-pill">CHỜ</span>
+      </div>
+      <div class="court-banner"><span>SÂN</span><strong id="matchCourt">—</strong><small id="matchTime">—</small></div>
+      <div class="match-score-grid">
+        <article><small>ĐỘI A</small><strong id="matchTeamA">—</strong><b id="matchScoreA">0</b></article>
+        <div class="vs">VS</div>
+        <article class="right"><small>ĐỘI B</small><strong id="matchTeamB">—</strong><b id="matchScoreB">0</b></article>
+      </div>
+      <div id="serveInfo" class="serve-info" hidden></div>
+      <div id="setList" class="set-list"></div>
+      <div class="match-foot"><span id="matchUpdated">Cập nhật realtime</span><a id="tournamentLink" href="#">Xem toàn bộ giải →</a></div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="assets/api.js?v=46"></script>
+  <script src="assets/match-live.js?v=1"></script>
+</body>
+</html>
