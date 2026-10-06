@@ -339,3 +339,79 @@ body.admin-sport :is(.csv-preview,.csv-preview-row,.csv-preview-head) { backgrou
   body.admin-sport *,body.admin-sport *:before,body.admin-sport *:after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
   html:has(body.admin-sport)::view-transition-old(root),html:has(body.admin-sport)::view-transition-new(root) { animation:none!important; }
 }
+
+
+/* Organizer workflow + tournament history v20261006 */
+body.admin-sport .organizer-flow{margin:18px 0 20px!important;background:linear-gradient(145deg,#14221b,#101913)!important;border-color:#385542!important}
+body.admin-sport .organizer-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+body.admin-sport .organizer-flow-head h2{margin:4px 0 5px;color:var(--text);font-size:22px;line-height:1.2}
+body.admin-sport .organizer-flow-head p{margin:0;color:var(--muted);font-size:12px}
+body.admin-sport .organizer-flow-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+body.admin-sport .organizer-step{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;min-height:148px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#0f1813}
+body.admin-sport .organizer-step:after{content:"";position:absolute;left:31px;right:-11px;top:30px;height:2px;background:#2a3b31;z-index:0}
+body.admin-sport .organizer-step:last-child:after{display:none}
+body.admin-sport .organizer-step.is-done{border-color:#466746;background:linear-gradient(145deg,#13261a,#102017)}
+body.admin-sport .organizer-step.is-done:after{background:#6e983f}
+body.admin-sport .organizer-step-no{position:relative;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#243129;color:#c6d3ca;font-size:12px;font-weight:900;border:1px solid #3c5145}
+body.admin-sport .organizer-step.is-done .organizer-step-no{background:var(--accent);color:var(--dark);border-color:var(--accent)}
+body.admin-sport .organizer-step>div{min-width:0;padding-top:2px}
+body.admin-sport .organizer-step>div b{display:block;color:var(--text);font-size:14px;line-height:1.25}
+body.admin-sport .organizer-step>div small{display:block;margin-top:4px;color:var(--muted)!important;font-size:10px!important;line-height:1.35}
+body.admin-sport .organizer-step .mini{grid-column:1/-1;margin-top:auto;min-height:38px!important;padding:7px 10px!important}
+body.admin-sport .dashboard-history-list{display:grid;gap:8px}
+body.admin-sport .dashboard-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#0f1913;color:var(--text);text-align:left}
+body.admin-sport .dashboard-history-list>button:hover{border-color:#496453;background:#17261e}
+body.admin-sport .dashboard-history-list>button span{min-width:0;display:grid;gap:3px}
+body.admin-sport .dashboard-history-list>button span b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.admin-sport .dashboard-history-list>button strong{max-width:42%;color:var(--accent);font-size:11px;text-align:right}
+body.admin-sport .dashboard-audit{margin-top:16px}
+body.admin-sport .tournament-history-section{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
+body.admin-sport .tournament-history-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+body.admin-sport .tournament-history-card{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#141f19,#101713);box-shadow:var(--shadow);cursor:pointer}
+body.admin-sport .tournament-history-card:hover{border-color:#47604f;transform:translateY(-2px)}
+body.admin-sport .tournament-history-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+body.admin-sport .tournament-history-top>div{min-width:0}
+body.admin-sport .tournament-history-top span:first-child{display:block;color:#89a393;font-size:9px;font-weight:900;letter-spacing:.1em}
+body.admin-sport .tournament-history-top h3{margin:4px 0 3px;color:var(--text);font-size:17px;line-height:1.2}
+body.admin-sport .tournament-history-top p{margin:0;color:var(--muted);font-size:10px}
+body.admin-sport .tournament-history-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+body.admin-sport .tournament-history-stats span{min-width:0;padding:10px;border:1px solid #283a30;border-radius:12px;background:#0d1611}
+body.admin-sport .tournament-history-stats small{display:block;color:var(--muted)!important;font-size:8px!important}
+body.admin-sport .tournament-history-stats b{display:block;margin-top:3px;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.admin-sport .tournament-insight{display:grid;gap:14px;padding:18px;border:1px solid #334a3b;border-radius:18px;background:linear-gradient(145deg,#132019,#0f1813)}
+body.admin-sport .tournament-insight-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+body.admin-sport .tournament-insight-head span{display:block;color:#8ca493;font-size:9px;font-weight:900;letter-spacing:.1em}
+body.admin-sport .tournament-insight-head h3{margin:4px 0 0;color:var(--text);font-size:19px}
+body.admin-sport .tournament-insight-head>b{padding:6px 10px;border-radius:999px;font-size:10px;white-space:nowrap}
+body.admin-sport .tournament-insight-head>b.is-complete{background:#183e2b;color:#83e1ac}
+body.admin-sport .tournament-insight-head>b.is-running{background:#3f341b;color:#f7d584}
+body.admin-sport .tournament-insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+body.admin-sport .tournament-insight-grid article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:14px;background:#0d1611}
+body.admin-sport .tournament-insight-grid article.champion{background:linear-gradient(145deg,#3a2d12,#211b0f);border-color:#6c5527}
+body.admin-sport .tournament-insight-grid small{display:block;font-size:8px!important;color:var(--muted)!important;letter-spacing:.08em}
+body.admin-sport .tournament-insight-grid strong{display:block;margin:3px 0;color:var(--text);font-size:21px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.admin-sport .tournament-insight-grid article.champion strong{color:#ffe28a;font-size:16px}
+body.admin-sport .tournament-insight-grid span{color:var(--muted);font-size:9px}
+body.admin-sport .tournament-stat-leaders{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:start}
+body.admin-sport .tournament-stat-leaders>div:first-child{padding-top:7px}
+body.admin-sport .tournament-stat-leaders>div:first-child b{display:block;color:var(--text);font-size:12px}
+body.admin-sport .tournament-stat-leader-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+body.admin-sport .tournament-stat-leader{display:grid;grid-template-columns:24px minmax(0,1fr);gap:2px 7px;padding:9px 10px;border-radius:12px;background:#0d1611;border:1px solid var(--line)}
+body.admin-sport .tournament-stat-leader>span{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#24332a;color:var(--accent);font-size:9px;font-weight:900}
+body.admin-sport .tournament-stat-leader b{font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.admin-sport .tournament-stat-leader small{font-size:8px!important}
+@media(max-width:980px){
+  body.admin-sport .organizer-flow-track{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.admin-sport .organizer-step:after{display:none}
+  body.admin-sport .tournament-history-grid{grid-template-columns:1fr}
+  body.admin-sport .tournament-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.admin-sport .tournament-stat-leaders{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  body.admin-sport .organizer-flow-head{display:grid}
+  body.admin-sport .organizer-flow-track{grid-template-columns:1fr}
+  body.admin-sport .organizer-step{min-height:0}
+  body.admin-sport .tournament-history-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.admin-sport .tournament-insight-grid{grid-template-columns:1fr 1fr}
+  body.admin-sport .tournament-stat-leader-list{grid-template-columns:1fr}
+}
