@@ -1067,7 +1067,7 @@ function openCsvImportModal(){
       }
     };
   }
-  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2,player3,player4 <small>(đơn: 1 VĐV; đôi / đôi nam nữ: 2; đồng đội: 1–4)</small>':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
+  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2,player3,player4 <small>(đơn: 1 VĐV; đôi / đôi nam nữ: 2; đồng đội: 1–4)</small>':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,skillLevel,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
   type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file hoặc dán dữ liệu để xem trước.";issueBox.hidden=true;btn.disabled=true};updateHelp();
   const renderPreview=()=>{
     if(!rows.length){preview.textContent="Không có dữ liệu hợp lệ.";btn.disabled=true;return}
