@@ -23,3 +23,18 @@ for(const name of ["manifest.webmanifest","service-worker.js"]){
 }
 
 await cp(join(projectDir,"assets"),join(outputDir,"assets"),{recursive:true});
+
+// Tournament posters can be stored as chunked base64 source so binary artwork
+// remains reproducible through text-only repository automation.
+const mlpPosterDir=join(cloudflareDir,"media-src","mlp-chi-dep-2026");
+try{
+  const parts=(await readdir(mlpPosterDir)).filter(name=>name.endsWith(".b64")).sort();
+  if(parts.length){
+    const encoded=(await Promise.all(parts.map(name=>readFile(join(mlpPosterDir,name),"utf8")))).join("").replace(/\s+/g,"");
+    const tournamentAssetDir=join(outputDir,"assets","tournaments");
+    await mkdir(tournamentAssetDir,{recursive:true});
+    await writeFile(join(tournamentAssetDir,"mlp-chi-dep-2026.webp"),Buffer.from(encoded,"base64"));
+  }
+}catch(error){
+  if(error?.code!=="ENOENT")throw error;
+}
