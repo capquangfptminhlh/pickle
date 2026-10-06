@@ -93,12 +93,17 @@ async function modalSmoke(page,pageId,selector,label){
 // Regression checks for match operations.
 const matchesNav=page.locator('[data-page="matches"]');
 if(await matchesNav.count()){
-  await matchesNav.click();await page.waitForTimeout(120);
+  await matchesNav.click();
+  // Native view transitions may defer render beyond a fixed navigation delay.
+  await page.locator("#content h2").filter({hasText:/^Lịch thi đấu$/}).waitFor({state:"visible"});
+  await page.locator("#matchList").waitFor({state:"attached"});
+  await page.locator("#statusFilter").waitFor({state:"visible"});
   // Automatic byes with a TBD participant have no editable scoring history.
   const completedId=await page.evaluate(()=>state.matches.find(m=>m.status==="done"&&m.a&&m.b&&m.a!=="TBD"&&m.b!=="TBD")?.id);
   if(completedId){
     const review=page.locator('[data-match-card="'+completedId+'"] [data-score-match]');
-    if(!(await review.count())){
+    const reviewReady=await review.waitFor({state:"visible",timeout:5000}).then(()=>true).catch(error=>{if(error.name==="TimeoutError")return false;throw error});
+    if(!reviewReady){
       failures.push({label:"prod completed match",errors:["completed score review and Undo entry missing"]});
     }else{
       await review.click();
@@ -135,19 +140,29 @@ if(await matchesNav.count()){
 }
 const scoresNav=page.locator('[data-page="scores"]');
 if(await scoresNav.count()){
-  await scoresNav.click();await page.waitForTimeout(120);
-  const scoreTrigger=page.locator("[data-score-match]").first();
-  if(await scoreTrigger.count()){
-    await scoreTrigger.click();await page.waitForTimeout(80);
-    if(!(await page.locator("#finishMatch").isDisabled())){
-      failures.push({label:"prod score guard",errors:["finish match enabled before required set wins"]});
+  await scoresNav.click();
+  await page.locator("#content h2").filter({hasText:/^Các trận cần nhập$/}).waitFor({state:"visible"});
+  await page.locator("#matchList").waitFor({state:"attached"});
+  await page.locator("#statusFilter").waitFor({state:"visible"});
+  const scoreId=await page.evaluate(()=>state.matches.find(m=>m.status!=="cancelled"&&m.a&&m.b&&m.a!=="TBD"&&m.b!=="TBD")?.id);
+  if(scoreId){
+    const scoreTrigger=page.locator('[data-match-card="'+scoreId+'"] [data-score-match]');
+    const scoreReady=await scoreTrigger.waitFor({state:"visible",timeout:5000}).then(()=>true).catch(error=>{if(error.name==="TimeoutError")return false;throw error});
+    if(!scoreReady){
+      failures.push({label:"prod score guard",errors:["score entry missing for eligible match"]});
+    }else{
+      await scoreTrigger.click();
+      await page.locator("#scoreDialog").waitFor({state:"visible"});
+      if(!(await page.locator("#finishMatch").isDisabled())){
+        failures.push({label:"prod score guard",errors:["finish match enabled before required set wins"]});
+      }
+      const currentA=Number(await page.locator("#scoreA").innerText()),currentB=Number(await page.locator("#scoreB").innerText());
+      const target=Number(await page.locator("#targetScore").inputValue());
+      if(Math.max(currentA,currentB)<target&&!(await page.locator("#finishSet").isDisabled())){
+        failures.push({label:"prod score guard",errors:["finish set enabled below target score"]});
+      }
+      await page.locator("#scoreDialog .icon-btn").click();
     }
-    const currentA=Number(await page.locator("#scoreA").innerText()),currentB=Number(await page.locator("#scoreB").innerText());
-    const target=Number(await page.locator("#targetScore").inputValue());
-    if(Math.max(currentA,currentB)<target&&!(await page.locator("#finishSet").isDisabled())){
-      failures.push({label:"prod score guard",errors:["finish set enabled below target score"]});
-    }
-    await page.locator("#scoreDialog .icon-btn").click();
   }
 }
 

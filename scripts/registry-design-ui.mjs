@@ -32,7 +32,8 @@ const check=(label,fn)=>{try{fn()}catch(error){failures.push(`${label}: ${error.
 try{
   for(const viewport of [{width:1440,height:1000},{width:375,height:812},{width:844,height:390}].filter(v=>!process.env.DESIGN_WIDTH||String(v.width)===process.env.DESIGN_WIDTH)){
     for(const actor of ["admin","organizer"]){
-      const f=await scoringFixture(),context=await browser.newContext({viewport,reducedMotion:"reduce"}),page=await context.newPage(),errors=[];
+      const motion=process.env.DESIGN_MOTION||"reduce";
+      const f=await scoringFixture(),context=await browser.newContext({viewport,reducedMotion:motion}),page=await context.newPage(),errors=[];
       page.setDefaultTimeout(7000);page.on("pageerror",e=>errors.push(e.message));
       f.db.exec(`UPDATE tournaments SET name='Pickleup • Giải mùa thu',venue_name='Sân kiểm thử',start_at='2026-10-10T08:00:00Z',status='live' WHERE id='tour';
         UPDATE divisions SET name='Đôi phong trào' WHERE id='division';
@@ -82,7 +83,7 @@ try{
         if(process.env.DESIGN_BASELINE)continue;
         const muted=await page.locator(".club-home-actions small").first().evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest("button")).backgroundColor,font:parseFloat(getComputedStyle(el).fontSize)}));
         assert.ok(contrast(muted.fg,muted.bg)>=4.5,"secondary text contrast");assert.ok(muted.font>=12);
-        assert.ok(await page.locator("#nav button").first().evaluate(el=>getComputedStyle(el).transitionDuration.split(",").every(t=>parseFloat(t)<=.01)),"reduced motion suppresses navigation animation");
+        if(motion==="reduce")assert.ok(await page.locator("#nav button").first().evaluate(el=>getComputedStyle(el).transitionDuration.split(",").every(t=>parseFloat(t)<=.01)),"reduced motion suppresses navigation animation");
         if(viewport.width<=760){
           await page.locator(".mobile-dock").waitFor();
           assert.deepEqual(await page.locator(".mobile-dock [data-dock-page]").evaluateAll(els=>els.map(el=>el.dataset.dockPage)),["dashboard","tournaments","players","scores","more"]);
