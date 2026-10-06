@@ -17,8 +17,10 @@ const health=(await raw("/api/health")).data;
 assert(health.ok&&health.storage==="D1","health uses D1");
 const tvPage=(await raw("/court-board.html")).data.text||"";
 const refereePage=(await raw("/referee.html")).data.text||"";
+const matchPage=(await raw("/match.html")).data.text||"";
 assert(tvPage.includes("LIVE COURT BOARD"),"TV court board static page served");
 assert(refereePage.includes("REFEREE COURTSIDE"),"referee courtside static page served");
+assert(matchPage.includes("LIVE MATCH"),"QR live match static page served");
 
 const login=(await raw("/api/auth/login",{method:"POST",body:{email:"admin@pickle.test",password:"cloudflare-test-password-123"}})).data;
 assert(login.token&&login.user?.role==="super_admin","bootstrap admin login");
@@ -64,6 +66,9 @@ await raw("/api/divisions/"+division.id+"/auto-schedule-courts",{method:"POST",t
 
 state=(await raw("/api/admin/state",{token:admin})).data;
 const poolMatches=state.matches.filter(m=>m.divisionId===division.id&&!m.bracketSlot&&String(m.stage||"").startsWith("Bảng "));
+assert(poolMatches.length>0,"pool matches exist");
+const qr=(await raw("/api/public/matches/"+poolMatches[0].id+"/qr")).data;
+assert(qr.url?.includes("/match.html?id=")&&String(qr.dataUrl||"").startsWith("data:image/svg+xml"),"public match QR generated");
 for(const match of poolMatches){
   await raw("/api/matches/"+match.id+"/quick-score",{method:"POST",token:admin,body:{sets:[[11,5],[11,6]],expectedVersion:match.version}});
 }
