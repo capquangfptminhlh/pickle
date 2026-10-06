@@ -53,6 +53,7 @@ jobs:
           node --check assets/admin-app.js
           node --check assets/referee-courtside.js
           node --check assets/court-board.js
+          node --check assets/legacy-migrate.js
           node --check assets/match-live.js
           node --check assets/admin-modules.js
           node --check assets/admin-crud.js
