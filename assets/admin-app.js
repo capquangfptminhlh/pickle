@@ -175,9 +175,20 @@ function matchCard(m){
 }
 function operationsDashboard(){
   const live=state.matches.filter(m=>m.status==="live").length;
-  const upcoming=state.matches.filter(m=>!["done","cancelled"].includes(m.status)).sort((a,b)=>Number(b.status==="live")-Number(a.status==="live"));
+  const upcoming=state.matches.filter(m=>!["done","completed","cancelled"].includes(m.status)).sort((a,b)=>Number(b.status==="live")-Number(a.status==="live"));
   const next=upcoming[0];
   const allowed=new Set(visibleNav().map(n=>n[0]));
+  const snapshots=state.tournaments.map(t=>({t,s:tournamentSnapshot(t)}));
+  const activeRow=snapshots.filter(x=>!x.s.isComplete).sort((a,b)=>new Date(a.t.startAt||0)-new Date(b.t.startAt||0))[0]||null;
+  const activeTournament=activeRow?.t||null,activeStats=activeRow?.s||null;
+  const history=snapshots.filter(x=>x.s.isComplete).sort((a,b)=>new Date(b.t.startAt||0)-new Date(a.t.startAt||0));
+  const hasDraw=!!activeTournament&&activeStats.matches.length>0;
+  const steps=[
+    {n:1,title:"Tạo giải",sub:activeTournament?activeTournament.name:"Tên giải, thời gian, địa điểm",done:!!activeTournament,action:"create",cta:activeTournament?"Tạo giải khác":"Tạo giải"},
+    {n:2,title:"Thêm VĐV",sub:activeTournament?`${activeStats.playerCount} VĐV • ${activeStats.teamCount} cặp/đội`:"Thêm danh sách tham dự",done:!!activeTournament&&activeStats.playerCount>0,action:"roster",cta:"Quản lý VĐV"},
+    {n:3,title:"Bốc thăm & chia bảng",sub:hasDraw?`${activeStats.matchCount} trận đã được tạo`:"Ghép đội, chia bảng, xếp sân",done:hasDraw,action:"draw",cta:"Bốc thăm"},
+    {n:4,title:"Thi đấu & kết quả",sub:activeTournament?`${activeStats.completedCount}/${activeStats.matchCount} trận hoàn tất`:"Realtime score và xếp hạng",done:!!activeTournament&&activeStats.completedCount>0,action:"score",cta:"Vào nhập điểm"}
+  ];
   const shortcuts=[
     ["tournaments","trophy","Giải đấu","Đăng ký, chia bảng và sơ đồ"],
     ["players","users","VĐV / Rating","Hồ sơ và đội thi đấu"],
@@ -188,15 +199,22 @@ function operationsDashboard(){
     ["tournaments","trophy","GIẢI ĐẤU",state.tournaments.length,"Trong phạm vi quản lý"],
     ["teams","users","CẶP / ĐỘI",state.teams.filter(t=>t.status!=="withdrawn").length,"Đội đang tham dự giải"],
     ["live","score","ĐANG THI ĐẤU",live,"Trận cần theo dõi"],
-    ["completed","standings","ĐÃ HOÀN TẤT",state.matches.filter(m=>m.status==="done").length,"Trận đã chốt kết quả"]
+    ["completed","standings","ĐÃ HOÀN TẤT",history.length,"Giải đã lưu lịch sử"]
   ];
-  setHeader("Điều hành giải đấu","VĐV, lịch thi đấu và kết quả trong phạm vi tài khoản");
+  setHeader("Điều hành giải đấu","Tạo giải → thêm VĐV → bốc thăm → thi đấu → lưu lịch sử");
   return `<div class="sport-dashboard">
-    <section class="club-home-hero"><div class="sport-hero-content"><span class="admin-app-overline">PICKLEUP • ĐIỀU HÀNH GIẢI</span><h2>Sẵn sàng vào sân.</h2><p>Xin chào ${escHtml(user?.name||"Quản trị viên")} • ${next?`${escHtml(next.stage)} · ${escHtml(next.time)} · ${escHtml(courtLabel(next.court))}`:"Chọn giải để bắt đầu điều hành"}</p></div><div class="club-home-live"><i></i><strong>${live}</strong><span>ĐANG ĐẤU</span></div></section>
+    <section class="club-home-hero"><div class="sport-hero-content"><span class="admin-app-overline">PICKLEUP • ORGANIZER OS</span><h2>${activeTournament?escHtml(activeTournament.name):"Sẵn sàng tạo giải mới."}</h2><p>${activeTournament?`${escHtml(activeTournament.date||"")} · ${escHtml(activeTournament.venue||"")} · ${activeStats.progress}% hoàn tất`:next?`${escHtml(next.stage)} · ${escHtml(next.time)} · ${escHtml(courtLabel(next.court))}`:"Tạo và vận hành toàn bộ giải trong một luồng"}</p></div><div class="club-home-live"><i></i><strong>${live}</strong><span>ĐANG ĐẤU</span></div></section>
+    <section class="organizer-flow panel">
+      <div class="organizer-flow-head"><div><span class="admin-app-overline">QUY TRÌNH ORGANIZER</span><h2>${activeTournament?"Tiếp tục giải đang vận hành":"Bắt đầu một giải mới"}</h2><p>Mỗi bước mở đúng công cụ cần dùng, không phải đi tìm trong menu.</p></div>${activeTournament?`<button class="mini" data-open-tournament="${escHtml(activeTournament.id)}">Mở trung tâm điều hành →</button>`:""}</div>
+      <div class="organizer-flow-track">${steps.map(s=>`<article class="organizer-step ${s.done?"is-done":""}"><span class="organizer-step-no">${s.done?"✓":s.n}</span><div><b>${s.title}</b><small>${escHtml(s.sub)}</small></div><button type="button" class="mini" data-organizer-step="${s.action}" ${activeTournament?`data-tournament-id="${escHtml(activeTournament.id)}"`:""}>${s.cta}</button></article>`).join("")}</div>
+    </section>
     <div class="club-home-actions">${shortcuts.map(([id,ico,title,sub])=>`<button data-goto="${id}"><span>${iconSvg(ico)}</span><b>${title}</b><small>${sub}</small></button>`).join("")}</div>
     <div class="club-home-metrics">${metrics.map(([id,ico,title,value,sub])=>`<article class="sport-metric" data-sport-metric="${id}"><span class="metric-icon ${ico}">${iconSvg(ico)}</span><div><small>${title}</small><strong>${value}</strong><p>${sub}</p></div></article>`).join("")}</div>
-    <div class="grid-2 club-home-grid"><section class="panel app-section-card"><div class="panel-head sport-section-heading"><div><h2>Nhịp thi đấu</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="matches">Lịch đấu</button></div>${upcoming.slice(0,4).map(matchCard).join("")||'<div class="empty">Chưa có trận sắp tới. Tạo giải và đăng ký đội để lên lịch thi đấu.</div>'}</section>
-    <section class="panel app-section-card"><div class="panel-head sport-section-heading"><div><h2>Hoạt động gần đây</h2><p>Nhật ký trong phạm vi tài khoản</p></div>${allowed.has("audit")?'<button class="mini" data-goto="audit">Xem nhật ký</button>':""}</div><div class="activity-feed">${state.audit.slice(0,6).map(a=>`<div class="activity-item"><i></i><div><strong>${escHtml(a.action)}</strong><small>${escHtml(a.time)} • ${escHtml(a.user)}</small><p>${escHtml(a.detail)}</p></div></div>`).join("")||'<div class="empty">Chưa có hoạt động được ghi nhận.</div>'}</div></section></div>
+    <div class="grid-2 club-home-grid">
+      <section class="panel app-section-card"><div class="panel-head sport-section-heading"><div><h2>Nhịp thi đấu</h2><p>Trận đang diễn ra và sắp tới</p></div><button class="mini" data-goto="matches">Lịch đấu</button></div>${upcoming.slice(0,4).map(matchCard).join("")||'<div class="empty">Chưa có trận sắp tới. Tạo giải và bốc thăm để sinh lịch thi đấu.</div>'}</section>
+      <section class="panel app-section-card"><div class="panel-head sport-section-heading"><div><h2>Lịch sử giải</h2><p>Giải đã kết thúc và kết quả được lưu lại</p></div><button class="mini" data-organizer-step="history">Xem tất cả</button></div><div class="dashboard-history-list">${history.slice(0,3).map(({t,s})=>`<button type="button" data-manage-tournament="${escHtml(t.id)}"><span><b>${escHtml(t.name)}</b><small>${escHtml(t.date||"")} • ${s.completedCount} trận</small></span><strong>${escHtml(s.champion||"Đã hoàn tất")}</strong></button>`).join("")||'<div class="empty">Chưa có giải nào hoàn tất.</div>'}</div></section>
+    </div>
+    <section class="panel app-section-card dashboard-audit"><div class="panel-head sport-section-heading"><div><h2>Hoạt động gần đây</h2><p>Nhật ký trong phạm vi tài khoản</p></div>${allowed.has("audit")?'<button class="mini" data-goto="audit">Xem nhật ký</button>':""}</div><div class="activity-feed">${state.audit.slice(0,5).map(a=>`<div class="activity-item"><i></i><div><strong>${escHtml(a.action)}</strong><small>${escHtml(a.time)} • ${escHtml(a.user)}</small><p>${escHtml(a.detail)}</p></div></div>`).join("")||'<div class="empty">Chưa có hoạt động được ghi nhận.</div>'}</div></section>
   </div>`;
 }
 async function dashboard(){
