@@ -1,4 +1,4 @@
-const VERSION="pickleup-v29-publish-legacy-recovery-20261006";
+const VERSION="pickleup-v30-skill-team-draw-20261006";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
