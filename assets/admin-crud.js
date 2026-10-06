@@ -65,6 +65,7 @@
       '<label class="field full">Họ tên<input id="crudPName" value="'+esc(p.full_name)+'"></label>'+
       '<label class="field">Biệt danh<input id="crudPNick" value="'+esc(p.nickname||"")+'"></label>'+
       '<label class="field">Giới tính<select id="crudPGender"><option value="">Chưa chọn</option><option value="male" '+(p.gender==="male"?"selected":"")+'>Nam</option><option value="female" '+(p.gender==="female"?"selected":"")+'>Nữ</option><option value="other" '+(p.gender==="other"?"selected":"")+'>Khác</option></select></label>'+
+      (canCorrectRating?'<label class="field">Trình<select id="crudPSkill">'+["A+","A","B+","B","C+","C"].map(v=>'<option value="'+v+'" '+(((p.skillLevel||p.skill_level||"B")===v)?"selected":"")+'>'+v+'</option>').join("")+'</select></label>':'')+
       (referee?'<div class="field full security-note"><b>Quyền Trọng tài</b><span>Chỉ được sửa tên, biệt danh, giới tính và avatar của VĐV trong các trận được phân công.</span></div>':
       (canChangeClub?'<label class="field">CLB<select id="crudPClub"><option value="">Tự do</option>'+clubs.map(c=>'<option value="'+c.id+'" '+(c.id===p.club_id?"selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></label>':
       '<div class="field security-note"><b>CLB được giao</b><span>'+esc(p.club_name||"CLB hiện tại")+'</span></div>')+
@@ -85,11 +86,11 @@
         if(canCorrectRating){
           const rating=Number($("#crudPRating").value),ratingReason=$("#crudPRatingReason").value.trim();
           if(Math.abs(rating-Number(p.rating||0))>1e-9&&!ratingReason)return ctx.toast("Nhập lý do khi thay đổi rating.");
-          Object.assign(payload,{rating,ratingReason});
+          Object.assign(payload,{rating,ratingReason,skillLevel:$("#crudPSkill").value});
         }
         await API.updatePlayer(p.id,payload);
         close();await ctx.refresh();ctx.toast("Đã cập nhật VĐV.");
-      }catch(e){ctx.toast({INVALID_CLUB:"CLB không hợp lệ hoặc đã khóa.",INVALID_GENDER:"Giới tính không hợp lệ.",INVALID_RATING:"Rating phải là số không âm.",RATING_REASON_REQUIRED:"Nhập lý do khi thay đổi rating."}[e.message]||("Không thể cập nhật: "+e.message))}
+      }catch(e){ctx.toast({INVALID_CLUB:"CLB không hợp lệ hoặc đã khóa.",INVALID_GENDER:"Giới tính không hợp lệ.",INVALID_RATING:"Rating phải là số không âm.",INVALID_SKILL_LEVEL:"Trình VĐV không hợp lệ.",RATING_REASON_REQUIRED:"Nhập lý do khi thay đổi rating."}[e.message]||("Không thể cập nhật: "+e.message))}
     };
   }
 
