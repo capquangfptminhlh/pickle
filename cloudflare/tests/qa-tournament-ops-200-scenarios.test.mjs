@@ -56,23 +56,23 @@ const scenario=(name,fn)=>cases.push({name,fn});
 // 201-250: 50 tournament creation / update / operational setup cases.
 const createVariants=[
   ["Giải Bình Lợi Open","doubles","pool_to_knockout",false,"draft"],
-  ["Cúp Pickleball 20/10","doubles","round_robin",true,"published"],
+  ["Cúp Pickleball 20/10","doubles","round_robin",true,"registration"],
   ["Đôi Nam Nữ Mở Rộng","mixed_doubles","pool_to_knockout",true,"draft"],
   ["Singles Challenge","singles","single_elimination",false,"draft"],
   ["Team Cup","team","double_elimination",false,"draft"],
-  ["Giải A+ / B+","doubles","single_elimination",true,"published"],
+  ["Giải A+ / B+","doubles","single_elimination",true,"registration"],
   ["Cúp Mùa Thu 2026","doubles","pool_to_knockout",false,"draft"],
-  ["PickleUp Tour #1","doubles","round_robin",true,"published"],
+  ["PickleUp Tour #1","doubles","round_robin",true,"registration"],
   ["Bình Lợi – Chung Kết","mixed_doubles","single_elimination",true,"draft"],
   ["Giải CLB & Friends","doubles","pool_to_knockout",false,"draft"],
-  ["Cúp 16 Cặp","doubles","pool_to_knockout",true,"published"],
+  ["Cúp 16 Cặp","doubles","pool_to_knockout",true,"registration"],
   ["Cúp 32 Cặp","doubles","pool_to_knockout",true,"draft"],
   ["Giải Nội Bộ 01","singles","round_robin",false,"draft"],
   ["Giải Nội Bộ 02","doubles","double_elimination",false,"draft"],
-  ["Women's Open","doubles","single_elimination",true,"published"],
-  ["Men's Open","doubles","single_elimination",true,"published"],
+  ["Women's Open","doubles","single_elimination",true,"registration"],
+  ["Men's Open","doubles","single_elimination",true,"registration"],
   ["Mixed Sunday","mixed_doubles","round_robin",true,"draft"],
-  ["🏓 PickleUp Festival","doubles","pool_to_knockout",true,"published"],
+  ["🏓 PickleUp Festival","doubles","pool_to_knockout",true,"registration"],
   ["Giải thử nghiệm Unicode Đặng–Lê","doubles","round_robin",false,"draft"],
   ["Final Test Tournament","team","pool_to_knockout",false,"draft"]
 ];
@@ -90,12 +90,12 @@ const updateVariants=[
   {name:"Tên giải sau chỉnh sửa"},
   {publicVisible:true},
   {publicVisible:false},
-  {status:"published"},
+  {status:"registration"},
   {status:"completed"},
   {startAt:"2026-10-20T01:00:00.000Z"},
   {endAt:"2026-10-20T10:00:00.000Z"},
-  {venue:"Nhà thi đấu Bình Lợi",status:"published"},
-  {name:"Giải cập nhật toàn bộ",venue:"Sân Trung Tâm",publicVisible:true,status:"published",startAt:"2026-11-01T01:00:00.000Z",endAt:"2026-11-01T09:00:00.000Z"}
+  {venue:"Nhà thi đấu Bình Lợi",status:"registration"},
+  {name:"Giải cập nhật toàn bộ",venue:"Sân Trung Tâm",publicVisible:true,status:"registration",startAt:"2026-11-01T01:00:00.000Z",endAt:"2026-11-01T09:00:00.000Z"}
 ];
 updateVariants.forEach((patch,i)=>scenario(
   String(221+i)+" update tournament variant "+(i+1),
@@ -115,7 +115,7 @@ const guardCases=[
   ["spaces only",{name:"   "},400,"admin"],
   ["tab newline only",{name:"\t\n"},400,"admin"],
   ["referee forbidden",{name:"Ref Cup"},403,"local"],
-  ["foreign referee forbidden",{name:"Foreign Ref Cup"},403,"foreign"],
+  ["invalid status",{name:"Bad Status Cup",status:"published"},400,"admin"],
   ["organizer allowed",{name:"Organizer Cup"},201,"organizer"],
   ["super admin unicode",{name:"Giải ĐẶC BIỆT"},201,"admin"],
   ["very short name",{name:"A"},201,"admin"],
@@ -223,7 +223,7 @@ const avatarGuardCases=[
   async f=>{await addActor(f,"finance","finance");addPlayer(f,"p");assert.equal((await avatarCall(f,"p",{actor:"finance"})).status,403)},
   async f=>{addPlayer(f,"p",{createdBy:"organizer"});assert.equal((await avatarCall(f,"p",{actor:"organizer"})).status,200)},
   async f=>{addPlayer(f,"p",{createdBy:"admin"});assert.equal((await avatarCall(f,"p",{actor:"organizer"})).status,403)},
-  async f=>{addPlayer(f,"missing-target");const before=f.mediaPuts.length;const r=await avatarCall(f,"does-not-exist");assert.equal(r.status,403);assert.equal(f.mediaPuts.length,before)}
+  async f=>{addPlayer(f,"missing-target");const before=f.mediaPuts.length;const r=await avatarCall(f,"does-not-exist");assert.equal(r.status,404);assert.equal(r.data.error,"NOT_FOUND");assert.equal(f.mediaPuts.length,before)}
 ];
 avatarGuardCases.forEach((fn,i)=>scenario(String(331+i)+" avatar permission or validation "+(i+1),()=>withFixture(fn)));
 const avatarScopeCases=[
