@@ -1,0 +1,82 @@
+name: Publish PickleUp Tour 2026-10-15
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-pickleup-tour-20261015.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Worker dependencies
+        working-directory: cloudflare
+        run: npm install --ignore-scripts
+      - name: Publish tournament to production D1
+        working-directory: cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQL=$(cat <<'SQL'
+          INSERT INTO tournaments(
+            id,owner_user_id,name,slug,venue_name,start_at,end_at,status,public_visible,
+            is_featured,featured_rank,contact_name,contact_phone,contact_email,
+            prize_pool,entry_fee,poster_url,sponsor_package,created_at,updated_at
+          ) VALUES(
+            'tour-pickleup-binh-loi-20261015',NULL,'PICKLEUP TOUR BÌNH LỢI','pickleup-tour-binh-loi-20261015',
+            'Cụm sân Pickleball Bình Lợi, 171/4 Bình Lợi, Phường 13, Quận Bình Thạnh, TP.HCM',
+            '2026-10-15T06:00:00.000Z',NULL,'registration',1,1,100,
+            'BTC PickleUp Tour Bình Lợi','0932034466','',
+            'Giải nhất: 1.000.000đ + 2 cúp + 2 huy chương + 2 áo thi đấu Pickleball; Giải nhì: 500.000đ + 2 huy chương + cuốn cán vợt; Giải ba: 2 huy chương',
+            '190.000đ / VĐV','/assets/tournaments/pickleup-tour-binh-loi-20261015.svg','free',
+            datetime('now'),datetime('now')
+          )
+          ON CONFLICT(id) DO UPDATE SET
+            name=excluded.name,
+            slug=excluded.slug,
+            venue_name=excluded.venue_name,
+            start_at=excluded.start_at,
+            end_at=excluded.end_at,
+            status='registration',
+            public_visible=1,
+            is_featured=1,
+            featured_rank=100,
+            contact_name=excluded.contact_name,
+            contact_phone=excluded.contact_phone,
+            prize_pool=excluded.prize_pool,
+            entry_fee=excluded.entry_fee,
+            poster_url=excluded.poster_url,
+            sponsor_package=excluded.sponsor_package,
+            updated_at=datetime('now');
+
+          INSERT INTO divisions(
+            id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,
+            advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at
+          ) VALUES(
+            'division-pickleup-binh-loi-20261015','tour-pickleup-binh-loi-20261015','Đôi nam tự do',
+            'doubles','pool_to_knockout',3,11,1,2,'head_to_head','side_out',15,20,1,datetime('now')
+          )
+          ON CONFLICT(id) DO UPDATE SET
+            name='Đôi nam tự do',
+            event_type='doubles',
+            format='pool_to_knockout',
+            active=1,
+            updated_at=datetime('now');
+          SQL
+          )
+          npx wrangler d1 execute DB --remote --command "$SQL"
+      - name: Verify production record
+        run: |
+          curl -fsS https://pickleup.vn/api/public/state | grep -q 'tour-pickleup-binh-loi-20261015'
