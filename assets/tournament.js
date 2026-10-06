@@ -29,16 +29,26 @@ function render(){
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");
  const boardLink=$("#tourBoardLink");if(boardLink)boardLink.href="court-board.html?tournament="+encodeURIComponent(t.id);
- const banner=$("#tourBannerImage"),hero=document.querySelector(".tournament-app-hero");
+ const banner=$("#tourBannerImage"),bannerWrap=document.querySelector(".tournament-event-banner-wrap");
  if(banner&&t.posterUrl){
-   banner.src=t.posterUrl;banner.alt="Banner "+t.name;banner.hidden=false;hero?.classList.add("has-banner");
+   banner.src=t.posterUrl;banner.alt="Poster "+t.name;banner.hidden=false;bannerWrap?.classList.add("has-banner");
  }else if(banner){
-   banner.removeAttribute("src");banner.hidden=true;hero?.classList.remove("has-banner");
+   banner.removeAttribute("src");banner.hidden=true;bannerWrap?.classList.remove("has-banner");
  }
  const divs=state.divisions.filter(d=>d.tournamentId===t.id),dids=new Set(divs.map(d=>d.id));
  const teams=state.teams.filter(x=>dids.has(x.divisionId)),matches=state.matches.filter(x=>dids.has(x.divisionId));
  const live=matches.filter(m=>m.status==="live"),done=matches.filter(m=>m.status==="done");
  const sm=statusMeta(t.status),status=$("#tourStatus");status.innerHTML='<span class="badge '+sm[1]+'">'+sm[0]+'</span>';
+ const fee=t.entryFee||"Liên hệ BTC",phone=String(t.contactPhone||"").trim(),digits=phone.replace(/\D/g,"");
+ const register=$("#tourRegisterLink");if(register){register.href=digits?"https://zalo.me/"+digits:"#participants";register.target=digits?"_blank":"";register.rel=digits?"noopener noreferrer":""}
+ const contactName=$("#tourContactName"),contactPhone=$("#tourContactPhone"),prize=$("#tourPrizePool");
+ if(contactName)contactName.textContent=t.contactName||"BTC giải đấu";if(contactPhone)contactPhone.textContent=phone||"Thông tin liên hệ đang cập nhật";if(prize)prize.textContent=t.prizePool||"Cơ cấu giải thưởng đang cập nhật.";
+ const facts=$("#tourEventFacts");if(facts)facts.innerHTML=[
+   ["📅","Thời gian",t.date||"Sắp diễn ra"],
+   ["🏓","Nội dung",t.format||divs[0]?.name||"Open"],
+   ["💳","Lệ phí",fee],
+   ["📍","Địa điểm",t.venue||"Đang cập nhật"]
+ ].map(([icon,label,value])=>'<article><span>'+icon+'</span><div><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div></article>').join("");
  $("#tourHeroStats").innerHTML=[
    ["Nội dung",divs.length],["Đội / cặp",teams.length],["Trận đấu",matches.length],["Đã xong",done.length]
  ].map(([k,v])=>'<span><b>'+v+'</b><small>'+k+'</small></span>').join("");
