@@ -1,6 +1,8 @@
 (()=>{
   const API=window.PickleAPI,$=s=>document.querySelector(s);
-  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null;
+  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false;
+  const announced=new Set();
+  let voiceEnabled=localStorage.getItem("pickle-board-voice")==="1";
 
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
@@ -11,10 +13,12 @@
   function divisionIds(){return new Set(state.divisions.filter(d=>d.tournamentId===tournamentId).map(d=>d.id))}
   function matches(){const ids=divisionIds();return state.matches.filter(m=>ids.has(m.divisionId)&&m.status!=="cancelled")}
   function courts(){return state.courts.filter(c=>c.tournamentId===tournamentId&&c.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)||String(a.name).localeCompare(String(b.name),"vi"))}
+  function tournament(){return state.tournaments.find(t=>t.id===tournamentId)}
+  function isTournamentPublic(){return tournament()?.publicVisible!==false}
 
   function chooseTournament(){
     const query=new URLSearchParams(location.search).get("tournament");
-    const available=state.tournaments.filter(t=>t.publicVisible!==false);
+    const available=state.tournaments;
     if(query&&available.some(t=>t.id===query))return query;
     const live=available.find(t=>["live","ongoing","in_progress"].includes(String(t.status||"").toLowerCase()));
     return live?.id||available[0]?.id||"";
@@ -22,7 +26,7 @@
 
   function renderSelect(){
     const select=$("#tournamentSelect");
-    select.innerHTML=state.tournaments.filter(t=>t.publicVisible!==false).map(t=>'<option value="'+esc(t.id)+'" '+(t.id===tournamentId?"selected":"")+'>'+esc(t.name)+'</option>').join("");
+    select.innerHTML=state.tournaments.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===tournamentId?"selected":"")+'>'+esc(t.name)+'</option>').join("");
     select.hidden=select.options.length<=1;
   }
 
@@ -40,19 +44,47 @@
     const d=division(m),serve=m.servingSide||"A",server=Number(m.serverNumber||2),mode=d?.scoringMode||"side_out";
     const score=isLive?'<div class="tv-score"><b>'+Number(m.current?.[0]||0)+'</b><i>:</i><b>'+Number(m.current?.[1]||0)+'</b></div>':'<div class="tv-vs">VS</div>';
     const serveText=isLive?'<span class="serve-dot"></span>'+(serve==="A"?team(m.a):team(m.b))+(mode==="side_out"?" · S"+server:""):'';
+    const qr=isTournamentPublic()?'<button class="tv-qr" type="button" data-match-qr="'+esc(m.id)+'">▦ QR</button>':'';
     return '<article class="tv-court '+(isLive?"live":"")+'">'+
-      '<header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><b class="tv-state '+meta[1]+'">'+meta[0]+'</b></header>'+
+      '<header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><div class="tv-head-actions"><b class="tv-state '+meta[1]+'">'+meta[0]+'</b>'+qr+'</div></header>'+
       '<div class="tv-match"><div class="tv-team"><small>ĐỘI A</small><strong>'+esc(team(m.a))+'</strong></div>'+score+'<div class="tv-team right"><small>ĐỘI B</small><strong>'+esc(team(m.b))+'</strong></div></div>'+
       '<footer class="tv-court-foot"><span>'+esc(m.stage||d?.name||"Trận đấu")+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(team(next.a))+" vs "+esc(team(next.b)):"")+'</span></footer></article>';
   }
 
+  function calledMatches(){return matches().filter(m=>m.courtState==="called"&&m.status!=="live").sort((a,b)=>String(a.calledAt||"").localeCompare(String(b.calledAt||"")))}
+
+  function speechText(m){
+    const c=state.courts.find(x=>x.id===m.courtId);
+    return "Mời "+team(m.a)+" và "+team(m.b)+" di chuyển đến "+(c?.name||"sân thi đấu")+". Xin nhắc lại, "+team(m.a)+" gặp "+team(m.b)+", tại "+(c?.name||"sân thi đấu")+".";
+  }
+  function speak(m){
+    if(!voiceEnabled||!window.speechSynthesis)return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(speechText(m));u.lang="vi-VN";u.rate=.9;u.pitch=1;u.volume=1;
+    const voices=speechSynthesis.getVoices(),vi=voices.find(v=>/^vi(-|_)/i.test(v.lang));if(vi)u.voice=vi;
+    speechSynthesis.speak(u);
+  }
+  function updateAnnouncements(){
+    const called=calledMatches();
+    $("#announceNowBtn").hidden=!called.length;
+    if(!initializedCalls){called.forEach(m=>announced.add(m.id+":"+(m.calledAt||"called")));initializedCalls=true;return}
+    for(const m of called){
+      const key=m.id+":"+(m.calledAt||"called");
+      if(!announced.has(key)){announced.add(key);speak(m)}
+    }
+  }
+
   function render(){
     renderSelect();
-    const t=state.tournaments.find(x=>x.id===tournamentId);
+    const t=tournament();
     $("#boardTournament").textContent=t?.name||"LIVE COURT BOARD";
-    $("#boardMeta").textContent=t?(t.venue||"")+" · "+(t.date||""):"Chưa có giải công khai";
+    $("#boardMeta").textContent=t?[(t.venue||""),(t.date||"")].filter(Boolean).join(" · "):(internalMode?"Không có giải trong tài khoản này":"Chưa có giải công khai");
+    $("#dataMode").textContent=internalMode?"NỘI BỘ":"PUBLIC";$("#dataMode").classList.toggle("internal",internalMode);
     const cs=courts(),grid=$("#courtGrid"),empty=$("#boardEmpty");
     grid.innerHTML=cs.map(card).join("");empty.hidden=cs.length>0;
+    $("#boardLoginLink").hidden=internalMode||Boolean(state.tournaments.length);
+    $("#boardEmptyTitle").textContent=state.tournaments.length?"Chưa có lịch sân":(internalMode?"Chưa có giải trong tài khoản":"Chưa có giải công khai");
+    $("#boardEmptyText").textContent=state.tournaments.length?"Hãy xếp sân cho các trận; màn hình sẽ tự cập nhật realtime.":(internalMode?"Tạo giải hoặc kiểm tra quyền tài khoản BTC.":"Đăng nhập BTC để xem trước giải nội bộ, hoặc bật Công khai cho giải.");
 
     const called=matches().filter(m=>["called","on_deck","warming_up"].includes(m.courtState)&&m.status!=="live").sort((a,b)=>queueRank(a)-queueRank(b));
     const ticker=$("#callTicker");
@@ -60,24 +92,51 @@
       ticker.hidden=false;
       ticker.textContent=called.map(m=>{const c=state.courts.find(x=>x.id===m.courtId),q=qMeta(m.courtState)[0];return q+": "+team(m.a)+" vs "+team(m.b)+" → "+(c?.name||"sân")}).join("   •   ");
     }else{ticker.hidden=true;ticker.textContent=""}
+    updateAnnouncements();
   }
 
+  async function loadState(){
+    const internal=await API.optionalAdminState().catch(()=>null);
+    if(internal?.tournaments?.length){internalMode=true;return internal}
+    internalMode=false;return API.publicState();
+  }
   async function refresh(){
     try{
-      state=await API.publicState();
+      state=await loadState();
       if(!tournamentId||!state.tournaments.some(t=>t.id===tournamentId))tournamentId=chooseTournament();
       render();
+      $("#boardConnection").textContent="● LIVE";$("#boardConnection").classList.remove("offline");
     }catch(e){$("#boardConnection").textContent="● OFFLINE";$("#boardConnection").classList.add("offline")}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
 
+  async function openQr(matchId){
+    const m=state.matches.find(x=>x.id===matchId);if(!m)return;
+    try{
+      const data=await API.publicMatchQr(matchId);
+      $("#qrMatchTitle").textContent=team(m.a)+" vs "+team(m.b);
+      $("#qrImage").innerHTML=data.dataUrl?'<img src="'+data.dataUrl+'" alt="QR trận đấu">':'';
+      $("#qrOpenLink").href=data.url||("match.html?id="+encodeURIComponent(matchId));
+      $("#qrDialog").showModal();
+    }catch(e){alert("QR chỉ hoạt động khi giải đã bật Công khai. Anh có thể xem nội bộ trên TV Board sau khi đăng nhập BTC.")}
+  }
+
   $("#tournamentSelect").onchange=e=>{
     tournamentId=e.target.value;
-    const url=new URL(location.href);url.searchParams.set("tournament",tournamentId);history.replaceState(null,"",url);
-    render();
+    const url=new URL(location.href);url.searchParams.set("tournament",tournamentId);history.replaceState(null,"",url);render();
   };
+  $("#voiceBtn").onclick=()=>{
+    voiceEnabled=!voiceEnabled;localStorage.setItem("pickle-board-voice",voiceEnabled?"1":"0");
+    $("#voiceBtn").textContent=voiceEnabled?"🔊 Loa đang bật":"🔇 Bật loa";
+    if(voiceEnabled){const probe=new SpeechSynthesisUtterance("Đã bật loa gọi sân.");probe.lang="vi-VN";probe.rate=.95;speechSynthesis.speak(probe)}
+    else speechSynthesis?.cancel();
+  };
+  $("#announceNowBtn").onclick=()=>{const m=calledMatches()[0];if(m){if(!voiceEnabled){voiceEnabled=true;localStorage.setItem("pickle-board-voice","1");$("#voiceBtn").textContent="🔊 Loa đang bật"}speak(m)}};
   $("#fullscreenBtn").onclick=async()=>{try{document.fullscreenElement?await document.exitFullscreen():await document.documentElement.requestFullscreen()}catch{}};
+  $("#qrCloseBtn").onclick=()=>$("#qrDialog").close();
+  document.addEventListener("click",e=>{const b=e.target.closest("[data-match-qr]");if(b)openQr(b.dataset.matchQr)});
   setInterval(()=>{$("#boardClock").textContent=new Date().toLocaleTimeString("vi-VN",{hour12:false})},1000);
+  $("#voiceBtn").textContent=voiceEnabled?"🔊 Loa đang bật":"🔇 Bật loa";
 
   refresh().then(()=>{
     const socket=window.io?.();

@@ -40,6 +40,18 @@
     me:()=>request("/api/auth/me"),
     session:()=>request("/api/auth/session"),
     publicState:()=>request("/api/public/state"),
+    optionalAdminState:async()=>{
+      const opts={headers:authHeaders({"Content-Type":"application/json"}),credentials:API_BASE?"omit":"include",cache:"no-store"};
+      const sessionRes=await fetch(apiUrl("/api/auth/session"),opts);
+      const session=await sessionRes.json().catch(()=>({}));
+      if(!sessionRes.ok||!session?.user)return null;
+      const res=await fetch(apiUrl("/api/admin/state"),opts);
+      if(res.status===401||res.status===403)return null;
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(data.error||"REQUEST_FAILED"),{status:res.status,data});
+      return data;
+    },
+    publicMatchQr:id=>request(`/api/public/matches/${encodeURIComponent(id)}/qr`),
     publicPlayers:async()=>{
       try{
         const data=await request("/api/public/players");

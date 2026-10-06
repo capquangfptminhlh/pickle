@@ -184,6 +184,16 @@ if(await dockScores.count()){await dockScores.click();await page.waitForTimeout(
 await goto(page,prod+"/referee.html","prod referee courtside");
 if(!(await page.locator(".courtside-brand").isVisible()))failures.push({label:"prod referee courtside",errors:["courtside shell not visible"]});
 if(!(await page.locator("#matchPicker").count())||!(await page.locator("#scoreSurface").count()))failures.push({label:"prod referee courtside",errors:["courtside match/score surfaces missing"]});
+
+await goto(page,prod+"/court-board.html","prod authenticated TV court board");
+if(!(await page.locator("#voiceBtn").isVisible()))failures.push({label:"prod authenticated TV court board",errors:["voice control missing"]});
+const adminBoardState=await page.evaluate(()=>window.PickleAPI.optionalAdminState());
+if(adminBoardState?.tournaments?.length){
+  if((await page.locator("#dataMode").innerText()).trim()!=="NỘI BỘ")failures.push({label:"prod authenticated TV court board",errors:["authenticated board did not switch to internal data"]});
+  if(!(await page.locator("#tournamentSelect option").count()))failures.push({label:"prod authenticated TV court board",errors:["internal tournament selector empty"]});
+}
+await goto(page,prod+"/match.html?id=missing-smoke-id","prod live match QR page");
+if(!(await page.locator(".match-topbar").isVisible()))failures.push({label:"prod live match QR page",errors:["match page shell missing"]});
 await page.setViewportSize({width:1280,height:900});
 
 const ppage=await browser.newPage({viewport:{width:1280,height:900}});

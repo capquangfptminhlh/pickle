@@ -98,6 +98,15 @@ export async function handleOperations(request,env){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
   let p;
 
+  p=route(path,"/api/public/matches/:id/qr");
+  if(p&&method==="GET"){
+    const match=await one(env,"SELECT m.id,t.public_visible FROM matches m JOIN divisions d ON d.id=m.division_id JOIN tournaments t ON t.id=d.tournament_id WHERE m.id=?",p.id);
+    if(!match||!match.public_visible)return fail("NOT_FOUND",request,env,404);
+    const app=String(env.PUBLIC_APP_URL||new URL(request.url).origin).replace(/\/$/,""),target=app+"/match.html?id="+encodeURIComponent(p.id);
+    const svg=await QRCode.toString(target,{type:"svg",margin:2,width:420,errorCorrectionLevel:"M",color:{dark:"#0d2118",light:"#ffffff"}});
+    return ok({id:p.id,url:target,dataUrl:dataSvg(svg)},request,env);
+  }
+
   if(path==="/api/import/players"&&method==="POST"){
     const user=await userRequired(request,env);
     if(!hasRole(user,"super_admin","organizer"))return fail("FORBIDDEN",request,env,403);
