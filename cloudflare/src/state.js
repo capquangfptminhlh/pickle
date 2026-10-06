@@ -48,7 +48,7 @@ export async function loadState(env,{publicOnly=false}={}){
   const teamIds=new Set(teamsRaw.map(t=>t.id));
 
   const rosterRaw=(await rows(env,
-    "SELECT tp.team_id,p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.club_id,p.phone,p.active,c.name AS club_name FROM team_players tp JOIN players p ON p.id=tp.player_id LEFT JOIN clubs c ON c.id=p.club_id ORDER BY tp.team_id,p.full_name"
+    "SELECT tp.team_id,p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.avatar_url,p.club_id,p.phone,p.active,c.name AS club_name FROM team_players tp JOIN players p ON p.id=tp.player_id LEFT JOIN clubs c ON c.id=p.club_id ORDER BY tp.team_id,p.full_name"
   )).filter(r=>teamIds.has(r.team_id)&&(publicOnly?bool(r.active):true));
   const teamPlayers={},playerMap=new Map();
   for(const r of rosterRaw){
@@ -56,7 +56,7 @@ export async function loadState(env,{publicOnly=false}={}){
     teamPlayers[r.team_id].push(r.id);
     if(!playerMap.has(r.id))playerMap.set(r.id,{
       id:r.id,full_name:r.full_name,nickname:r.nickname||"",gender:r.gender||"other",
-      rating:Number(r.rating||0),avatar_url:r.avatar_url||"",club_id:r.club_id||null,
+      rating:Number(r.rating||0),skillLevel:r.skill_level||"B",avatar_url:r.avatar_url||"",club_id:r.club_id||null,
       club_name:r.club_name||"",phone:publicOnly?undefined:(r.phone||""),active:bool(r.active)
     });
   }
@@ -67,7 +67,7 @@ export async function loadState(env,{publicOnly=false}={}){
     for(const p of allPlayers){
       if(!playerMap.has(p.id))playerMap.set(p.id,{
         id:p.id,full_name:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",
-        rating:Number(p.rating||0),avatar_url:p.avatar_url||"",club_id:p.club_id||null,
+        rating:Number(p.rating||0),skillLevel:p.skill_level||"B",avatar_url:p.avatar_url||"",club_id:p.club_id||null,
         club_name:p.club_name||"",phone:p.phone||"",active:bool(p.active)
       });
     }
@@ -206,11 +206,11 @@ function filterState(state,allowed){
 
 export async function listPublicPlayers(env){
   const rs=await rows(env,
-    "SELECT p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,c.name AS club_name,c.city AS club_city FROM players p LEFT JOIN clubs c ON c.id=p.club_id WHERE p.active=1 ORDER BY p.rating DESC,p.full_name"
+    "SELECT p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.avatar_url,c.name AS club_name,c.city AS club_city FROM players p LEFT JOIN clubs c ON c.id=p.club_id WHERE p.active=1 ORDER BY p.rating DESC,p.full_name"
   );
   return rs.map(p=>({
     id:p.id,full_name:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",
-    rating:Number(p.rating||0),avatar_url:p.avatar_url||"",club_name:p.club_name||"",club_city:p.club_city||""
+    rating:Number(p.rating||0),skillLevel:p.skill_level||"B",avatar_url:p.avatar_url||"",club_name:p.club_name||"",club_city:p.club_city||""
   }));
 }
 
@@ -249,7 +249,7 @@ export async function loadPublicPlayer(env,id){
   }
   const ratingHistory=await rows(env,"SELECT before_rating,delta,after_rating,reason,created_at FROM rating_history WHERE player_id=? ORDER BY created_at DESC LIMIT 100",id);
   return {
-    profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",rating:Number(p.rating||0),avatarUrl:p.avatar_url||"",clubName:p.club_name||"",clubCity:p.club_city||""},
+    profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",rating:Number(p.rating||0),skillLevel:p.skill_level||"B",avatarUrl:p.avatar_url||"",clubName:p.club_name||"",clubCity:p.club_city||""},
     stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor,pointsAgainst,diff:pointsFor-pointsAgainst},
     teams:teamRows,partners,matches:matches.slice(0,100),ratingHistory
   };
