@@ -104,12 +104,15 @@ function matchAudit(env,user,m,action,after){
     .bind(user.id,m.id,action,JSON.stringify(m),after?JSON.stringify(after):null);
 }
 async function emitUpdate(env,tournamentId,matchId=null){
-  await broadcast(env,"public:state",{tournamentId},"public");
-  if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},"public");
-  if(tournamentId){
-    await broadcast(env,"public:state",{tournamentId},tournamentId);
-    if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},tournamentId);
-  }
+  if(!env?.ROOMS)return;
+  try{
+    await broadcast(env,"public:state",{tournamentId},"public");
+    if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},"public");
+    if(tournamentId){
+      await broadcast(env,"public:state",{tournamentId},tournamentId);
+      if(matchId)await broadcast(env,"match:update",{id:matchId,tournamentId},tournamentId);
+    }
+  }catch(error){console.error("REALTIME_EMIT_FAILED",error)}
 }
 async function saveR2Upload(request,env,folder,maxBytes,allowed,ownerUserId=null){
   const form=await request.formData();
