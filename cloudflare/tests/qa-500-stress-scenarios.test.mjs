@@ -84,10 +84,10 @@ for(let i=0;i<10;i++)scenario(String(471+i)+" create extra division permutation 
   assert.equal(r.status,201);assert.equal(r.data.event_type,eventType);assert.equal(r.data.format,format);assert.equal(r.data.minimum_rest_minutes,i);assert.equal(r.data.match_slot_minutes,10+i);
 }));
 for(let i=0;i<5;i++)scenario(String(481+i)+" reject invalid division event type "+(i+1),()=>withFixture(async f=>{
-  const r=await f.api("/api/tournaments/own/divisions",{name:"Bad Event "+i,eventType:["pair","triple","robot","unknown",""][i],format:"round_robin"},"POST");assert.equal(r.status,400);assert.equal(r.data.error,"INVALID_EVENT_TYPE");
+  const r=await f.api("/api/tournaments/own/divisions",{name:"Bad Event "+i,eventType:["pair","triple","robot","unknown","doubles2"][i],format:"round_robin"},"POST");assert.equal(r.status,400);assert.equal(r.data.error,"INVALID_EVENT_TYPE");
 }));
 for(let i=0;i<5;i++)scenario(String(486+i)+" reject invalid division format "+(i+1),()=>withFixture(async f=>{
-  const r=await f.api("/api/tournaments/own/divisions",{name:"Bad Format "+i,eventType:"doubles",format:["league","knockout","swiss","groups",""][i]},"POST");assert.equal(r.status,400);assert.equal(r.data.error,"INVALID_FORMAT");
+  const r=await f.api("/api/tournaments/own/divisions",{name:"Bad Format "+i,eventType:"doubles",format:["league","knockout","swiss","groups","pools"][i]},"POST");assert.equal(r.status,400);assert.equal(r.data.error,"INVALID_FORMAT");
 }));
 for(let i=0;i<10;i++)scenario(String(491+i)+" court lifecycle "+(i+1),()=>withFixture(async f=>{
   const c=await f.api("/api/tournaments/own/courts",{name:"Sân QA "+i,sortOrder:i+1},"POST");assert.equal(c.status,201);
