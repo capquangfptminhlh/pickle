@@ -53,10 +53,66 @@ const teamName=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa
 const courtLabel=value=>!value||value==="—"?"Chưa xếp sân":/^sân(?:\s|$)/i.test(String(value))?String(value):"Sân "+value;
 const escHtml=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
-const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">CHỜ</span>';
+const statusBadge=s=>s==="live"?'<span class="badge live">ĐANG ĐẤU</span>':["done","completed"].includes(s)?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':s==="cancelled"?'<span class="badge wait">ĐÃ HỦY</span>':'<span class="badge wait">CHỜ</span>';
 const courtStateMeta=s=>({scheduled:["Chờ","scheduled"],called:["Đang gọi VĐV","called"],on_deck:["On deck","on_deck"],warming_up:["Khởi động","warming_up"],live:["Đang đấu","live"],done:["Hoàn tất","done"]}[s]||["Chờ","scheduled"]);
 const nextCourtState=s=>({scheduled:["called","📣 Gọi VĐV"],called:["on_deck","⏭ On deck"],on_deck:["warming_up","🔥 Khởi động"]}[s]||null);
 const resultText=m=>!m.sets?.length?"—":m.sets.map(x=>x.join("-")).join(" / ");
+
+const TOURNAMENT_TERMINAL=new Set(["done","completed","walkover"]);
+function tournamentSnapshot(t){
+  const divisionIds=new Set(state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id));
+  const teams=state.teams.filter(x=>divisionIds.has(x.divisionId)&&x.status!=="withdrawn");
+  const teamIds=new Set(teams.map(x=>x.id));
+  const matches=state.matches.filter(m=>divisionIds.has(m.divisionId)&&m.status!=="cancelled");
+  const completed=matches.filter(m=>TOURNAMENT_TERMINAL.has(m.status));
+  const live=matches.filter(m=>m.status==="live");
+  const playerIds=new Set(teams.flatMap(team=>state.teamPlayers?.[team.id]||[]));
+  const teamStats=new Map(teams.map(team=>[team.id,{id:team.id,name:team.name,w:0,l:0,pf:0,pa:0}]));
+  let sets=0,points=0;
+  for(const m of completed){
+    const a=teamStats.get(m.a),b=teamStats.get(m.b);
+    if(a&&b){
+      for(const s of m.sets||[]){const sa=Number(s?.[0]||0),sb=Number(s?.[1]||0);a.pf+=sa;a.pa+=sb;b.pf+=sb;b.pa+=sa;sets++;points+=sa+sb}
+      if(m.winner===a.id){a.w++;b.l++}
+      else if(m.winner===b.id){b.w++;a.l++}
+    }
+  }
+  const leaders=[...teamStats.values()].sort((a,b)=>b.w-a.w||((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf).slice(0,3);
+  let champion=null;
+  try{
+    const raw=window.PickleBracket?.champion?.(matches,teamName);
+    if(raw&&raw!=="Chưa xác định")champion=raw;
+  }catch{}
+  if(!champion){
+    const final=[...matches].reverse().find(m=>/chung kết|final/i.test(m.stage||"")&&m.winner);
+    if(final)champion=teamName(final.winner);
+  }
+  const isComplete=["done","completed"].includes(t.status)||(matches.length>0&&matches.every(m=>TOURNAMENT_TERMINAL.has(m.status)));
+  const progress=matches.length?Math.round(completed.length*100/matches.length):0;
+  return {divisionIds,teams,matches,completed,live,playerCount:playerIds.size,teamCount:teams.length,matchCount:matches.length,completedCount:completed.length,champion,leaders,isComplete,progress,sets,points};
+}
+function tournamentInsightPanel(t,s=tournamentSnapshot(t)){
+  const leaderHtml=s.leaders.length?s.leaders.map((x,i)=>\`<div class="tournament-stat-leader"><span>#\${i+1}</span><b>\${escHtml(x.name)}</b><small>\${x.w} thắng • hiệu số \${x.pf-x.pa>=0?"+":""}\${x.pf-x.pa}</small></div>\`).join(""):'<div class="empty">Chưa có đủ kết quả để xếp thành tích.</div>';
+  return \`<section class="tournament-insight">
+    <div class="tournament-insight-head"><div><span>KẾT QUẢ & THỐNG KÊ</span><h3>\${s.isComplete?"Tổng kết giải":"Tiến độ giải đấu"}</h3></div><b class="\${s.isComplete?"is-complete":"is-running"}">\${s.isComplete?"✓ ĐÃ HOÀN TẤT":s.live.length?"● ĐANG THI ĐẤU":"ĐANG CHUẨN BỊ"}</b></div>
+    <div class="tournament-insight-grid">
+      <article><small>VĐV</small><strong>\${s.playerCount}</strong><span>\${s.teamCount} cặp / đội</span></article>
+      <article><small>TRẬN ĐÃ XONG</small><strong>\${s.completedCount}/\${s.matchCount}</strong><span>\${s.progress}% tiến độ</span></article>
+      <article><small>TỔNG SET</small><strong>\${s.sets}</strong><span>\${s.points.toLocaleString("vi-VN")} điểm đã ghi</span></article>
+      <article class="champion"><small>NHÀ VÔ ĐỊCH</small><strong>\${escHtml(s.champion||"Chưa xác định")}</strong><span>\${s.isComplete?"Kết quả chung cuộc":"Sẽ tự cập nhật khi Chung kết xong"}</span></article>
+    </div>
+    <div class="tournament-stat-leaders"><div><b>Thành tích nổi bật</b><small>Xếp theo số trận thắng và hiệu số</small></div><div class="tournament-stat-leader-list">\${leaderHtml}</div></div>
+  </section>\`;
+}
+function tournamentHistoryCard(t){
+  const s=tournamentSnapshot(t);
+  return \`<article class="tournament-history-card" data-open-tournament="\${escHtml(t.id)}">
+    <div class="tournament-history-top"><div><span>LỊCH SỬ GIẢI</span><h3>\${escHtml(t.name)}</h3><p>\${escHtml(t.date||"")} • \${escHtml(t.venue||"")}</p></div><span class="badge done">KẾT THÚC</span></div>
+    <div class="tournament-history-stats"><span><small>VĐV</small><b>\${s.playerCount}</b></span><span><small>Đội</small><b>\${s.teamCount}</b></span><span><small>Trận</small><b>\${s.completedCount}</b></span><span><small>Vô địch</small><b>\${escHtml(s.champion||"—")}</b></span></div>
+    <button type="button" class="mini" data-manage-tournament="\${escHtml(t.id)}">Xem tổng kết giải →</button>
+  </article>\`;
+}
+
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canOperateMatch=()=>canManage()||user?.role==="referee";
