@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pickleup.vn">
-  <meta name="theme-color" content="#0b7a4b">
+  <meta name="theme-color" content="#0b1110">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/app-icon-v2.svg" sizes="192x192">
@@ -15,8 +15,10 @@
   <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">  <meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="assets/styles.css?v=28">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=7">
+  <link rel="stylesheet" href="assets/admin-sport.css?v=1">
 </head>
-<body>
+<body class="admin-sport">
+  <a class="admin-skip-link" href="#content">Bỏ qua menu, đến nội dung</a>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
@@ -52,11 +54,11 @@
         </div>
       </header>
 
-      <section id="content" class="content"></section>
+      <section id="content" class="content" tabindex="-1" aria-label="Nội dung quản trị"></section>
     </main>
   </div>
 
-  <dialog id="scoreDialog" class="score-dialog">
+  <dialog id="scoreDialog" class="score-dialog" aria-labelledby="scoreTitle">
     <form method="dialog" class="score-card" id="scoreForm">
       <div class="score-head">
         <div>
@@ -72,17 +74,17 @@
         <div class="team-row">
           <div><small>ĐỘI A</small><strong id="teamAName"></strong></div>
           <div class="score-control">
-            <button type="button" data-score="a" data-delta="-1">−</button>
+            <button type="button" data-score="a" data-delta="-1" aria-label="Giảm điểm đội A">−</button>
             <span id="scoreA">0</span>
-            <button type="button" data-score="a" data-delta="1">＋</button>
+            <button type="button" data-score="a" data-delta="1" aria-label="Tăng điểm đội A">＋</button>
           </div>
         </div>
         <div class="team-row">
           <div><small>ĐỘI B</small><strong id="teamBName"></strong></div>
           <div class="score-control">
-            <button type="button" data-score="b" data-delta="-1">−</button>
+            <button type="button" data-score="b" data-delta="-1" aria-label="Giảm điểm đội B">−</button>
             <span id="scoreB">0</span>
-            <button type="button" data-score="b" data-delta="1">＋</button>
+            <button type="button" data-score="b" data-delta="1" aria-label="Tăng điểm đội B">＋</button>
           </div>
         </div>
       </div>
@@ -140,11 +142,11 @@
     </form>
   </dialog>
 
-  <dialog id="genericDialog" class="generic-dialog">
+  <dialog id="genericDialog" class="generic-dialog" aria-labelledby="genericTitle">
     <form method="dialog" class="modal-card" id="genericForm">
       <div class="score-head">
         <h2 id="genericTitle">Tạo mới</h2>
-        <button class="icon-btn" value="cancel">✕</button>
+        <button class="icon-btn" value="cancel" aria-label="Đóng hộp thoại">✕</button>
       </div>
       <div id="genericBody"></div>
     </form>
@@ -158,9 +160,9 @@
   <script src="assets/bracket-ui.js?v=26"></script>
   <script src="assets/admin-crud.js?v=5"></script>
   <script src="assets/player-picker.js?v=2"></script>
-  <script src="assets/admin-app.js?v=48"></script>
-  <script src="assets/draw-flex.js?v=1"></script>
-  <script src="assets/ui-motion.js"></script>
+  <script src="assets/admin-app.js?v=49"></script>
+  <script src="assets/draw-flex.js?v=2"></script>
+  <script src="assets/ui-motion.js?v=2"></script>
   <script src="/assets/pwa.js"></script>
 </body>
 </html>

@@ -46,7 +46,8 @@ jobs:
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-legacy-ui.mjs
-          node --test scripts/registry-realtime.test.mjs
+          node scripts/registry-design-ui.mjs
+          node --test scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs
       - name: Syntax check
         run: |
           node --check server/index.js

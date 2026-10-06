@@ -27,8 +27,9 @@
     const defaultPer=Math.max(2,Number(saved.teamsPerGroup||4));
     const defaultGroups=Math.max(1,Math.min(26,Number(saved.groupCount||Math.ceil(n/defaultPer))));
 
-    const modal=document.createElement("div");
+    const modal=document.createElement("dialog");
     modal.className="draw-setup-overlay";
+    modal.setAttribute("aria-label",`Thiết lập chia bảng: ${division.name||"Nội dung thi đấu"}`);
     modal.innerHTML=`<div class="draw-setup-card">
       <div class="draw-setup-head">
         <div><span>THIẾT LẬP CHIA BẢNG</span><h2>${esc(division.name||"Nội dung thi đấu")}</h2><p>${n} cặp/đội • setup xong mới quay công khai realtime</p></div>
@@ -142,8 +143,16 @@
     advanceEl.oninput=rebuild;
     modal.querySelectorAll("[data-flex-court]").forEach(x=>x.onchange=rebuild);
 
-    modal.querySelector("[data-flex-close]").onclick=()=>modal.remove();
-    modal.onclick=e=>{if(e.target===modal)modal.remove()};
+    function closeModal(){
+      modal.close();
+      modal.remove();
+    }
+    modal.querySelector("[data-flex-close]").onclick=closeModal;
+    modal.onclick=e=>{if(e.target===modal)closeModal()};
+    modal.addEventListener("cancel",e=>{
+      e.preventDefault();
+      closeModal();
+    });
 
     modal.querySelector("[data-flex-save]").onclick=async()=>{
       try{
@@ -168,13 +177,13 @@
         await new Promise(resolve=>setTimeout(resolve,900));
         card.innerHTML=`<div class="draw-live-stage is-done"><div class="draw-result-icon">✓</div><h2>Đã chia bảng</h2><p>${result.groupCount} bảng • ${result.created} trận vòng bảng • Top ${result.advanceCount} đi tiếp</p><div class="draw-result-groups">${(result.groups||[]).map(g=>`<span><b>Bảng ${esc(g.group)}</b><small>${g.count} đội</small></span>`).join("")}</div></div>`;
         await new Promise(resolve=>setTimeout(resolve,900));
-        modal.remove();
+        closeModal();
         await refresh();
         document.querySelector("#genericDialog")?.close();
         await openTournamentDetail(tournamentId);
         toast(`Đã bốc thăm ${result.groupCount} bảng, tạo ${result.created} trận và phát realtime.`);
       }catch(e){
-        modal.remove();
+        closeModal();
         const msg={
           GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã bắt đầu.",
           GROUP_TOO_SMALL:"Mỗi bảng phải có ít nhất 2 đội.",
@@ -188,6 +197,7 @@
     };
 
     rebuild();
+    modal.showModal();
   }
 
   async function createFlexibleBracket(btn){
@@ -218,15 +228,21 @@
 
   function polishButtons(){
     document.querySelectorAll("[data-auto-draw]").forEach(btn=>{
-      btn.textContent="🎛 Thiết lập & bốc thăm";
-      btn.title="Chọn số bảng, đội/bảng, sân, số đội đi tiếp hoặc xếp thủ công";
+      const label="🎛 Thiết lập & bốc thăm";
+      const title="Chọn số bảng, đội/bảng, sân, số đội đi tiếp hoặc xếp thủ công";
+      if(btn.textContent!==label)btn.textContent=label;
+      if(btn.title!==title)btn.title=title;
     });
     document.querySelectorAll("[data-top2-bracket]").forEach(btn=>{
       const d=state.divisions.find(x=>x.id===btn.dataset.top2Bracket);
       const advance=Math.max(1,Number(d?.advanceCount||2));
-      btn.textContent=`🏆 Tạo nhánh Top ${advance}`;
+      const label=`🏆 Tạo nhánh Top ${advance}`;
+      if(btn.textContent!==label)btn.textContent=label;
     });
-    document.querySelectorAll("[data-center-draw]").forEach(btn=>btn.textContent="🎡 Thiết lập / quay chia bảng");
+    document.querySelectorAll("[data-center-draw]").forEach(btn=>{
+      const label="🎡 Thiết lập / quay chia bảng";
+      if(btn.textContent!==label)btn.textContent=label;
+    });
   }
 
   document.addEventListener("click",e=>{

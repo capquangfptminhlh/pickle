@@ -1,4 +1,4 @@
-const VERSION="pickleup-v30-skill-team-draw-20261006";
+const VERSION="pickleup-v31-admin-sport-20261006";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -7,6 +7,7 @@ const STATIC=[
   "/assets/styles.css",
   "/assets/public.css",
   "/assets/pickleup-ui.css",
+  "/assets/admin-sport.css",
   "/assets/ui-motion.js",
   "/assets/draw-flex.js",
   "/referee.html",

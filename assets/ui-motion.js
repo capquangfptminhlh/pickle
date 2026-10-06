@@ -123,15 +123,16 @@
       matches:"<path d='M4 5h16v15H4zM8 3v4M16 3v4M4 9h16M8 13h3M13 13h3'/>",
       scores:"<path d='M4 5h16v14H4zM8 9h3v6H8zm5 0h3v6h-3z'/>",
       players:"<path d='M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-4 2.7-6 6-6s6 2 6 6H2Z'/>",
+      tournaments:"<path d='M8 3h8v5a4 4 0 0 1-8 0V3Zm0 2H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 1v6m-4 2h8'/>",
       clubs:"<path d='M3 20h18M5 20V8l7-4 7 4v12M9 12h2M13 12h2M9 16h6'/>",
       payments:"<path d='M3 6h18v12H3zM3 9h18M7 14h4'/>",
       reports:"<path d='M4 20V10h4v10m2 0V4h4v16m2 0v-7h4v7'/>",
       standings:"<path d='M5 6h14M5 12h14M5 18h14'/>",
       more:"<circle cx='5' cy='12' r='1.5'/><circle cx='12' cy='12' r='1.5'/><circle cx='19' cy='12' r='1.5'/>"
     };
-    const labels={dashboard:"Trang chủ",club_events:"Lịch CLB",club_attendance:"Điểm danh",treasury:"Thu chi",matches:"Lịch đấu",scores:"Điểm",players:"Thành viên",clubs:"CLB",payments:"Phí giải",reports:"Báo cáo",standings:"BXH"};
+    const labels={dashboard:"Trang chủ",tournaments:"Giải đấu",club_events:"Lịch CLB",club_attendance:"Điểm danh",treasury:"Thu chi",matches:"Lịch đấu",scores:"Điểm",players:"VĐV",clubs:"CLB",payments:"Phí giải",reports:"Báo cáo",standings:"BXH"};
     const available=[...document.querySelectorAll("#nav .nav-btn")].map(x=>x.dataset.page);
-    const preference=["dashboard","club_events","players","club_attendance","treasury","matches","scores","clubs","payments","reports","standings"];
+    const preference=available.includes("tournaments")?["dashboard","tournaments","players","scores"]:["dashboard","club_events","players","club_attendance","treasury","matches","scores","clubs","payments","reports","standings"];
     const primary=preference.filter(id=>available.includes(id)).slice(0,4);
     const hasMore=available.some(id=>!primary.includes(id));
     const items=[...primary,...(hasMore?["more"]:[])];
