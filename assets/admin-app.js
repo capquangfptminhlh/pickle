@@ -260,7 +260,8 @@ async function openTournamentDetail(tournamentId){
       ?(window.PickleBracket?.render(divisionMatches,teamName,{admin:true})||"")
       :(window.PickleBracket?.renderPlan(allTeams)||"");
     const completed=groupMatches.filter(m=>m.status==="done"||m.status==="completed").length;
-    const advanceCount=Math.max(1,Number(d.advanceCount||2));\n    const qualifiers=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,advanceCount).map((x,i)=>({team:x,group:g,rank:i+1})));
+    const advanceCount=Math.max(1,Number(d.advanceCount||2));
+    const qualifiers=groups.flatMap(g=>rankTournamentGroup(d.id,g).slice(0,advanceCount).map((x,i)=>({team:x,group:g,rank:i+1})));
     const rosterRows=teams.map(team=>{
       const ps=(teamPlayers[team.id]||[]).map(pid=>allPlayers.find(p=>p.id===pid)).filter(Boolean);
       const rating=ps.length?(ps.reduce((a,p)=>a+Number(p.rating||0),0)/ps.length).toFixed(2):"—";
@@ -371,7 +372,8 @@ async function openTournamentDetail(tournamentId){
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
   document.querySelectorAll("[data-top2-bracket]").forEach(btn=>btn.onclick=async()=>{
-    const advance=Math.max(1,Number(btn.dataset.advanceCount||2));\n    if(!confirm(`Tạo nhánh đấu tự động từ Top ${advance} mỗi bảng?`))return;
+    const advance=Math.max(1,Number(btn.dataset.advanceCount||2));
+    if(!confirm(`Tạo nhánh đấu tự động từ Top ${advance} mỗi bảng?`))return;
     try{
       const r=await API.generateBracket(btn.dataset.top2Bracket);
       await refresh();
@@ -421,7 +423,8 @@ function standings(){
     const content=groups.map(g=>{
       const gm=state.matches.filter(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage==="Bảng "+g||(m.stage||"").includes("Bảng "+g)));
       const done=gm.filter(m=>m.status==="done"||m.status==="completed").length;
-      const advance=Math.max(1,Number(d.advanceCount||2));\n      return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>${escHtml(d.name)} • Bảng ${g}</h2><p>${done}/${gm.length} trận hoàn tất • Top ${advance} vào vòng loại trực tiếp</p></div><span class="badge blue">TOP ${advance} ĐI TIẾP</span></div>
+      const advance=Math.max(1,Number(d.advanceCount||2));
+      return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>${escHtml(d.name)} • Bảng ${g}</h2><p>${done}/${gm.length} trận hoàn tất • Top ${advance} vào vòng loại trực tiếp</p></div><span class="badge blue">TOP ${advance} ĐI TIẾP</span></div>
         <div class="standing-table-wrap">
           <div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>
           ${calcGroup(d.id,g).map((t,i)=>{
