@@ -348,6 +348,7 @@ async function handleApi(request,env){
   p=route(path,"/api/players/:id/avatar");
   if(p&&method==="POST"){
     const user=await userRequired(request,env);if(!(await canEditPlayer(env,user,p.id)))return fail("FORBIDDEN",request,env,403);
+    const player=await one(env,"SELECT id FROM players WHERE id=?",p.id);if(!player)return fail("NOT_FOUND",request,env,404);
     const up=await saveR2Upload(request,env,"avatars",3*1024*1024,["image/jpeg","image/png","image/webp"]);
     await env.DB.prepare("UPDATE players SET avatar_url=?,updated_at=? WHERE id=?").bind(up.url,nowIso(),p.id).run();
     return ok({ok:true,url:up.url,avatarUrl:up.url},request,env);
@@ -364,9 +365,10 @@ async function handleApi(request,env){
   if(path==="/api/tournaments"&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     const b=await bodyJson(request),name=String(b.name||"").trim();if(!name)return fail("NAME_REQUIRED",request,env,400);
+    const status=String(b.status||"draft");if(!["draft","registration","live","completed","cancelled"].includes(status))return fail("INVALID_STATUS",request,env,400);
     const id=uid(),slug=await nextUniqueSlug(env,"tournaments",name),created=nowIso();
     await env.DB.prepare("INSERT INTO tournaments(id,owner_user_id,name,slug,venue_name,start_at,end_at,status,public_visible,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
-      .bind(id,user.id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,b.status||"draft",asBool(b.publicVisible)?1:0,created,created).run();
+      .bind(id,user.id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,status,asBool(b.publicVisible)?1:0,created,created).run();
     const divId=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
       .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",3,11,1,2,created).run();
@@ -377,9 +379,10 @@ async function handleApi(request,env){
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env);await assertTournament(env,user,p.id);
     const before=await one(env,"SELECT * FROM tournaments WHERE id=?",p.id);if(!before)return fail("NOT_FOUND",request,env,404);
-    const b=await bodyJson(request);
+    const b=await bodyJson(request),status=b.status===undefined?before.status:String(b.status);
+    if(!["draft","registration","live","completed","cancelled"].includes(status))return fail("INVALID_STATUS",request,env,400);
     await env.DB.prepare("UPDATE tournaments SET name=?,venue_name=?,start_at=?,end_at=?,status=?,public_visible=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),String(b.venue??b.venueName??before.venue_name??""),b.startAt??before.start_at,b.endAt??before.end_at,b.status??before.status,b.publicVisible===undefined?before.public_visible:(asBool(b.publicVisible)?1:0),nowIso(),p.id).run();
+      .bind(String(b.name??before.name),String(b.venue??b.venueName??before.venue_name??""),b.startAt??before.start_at,b.endAt??before.end_at,status,b.publicVisible===undefined?before.public_visible:(asBool(b.publicVisible)?1:0),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM tournaments WHERE id=?",p.id);await createAudit(env,user,"tournament",p.id,"UPDATE",before,after);await emitUpdate(env,p.id);
     return ok(after,request,env);
   }
