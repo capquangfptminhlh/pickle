@@ -36,7 +36,7 @@ test("super admin imports legacy localStorage state into D1 idempotently",async(
     assert.equal(f.db.prepare("SELECT avatar_url FROM players WHERE id='p1'").get().avatar_url,null);
 
     r=await f.api("/api/admin/import-legacy-state",{state:legacy},"POST","admin");
-    assert.equal(r.status,200);
+    assert.equal(r.status,200,JSON.stringify(r.data));
     assert.equal(f.db.prepare("SELECT count(*) n FROM tournaments WHERE id='tour-old'").get().n,1);
     assert.equal(f.db.prepare("SELECT count(*) n FROM team_players WHERE team_id='team-old'").get().n,2);
     assert.ok(f.db.prepare("SELECT id FROM audit_logs WHERE action='IMPORT_LEGACY_STATE' ORDER BY id DESC LIMIT 1").get());
