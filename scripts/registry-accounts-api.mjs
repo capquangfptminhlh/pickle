@@ -11,6 +11,12 @@ async function login(email,password){
   return data.token?{Authorization:"Bearer "+data.token}:{Cookie:response.headers.get("set-cookie").split(";")[0]};
 }
 const admin=await login(process.env.ADMIN_EMAIL||"admin@pickle.test",process.env.ADMIN_PASSWORD||"cloudflare-test-password-123");
+const currentAdmin=(await api("/api/auth/me",undefined,{actor:admin})).data.user;
+for(const active of [false,0,null,""]){
+  const denied=await api(`/api/users/${currentAdmin.id||currentAdmin.sub}`,{active},{actor:admin,method:"PATCH",expected:[400]});
+  assert.equal(denied.data.error,"CANNOT_DISABLE_SELF");
+  await api("/api/auth/me",undefined,{actor:admin});
+}
 const stamp=Date.now(),password="account-regression-password-123";
 async function tournament(name){const {data}=await api("/api/tournaments",{name:name+stamp,venue:"Local account regression"},{actor:admin});return data.tournament?.id||data.id}
 const own=await tournament("Account Own "),other=await tournament("Account Other ");

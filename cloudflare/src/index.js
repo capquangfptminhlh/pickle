@@ -757,7 +757,7 @@ async function handleApi(request,env){
     const target=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);if(!target)return fail("NOT_FOUND",request,env,404);
     if(refereeWrite&&target.role!=="referee")return fail("NOT_FOUND",request,env,404);
     const b=await bodyJson(request);
-    if(p.id===user.id&&b.active===false)return fail("CANNOT_DISABLE_SELF",request,env,400);
+    if(p.id===user.id&&b.active!==undefined&&!asBool(b.active))return fail("CANNOT_DISABLE_SELF",request,env,400);
     if(user.role==="organizer"){
       if(target.role!=="referee")return fail("ORGANIZER_CAN_ONLY_EDIT_REFEREE",request,env,403);
       if(!target.tournament_id_scope||!(await canManageTournament(env,user,target.tournament_id_scope)))return fail("TOURNAMENT_SCOPE_FORBIDDEN",request,env,403);

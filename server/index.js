@@ -2109,7 +2109,7 @@ app.post("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(r
   res.status(201).json(row);
 }));
 app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  if(req.params.id===req.user.sub&&req.body.active===false)return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
+  if(req.params.id===req.user.sub&&req.body.active!==undefined&&!Boolean(req.body.active))return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
   const before=(await pool.query("select id,email,display_name,role,active,club_id,tournament_id_scope from app_users where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(req.user.role==="organizer"){

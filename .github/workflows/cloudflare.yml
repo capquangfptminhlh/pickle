@@ -87,6 +87,7 @@ jobs:
           node ../scripts/registry-operations-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-public-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-legacy-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-bracket-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate
