@@ -673,8 +673,10 @@ export async function handleOperations(request,env){
   p=route(path,"/api/registrations/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),r=await registrationWithTournament(env,p.id);if(!r)return fail("NOT_FOUND",request,env,404);if(!(await scopeRegistration(env,user,r)))return fail("FORBIDDEN",request,env,403);
-    const b=await bodyJson(request);
-    await env.DB.prepare("UPDATE registrations SET status=?,payment_status=?,amount=? WHERE id=?").bind(b.status??r.status,b.paymentStatus??r.payment_status,b.amount===undefined?r.amount:Number(b.amount),p.id).run();
+    const b=await bodyJson(request),status=String(b.status??r.status),paymentStatus=String(b.paymentStatus??r.payment_status);
+    if(!["pending","approved","waitlist","cancelled"].includes(status))return fail("INVALID_REGISTRATION_STATUS",request,env,400);
+    if(!["unpaid","pending","paid","refunded"].includes(paymentStatus))return fail("INVALID_PAYMENT_STATUS",request,env,400);
+    await env.DB.prepare("UPDATE registrations SET status=?,payment_status=?,amount=? WHERE id=?").bind(status,paymentStatus,b.amount===undefined?r.amount:Number(b.amount),p.id).run();
     return ok(await registrationWithTournament(env,p.id),request,env);
   }
   if(p&&method==="DELETE"){
