@@ -44,6 +44,7 @@ jobs:
         run: |
           node --check assets/referee-courtside.js
           node --check assets/court-board.js
+          node --check assets/legacy-migrate.js
           node --check assets/match-live.js
       - name: Wrangler dry run
         working-directory: cloudflare
