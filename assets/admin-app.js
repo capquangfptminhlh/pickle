@@ -62,7 +62,6 @@ const TOURNAMENT_TERMINAL=new Set(["done","completed","walkover"]);
 function tournamentSnapshot(t){
   const divisionIds=new Set(state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id));
   const teams=state.teams.filter(x=>divisionIds.has(x.divisionId)&&x.status!=="withdrawn");
-  const teamIds=new Set(teams.map(x=>x.id));
   const matches=state.matches.filter(m=>divisionIds.has(m.divisionId)&&m.status!=="cancelled");
   const completed=matches.filter(m=>TOURNAMENT_TERMINAL.has(m.status));
   const live=matches.filter(m=>m.status==="live");
@@ -72,7 +71,10 @@ function tournamentSnapshot(t){
   for(const m of completed){
     const a=teamStats.get(m.a),b=teamStats.get(m.b);
     if(a&&b){
-      for(const s of m.sets||[]){const sa=Number(s?.[0]||0),sb=Number(s?.[1]||0);a.pf+=sa;a.pa+=sb;b.pf+=sb;b.pa+=sa;sets++;points+=sa+sb}
+      for(const s of m.sets||[]){
+        const sa=Number(s?.[0]||0),sb=Number(s?.[1]||0);
+        a.pf+=sa;a.pa+=sb;b.pf+=sb;b.pa+=sa;sets++;points+=sa+sb;
+      }
       if(m.winner===a.id){a.w++;b.l++}
       else if(m.winner===b.id){b.w++;a.l++}
     }
@@ -92,27 +94,26 @@ function tournamentSnapshot(t){
   return {divisionIds,teams,matches,completed,live,playerCount:playerIds.size,teamCount:teams.length,matchCount:matches.length,completedCount:completed.length,champion,leaders,isComplete,progress,sets,points};
 }
 function tournamentInsightPanel(t,s=tournamentSnapshot(t)){
-  const leaderHtml=s.leaders.length?s.leaders.map((x,i)=>\`<div class="tournament-stat-leader"><span>#\${i+1}</span><b>\${escHtml(x.name)}</b><small>\${x.w} thắng • hiệu số \${x.pf-x.pa>=0?"+":""}\${x.pf-x.pa}</small></div>\`).join(""):'<div class="empty">Chưa có đủ kết quả để xếp thành tích.</div>';
-  return \`<section class="tournament-insight">
-    <div class="tournament-insight-head"><div><span>KẾT QUẢ & THỐNG KÊ</span><h3>\${s.isComplete?"Tổng kết giải":"Tiến độ giải đấu"}</h3></div><b class="\${s.isComplete?"is-complete":"is-running"}">\${s.isComplete?"✓ ĐÃ HOÀN TẤT":s.live.length?"● ĐANG THI ĐẤU":"ĐANG CHUẨN BỊ"}</b></div>
+  const leaderHtml=s.leaders.length?s.leaders.map((x,i)=>`<div class="tournament-stat-leader"><span>#${i+1}</span><b>${escHtml(x.name)}</b><small>${x.w} thắng • hiệu số ${x.pf-x.pa>=0?"+":""}${x.pf-x.pa}</small></div>`).join(""):'<div class="empty">Chưa có đủ kết quả để xếp thành tích.</div>';
+  return `<section class="tournament-insight">
+    <div class="tournament-insight-head"><div><span>KẾT QUẢ & THỐNG KÊ</span><h3>${s.isComplete?"Tổng kết giải":"Tiến độ giải đấu"}</h3></div><b class="${s.isComplete?"is-complete":"is-running"}">${s.isComplete?"✓ ĐÃ HOÀN TẤT":s.live.length?"● ĐANG THI ĐẤU":"ĐANG CHUẨN BỊ"}</b></div>
     <div class="tournament-insight-grid">
-      <article><small>VĐV</small><strong>\${s.playerCount}</strong><span>\${s.teamCount} cặp / đội</span></article>
-      <article><small>TRẬN ĐÃ XONG</small><strong>\${s.completedCount}/\${s.matchCount}</strong><span>\${s.progress}% tiến độ</span></article>
-      <article><small>TỔNG SET</small><strong>\${s.sets}</strong><span>\${s.points.toLocaleString("vi-VN")} điểm đã ghi</span></article>
-      <article class="champion"><small>NHÀ VÔ ĐỊCH</small><strong>\${escHtml(s.champion||"Chưa xác định")}</strong><span>\${s.isComplete?"Kết quả chung cuộc":"Sẽ tự cập nhật khi Chung kết xong"}</span></article>
+      <article><small>VĐV</small><strong>${s.playerCount}</strong><span>${s.teamCount} cặp / đội</span></article>
+      <article><small>TRẬN ĐÃ XONG</small><strong>${s.completedCount}/${s.matchCount}</strong><span>${s.progress}% tiến độ</span></article>
+      <article><small>TỔNG SET</small><strong>${s.sets}</strong><span>${s.points.toLocaleString("vi-VN")} điểm đã ghi</span></article>
+      <article class="champion"><small>NHÀ VÔ ĐỊCH</small><strong>${escHtml(s.champion||"Chưa xác định")}</strong><span>${s.isComplete?"Kết quả chung cuộc":"Sẽ tự cập nhật khi Chung kết xong"}</span></article>
     </div>
-    <div class="tournament-stat-leaders"><div><b>Thành tích nổi bật</b><small>Xếp theo số trận thắng và hiệu số</small></div><div class="tournament-stat-leader-list">\${leaderHtml}</div></div>
-  </section>\`;
+    <div class="tournament-stat-leaders"><div><b>Thành tích nổi bật</b><small>Xếp theo số trận thắng và hiệu số</small></div><div class="tournament-stat-leader-list">${leaderHtml}</div></div>
+  </section>`;
 }
 function tournamentHistoryCard(t){
   const s=tournamentSnapshot(t);
-  return \`<article class="tournament-history-card" data-open-tournament="\${escHtml(t.id)}">
-    <div class="tournament-history-top"><div><span>LỊCH SỬ GIẢI</span><h3>\${escHtml(t.name)}</h3><p>\${escHtml(t.date||"")} • \${escHtml(t.venue||"")}</p></div><span class="badge done">KẾT THÚC</span></div>
-    <div class="tournament-history-stats"><span><small>VĐV</small><b>\${s.playerCount}</b></span><span><small>Đội</small><b>\${s.teamCount}</b></span><span><small>Trận</small><b>\${s.completedCount}</b></span><span><small>Vô địch</small><b>\${escHtml(s.champion||"—")}</b></span></div>
-    <button type="button" class="mini" data-manage-tournament="\${escHtml(t.id)}">Xem tổng kết giải →</button>
-  </article>\`;
+  return `<article class="tournament-history-card" data-open-tournament="${escHtml(t.id)}">
+    <div class="tournament-history-top"><div><span>LỊCH SỬ GIẢI</span><h3>${escHtml(t.name)}</h3><p>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</p></div><span class="badge done">KẾT THÚC</span></div>
+    <div class="tournament-history-stats"><span><small>VĐV</small><b>${s.playerCount}</b></span><span><small>Đội</small><b>${s.teamCount}</b></span><span><small>Trận</small><b>${s.completedCount}</b></span><span><small>Vô địch</small><b>${escHtml(s.champion||"—")}</b></span></div>
+    <button type="button" class="mini" data-manage-tournament="${escHtml(t.id)}">Xem tổng kết giải →</button>
+  </article>`;
 }
-
 const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canOperateMatch=()=>canManage()||user?.role==="referee";
