@@ -32,6 +32,7 @@ create table if not exists players (
   nickname text,
   gender text check (gender in ('male','female','other')),
   rating numeric(5,3),
+  skill_level text not null default 'B' check (skill_level in ('A+','A','B+','B','C+','C')),
   phone text,
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -354,3 +355,7 @@ create index if not exists idx_tournaments_featured on tournaments(is_featured d
 alter table players add column if not exists created_by_user_id uuid references app_users(id) on delete set null;
 create index if not exists idx_players_created_by on players(created_by_user_id);
 create index if not exists idx_app_users_tournament_scope on app_users(tournament_id_scope);
+
+
+alter table players add column if not exists skill_level text not null default 'B' check (skill_level in ('A+','A','B+','B','C+','C'));
+create index if not exists idx_players_skill_level on players(skill_level,full_name);
