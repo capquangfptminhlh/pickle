@@ -193,6 +193,7 @@
     createCourt:(tournamentId,payload)=>request(`/api/tournaments/${tournamentId}/courts`,{method:"POST",body:JSON.stringify(payload)}),
     updateCourt:(courtId,payload)=>request(`/api/courts/${courtId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createTeam:(divisionId,payload)=>request(`/api/divisions/${divisionId}/teams`,{method:"POST",body:JSON.stringify(payload)}),
+    drawBalancedTeams:(divisionId,payload)=>request(`/api/divisions/${divisionId}/draw-balanced-teams`,{method:"POST",body:JSON.stringify(payload)}),
     updateDivision:(divisionId,payload)=>request(`/api/divisions/${divisionId}`,{method:"PATCH",body:JSON.stringify(payload)}),
     createMatch:(divisionId,payload)=>request(`/api/divisions/${divisionId}/matches`,{method:"POST",body:JSON.stringify(payload)}),
     generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
