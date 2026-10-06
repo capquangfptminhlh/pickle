@@ -229,7 +229,7 @@ async function importLegacyState(env,user,state){
   for(const [teamId,pids] of Object.entries(teamPlayers)){
     if(!Array.isArray(pids))continue;
     for(const pid of pids){
-      statements.push(env.DB.prepare("INSERT OR IGNORE INTO team_players(team_id,player_id) VALUES(?,?)").bind(String(teamId),String(pid)));counts.teamPlayers++;
+      statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM team_players WHERE team_id=? AND player_id=?)").bind(String(teamId),String(pid),String(teamId),String(pid)));counts.teamPlayers++;
     }
   }
   await runBatches(env,statements);statements=[];
