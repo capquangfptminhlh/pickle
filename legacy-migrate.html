@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Chuyển dữ liệu cũ → Pickleup.vn</title>
+  <link rel="icon" href="assets/app-icon-v4.svg" type="image/svg+xml">
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#eef4f0;color:#153126;font-family:Inter,system-ui,-apple-system,sans-serif}
+    main{width:min(720px,calc(100% - 28px));margin:32px auto}.card{background:#fff;border:1px solid #dce7e0;border-radius:22px;padding:20px;box-shadow:0 14px 34px rgba(16,47,31,.08);margin-bottom:14px}
+    h1{font-size:25px;margin:0 0 8px}p{color:#667b70;line-height:1.55}.status{padding:12px;border-radius:14px;background:#f4f8f6;font-size:13px;white-space:pre-line}.status.ok{background:#e8f8ef;color:#0b6b44}.status.bad{background:#fff0f0;color:#9f2833}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{padding:10px;border-radius:13px;background:#f6f9f7;text-align:center}.metric b,.metric span{display:block}.metric b{font-size:22px}.metric span{font-size:9px;color:#718379;font-weight:800}
+    label{display:block;font-size:11px;font-weight:800;margin:10px 0 5px}input{width:100%;height:44px;border:1px solid #d7e3dc;border-radius:12px;padding:0 12px;font:inherit}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    button,a.btn{border:0;border-radius:13px;min-height:44px;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.primary{background:#0b7b50;color:#fff}.secondary{background:#e7efeb;color:#29483a}.danger{background:#fff0f0;color:#a32d39}button:disabled{opacity:.45;cursor:not-allowed}
+    small.note{display:block;color:#7a8b82;line-height:1.5;margin-top:10px}@media(max-width:560px){.grid{grid-template-columns:repeat(2,1fr)}main{margin-top:16px}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>Chuyển dữ liệu Pickleup cũ</h1>
+    <p>Trang này đọc dữ liệu <b>pickle-local-state-v1</b> đang lưu trong trình duyệt GitHub Pages này và chuyển sang D1 production tại <b>pickleup.vn</b>. Không tạo dữ liệu mẫu.</p>
+    <div id="legacyStatus" class="status">Đang kiểm tra dữ liệu cũ…</div>
+    <div id="metrics" class="grid" style="margin-top:12px"></div>
+    <div class="actions">
+      <button id="backupBtn" class="secondary" type="button">⬇ Sao lưu JSON trước</button>
+      <button id="clearBtn" class="danger" type="button" disabled>Không xóa dữ liệu cũ</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 6px;font-size:18px">Đăng nhập Super Admin mới</h2>
+    <p style="margin-top:0">Mật khẩu chỉ dùng để đăng nhập trực tiếp vào <b>https://pickleup.vn</b>, không lưu tại GitHub Pages.</p>
+    <label>Email</label><input id="email" type="email" autocomplete="username" value="admin@pickleup.vn">
+    <label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password">
+    <div class="actions"><button id="migrateBtn" class="primary" type="button">Chuyển dữ liệu sang D1</button></div>
+    <small class="note">Tài khoản trọng tài cũ không được import mật khẩu. Sau khi chuyển xong, tạo lại tài khoản trọng tài trong Admin để đảm bảo bảo mật.</small>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 8px;font-size:18px">Kết quả</h2>
+    <div id="result" class="status">Chưa chạy chuyển dữ liệu.</div>
+    <div class="actions"><a class="btn secondary" href="https://pickleup.vn/admin.html">Mở Admin mới</a><a class="btn secondary" href="https://pickleup.vn/court-board.html">Mở TV Board</a></div>
+  </section>
+</main>
+<script src="assets/legacy-migrate.js?v=1"></script>
+</body>
+</html>
