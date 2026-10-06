@@ -400,6 +400,7 @@ async function openTournamentDetail(tournamentId){
   $("#genericTitle").textContent=t.name+" • Trung tâm điều hành";
   $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
     <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-share-roster="${t.id}">🔗 Chia sẻ danh sách</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length} sân</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → thiết lập/chia bảng → vòng bảng → Top N theo cấu hình → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
+    ${tournamentInsightPanel(t)}
     ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
   </div>`;
   $("#genericDialog").showModal();
@@ -737,6 +738,16 @@ function bindDynamic(){
   document.querySelectorAll("[data-open-public-live]").forEach(b=>b.onclick=e=>{e.stopPropagation();ensurePublicAndOpen(b.dataset.openPublicLive,"live")});
   document.querySelectorAll("[data-open-tv-board]").forEach(b=>b.onclick=e=>{e.stopPropagation();ensurePublicAndOpen(b.dataset.openTvBoard,"board")});
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=e=>{e.stopPropagation();switchAdminPage(b.dataset.goto)});
+  document.querySelectorAll("[data-organizer-step]").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const action=b.dataset.organizerStep,tid=b.dataset.tournamentId;
+    if(action==="create")return openTournamentModal();
+    if(action==="history"){await switchAdminPage("tournaments");setTimeout(()=>document.querySelector("#tournamentHistory")?.scrollIntoView({behavior:"smooth",block:"start"}),60);return}
+    if(!tid)return toast("Hãy tạo giải trước.");
+    if(action==="roster")return openTournamentDetail(tid);
+    if(action==="draw"){await openTournamentDetail(tid);setTimeout(()=>document.querySelector("[data-auto-draw]")?.click(),40);return}
+    if(action==="score")return switchAdminPage("scores");
+  });
   document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
   document.querySelectorAll("[data-court-state-value]").forEach(b=>b.onclick=()=>updateCourtState(b.dataset.courtStateMatch,b.dataset.courtStateValue));
