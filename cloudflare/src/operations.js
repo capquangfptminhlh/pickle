@@ -44,6 +44,10 @@ function genderValue(v){
   if(s==="other")return "other";
   return "other";
 }
+function skillLevelValue(v){
+  const s=String(v||"").trim().toUpperCase();
+  return ["A+","A","B+","B","C+","C"].includes(s)?s:"B";
+}
 function dataSvg(svg){return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)}
 async function scopeRegistration(env,user,r){
   if(!r)return false;
@@ -189,8 +193,8 @@ async function importLegacyState(env,user,state){
   for(const p of players){
     if(!p?.id||!String(p.full_name||p.fullName||"").trim())continue;
     const clubId=p.club_id||p.clubId||null;
-    statements.push(env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET club_id=excluded.club_id,full_name=excluded.full_name,nickname=excluded.nickname,gender=excluded.gender,rating=excluded.rating,phone=excluded.phone,avatar_url=COALESCE(excluded.avatar_url,players.avatar_url),active=excluded.active,updated_at=excluded.updated_at")
-      .bind(String(p.id),clubId?String(clubId):null,user.id,String(p.full_name||p.fullName).trim(),String(p.nickname||""),genderValue(p.gender),Number(p.rating)||3,String(p.phone||""),safeLegacyAvatar(p.avatar_url||p.avatarUrl),p.active===false?0:1,now,now));counts.players++;
+    statements.push(env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,skill_level,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET club_id=excluded.club_id,full_name=excluded.full_name,nickname=excluded.nickname,gender=excluded.gender,rating=excluded.rating,skill_level=excluded.skill_level,phone=excluded.phone,avatar_url=COALESCE(excluded.avatar_url,players.avatar_url),active=excluded.active,updated_at=excluded.updated_at")
+      .bind(String(p.id),clubId?String(clubId):null,user.id,String(p.full_name||p.fullName).trim(),String(p.nickname||""),genderValue(p.gender),Number(p.rating)||3,skillLevelValue(p.skillLevel||p.skill_level),String(p.phone||""),safeLegacyAvatar(p.avatar_url||p.avatarUrl),p.active===false?0:1,now,now));counts.players++;
   }
   await runBatches(env,statements);statements=[];
 
@@ -338,13 +342,13 @@ export async function handleOperations(request,env){
       const club=r.clubId?await one(env,"SELECT * FROM clubs WHERE id=?",r.clubId):await getOrCreateClub(env,r.club);
       const avatar=String(r.avatarUrl||r.avatar_url||r.avatar||"").trim();
       if(existing){
-        await env.DB.prepare("UPDATE players SET nickname=?,gender=?,rating=?,phone=?,club_id=COALESCE(?,club_id),avatar_url=CASE WHEN ?<>'' THEN ? ELSE avatar_url END,active=1,updated_at=? WHERE id=?")
-          .bind(String(r.nickname??existing.nickname??""),genderValue(r.gender||existing.gender),Number(r.rating||existing.rating||3),String(r.phone??existing.phone??""),club?.id||null,avatar,avatar,nowIso(),existing.id).run();
+        await env.DB.prepare("UPDATE players SET nickname=?,gender=?,rating=?,skill_level=?,phone=?,club_id=COALESCE(?,club_id),avatar_url=CASE WHEN ?<>'' THEN ? ELSE avatar_url END,active=1,updated_at=? WHERE id=?")
+          .bind(String(r.nickname??existing.nickname??""),genderValue(r.gender||existing.gender),Number(r.rating||existing.rating||3),skillLevelValue(r.skillLevel||r.skill_level||existing.skill_level),String(r.phone??existing.phone??""),club?.id||null,avatar,avatar,nowIso(),existing.id).run();
         ids.push(existing.id);updated++;continue;
       }
       const id=uid();
-      await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)")
-        .bind(id,club?.id||null,user.id,name,String(r.nickname||""),genderValue(r.gender),Number(r.rating)||3,String(r.phone||""),avatar||null,nowIso(),nowIso()).run();
+      await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,skill_level,phone,avatar_url,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,1,?,?)")
+        .bind(id,club?.id||null,user.id,name,String(r.nickname||""),genderValue(r.gender),Number(r.rating)||3,skillLevelValue(r.skillLevel||r.skill_level),String(r.phone||""),avatar||null,nowIso(),nowIso()).run();
       ids.push(id);created++;
     }
     return ok({created,updated,ids},request,env,201);
