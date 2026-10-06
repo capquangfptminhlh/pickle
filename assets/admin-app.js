@@ -201,7 +201,7 @@ async function shareTournamentRoster(tournamentId){
 function tournaments(){
   setHeader("Giải đấu","Chọn một giải để xem VĐV đăng ký, bốc thăm chia bảng và tạo nhánh tự động");
   return `<div class="panel-head"><div><h2>Danh sách giải</h2><p>${state.tournaments.length} giải • Nhấn vào giải để quản lý danh sách thi đấu</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-test-16>🧪 Test 16 cặp</button><button class="btn secondary" data-action="newDivision">Nội dung</button><button class="btn primary" data-action="newTournament">Tạo giải mới</button></div>':""}</div>
-  <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||(canManage()?'<div class="empty"><b>D1 production chưa có giải.</b><br>Dữ liệu bản GitHub Pages cũ có thể khôi phục một lần vào hệ thống mới.<div style="margin-top:12px"><a class="btn primary" href="https://capquangfptminhlh.github.io/pickle/legacy-migrate.html" target="_blank" rel="noopener" style="text-decoration:none">Khôi phục dữ liệu cũ</a></div></div>':'<div class="empty">Chưa có giải.</div>')}</div>`;
+  <div class="page-grid">${state.tournaments.map(tournamentCard).join("")||(canManage()?'<div class="empty"><b>D1 production chưa có giải.</b><br>Dữ liệu bản GitHub Pages cũ có thể khôi phục một lần vào hệ thống mới.<div style="margin-top:12px"><a class="btn primary" href="https://capquangfptminhlh.github.io/pickle-recovery/legacy-migrate.html" target="_blank" rel="noopener" style="text-decoration:none">Khôi phục dữ liệu cũ</a></div></div>':'<div class="empty">Chưa có giải.</div>')}</div>`;
 }
 async function create16PairTestTournament(){
   const existing=state.tournaments.find(t=>String(t.name||"").startsWith("TEST 16 CẶP"));
