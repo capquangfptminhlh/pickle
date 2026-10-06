@@ -164,8 +164,24 @@ function tournamentCard(t){
   const visibility=t.publicVisible===false?'<span class="badge wait">RIÊNG TƯ</span>':'<span class="badge done">CÔNG KHAI</span>';
   return `<article class="tour-card" data-open-tournament="${t.id}" style="cursor:pointer"><div class="tour-cover"><strong>${t.format||"Tournament"}</strong><div class="actions">${visibility}${statusBadge(t.status)}</div></div><div class="tour-body">
     <h3>${t.name}</h3><div class="tour-meta-grid"><span><small>Ngày</small><b>${t.date}</b></span><span><small>Địa điểm</small><b>${t.venue}</b></span><span><small>Đăng ký</small><b>${teamCount} cặp/đội</b></span><span><small>Sân</small><b>${courtCount||6} sân</b></span></div>
-    <div class="actions tournament-quick-actions"><button type="button" class="mini" data-toggle-public="${t.id}">${t.publicVisible===false?"🌐 Bật công khai":"🔒 Chuyển riêng tư"}</button><button type="button" class="mini" data-tournament-roster="${t.id}">👥 VĐV đăng ký</button><button type="button" class="mini" data-share-roster="${t.id}">🔗 Chia sẻ VĐV</button><button type="button" class="mini draw-mini" data-tournament-draw="${t.id}">🎡 Quay số</button><button type="button" class="mini" data-tournament-bracket="${t.id}">🧩 Sơ đồ</button><a class="mini" href="tournament.html?id=${encodeURIComponent(t.id)}#schedule" target="_blank" rel="noopener">🔴 Live</a><a class="mini" href="court-board.html?tournament=${encodeURIComponent(t.id)}" target="_blank" rel="noopener">📺 TV Board</a></div>
+    <div class="actions tournament-quick-actions"><button type="button" class="mini" data-toggle-public="${t.id}">${t.publicVisible===false?"🌐 Bật công khai":"🔒 Chuyển riêng tư"}</button><button type="button" class="mini" data-tournament-roster="${t.id}">👥 VĐV đăng ký</button><button type="button" class="mini" data-share-roster="${t.id}">🔗 Chia sẻ VĐV</button><button type="button" class="mini draw-mini" data-tournament-draw="${t.id}">🎡 Quay số</button><button type="button" class="mini" data-tournament-bracket="${t.id}">🧩 Sơ đồ</button><button type="button" class="mini" data-open-public-live="${t.id}">🔴 Live</button><button type="button" class="mini" data-open-tv-board="${t.id}">📺 TV Board</button></div>
   </div></article>`;
+}
+async function ensurePublicAndOpen(tournamentId,target){
+  const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
+  const popup=window.open("about:blank","_blank");
+  try{
+    if(t.publicVisible===false){
+      if(!confirm("Giải đang để riêng tư. Bật công khai để mở màn hình này?")){popup?.close();return}
+      await API.updateTournament(t.id,{publicVisible:true});
+      await refresh();
+      toast("Đã bật công khai cho giải.");
+    }
+    const url=target==="board"
+      ?"court-board.html?tournament="+encodeURIComponent(t.id)
+      :"tournament.html?id="+encodeURIComponent(t.id)+"#schedule";
+    if(popup)popup.location.href=url;else location.href=url;
+  }catch(err){popup?.close();toast("Không thể mở màn hình công khai: "+err.message)}
 }
 async function shareTournamentRoster(tournamentId){
   const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
@@ -506,6 +522,8 @@ function bindDynamic(){
   });
   document.querySelectorAll("[data-tournament-draw]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentDraw);setTimeout(()=>document.querySelector("[data-auto-draw]")?.click(),30)});
   document.querySelectorAll("[data-tournament-bracket]").forEach(b=>b.onclick=async e=>{e.stopPropagation();await openTournamentDetail(b.dataset.tournamentBracket);setTimeout(()=>document.querySelector(".tournament-bracket-preview")?.scrollIntoView({behavior:"smooth",block:"center"}),60)});
+  document.querySelectorAll("[data-open-public-live]").forEach(b=>b.onclick=e=>{e.stopPropagation();ensurePublicAndOpen(b.dataset.openPublicLive,"live")});
+  document.querySelectorAll("[data-open-tv-board]").forEach(b=>b.onclick=e=>{e.stopPropagation();ensurePublicAndOpen(b.dataset.openTvBoard,"board")});
   document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=e=>{e.stopPropagation();switchAdminPage(b.dataset.goto)});
   document.querySelectorAll("[data-home-event]").forEach(b=>b.onclick=()=>{sessionStorage.setItem("pickle-club-event",b.dataset.homeEvent);switchAdminPage("club_attendance")});
   document.querySelectorAll("[data-score-match]").forEach(b=>b.onclick=()=>openScore(b.dataset.scoreMatch));
