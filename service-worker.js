@@ -1,4 +1,4 @@
-const VERSION="pickleup-v25-public-live-fix-20261006";
+const VERSION="pickleup-v26-legacy-migrate-20261006";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
