@@ -1,4 +1,4 @@
-const VERSION="pickleup-v24-courtside-tv-20261005";
+const VERSION="pickleup-v25-board-voice-qr-20261006";
 const STATIC=[
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
@@ -11,10 +11,13 @@ const STATIC=[
   "/assets/draw-flex.js",
   "/referee.html",
   "/court-board.html",
+  "/match.html",
   "/assets/courtside.css",
   "/assets/referee-courtside.js",
   "/assets/court-board.css",
   "/assets/court-board.js",
+  "/assets/match-live.css",
+  "/assets/match-live.js",
   "/assets/pwa.js",
   "/assets/login.js",
   "/assets/members-binh-loi-data.js",
