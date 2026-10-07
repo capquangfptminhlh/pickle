@@ -983,6 +983,12 @@ export default {
         return Response.redirect(url.toString(),308);
       }
       if(url.pathname!=="/api"&&!url.pathname.startsWith("/api/")&&env.ASSETS){
+        if(url.pathname.endsWith(".html")){
+          const clean=new URL(request.url);
+          clean.pathname=url.pathname.slice(0,-5);
+          const res=await env.ASSETS.fetch(new Request(clean.toString(),request));
+          if(res.status===200||res.status===304)return res;
+        }
         return env.ASSETS.fetch(request);
       }
       return await handleApi(request,env);
