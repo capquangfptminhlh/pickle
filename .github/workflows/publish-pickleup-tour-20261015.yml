@@ -40,7 +40,7 @@ jobs:
             '2026-10-15T06:00:00.000Z',NULL,'registration',1,1,100,
             'BTC PickleUp Tour Bình Lợi','0932034466','',
             'Giải nhất: 1.000.000đ + 2 cúp + 2 huy chương + 2 áo thi đấu Pickleball; Giải nhì: 500.000đ + 2 huy chương + cuốn cán vợt; Giải ba: 2 huy chương',
-            '190.000đ / VĐV','/assets/tournaments/pickleup-tour-binh-loi-20261015-v2.svg?v=3','free',
+            '190.000đ / VĐV','/assets/tournaments/pickleup-tour-binh-loi-20261015-original.webp?v=4','free',
             datetime('now'),datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
