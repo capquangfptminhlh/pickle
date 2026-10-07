@@ -1,5 +1,5 @@
 (()=>{
-  const key='pickleup-theme-v1',root=document.documentElement;
+  const key='pickleup-theme-v2',root=document.documentElement;
   let theme='light';
   try{theme=localStorage.getItem(key)==='dark'?'dark':'light'}catch{}
   function apply(value,persist=false){

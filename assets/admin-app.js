@@ -1229,18 +1229,59 @@ async function openPlayerModal(){
   const clubs=await API.clubs().catch(()=>[]);
   $("#genericTitle").textContent="Tạo hồ sơ VĐV";
   $("#genericBody").innerHTML=`<div class="form-grid">
-    <div class="field full" style="padding:12px;border-radius:14px;background:#f5f8f6"><b>Tạo hồ sơ trước khi đưa VĐV vào giải</b><span style="display:block;margin-top:4px">VĐV sẽ được chọn từ Bảng VĐV / Rating hệ thống. Ảnh đại diện có thể bổ sung sau; khi chưa có ảnh hệ thống sẽ dùng chữ viết tắt.</span></div>
-    <label class="field full">Họ tên *<input id="pName" autocomplete="off"></label>
-    <label class="field">Biệt danh<input id="pNick"></label>
-    <label class="field">Giới tính<select id="pGender"><option value="">Chưa chọn</option><option value="male">Nam</option><option value="female">Nữ</option><option value="other">Khác</option></select></label>
-    <label class="field">CLB<select id="pClub"><option value="">Tự do</option>${clubs.map(x=>`<option value="${x.id}">${escHtml(x.name)}</option>`).join("")}</select></label>
-    <label class="field">Trình *<select id="pSkill"><option>A+</option><option>A</option><option>B+</option><option selected>B</option><option>C+</option><option>C</option></select></label>
-    <label class="field">Rating *<input id="pRating" type="number" min="0.1" step="0.001" value="3.000"></label>
-    <label class="field">Điện thoại<input id="pPhone"></label>
-    <div class="field full"><button type="button" class="btn primary" id="savePlayer">Tạo hồ sơ VĐV</button></div>
+    <div class="field full" style="padding:12px;border-radius:14px;background:#f5f8f6"><b>Tạo hồ sơ trước khi đưa VĐV vào giải</b><span style="display:block;margin-top:4px">VĐV sẽ được chọn từ Bảng VĐV / Rating hệ thống. Có thể chọn ảnh ngay hoặc dùng chữ viết tắt.</span></div>
+    <div class="player-avatar-create" id="playerAvatarCreate"></div>
+    <label class="field full" data-player-profile>Họ tên *<input id="pName" autocomplete="off"></label>
+    <label class="field" data-player-profile>Biệt danh<input id="pNick"></label>
+    <label class="field" data-player-profile>Giới tính<select id="pGender"><option value="">Chưa chọn</option><option value="male">Nam</option><option value="female">Nữ</option><option value="other">Khác</option></select></label>
+    <label class="field" data-player-profile>CLB<select id="pClub"><option value="">Tự do</option>${clubs.map(x=>`<option value="${x.id}">${escHtml(x.name)}</option>`).join("")}</select></label>
+    <label class="field" data-player-profile>Trình *<select id="pSkill"><option>A+</option><option>A</option><option>B+</option><option selected>B</option><option>C+</option><option>C</option></select></label>
+    <label class="field" data-player-profile>Rating *<input id="pRating" type="number" min="0.1" step="0.001" value="3.000"></label>
+    <label class="field" data-player-profile>Điện thoại<input id="pPhone"></label>
+    <div class="field full player-create-recovery" id="playerCreateRecovery" role="alert" hidden>Hồ sơ đã được tạo nhưng ảnh chưa tải lên. Bạn có thể thử lại mà không tạo trùng VĐV, hoặc hoàn tất không có ảnh.</div>
+    <div class="field full player-create-actions"><button type="button" class="btn primary" id="savePlayer">Tạo hồ sơ VĐV</button><button type="button" class="btn secondary" id="finishPlayerWithoutAvatar" hidden>Hoàn tất không có ảnh</button></div>
   </div>`;
-  $("#genericDialog").showModal();
-  $("#savePlayer").onclick=async()=>{try{await API.createPlayer({fullName:$("#pName").value,nickname:$("#pNick").value,gender:$("#pGender").value||null,clubId:$("#pClub").value||null,skillLevel:$("#pSkill").value,rating:Number($("#pRating").value)||3,phone:$("#pPhone").value});$("#genericDialog").close();await render();toast("Đã tạo hồ sơ VĐV trong bảng Rating.")}catch(e){toast("Không thể tạo hồ sơ VĐV: "+e.message)}};
+  const dialog=$("#genericDialog"),save=$("#savePlayer"),finishWithoutAvatar=$("#finishPlayerWithoutAvatar"),recovery=$("#playerCreateRecovery");
+  const avatar=window.PicklePlayerAvatarInput.mount({root:$("#playerAvatarCreate"),nameInput:$("#pName")});
+  let createdPlayerId="",busyCreate=false;
+  dialog.addEventListener("close",()=>avatar.destroy(),{once:true});
+  dialog.showModal();
+  const setProfileDisabled=disabled=>document.querySelectorAll("[data-player-profile] input,[data-player-profile] select").forEach(control=>{control.disabled=disabled});
+  const complete=async message=>{dialog.close();await refresh();toast(message)};
+  const uploadAvatar=async()=>{
+    const file=avatar.file();
+    if(!file){avatar.setStatus("Chọn ảnh để thử tải lại, hoặc hoàn tất không có ảnh.","error");return}
+    save.disabled=true;finishWithoutAvatar.disabled=true;avatar.setBusy(true);save.textContent="Đang tải ảnh...";
+    try{
+      await API.uploadPlayerAvatar(createdPlayerId,file);
+      await complete("Đã tạo hồ sơ VĐV và tải ảnh đại diện.");
+    }catch(e){
+      avatar.setBusy(false);save.disabled=false;finishWithoutAvatar.disabled=false;save.textContent="Thử tải ảnh lại";
+      recovery.hidden=false;finishWithoutAvatar.hidden=false;
+      avatar.setStatus("Ảnh chưa tải được. Hồ sơ đã được giữ an toàn; thử lại sẽ không tạo trùng.","error");
+    }
+  };
+  save.onclick=async()=>{
+    if(busyCreate)return;
+    if(createdPlayerId)return uploadAvatar();
+    const fullName=$("#pName").value.trim();
+    if(!fullName){$("#pName").focus();avatar.setStatus("Nhập họ tên VĐV trước khi tạo hồ sơ.","error");return}
+    busyCreate=true;save.disabled=true;avatar.setBusy(true);save.textContent="Đang tạo hồ sơ...";
+    try{
+      const created=await API.createPlayer({fullName,nickname:$("#pNick").value,gender:$("#pGender").value||null,clubId:$("#pClub").value||null,skillLevel:$("#pSkill").value,rating:Number($("#pRating").value)||3,phone:$("#pPhone").value});
+      createdPlayerId=created?.id;
+      if(!createdPlayerId)throw new Error("PLAYER_ID_MISSING");
+      setProfileDisabled(true);busyCreate=false;
+      if(!avatar.file())return complete("Đã tạo hồ sơ VĐV trong bảng Rating.");
+      await uploadAvatar();
+    }catch(e){
+      if(createdPlayerId)return;
+      busyCreate=false;save.disabled=false;avatar.setBusy(false);save.textContent="Tạo hồ sơ VĐV";
+      avatar.setStatus("Không thể tạo hồ sơ: "+e.message,"error");
+      toast("Không thể tạo hồ sơ VĐV: "+e.message);
+    }
+  };
+  finishWithoutAvatar.onclick=()=>complete("Đã tạo hồ sơ VĐV; bạn có thể bổ sung ảnh sau.");
 }
 function openClubModal(){
   $("#genericTitle").textContent="Thêm CLB";

@@ -204,3 +204,11 @@ html[data-theme="light"] body.admin-sport #lhmPresetBtn { background:var(--surfa
 html[data-theme="light"] body.admin-sport #quickChampion { background:#e4f2e8!important; color:#07522f!important; border-color:#6f9c7e!important; }
 html[data-theme="light"] body.admin-sport #quickEliminated { background:#fff0f1!important; color:#922431!important; border-color:#c78c94!important; }
 html[data-theme="light"] body.admin-sport :is(.qr-image,.qr-code,img[src*="qr"],canvas[data-qr]) { background:#fff!important; }
+html[data-theme="light"] body.admin-sport :is(.player-avatar-create,.player-create-recovery) {
+  background:var(--surface-2)!important;color:var(--text)!important;border-color:var(--line-strong)!important;
+}
+html[data-theme="light"] body.admin-sport .player-avatar-create-preview {
+  background:var(--surface)!important;color:var(--brand)!important;border-color:var(--line-strong)!important;
+}
+html[data-theme="light"] body.admin-sport .player-avatar-create-status[data-tone="error"] { color:#922431!important; }
+html[data-theme="light"] body.admin-sport .player-avatar-create-status[data-tone="success"] { color:#07522f!important; }

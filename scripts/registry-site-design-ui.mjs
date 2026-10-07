@@ -64,7 +64,7 @@ try{
     const previewState={bookings:[],clubEvents:[],clubAttendance:{},clubTransactions:[],ratingHistory:{},ratingProcessedKeys:[],...(await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json())};
     for(const [path,ready,actor] of [...production,...previews].filter(s=>!process.env.SITE_PAGE||s[0].startsWith(process.env.SITE_PAGE))){
       const context=await browser.newContext({viewport,reducedMotion:process.env.SITE_MOTION||"reduce"}),page=await context.newPage(),errors=[];
-      await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v1",theme),theme);
+      await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v2",theme),theme);
       page.setDefaultTimeout(7000);page.on("pageerror",e=>errors.push(e.message));
       if(path.startsWith("preview/"))await page.addInitScript(state=>localStorage.setItem("pickle-local-state-v1",JSON.stringify(state)),previewState);
       if(actor)await page.addInitScript(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens[actor]);

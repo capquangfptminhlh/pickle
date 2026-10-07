@@ -35,7 +35,7 @@ try{
     for(const actor of ["admin","organizer"]){
       const motion=process.env.DESIGN_MOTION||"reduce";
       const f=await scoringFixture(),context=await browser.newContext({viewport,reducedMotion:motion}),page=await context.newPage(),errors=[];
-      await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v1",theme),theme);
+      await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v2",theme),theme);
       page.setDefaultTimeout(7000);page.on("pageerror",e=>errors.push(e.message));
       f.db.exec(`UPDATE tournaments SET name='Pickleup • Giải mùa thu',venue_name='Sân kiểm thử',start_at='2026-10-10T08:00:00Z',status='live' WHERE id='tour';
         UPDATE divisions SET name='Đôi phong trào' WHERE id='division';

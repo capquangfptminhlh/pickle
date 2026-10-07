@@ -1,16 +1,20 @@
-const VERSION="pickleup-v34-theme-choice-20261007";
+const VERSION="pickleup-v35-light-avatar-20261007";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=1",
   "/assets/site-light.css?v=1",
-  "/assets/admin-light.css?v=1",
+  "/assets/admin-light.css?v=2",
   "/assets/site-sport.css?v=3",
-  "/assets/admin-sport.css?v=4",
+  "/assets/admin-sport.css?v=5",
+  "/assets/player-avatar-input.js?v=1",
+  "/assets/admin-app.js?v=53",
   "/assets/theme.js",
   "/assets/theme.css",
   "/assets/site-light.css",
   "/assets/admin-light.css",
+  "/assets/player-avatar-input.js",
+  "/assets/admin-app.js",
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
   "/offline.html",
@@ -75,7 +79,8 @@ self.addEventListener("fetch",event=>{
   if(req.mode==="navigate"){
     event.respondWith(
       fetch(new Request(req,{cache:"reload"})).then(async res=>{
-        if(res.ok){const c=await caches.open(VERSION);await c.put(req,res.clone())}
+        if(!res.ok)throw new Error(`NAVIGATION_${res.status}`);
+        const c=await caches.open(VERSION);await c.put(req,res.clone());
         return res;
       }).catch(async()=>await caches.match(req)||await caches.match("/offline.html"))
     );

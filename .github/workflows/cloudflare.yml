@@ -33,6 +33,10 @@ jobs:
         run: |
           npm install --ignore-scripts
           npx playwright install --with-deps chromium
+      - name: Theme preference and first offline load
+        run: node --test scripts/registry-theme.test.mjs
+      - name: Player avatar create and retry flow
+        run: node scripts/registry-player-avatar-ui.mjs
       - name: Registry desktop and mobile browser regressions
         run: |
           node scripts/registry-ui.mjs
@@ -46,10 +50,11 @@ jobs:
           SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
           SITE_THEME=light SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
           DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
-          node --test scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-theme.test.mjs
+          node --test scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Courtside client syntax
         run: |
+          node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
