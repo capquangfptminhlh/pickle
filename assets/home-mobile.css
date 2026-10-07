@@ -218,3 +218,21 @@
   .home-screen #publicTours .tour-detail-cta{min-width:112px!important;padding:9px 11px!important;font-size:8.5px!important}
   .home-screen #publicTours .tour-detail-cta b{font-size:13px!important}
 }
+
+
+/* ORIGINAL PORTRAIT POSTERS MOBILE v20261007 */
+@media(max-width:760px){
+  .home-screen #publicTours .tour-media,
+  .home-screen #publicTours .tour-media-real{
+    height:auto!important;
+    aspect-ratio:2/3!important;
+    background:#07130f!important;
+  }
+  .home-screen #publicTours .tour-media img.tour-poster-image{
+    width:100%!important;
+    height:100%!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    transform:none!important;
+  }
+}
