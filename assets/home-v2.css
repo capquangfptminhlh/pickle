@@ -385,3 +385,11 @@ html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-copy small{
 html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-rank{
   color:#d9ff63!important;
 }
+
+
+/* Light mobile cards must remain visibly separated from white canvas. */
+html[data-theme="light"] body.home-v2 #publicTopPlayers .top-player-card,
+html:not([data-theme="dark"]) body.home-v2 #publicTopPlayers .top-player-card{
+  background:#ffffff!important;
+  border-color:#a5b7cb!important;
+}
