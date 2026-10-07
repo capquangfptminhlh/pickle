@@ -1,18 +1,18 @@
 /* Optional white operator theme. Load last; the dark admin layer owns layout.
    All overrides are scoped so choosing dark restores the released palette. */
 html[data-theme="light"] body.admin-sport {
-  --bg:#f4f7f4; --surface:#ffffff; --surface-2:#edf3ee; --surface-3:#e3ece5;
-  --text:#17291e; --muted:#43584b; --line:#a3b5a8; --line-strong:#7b9383;
-  --brand:#0b6a3e; --brand-2:#07522f; --accent:#d9ff63; --dark:#102014;
+  --bg:#f8fafc; --surface:#ffffff; --surface-2:#f1f5f9; --surface-3:#e2e8f0;
+  --text:#0f172a; --muted:#475569; --line:#94a3b8; --line-strong:#64748b;
+  --brand:#047857; --brand-2:#065f46; --accent:#d9ff63; --dark:#0f172a;
   --pu-bg:var(--bg); --pu-surface:var(--surface); --pu-ink:var(--text);
   --pu-muted:var(--muted); --pu-line:var(--line); --pu-lime:var(--accent);
-  --pu-green:#0b6a3e; --pu-green-soft:#e4f2e8; --pu-dark:var(--dark);
-  --shadow:0 5px 20px #17372308; --shadow-lg:0 20px 70px #17372329;
+  --pu-green:#047857; --pu-green-soft:#f1f5f9; --pu-dark:var(--dark);
+  --shadow:0 4px 20px -2px rgba(15,23,42,.06); --shadow-lg:0 20px 70px rgba(15,23,42,.15);
   background:var(--bg)!important; color:var(--text)!important; color-scheme:light;
 }
 html[data-theme="light"] body.admin-sport ::selection { background:#c7ed9e; color:var(--text); }
 html[data-theme="light"] body.admin-sport :is(button,a,input,select,textarea,[tabindex]):focus-visible {
-  outline-color:var(--brand)!important; box-shadow:0 0 0 5px #0b6a3e20!important;
+  outline-color:var(--brand)!important; box-shadow:0 0 0 5px rgba(4,120,87,.15)!important;
 }
 
 /* Navigation and header remain light when the drawer or mobile dock opens. */
@@ -26,21 +26,21 @@ html[data-theme="light"] body.admin-sport :is(.nav-btn:hover,.ghost:hover) {
   background:var(--surface-2)!important; color:var(--text)!important;
 }
 html[data-theme="light"] body.admin-sport .nav-btn.active {
-  background:#e4f2e8!important; color:#07522f!important; box-shadow:inset 3px 0 #0b6a3e!important;
+  background:#dcfce7!important; color:#15803d!important; box-shadow:inset 3px 0 #047857!important;
 }
-html[data-theme="light"] body.admin-sport .nav-btn.active .ico { color:#07522f!important; }
-html[data-theme="light"] body.admin-sport .topbar { background:#f4f7f4f5!important; }
+html[data-theme="light"] body.admin-sport .nav-btn.active .ico { color:#15803d!important; }
+html[data-theme="light"] body.admin-sport .topbar { background:#f8fafcf5!important; }
 html[data-theme="light"] body.admin-sport :is(.side-bottom,.topbar,.account-row,.club-event-home-row) { border-color:var(--line)!important; }
 html[data-theme="light"] body.admin-sport .role-label { background:var(--surface-2)!important; }
 html[data-theme="light"] body.admin-sport .ghost { color:var(--text)!important; }
 html[data-theme="light"] body.admin-sport .mobile-dock { background:#fffffff5!important; border-color:var(--line)!important; }
 html[data-theme="light"] body.admin-sport .mobile-dock button { color:var(--muted)!important; }
 html[data-theme="light"] body.admin-sport .mobile-dock button.active {
-  background:#e4f2e8!important; color:#07522f!important;
+  background:#dcfce7!important; color:#15803d!important;
 }
-html[data-theme="light"] body.admin-sport .mobile-dock button.active .ico-clone { color:#07522f!important; }
-html[data-theme="light"] body.admin-sport .app-fab { box-shadow:0 8px 24px #17372326; }
-html[data-theme="light"] body.admin-sport .app-backdrop { background:#17372355; }
+html[data-theme="light"] body.admin-sport .mobile-dock button.active .ico-clone { color:#15803d!important; }
+html[data-theme="light"] body.admin-sport .app-fab { box-shadow:0 8px 24px rgba(15,23,42,.15); }
+html[data-theme="light"] body.admin-sport .app-backdrop { background:rgba(15,23,42,.35); }
 
 /* Controls: lime is reserved for filled actions, green for text on white. */
 html[data-theme="light"] body.admin-sport :is(.mini,.icon-btn,.btn.secondary,.btn.dark) {

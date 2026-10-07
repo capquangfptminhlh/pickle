@@ -16,3 +16,4 @@ cloudflare/.dev.vars
 .worktrees/
 ui-artifacts/
 .superpowers/
+__pycache__/

@@ -4,27 +4,27 @@
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) {
   --pu-bg:#f4f7f4;
   --pu-surface:#ffffff;
-  --pu-surface-2:#edf3ed;
-  --pu-ink:#17251c;
-  --pu-ink-2:#293e31;
-  --pu-muted:#43564a;
-  --pu-line:#8fa396;
-  --pu-line-strong:#7c9484;
+  --pu-surface-2:#f1f5f9;
+  --pu-ink:#0f172a;
+  --pu-ink-2:#1e293b;
+  --pu-muted:#475569;
+  --pu-line:#94a3b8;
+  --pu-line-strong:#64748b;
   --pu-green:#d9ff63;
   --pu-green2:#bfe94b;
   --pu-green-2:#bfe94b;
-  --pu-green-soft:#edf3ed;
-  --pu-dark:#102014;
-  --pu-dark-2:#edf3ed;
+  --pu-green-soft:#f1f5f9;
+  --pu-dark:#0f172a;
+  --pu-dark-2:#f1f5f9;
   --pu-lime:#d9ff63;
-  --pu-link:#315e1f;
-  --pu-danger:#972d45;
-  --pu-warning:#74500a;
-  --pu-blue:#245bc4;
-  --pu-shadow-xs:0 1px 0 rgba(25,55,35,.04);
-  --pu-shadow-sm:0 8px 26px rgba(25,55,35,.08);
-  --pu-shadow:0 16px 42px rgba(25,55,35,.1);
-  --pu-shadow-lg:0 24px 64px rgba(25,55,35,.14);
+  --pu-link:#047857;
+  --pu-danger:#b91c1c;
+  --pu-warning:#854d0e;
+  --pu-blue:#1d4ed8;
+  --pu-shadow-xs:0 1px 2px rgba(15,23,42,.04);
+  --pu-shadow-sm:0 4px 16px -2px rgba(15,23,42,.06);
+  --pu-shadow:0 10px 25px -4px rgba(15,23,42,.08);
+  --pu-shadow-lg:0 20px 40px -6px rgba(15,23,42,.12);
   --bg:var(--pu-bg);
   --surface:var(--pu-surface);
   --surface-2:var(--pu-surface-2);
@@ -39,13 +39,13 @@ html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) {
   --brand-2:#bfe94b;
   --accent:var(--pu-lime);
   --lime:var(--pu-lime);
-  --dark:#102014;
+  --dark:#0f172a;
   --charcoal:#ffffff;
-  --green:#087848;
-  --green2:#06663e;
-  --blue:#245bc4;
-  --yellow:#74500a;
-  --purple:#633a8c;
+  --green:#047857;
+  --green2:#065f46;
+  --blue:#1d4ed8;
+  --yellow:#854d0e;
+  --purple:#6b21a8;
   --shadow:var(--pu-shadow-sm);
   background:var(--pu-bg)!important;
   color:var(--pu-ink)!important;
@@ -58,51 +58,52 @@ html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(label,
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.eyebrow,.desktop-kicker,.tournament-app-kicker,.app-section-head>span,.app-section-head>div>span,.ranking-app-title>div>span) {color:var(--pu-link)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.section-link,.back-link,.rating-up,.match-foot a,.qr-dialog-body a) {color:var(--pu-link)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.rating-down,.login-error) {color:var(--pu-danger)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :focus-visible {outline:3px solid #315e1f!important;box-shadow:0 0 0 6px #f4f7f4!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) ::selection {background:#d9ff63;color:#102014}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .site-skip-link {background:#d9ff63;color:#102014}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .site-skip-link:focus {outline:3px solid #315e1f}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-header,.courtside-top,.match-topbar,.board-header,.topbar) {background:rgba(255,255,255,.98)!important;border-color:var(--pu-line)!important;box-shadow:0 1px 0 rgba(217,255,99,.04)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-nav nav,.desktop-commandbar,.public-mobile-dock,.ref-bottom-actions) {background:rgba(255,255,255,.98)!important;border:1px solid var(--pu-line)!important;box-shadow:var(--pu-shadow-sm)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :focus-visible {outline:3px solid #047857!important;box-shadow:0 0 0 6px #f8fafc!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) ::selection {background:#d9ff63;color:#0f172a}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .site-skip-link {background:#d9ff63;color:#0f172a}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .site-skip-link:focus {outline:3px solid #047857}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-header,.courtside-top,.match-topbar,.board-header,.topbar) {background:rgba(255,255,255,.96)!important;border-color:var(--pu-line)!important;box-shadow:0 1px 3px rgba(15,23,42,.05)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-nav nav,.public-mobile-dock,.ref-bottom-actions) {background:rgba(255,255,255,.98)!important;border:1px solid var(--pu-line)!important;box-shadow:var(--pu-shadow-sm)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .desktop-commandbar {display:none!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-nav nav a,.desktop-command-actions a,.public-mobile-dock a) {color:var(--pu-muted)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-nav nav a:hover,.public-nav nav a[aria-current],.public-mobile-dock a.active) {color:var(--pu-link)!important;background:#edf3ed!important;box-shadow:none!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-nav nav a:hover,.public-nav nav a[aria-current],.public-mobile-dock a.active) {color:var(--pu-link)!important;background:#f1f5f9!important;box-shadow:none!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .public-mobile-dock a.active svg {color:var(--pu-link)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.mobile-admin-link,.icon-action,.icon-btn,.qr-close) {background:var(--pu-surface-2)!important;color:var(--pu-ink)!important;border:1px solid var(--pu-line)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.primary,.desktop-submit,.desktop-hero-actions a:first-child,.mobile-primary-actions .primary,.tournament-register-cta,.legacy-screen .primary) {background:#d9ff63!important;color:#102014!important;border-color:#315e1f!important;box-shadow:0 6px 20px rgba(217,255,99,.09)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.primary:hover,.tournament-register-cta:hover) {background:#e5ff96!important;color:#102014!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.secondary,.btn.dark:where(:not(.primary)),.mini:where(:not(.primary)),.ghost:where(:not(.primary)),.desktop-hero-actions a:last-child:where(:not(:first-child):not(.primary)),.mobile-primary-actions .secondary,.tournament-secondary-cta,.legacy-screen .secondary,.ref-btn.secondary,.ref-btn.dark,.board-tools button,.board-tools select,.tv-qr) {background:var(--pu-surface-2)!important;color:var(--pu-ink)!important;border:1px solid var(--pu-line-strong)!important;box-shadow:none!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.panel,.kpi,.metric-card,.tour-card,.tour-body,.public-match,.public-standings,.public-bracket-card,.top-player-card,.news-card,.news-card-body,.ranking-list-card,.ranking-search-panel,.podium-player,.player-stat,.player-match,.checkin-card,.club-card,.booking-card,.sponsor-card,.content-card,.community-post-card,.connect-player-card,.event-list-card,.featured-event-card,.app-live-card,.app-empty-card,.hero-live-card,.login-card,.card,.metric,.ref-summary article,.picker-card,.empty-ref,.ref-team-card,.ref-control-card,.live-match-card,.tournament-event-summary,.tournament-group-card,.tournament-team-card,.tournament-division-card,.bracket-match-pro,.bracket-match,.public-sponsor) {background:var(--pu-surface)!important;color:var(--pu-ink)!important;border-color:var(--pu-line)!important;box-shadow:var(--pu-shadow-sm)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.soft-section,.player-section-tight,.community-app-main,.sponsor-strip-section,.public-section) {background:transparent!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .public-section>.public-container {background:#ffffff!important;color:var(--pu-ink)!important;border-color:#8fa396!important;box-shadow:var(--pu-shadow-sm)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(#knockout,#schedule)>.public-container {background:var(--pu-surface)!important;border-color:var(--pu-line)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-footer,.board-footer) {background:#f4f7f4!important;border-color:var(--pu-line)!important;color:var(--pu-muted)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.primary,.desktop-submit,.desktop-hero-actions a:first-child,.mobile-primary-actions .primary,.tournament-register-cta,.legacy-screen .primary) {background:#d9ff63!important;color:#0f172a!important;border:1px solid var(--pu-line)!important;box-shadow:0 4px 14px rgba(217,255,99,.25)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.primary:hover,.tournament-register-cta:hover) {background:#e5ff96!important;color:#0f172a!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.btn.secondary,.btn.dark:where(:not(.primary)),.mini:where(:not(.primary)),.ghost:where(:not(.primary)),.desktop-hero-actions a:last-child:where(:not(:first-child):not(.primary)),.mobile-primary-actions .secondary,.tournament-secondary-cta,.legacy-screen .secondary,.ref-btn.secondary,.ref-btn.dark,.board-tools button,.board-tools select,.tv-qr) {background:var(--pu-surface-2)!important;color:var(--pu-ink)!important;border:1px solid var(--pu-line)!important;box-shadow:none!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.panel,.kpi,.metric-card,.tour-card,.tour-body,.public-match,.public-standings,.public-bracket-card,.top-player-card,.news-card,.news-card-body,.ranking-list-card,.ranking-search-panel,.podium-player,.player-stat,.player-match,.checkin-card,.club-card,.booking-card,.sponsor-card,.content-card,.community-post-card,.connect-player-card,.event-list-card,.featured-event-card,.app-live-card,.app-empty-card,.hero-live-card,.login-card,.card,.metric,.ref-summary article,.picker-card,.empty-ref,.ref-team-card,.ref-control-card,.live-match-card,.tournament-event-summary,.tournament-group-card,.tournament-team-card,.tournament-division-card,.bracket-match-pro,.bracket-match,.public-sponsor) {background:var(--pu-surface)!important;color:var(--pu-ink)!important;border:1px solid var(--pu-line)!important;box-shadow:var(--pu-shadow-sm)!important;border-radius:16px!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(#playerRoot,.soft-section,.player-section-tight,.community-app-main,.sponsor-strip-section,.public-section) {background:transparent!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .public-section>.public-container {background:transparent!important;color:var(--pu-ink)!important;border:none!important;box-shadow:none!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(#knockout,#schedule)>.public-container {background:transparent!important;border:none!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-footer,.board-footer) {background:#f8fafc!important;border-color:var(--pu-line)!important;color:var(--pu-muted)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.empty,.app-empty-card,.muted-block,.sponsor-empty,.featured-empty,.match-empty,.board-empty,.tournament-group-empty,.court-empty-slot) {color:var(--pu-muted)!important;background:transparent!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.table-wrap,.standing-table-wrap) {background:var(--pu-surface)!important;border-color:var(--pu-line)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.table th,.ranking-list-head,.standing-row.head,.public-match-top,.tournament-group-head,.bracket-match-meta,.match-foot,.tv-court-foot) {background:var(--pu-surface-2)!important;color:var(--pu-muted)!important;border-color:var(--pu-line)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.table td,.ranking-app-row,.standing-row,.rating-event,.partner-row,.tournament-row,.player-score-line,.tournament-team-row,.public-team-row,.bracket-team) {border-color:var(--pu-line)!important;color:var(--pu-ink)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .table tbody tr:hover {background:var(--pu-surface-2)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-team-row b,.public-team-row strong,.bracket-team b,.bracket-team span,.standing-row b,.standing-row span,.hero-score b,.hero-score strong,.points,.kpi strong,.metric-card strong) {color:var(--pu-ink)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.field input,.field select,.field textarea,.filters input,.filters select,.login-form input,.ranking-search-box input,.ranking-search-panel select,.community-search input,.legacy-screen input) {border:1px solid var(--pu-line-strong)!important;background:#edf3ed!important;color:var(--pu-ink)!important;box-shadow:none!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(input,textarea)::placeholder {color:#43564a!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.field input,.field select,.field textarea,.filters input,.filters select,.login-form input,.ranking-search-box input,.ranking-search-panel select,.community-search input,.legacy-screen input) {border:1px solid var(--pu-line)!important;background:#ffffff!important;color:var(--pu-ink)!important;border-radius:10px!important;box-shadow:inset 0 1px 2px rgba(15,23,42,.04)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(input,textarea)::placeholder {color:#475569!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) input[type=radio],html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) input[type=checkbox] {accent-color:#d9ff63}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.field input:focus,.field select:focus,.field textarea:focus,.login-form input:focus,.ranking-search-box input:focus) {border-color:#315e1f!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .ranking-search-box {background:#edf3ed!important;border-color:var(--pu-line-strong)!important;color:var(--pu-muted)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.field input:focus,.field select:focus,.field textarea:focus,.login-form input:focus,.ranking-search-box input:focus) {border-color:#047857!important;outline:3px solid rgba(4,120,87,.15)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .ranking-search-box {background:#ffffff!important;border-color:var(--pu-line)!important;border-radius:12px!important;color:var(--pu-muted)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .ranking-search-box input {border:0!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-hero-card,.mobile-app-status-card,.public-hero,.player-hero,.community-welcome-card,.tournament-app-hero) {background:var(--pu-surface)!important;border-color:#8fa396!important;color:var(--pu-ink)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-hero-copy h1 em,.public-hero h1 em) {color:#315e1f!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-hero-card,.mobile-app-status-card,.public-hero,.player-hero,.community-welcome-card,.tournament-app-hero) {background:var(--pu-surface)!important;border:1px solid var(--pu-line)!important;color:var(--pu-ink)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-hero-copy h1 em,.public-hero h1 em) {color:#047857!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-today-card,.desktop-stat-grid a,.desktop-featured-row,.mobile-app-actions a,.mobile-primary-actions .secondary) {background:var(--pu-surface)!important;color:var(--pu-ink)!important;border-color:var(--pu-line)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-command-title b,.desktop-today-head h2,.desktop-featured-row strong,.desktop-stat-grid strong,.mobile-status-grid strong,.mobile-app-actions b) {color:var(--pu-ink)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.desktop-command-title span,.desktop-stat-grid span,.mobile-status-grid span,.top-player-copy span,.news-card-body span,.tour-meta-grid small,.sponsor-strip-label) {color:var(--pu-muted)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.mobile-app-actions span,.top-player-rank,.ranking-app-rank,.team-seed,.checkin-state-icon,.event-list-icon,.connect-action) {background:#edf3ed!important;color:#315e1f!important;border-color:var(--pu-line)!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.mobile-app-actions span,.top-player-rank,.ranking-app-rank,.team-seed,.checkin-state-icon,.event-list-icon,.connect-action) {background:#f1f5f9!important;color:#047857!important;border-color:var(--pu-line)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.top-player-copy b,.news-card-body h3,.tour-body h3,.tour-body h4,.connect-copy b) {color:var(--pu-ink)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .tour-meta-grid b {color:var(--pu-ink)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .desktop-live-badge {background:#e4f4e9!important;color:#16613a!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .desktop-today-head small {color:#43564a!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .tour-card.is-featured {border-color:#8c9d4d!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .desktop-live-badge {background:#dcfce7!important;color:#15803d!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .desktop-today-head small {color:#475569!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .tour-card.is-featured {border-color:var(--pu-line)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.about-capabilities,.about-capabilities span) {background:var(--pu-surface)!important;color:var(--pu-muted)!important;border-color:var(--pu-line)!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .about-capabilities b {color:#315e1f!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .podium-player.podium-1 {background:linear-gradient(145deg,#f4f9dd,#fbfdf3)!important;border:1px solid #8c9d4d!important}
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.podium-player strong,.ranking-app-rating,.ranking-rating,.player-rating strong) {color:#315e1f!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .about-capabilities b {color:#047857!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .podium-player.podium-1 {background:linear-gradient(145deg,#fef9c3,#ffffff)!important;border:1px solid #ca8a04!important}
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.podium-player strong,.ranking-app-rating,.ranking-rating,.player-rating strong) {color:#047857!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.podium-player b,.ranking-app-player b,.ranking-player-link,.ranking-club,.ranking-player-link b) {color:var(--pu-ink)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.podium-player span,.ranking-app-player small,.ranking-app-player span,.ranking-app-rank,.ranking-list-head) {color:var(--pu-muted)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .ranking-tabs button {background:var(--pu-surface)!important;color:var(--pu-ink)!important;border:1px solid var(--pu-line)!important}
@@ -270,5 +271,5 @@ html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) #knockout 
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .court-empty-slot b {color:var(--pu-ink)!important}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) .court-board-head span {opacity:1}
 html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-footer,.board-footer) :is(span,b,strong) {color:var(--pu-muted)!important}
-/* The original silver wordmark stays legible against its dark brand backing. */
-html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-brand .brand-logo,.board-brand img,.login-brand img) {background:#16231b!important;border-radius:8px}
+/* The original silver wordmark stays legible against its sleek dark brand backing. */
+html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) :is(.public-brand .brand-logo,.board-brand img,.login-brand img) {background:#080b0a!important;padding:5px 12px!important;border-radius:10px!important;box-shadow:0 2px 6px rgba(0,0,0,.08)!important}

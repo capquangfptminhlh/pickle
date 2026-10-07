@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v23-light-avatar-20261007";
+const VERSION="pickleup-preview-v24-nav-fix-20261007";
 const CORE=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
@@ -46,11 +46,11 @@ self.addEventListener("fetch",event=>{
 
   if(req.mode==="navigate"){
     event.respondWith(
-      fetch(new Request(req,{cache:"reload"})).then(async res=>{
+      fetch(req).then(async res=>{
         if(!res.ok)throw new Error(`NAVIGATION_${res.status}`);
-        const cache=await caches.open(VERSION);await cache.put(req,res.clone());
+        try{const cache=await caches.open(VERSION);await cache.put(req,res.clone());}catch(_){}
         return res;
-      }).catch(async()=>await caches.match(req)||await caches.match("./offline.html"))
+      }).catch(async()=>(await caches.match(req))||(await caches.match("./offline.html"))||new Response("<!doctype html><title>Offline</title><p>Mạng không khả dụng.</p>",{status:503,headers:{"Content-Type":"text/html; charset=utf-8"}}))
     );
     return;
   }

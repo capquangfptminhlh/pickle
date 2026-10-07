@@ -2,14 +2,14 @@
    Scoped !important declarations intentionally win over the legacy UI layer
    and fixed light inline styles in operator templates. */
 body.admin-sport {
-  --bg:#101914; --surface:#2a4033; --surface-2:#354f40; --surface-3:#354f40;
-  --text:#f6fbf7; --muted:#d0ded4; --line:#7c9b87;
-  --line-strong:#9ab5a3;
-  --brand:#d9ff63; --brand-2:#bcdf49; --accent:#d9ff63; --dark:#102014;
+  --bg:#080b0a; --surface:#2e3431; --surface-2:#242a27; --surface-3:#242a27;
+  --text:#f8fafc; --muted:#cbd5e1; --line:#4e5853;
+  --line-strong:#6b7871;
+  --brand:#d9ff63; --brand-2:#bcdf49; --accent:#d9ff63; --dark:#080b0a;
   --pu-bg:var(--bg); --pu-surface:var(--surface); --pu-ink:var(--text);
   --pu-muted:var(--muted); --pu-line:var(--line); --pu-lime:var(--accent);
-  --pu-green:#7cdda7; --pu-green-soft:#1c3a2b; --pu-dark:var(--dark);
-  --shadow:0 8px 28px #0002; --shadow-lg:0 24px 80px #0007;
+  --pu-green:#4ade80; --pu-green-soft:#18261e; --pu-dark:var(--dark);
+  --shadow:0 8px 28px rgba(0,0,0,.4); --shadow-lg:0 24px 80px rgba(0,0,0,.6);
   background:var(--bg)!important; color:var(--text)!important;
   font-size:15px!important; line-height:1.5; color-scheme:dark;
   overflow-wrap:break-word;
@@ -31,7 +31,7 @@ body.admin-sport .admin-skip-link:focus { transform:none; }
 body.admin-sport :is(.main,.content,.panel,.panel-head,.module-toolbar,.form-grid,.grid-2,.page-grid,.settings-layout,.club-grid) { min-width:0; }
 body.admin-sport .app-shell { grid-template-columns:250px minmax(0,1fr)!important; }
 body.admin-sport .sidebar {
-  background:#16231b!important; border-right:1px solid var(--line);
+  background:#121614!important; border-right:1px solid var(--line);
   padding:24px 15px 18px!important; height:100dvh;
 }
 body.admin-sport .brand { padding-bottom:26px; }
@@ -47,7 +47,7 @@ body.admin-sport .role-label strong { font-size:14px!important; }
 body.admin-sport .ghost { background:transparent!important; border-color:var(--line)!important; color:var(--muted)!important; min-height:44px!important; font-size:14px; }
 body.admin-sport .topbar {
   height:auto!important; min-height:88px; padding:18px 28px!important;
-  background:#101914f5!important; border-bottom:1px solid var(--line)!important;
+  background:#080b0af5!important; border-bottom:1px solid var(--line)!important;
   box-shadow:none!important; gap:18px;
 }
 body.admin-sport .top-left>div { min-width:0; }
@@ -373,19 +373,19 @@ body.admin-sport .organizer-flow-head{display:flex;align-items:flex-start;justif
 body.admin-sport .organizer-flow-head h2{margin:4px 0 5px;color:var(--text);font-size:22px;line-height:1.2}
 body.admin-sport .organizer-flow-head p{margin:0;color:var(--muted);font-size:12px}
 body.admin-sport .organizer-flow-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-body.admin-sport .organizer-step{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;min-height:148px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#354f40}
-body.admin-sport .organizer-step:after{content:"";position:absolute;left:31px;right:-11px;top:30px;height:2px;background:#7c9b87;z-index:0}
+body.admin-sport .organizer-step{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;min-height:148px;padding:14px;border:1px solid var(--line)!important;border-radius:16px;background:var(--surface)!important}
+body.admin-sport .organizer-step:after{content:"";position:absolute;left:31px;right:-11px;top:30px;height:2px;background:var(--line);z-index:0}
 body.admin-sport .organizer-step:last-child:after{display:none}
-body.admin-sport .organizer-step.is-done{border-color:var(--accent);background:var(--surface-2)}
-body.admin-sport .organizer-step.is-done:after{background:#6e983f}
-body.admin-sport .organizer-step-no{position:relative;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#354f40;color:#e3ece6;font-size:12px;font-weight:900;border:1px solid #9ab5a3}
+body.admin-sport .organizer-step.is-done{border-color:var(--accent)!important;background:var(--surface)!important}
+body.admin-sport .organizer-step.is-done:after{background:var(--accent)}
+body.admin-sport .organizer-step-no{position:relative;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:var(--surface-2);color:var(--text);font-size:12px;font-weight:900;border:1px solid var(--line)}
 body.admin-sport .organizer-step.is-done .organizer-step-no{background:var(--accent);color:var(--dark);border-color:var(--accent)}
 body.admin-sport .organizer-step>div{min-width:0;padding-top:2px}
 body.admin-sport .organizer-step>div b{display:block;color:var(--text);font-size:14px;line-height:1.25}
 body.admin-sport .organizer-step>div small{display:block;margin-top:4px;color:var(--muted)!important;font-size:12px!important;line-height:1.35}
 body.admin-sport .organizer-step .mini{grid-column:1/-1;margin-top:auto;min-height:44px!important;padding:7px 10px!important}
 body.admin-sport .dashboard-history-list{display:grid;gap:8px}
-body.admin-sport .dashboard-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#354f40;color:var(--text);text-align:left}
+body.admin-sport .dashboard-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--surface);color:var(--text);text-align:left}
 body.admin-sport .dashboard-history-list>button:hover{border-color:#9ab5a3;background:#45634f}
 body.admin-sport .dashboard-history-list>button span{min-width:0;display:grid;gap:3px}
 body.admin-sport .dashboard-history-list>button span b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

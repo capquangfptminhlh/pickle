@@ -1,17 +1,26 @@
 /* Shared theme control; palette layers leave this readable in either mode. */
-html body.site-sport #themeToggle {
+html body.site-sport #themeToggle, html body.admin-sport #themeToggle {
   display:inline-flex!important;align-items:center;justify-content:center;
-  flex:0 0 auto;min-width:76px;min-height:44px!important;padding:10px 12px!important;
-  border:1px solid #7c9b87!important;border-radius:12px!important;
-  background:#354f40!important;color:#f6fbf7!important;font:700 14px/1.3 system-ui,sans-serif!important;
-  cursor:pointer;white-space:nowrap;box-shadow:none!important;
+  gap:6px;min-height:44px!important;padding:8px 16px!important;
+  border:1px solid #4d6657!important;border-radius:9999px!important;
+  background:#1e2c25!important;color:#f8fafc!important;font:700 13px/1.3 Inter,system-ui,sans-serif!important;
+  cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.08)!important;
+  transition:all .15s ease!important;
 }
-html[data-theme="light"] body.site-sport #themeToggle {background:#fff!important;color:#17291e!important;border-color:#8fa396!important}
-html body.site-sport #themeToggle:focus-visible {outline:3px solid #567e12!important;outline-offset:3px!important}
+html body.site-sport #themeToggle:hover, html body.admin-sport #themeToggle:hover {
+  transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.15)!important;
+}
+html[data-theme="light"] body.site-sport #themeToggle, html[data-theme="light"] body.admin-sport #themeToggle {
+  background:#ffffff!important;color:#0f172a!important;border-color:#94a3b8!important;
+  box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
+}
+html body.site-sport #themeToggle:focus-visible, html body.admin-sport #themeToggle:focus-visible {
+  outline:2px solid #047857!important;outline-offset:2px!important;
+}
 html body.site-sport .theme-toolbar {display:flex;justify-content:flex-end;margin-bottom:16px}
 html body.site-sport :is(.courtside-top,.courtside-top-actions,.board-tools,.match-topbar) {flex-wrap:wrap;gap:10px}
 @media(max-width:760px){
-  html body.site-sport #themeToggle {min-width:64px;padding-inline:8px!important;font-size:13px!important}
+  html body.site-sport #themeToggle, html body.admin-sport #themeToggle {min-width:64px;padding-inline:10px!important;font-size:12px!important}
   html body.site-sport .public-nav {gap:8px!important;flex-wrap:wrap}
 }
 
