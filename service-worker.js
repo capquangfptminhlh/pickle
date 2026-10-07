@@ -83,8 +83,9 @@ self.addEventListener("fetch",event=>{
           let finalRes=res;
           if(res.redirected){
             finalRes=new Response(res.body,{status:res.status,statusText:res.statusText,headers:res.headers});
+          }else{
+            try{const c=await caches.open(VERSION);await c.put(req,finalRes.clone());}catch(_){}
           }
-          try{const c=await caches.open(VERSION);await c.put(req,finalRes.clone());}catch(_){}
           return finalRes;
         }
         return (await caches.match(req))||(await caches.match("/offline.html"))||res;

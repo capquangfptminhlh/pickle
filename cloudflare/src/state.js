@@ -249,8 +249,8 @@ export async function loadPublicPlayer(env,id){
   }
   const ratingHistory=await rows(env,"SELECT before_rating,delta,after_rating,reason,created_at FROM rating_history WHERE player_id=? ORDER BY created_at DESC LIMIT 100",id);
   return {
-    profile:{id:p.id,fullName:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",rating:Number(p.rating||0),skillLevel:p.skill_level||"B",avatarUrl:p.avatar_url||"",clubName:p.club_name||"",clubCity:p.club_city||""},
+    profile:{id:p.id,fullName:p.full_name,full_name:p.full_name,nickname:p.nickname||"",gender:p.gender||"other",rating:Number(p.rating||0),skillLevel:p.skill_level||"B",avatarUrl:p.avatar_url||"",avatar_url:p.avatar_url||"",clubName:p.club_name||"",club_name:p.club_name||"",clubCity:p.club_city||"",club_city:p.club_city||""},
     stats:{wins,losses,matches:wins+losses,winRate:wins+losses?Math.round(wins*1000/(wins+losses))/10:0,pointsFor,pointsAgainst,diff:pointsFor-pointsAgainst},
-    teams:teamRows,partners,matches:matches.slice(0,100),ratingHistory
+    teams:teamRows,partners:partners.map(x=>({...x,fullName:x.full_name,avatarUrl:x.avatar_url||""})),matches:matches.slice(0,100),ratingHistory
   };
 }

@@ -759,12 +759,12 @@ app.get("/api/public/players/:id",wrap(async(req,res)=>{
 
   res.json({
     profile:{
-      id:p.id,fullName:p.full_name,nickname:p.nickname,gender:p.gender,rating:Number(p.rating||0),
-      avatarUrl:p.avatar_url,bio:p.bio,dominantHand:p.dominant_hand,birthYear:p.birth_year,
-      clubId:p.club_id,clubName:p.club_name,clubCity:p.club_city
+      id:p.id,fullName:p.full_name,full_name:p.full_name,nickname:p.nickname,gender:p.gender,rating:Number(p.rating||0),
+      avatarUrl:p.avatar_url,avatar_url:p.avatar_url,bio:p.bio,dominantHand:p.dominant_hand,dominant_hand:p.dominant_hand,birthYear:p.birth_year,birth_year:p.birth_year,
+      clubId:p.club_id,club_id:p.club_id,clubName:p.club_name,club_name:p.club_name,clubCity:p.club_city,club_city:p.club_city
     },
     stats:{wins,losses,matches:wins+losses,winRate:(wins+losses)?Math.round(wins*1000/(wins+losses))/10:0,pointsFor:pf,pointsAgainst:pa,diff:pf-pa},
-    teams:teamRows,partners:partnerRows,matches,ratingHistory
+    teams:teamRows,partners:partnerRows.map(x=>({...x,fullName:x.full_name,avatarUrl:x.avatar_url||""})),matches,ratingHistory
   });
 }));
 
