@@ -78,6 +78,7 @@ try{
       const label=`${viewport.width} ${path}`,previousFailures=failures.length;
       try{
         await page.goto(base+"/"+path,{waitUntil:"domcontentloaded"});await page.locator(ready).first().waitFor({state:"visible"});
+        if(path==="court-board.html")await page.locator('#boardTournament').evaluate(el=>{el.textContent='Giải Đồng Đội Pickleup Mở Rộng 2026 — Chung kết toàn quốc'});
         await page.waitForTimeout(180);
         assert.ok(await page.locator("#themeToggle").isVisible(),"theme choice available on every page");
         const style=await page.locator("body").evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,scheme:s.colorScheme,theme:el.classList.contains("site-sport")}});
@@ -92,7 +93,10 @@ try{
         for(const caption of captions)checks(label+" caption "+caption.name,()=>{assert.ok(caption.font>=12,"caption text size");assert.ok(contrast(caption.fg,caption.bg)>=6,"caption contrast")});
         const controls=await page.locator('button,a.btn,.public-mobile-dock a,.public-nav nav a,.tournament-tabs a').evaluateAll(els=>els.filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=="hidden").map(el=>({name:el.getAttribute("aria-label")||el.textContent.trim().slice(0,45),h:el.getBoundingClientRect().height})));
         for(const control of controls)checks(label+" touch "+control.name,()=>assert.ok(control.h>=43.9,"control must be at least44px high"));
-        await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth+2,{},{timeout:3000}).catch(()=>failures.push(label+": horizontal page overflow"));
+        await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth+2,{},{timeout:3000}).catch(async()=>{
+          failures.push(label+": horizontal page overflow");
+          console.error('OVERFLOW',JSON.stringify(await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.right>innerWidth+2}).map(el=>({tag:el.tagName,id:el.id,cls:el.className,right:Math.round(el.getBoundingClientRect().right)})).slice(0,12)}))));
+        });
         const primary=page.locator('.btn.primary,.tournament-register-cta,.ref-btn.primary,.rally-hit').filter({visible:true}).first();
         if(await primary.count()){
           const s=await primary.evaluate(el=>{const c=getComputedStyle(el);return {bg:c.backgroundColor,fg:c.color,h:el.getBoundingClientRect().height}});

@@ -56,6 +56,8 @@ body.site-sport .site-skip-link:focus {transform:translateY(0); outline:3px soli
 body.site-sport.site-sport:not(.admin-sport) .public-brand .brand-logo {width:min(220px,58vw)!important; max-width:100%!important; height:auto!important; max-height:48px!important; aspect-ratio:31/6; object-fit:contain; object-position:left center}
 
 /* Shared navigation and actions. */
+/* An implicit auto grid column otherwise grows to the header's title width. */
+body.site-sport.site-sport.board-body:not(.admin-sport) {grid-template-columns:minmax(0,1fr)}
 body.site-sport.site-sport:not(.admin-sport) :is(.public-header,.courtside-top,.match-topbar,.board-header,.topbar) {
   background:rgba(16,25,20,.98)!important; border-color:var(--pu-line)!important;
   box-shadow:0 1px 0 rgba(217,255,99,.04)!important; backdrop-filter:blur(18px);

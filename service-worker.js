@@ -1,11 +1,11 @@
-const VERSION="pickleup-v33-theme-choice-20261007";
+const VERSION="pickleup-v34-theme-choice-20261007";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=1",
   "/assets/site-light.css?v=1",
   "/assets/admin-light.css?v=1",
-  "/assets/site-sport.css?v=2",
+  "/assets/site-sport.css?v=3",
   "/assets/admin-sport.css?v=4",
   "/assets/theme.js",
   "/assets/theme.css",
