@@ -341,3 +341,47 @@ html[data-theme="dark"] .home-v2 .v2-mobile-dock a{
     filter:none!important;
   }
 }
+
+
+/* Cloudflare regression guard: high-specificity legacy overrides */
+body.home-v2 .site-skip-link{
+  position:fixed!important;
+  left:16px!important;
+  top:12px!important;
+  z-index:1000!important;
+  transform:translateY(-160%)!important;
+  padding:12px 18px!important;
+  border-radius:12px!important;
+  background:#d9ff63!important;
+  color:#102014!important;
+  font-weight:850!important;
+  text-decoration:none!important;
+}
+body.home-v2 .site-skip-link:focus,
+body.home-v2 .site-skip-link:focus-visible{
+  transform:translateY(0)!important;
+  outline:3px solid #0b7a50!important;
+  outline-offset:3px!important;
+}
+html[data-theme="dark"] body.home-v2 #publicTours .tour-meta-premium span{
+  background:#17283a!important;
+}
+html[data-theme="dark"] body.home-v2 #publicTours .tour-meta-premium small,
+html[data-theme="dark"] body.home-v2 #publicTours .tour-meta-premium b,
+html[data-theme="dark"] body.home-v2 #publicTours .tour-venue-line b,
+html[data-theme="dark"] body.home-v2 #publicTours .tour-card-footer>span:first-child b{
+  color:#f4f8ff!important;
+}
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-card{
+  background:#1d3042!important;
+  border-color:#536b82!important;
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-copy b,
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-copy span,
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-copy small{
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-rank{
+  color:#d9ff63!important;
+}
