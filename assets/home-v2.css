@@ -211,3 +211,133 @@ body.home-v2{margin:0;background:#fff;color:var(--v2-text);font-family:Inter,ui-
   .v2-tournaments .tour-card,.v2-panel .public-match,.v2-panel .top-player-card,.v2-community .news-card{transition:transform .2s ease,box-shadow .2s ease}
   .v2-tournaments .tour-card:hover,.v2-panel .public-match:hover,.v2-panel .top-player-card:hover,.v2-community .news-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(26,66,105,.11)!important}
 }
+
+/* CI + theme compatibility for Home V2 */
+body.home-v2{
+  --v2-line:#c2cfdd;
+}
+.home-v2 .tour-card,
+.home-v2 .top-player-card,
+.home-v2 .news-card{
+  border-color:#c2cfdd!important;
+}
+.home-v2 .tour-meta-premium small,
+.home-v2 .tour-meta-premium b,
+.home-v2 .tour-venue-line b,
+.home-v2 .tour-card-footer>span:first-child b{
+  font-size:12px!important;
+  line-height:1.35!important;
+  color:#263a55!important;
+}
+.home-v2 #publicTours .tour-poster-image{
+  object-fit:contain!important;
+  filter:none!important;
+  background:#f3f7fb!important;
+}
+.home-v2 .v2-tournaments .tour-card:first-child{
+  grid-template-columns:minmax(190px,34%) 1fr!important;
+  align-items:start!important;
+}
+.home-v2 .v2-tournaments .tour-card:first-child .tour-media{
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:2/3!important;
+  align-self:start!important;
+}
+.home-v2 .v2-tournaments .tour-card:first-child .tour-media img.tour-poster-image{
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  filter:none!important;
+}
+html[data-theme="dark"] body.home-v2{
+  background:#071018!important;
+  color:#eef5ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-header{
+  background:rgba(7,16,24,.97)!important;
+  border-color:#30465b!important;
+}
+html[data-theme="dark"] .home-v2 .v2-header nav a,
+html[data-theme="dark"] .home-v2 .v2-section-head h2,
+html[data-theme="dark"] .home-v2 .v2-hero-copy h1,
+html[data-theme="dark"] .home-v2 .tour-body h3{
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-search,
+html[data-theme="dark"] .home-v2 .v2-icon-btn,
+html[data-theme="dark"] .home-v2 .v2-avatar-btn,
+html[data-theme="dark"] .home-v2 .v2-secondary{
+  background:#23384d!important;
+  border-color:#4e667d!important;
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-hero,
+html[data-theme="dark"] .home-v2 .v2-section,
+html[data-theme="dark"] .home-v2 .v2-community,
+html[data-theme="dark"] .home-v2 .v2-sponsors{
+  background:#071018!important;
+}
+html[data-theme="dark"] .home-v2 .v2-dashboard{
+  background:#0b1621!important;
+}
+html[data-theme="dark"] .home-v2 .v2-hero-copy p,
+html[data-theme="dark"] .home-v2 .v2-stats span,
+html[data-theme="dark"] .home-v2 .v2-community-tabs{
+  color:#d8e4ef!important;
+}
+html[data-theme="dark"] .home-v2 .v2-stats a{
+  border-color:#40566b!important;
+}
+html[data-theme="dark"] .home-v2 .v2-panel,
+html[data-theme="dark"] .home-v2 .tour-card,
+html[data-theme="dark"] .home-v2 .tour-body,
+html[data-theme="dark"] .home-v2 .top-player-card,
+html[data-theme="dark"] .home-v2 .news-card{
+  background:#23384d!important;
+  border-color:#536b82!important;
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] .home-v2 .tour-meta-premium small,
+html[data-theme="dark"] .home-v2 .tour-meta-premium b,
+html[data-theme="dark"] .home-v2 .tour-venue-line b,
+html[data-theme="dark"] .home-v2 .tour-card-footer>span:first-child b,
+html[data-theme="dark"] .home-v2 .top-player-copy b,
+html[data-theme="dark"] .home-v2 .top-player-copy span,
+html[data-theme="dark"] .home-v2 .news-card-body h3,
+html[data-theme="dark"] .home-v2 .news-card-body p{
+  color:#eef5ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-panel .public-match{
+  background:#1d3042!important;
+  border-color:#536b82!important;
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-phone{
+  background:#182a3a!important;
+  color:#f5f9ff!important;
+  border-color:#020508!important;
+}
+html[data-theme="dark"] .home-v2 .v2-phone .hero-score{
+  background:#23384d!important;
+  border-color:#536b82!important;
+  color:#f5f9ff!important;
+}
+html[data-theme="dark"] .home-v2 .v2-mobile-dock{
+  background:rgba(7,16,24,.98)!important;
+  border-color:#40566b!important;
+}
+html[data-theme="dark"] .home-v2 .v2-mobile-dock a{
+  color:#c9d8e6!important;
+}
+@media(max-width:760px){
+  .home-v2 .v2-tournaments .tour-card:first-child .tour-media,
+  .home-v2 .v2-tournaments .tour-media{
+    height:auto!important;
+    aspect-ratio:2/3!important;
+  }
+  .home-v2 .v2-tournaments .tour-media img.tour-poster-image{
+    object-fit:contain!important;
+    filter:none!important;
+  }
+}
