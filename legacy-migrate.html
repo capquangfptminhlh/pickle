@@ -15,9 +15,15 @@
     button,a.btn{border:0;border-radius:13px;min-height:44px;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.primary{background:#0b7b50;color:#fff}.secondary{background:#e7efeb;color:#29483a}.danger{background:#fff0f0;color:#a32d39}button:disabled{opacity:.45;cursor:not-allowed}
     small.note{display:block;color:#7a8b82;line-height:1.5;margin-top:10px}@media(max-width:560px){.grid{grid-template-columns:repeat(2,1fr)}main{margin-top:16px}}
   </style>
+<script src="assets/theme.js?v=1"></script>
+<link rel="stylesheet" href="assets/site-sport.css?v=2">
+<meta name="theme-color" content="#f4f7f4">
+<link rel="stylesheet" href="assets/site-light.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=1">
 </head>
-<body>
-<main>
+<body class="site-sport legacy-screen">
+<a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
+<main id="site-main" tabindex="-1">
   <section class="card">
     <h1>Chuyển dữ liệu Pickleup cũ</h1>
     <p>Chọn tệp sao lưu JSON để khôi phục dữ liệu lên <b>Pickleup.vn</b>. Nếu đang dùng trang cũ trên đúng trình duyệt trước đây, dữ liệu đã lưu sẽ được nhận diện tự động.</p>
@@ -35,8 +41,8 @@
   <section class="card">
     <h2 style="margin:0 0 6px;font-size:18px">Đăng nhập Super Admin mới</h2>
     <p style="margin-top:0">Mật khẩu chỉ dùng để đăng nhập trực tiếp vào <b>https://pickleup.vn</b>, không lưu tại GitHub Pages.</p>
-    <label>Email</label><input id="email" type="email" autocomplete="username" value="admin@pickleup.vn">
-    <label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password">
+    <label for="email">Email</label><input id="email" type="email" autocomplete="username" value="admin@pickleup.vn">
+    <label for="password">Mật khẩu</label><input id="password" type="password" autocomplete="current-password">
     <div class="actions"><button id="migrateBtn" class="primary" type="button">Khôi phục lên Pickleup.vn</button></div>
     <small class="note">Tài khoản trọng tài cũ không được import mật khẩu. Sau khi chuyển xong, tạo lại tài khoản trọng tài trong Admin để đảm bảo bảo mật.</small>
   </section>

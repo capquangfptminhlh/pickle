@@ -10,6 +10,7 @@ import {scoringFixture} from "../cloudflare/tests/helpers/scoring-fixture.mjs";
 const require=createRequire(import.meta.url);
 let chromium;
 try{({chromium}=require("playwright"))}catch{({chromium}=require(resolve(process.env.CODEX_NODE_MODULES||resolve(dirname(process.execPath),"../node_modules"),"playwright")))}
+const theme=process.env.DESIGN_THEME==="light"?"light":"dark";
 const root=fileURLToPath(new URL("../",import.meta.url));
 const artifacts=resolve(root,"ui-artifacts/admin-sport");
 await mkdir(artifacts,{recursive:true});
@@ -34,6 +35,7 @@ try{
     for(const actor of ["admin","organizer"]){
       const motion=process.env.DESIGN_MOTION||"reduce";
       const f=await scoringFixture(),context=await browser.newContext({viewport,reducedMotion:motion}),page=await context.newPage(),errors=[];
+      await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v1",theme),theme);
       page.setDefaultTimeout(7000);page.on("pageerror",e=>errors.push(e.message));
       f.db.exec(`UPDATE tournaments SET name='Pickleup • Giải mùa thu',venue_name='Sân kiểm thử',start_at='2026-10-10T08:00:00Z',status='live' WHERE id='tour';
         UPDATE divisions SET name='Đôi phong trào' WHERE id='division';
@@ -55,7 +57,7 @@ try{
         await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
       });
       const label=`${actor} ${viewport.width}`;
-      const capture=async name=>{if(actor==="admin")await page.screenshot({path:resolve(artifacts,`${process.env.DESIGN_BASELINE?"baseline-":""}${viewport.width}-${name}.png`),fullPage:true})};
+      const capture=async name=>{if(actor==="admin")await page.screenshot({path:resolve(artifacts,`${process.env.DESIGN_BASELINE?"baseline-":""}${theme}-${viewport.width}-${name}.png`),fullPage:true})};
       const inViewport=async selector=>{
         const rect=await page.locator(selector).boundingBox();
         assert.ok(rect&&rect.x>=-1&&rect.y>=-1&&rect.x+rect.width<=viewport.width+1&&rect.y+rect.height<=viewport.height+1,`${selector} must be reachable inside the viewport`);
@@ -69,20 +71,25 @@ try{
         await page.goto(base+"/admin.html");
         await page.waitForFunction(()=>document.querySelector("#content .club-home-hero"));
         await capture("dashboard");
-        if(actor==="admin"&&!process.env.DESIGN_BASELINE)await page.screenshot({path:resolve(artifacts,`${viewport.width}-dashboard-viewport.png`)});
+        if(actor==="admin"&&!process.env.DESIGN_BASELINE)await page.screenshot({path:resolve(artifacts,`${theme}-${viewport.width}-dashboard-viewport.png`)});
         const bodyStyle=await page.locator("body").evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,color:s.color}});
-        check(label+" dark theme",()=>assert.ok(luminance(bodyStyle.bg)<.03,"admin background must be charcoal"));
-        check(label+" readable main text",()=>assert.ok(contrast(bodyStyle.color,bodyStyle.bg)>=4.5));
+        check(label+" "+theme+" theme",()=>assert.ok(theme==="light"?luminance(bodyStyle.bg)>.8:luminance(bodyStyle.bg)<.03,"selected canvas brightness"));
+        check(label+" readable main text",()=>assert.ok(contrast(bodyStyle.color,bodyStyle.bg)>=7));
         const metrics=await page.locator("[data-sport-metric]").evaluateAll(els=>Object.fromEntries(els.map(el=>[el.dataset.sportMetric,el.querySelector("strong").textContent])));
         check(label+" real manager metrics",()=>assert.deepEqual(metrics,{tournaments:actor==="admin"?"2":"1",teams:"4",live:"1",completed:"1"}));
         const shortcuts=await page.locator(".club-home-actions [data-goto]").evaluateAll(els=>els.map(el=>el.dataset.goto));
         check(label+" management shortcuts",()=>assert.deepEqual(shortcuts,["tournaments","players","scores","referees"]));
         const actions=await page.locator(".club-home-actions button").evaluateAll(els=>els.map(el=>({height:el.getBoundingClientRect().height,font:parseFloat(getComputedStyle(el.querySelector("b")).fontSize)})));
         check(label+" readable touch targets",()=>assert.ok(actions.every(a=>a.height>=44&&a.font>=14)));
+        const surfaces=await page.locator('.club-home-actions button,.organizer-step').evaluateAll(els=>els.map(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderTopColor})));
+        for(const surface of surfaces){
+          check(label+" distinct card surface",()=>assert.ok(theme==="light"?luminance(surface.bg)>.5:contrast(surface.bg,bodyStyle.bg)>=1.5,"selected card separation"));
+          check(label+" readable card boundary",()=>assert.ok(contrast(surface.border,surface.bg)>=1.5,"card borders must remain visible"));
+        }
         await noOverflow();
         if(process.env.DESIGN_BASELINE)continue;
         const muted=await page.locator(".club-home-actions small").first().evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest("button")).backgroundColor,font:parseFloat(getComputedStyle(el).fontSize)}));
-        assert.ok(contrast(muted.fg,muted.bg)>=4.5,"secondary text contrast");assert.ok(muted.font>=12);
+        assert.ok(contrast(muted.fg,muted.bg)>=6,"secondary text contrast");assert.ok(muted.font>=12);
         if(motion==="reduce")assert.ok(await page.locator("#nav button").first().evaluate(el=>getComputedStyle(el).transitionDuration.split(",").every(t=>parseFloat(t)<=.01)),"reduced motion suppresses navigation animation");
         if(viewport.width<=760){
           await page.locator(".mobile-dock").waitFor();

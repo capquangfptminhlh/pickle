@@ -1,0 +1,206 @@
+/* Optional white operator theme. Load last; the dark admin layer owns layout.
+   All overrides are scoped so choosing dark restores the released palette. */
+html[data-theme="light"] body.admin-sport {
+  --bg:#f4f7f4; --surface:#ffffff; --surface-2:#edf3ee; --surface-3:#e3ece5;
+  --text:#17291e; --muted:#43584b; --line:#a3b5a8; --line-strong:#7b9383;
+  --brand:#0b6a3e; --brand-2:#07522f; --accent:#d9ff63; --dark:#102014;
+  --pu-bg:var(--bg); --pu-surface:var(--surface); --pu-ink:var(--text);
+  --pu-muted:var(--muted); --pu-line:var(--line); --pu-lime:var(--accent);
+  --pu-green:#0b6a3e; --pu-green-soft:#e4f2e8; --pu-dark:var(--dark);
+  --shadow:0 5px 20px #17372308; --shadow-lg:0 20px 70px #17372329;
+  background:var(--bg)!important; color:var(--text)!important; color-scheme:light;
+}
+html[data-theme="light"] body.admin-sport ::selection { background:#c7ed9e; color:var(--text); }
+html[data-theme="light"] body.admin-sport :is(button,a,input,select,textarea,[tabindex]):focus-visible {
+  outline-color:var(--brand)!important; box-shadow:0 0 0 5px #0b6a3e20!important;
+}
+
+/* Navigation and header remain light when the drawer or mobile dock opens. */
+html[data-theme="light"] body.admin-sport .sidebar {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport .sidebar .brand { border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport :is(.brand strong,.role-label strong,#userName) { color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport .nav-btn { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(.nav-btn:hover,.ghost:hover) {
+  background:var(--surface-2)!important; color:var(--text)!important;
+}
+html[data-theme="light"] body.admin-sport .nav-btn.active {
+  background:#e4f2e8!important; color:#07522f!important; box-shadow:inset 3px 0 #0b6a3e!important;
+}
+html[data-theme="light"] body.admin-sport .nav-btn.active .ico { color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .topbar { background:#f4f7f4f5!important; }
+html[data-theme="light"] body.admin-sport :is(.side-bottom,.topbar,.account-row,.club-event-home-row) { border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .role-label { background:var(--surface-2)!important; }
+html[data-theme="light"] body.admin-sport .ghost { color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport .mobile-dock { background:#fffffff5!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .mobile-dock button { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport .mobile-dock button.active {
+  background:#e4f2e8!important; color:#07522f!important;
+}
+html[data-theme="light"] body.admin-sport .mobile-dock button.active .ico-clone { color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .app-fab { box-shadow:0 8px 24px #17372326; }
+html[data-theme="light"] body.admin-sport .app-backdrop { background:#17372355; }
+
+/* Controls: lime is reserved for filled actions, green for text on white. */
+html[data-theme="light"] body.admin-sport :is(.mini,.icon-btn,.btn.secondary,.btn.dark) {
+  background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line-strong)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.btn.primary,.primary-mini,.draw-mini) {
+  background:var(--accent)!important; color:var(--dark)!important; border-color:#8da934!important;
+}
+html[data-theme="light"] body.admin-sport :is(.btn,.mini,.icon-btn):hover:not(:disabled) { filter:brightness(.97); }
+html[data-theme="light"] body.admin-sport :is(.btn.danger,.danger-mini) {
+  background:#fff0f1!important; color:#922431!important; border-color:#c78c94!important;
+}
+html[data-theme="light"] body.admin-sport :is(.field input,.field select,.field textarea,.filters input,.filters select,.score-options select,.attendance-add select,.draw-group-row select,.draw-manual-list select,.quick-set-row input) {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line-strong)!important; color-scheme:light;
+}
+html[data-theme="light"] body.admin-sport :is(input,textarea)::placeholder { color:var(--muted); opacity:1; }
+html[data-theme="light"] body.admin-sport input:is([type=checkbox],[type=radio]) { accent-color:var(--brand); }
+html[data-theme="light"] body.admin-sport :is(.field input,.filters input,.field select,.filters select,.field textarea):focus {
+  border-color:var(--brand)!important; box-shadow:0 0 0 4px #0b6a3e18;
+}
+
+/* Dashboard and reusable data surfaces. */
+html[data-theme="light"] body.admin-sport :is(.panel,.kpi,.metric-card,.tour-card,.match-card,.bracket-match,.club-card,.booking-card,.sponsor-card,.content-card,.account-owner,.tournament-ops-card) {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.club-home-hero,.club-home-actions button,.club-home-metrics article,.admin-app-hero,.admin-quick-grid button) {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.club-home-hero p,.admin-app-hero p) { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(.club-home-live,.admin-app-live-orb) {
+  background:var(--surface-2)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.club-home-live span,.admin-app-live-orb span) { color:var(--brand)!important; }
+html[data-theme="light"] body.admin-sport :is(.club-home-actions button>span,.club-monogram,.metric-icon,.club-event-date,.athlete-avatar) {
+  background:var(--surface-2)!important; color:var(--brand)!important;
+}
+html[data-theme="light"] body.admin-sport .club-home-actions button:hover { background:var(--surface-2)!important; border-color:var(--brand)!important; }
+html[data-theme="light"] body.admin-sport :is(.athlete-rating,.tour-title-button:hover) { color:var(--brand)!important; }
+html[data-theme="light"] body.admin-sport .tour-cover { color:var(--text)!important; background:var(--surface-2)!important; }
+html[data-theme="light"] body.admin-sport :is(.security-note,.role-help span,.special-result-box,.attendance-add,.quick-score-card,.rule-summary span,.content-cover-placeholder,.sponsor-placeholder) {
+  background:var(--surface-2)!important; border-color:var(--line)!important; color:var(--muted)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.role-help span,.role-help b,.security-note b) { font-size:12px!important; }
+html[data-theme="light"] body.admin-sport :is(.role-help b,.security-note b) { color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport :is(.empty,.module-empty,.bracket-plan-note,.bracket-plan-empty,.csv-preview,.csv-preview-row,.csv-preview-head) {
+  background:var(--surface-2)!important; color:var(--muted)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.toast,.pwa-toast) { background:var(--surface)!important; color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport .brand-preview { background:var(--surface-2)!important; color:var(--text)!important; border:1px solid var(--line); }
+html[data-theme="light"] body.admin-sport .report-ring { color:var(--text); }
+
+/* Workflow, tournament history and results retain their status hierarchy. */
+html[data-theme="light"] body.admin-sport :is(.organizer-flow,.tournament-history-card,.tournament-insight,.tournament-control-hero) {
+  background:var(--surface)!important; border-color:var(--line)!important; color:var(--text)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.organizer-step,.dashboard-history-list>button,.tournament-history-stats span,.tournament-insight-grid article,.tournament-stat-leader) {
+  background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport .organizer-step:after { background:var(--line); }
+html[data-theme="light"] body.admin-sport .organizer-step.is-done { background:#e4f2e8!important; border-color:#6f9c7e!important; }
+html[data-theme="light"] body.admin-sport .organizer-step.is-done:after { background:var(--brand); }
+html[data-theme="light"] body.admin-sport .organizer-step-no {
+  background:var(--surface)!important; color:var(--muted)!important; border-color:var(--line-strong)!important;
+}
+html[data-theme="light"] body.admin-sport .organizer-step.is-done .organizer-step-no {
+  background:var(--accent)!important; color:var(--dark)!important; border-color:#8da934!important;
+}
+html[data-theme="light"] body.admin-sport .dashboard-history-list>button:hover { background:#e3ece5!important; border-color:var(--brand)!important; }
+html[data-theme="light"] body.admin-sport :is(.dashboard-history-list>button strong,.tournament-stat-leader>span) { color:var(--brand)!important; }
+html[data-theme="light"] body.admin-sport .tournament-stat-leader>span { background:var(--surface)!important; }
+html[data-theme="light"] body.admin-sport :is(.tournament-history-top span:first-child,.tournament-insight-head span) { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(.tournament-history-card:hover,.tournament-history-section) { border-color:var(--line-strong)!important; }
+html[data-theme="light"] body.admin-sport .tournament-insight-grid article.champion {
+  background:#fff5d6!important; border-color:#b89a4e!important;
+}
+html[data-theme="light"] body.admin-sport .tournament-insight-grid article.champion strong { color:#674608!important; }
+html[data-theme="light"] body.admin-sport .tournament-insight-grid article.champion :is(small,span) { color:#654e1b!important; }
+
+/* Data tables and locally scrolling brackets. */
+html[data-theme="light"] body.admin-sport :is(.table-wrap,.standing-table-wrap) { background:var(--surface)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .table th { background:var(--surface-2)!important; color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport .table tbody tr { background:var(--surface)!important; }
+html[data-theme="light"] body.admin-sport .table tbody tr:hover { background:var(--surface-2)!important; }
+html[data-theme="light"] body.admin-sport .table :is(th,td) { border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .standing-row { color:var(--text); border-bottom-color:var(--line); }
+html[data-theme="light"] body.admin-sport .standing-row.head { color:var(--muted); }
+html[data-theme="light"] body.admin-sport .standing-row.qualify-rank-1 { border-left-color:#a87908!important; }
+html[data-theme="light"] body.admin-sport .standing-row.qualify-rank-2 { border-left-color:#4169ac!important; }
+html[data-theme="light"] body.admin-sport .bracket-team.win { background:#e4f2e8!important; color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .qualify-status { color:#07522f; }
+html[data-theme="light"] body.admin-sport .rank-badge.rank-other { background:var(--surface-2); color:var(--muted); }
+
+/* Semantic color pairs remain distinct on a white background. */
+html[data-theme="light"] body.admin-sport :is(.badge.live,.status-chip.success,.live-pill,.court-state-chip.live,.tournament-insight-head>b.is-complete) {
+  background:#e4f2e8!important; color:#07522f!important;
+}
+html[data-theme="light"] body.admin-sport :is(.badge.wait,.status-chip.warning,.court-state-chip.called,.tournament-insight-head>b.is-running) {
+  background:#fff2d2!important; color:#704c08!important;
+}
+html[data-theme="light"] body.admin-sport :is(.badge.done,.court-state-chip) { background:var(--surface-2)!important; color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(.badge.blue,.court-state-chip.on_deck) { background:#e7efff!important; color:#254d8f!important; }
+html[data-theme="light"] body.admin-sport .court-state-chip.warming_up { background:#f0e8ff!important; color:#654092!important; }
+html[data-theme="light"] body.admin-sport .status-chip.danger { background:#fff0f1!important; color:#922431!important; }
+
+/* Native dialogs keep their existing visibility and scroll behavior. */
+html[data-theme="light"] body.admin-sport dialog::backdrop { background:#17372380!important; }
+html[data-theme="light"] body.admin-sport :is(.score-card,.modal-card,.draw-setup-card,.draw-wheel-card) {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport .score-board { background:var(--bg)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .team-row { background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .team-row:first-child { border-top:4px solid #0b6a3e!important; }
+html[data-theme="light"] body.admin-sport .team-row:nth-child(2) { border-top:4px solid #2d63c5!important; }
+html[data-theme="light"] body.admin-sport .score-control button { background:#e4f2e8!important; color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .team-row:nth-child(2) .score-control button { background:#e7efff!important; color:#254d8f!important; }
+html[data-theme="light"] body.admin-sport :is(.referee-console,.score-options) { background:var(--surface-2)!important; color:var(--muted)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .referee-console-head>div { background:var(--surface)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport :is(.score-actions,.draw-setup-actions) { background:var(--surface)!important; }
+html[data-theme="light"] body.admin-sport :is(#finishMatch,#finishSet,#saveQuickScore) { background:var(--accent)!important; color:var(--dark)!important; border-color:#8da934!important; }
+html[data-theme="light"] body.admin-sport #undoScore { background:var(--surface-2)!important; color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport :is(#finishMatch,#finishSet):disabled { background:var(--surface-3)!important; color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(.quick-set-row input,.quick-score-a,.quick-score-b) { background:var(--surface)!important; color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport :is(.set-chip,.score-lead-tip,.draw-setup-summary) { background:#e4f2e8!important; color:#07522f!important; border-color:#7ca88a!important; }
+html[data-theme="light"] body.admin-sport .quick-score-card h3 small { color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .service-controls .mini.active { background:var(--accent)!important; color:var(--dark)!important; }
+
+/* VĐV picker, division setup, skill pairing and draw wheel. */
+html[data-theme="light"] body.admin-sport :is(.player-picker-slot,.player-picker-result,.player-picker-selected) {
+  background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(.player-picker-avatar,.player-picker-result:hover) { background:#e4f2e8!important; color:#07522f!important; }
+html[data-theme="light"] body.admin-sport :is(.player-picker-result:hover,.player-picker-selected) { border-color:#6f9c7e!important; }
+html[data-theme="light"] body.admin-sport .player-picker-empty { background:#fff2d2!important; color:#704c08!important; }
+html[data-theme="light"] body.admin-sport :is(.draw-setup-overlay,.draw-wheel-overlay) { background:#17372380; }
+html[data-theme="light"] body.admin-sport dialog.draw-setup-overlay { background:transparent!important; }
+html[data-theme="light"] body.admin-sport :is(.draw-setup-section,.draw-group-row,.draw-manual-list label,.draw-result-groups span) {
+  background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport .draw-court-chips span { background:var(--surface)!important; color:var(--muted)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport .draw-court-chips input:checked+span {
+  background:#e4f2e8!important; color:#07522f!important; border-color:#6f9c7e!important;
+}
+html[data-theme="light"] body.admin-sport .draw-court-chips input:focus-visible+span { outline-color:var(--brand); }
+html[data-theme="light"] body.admin-sport .draw-result-icon { background:#e4f2e8!important; color:#07522f!important; }
+html[data-theme="light"] body.admin-sport .draw-wheel:after { background:var(--surface)!important; }
+html[data-theme="light"] body.admin-sport .draw-wheel>strong { color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport .draw-wheel-ring span { background:#ffffffed; color:var(--text)!important; border-radius:4px; }
+html[data-theme="light"] body.admin-sport .draw-wheel-card p { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport [data-skill-pool]>label { background:var(--surface)!important; color:var(--text)!important; border-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport [data-skill-summary] [style*="color:#a32d39"] { color:#922431!important; }
+html[data-theme="light"] body.admin-sport .draw-live-stage [style*="background:#f5f8f6"] { background:var(--surface-2)!important; color:var(--text)!important; }
+html[data-theme="light"] body.admin-sport .draw-live-stage [style*="color:#61776c"] { color:var(--muted)!important; }
+
+/* Fixed legacy inline colors in operator templates; keep QR images white. */
+html[data-theme="light"] body.admin-sport :is(#content,#genericBody,#scoreSets) [style*="color:#73847b"] { color:var(--muted)!important; }
+html[data-theme="light"] body.admin-sport :is(#content,#genericBody) :is([style*="background:#f5f8f6"],[style*="background:#eaf1ed"],[style*="background:#eef3f0"]) {
+  background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line)!important;
+}
+html[data-theme="light"] body.admin-sport :is(#content,#genericBody) [style*="border-bottom:1px solid #edf1ef"] { border-bottom-color:var(--line)!important; }
+html[data-theme="light"] body.admin-sport #lhmPresetBtn { background:var(--surface-2)!important; color:var(--brand)!important; border-color:var(--line-strong)!important; }
+html[data-theme="light"] body.admin-sport #quickChampion { background:#e4f2e8!important; color:#07522f!important; border-color:#6f9c7e!important; }
+html[data-theme="light"] body.admin-sport #quickEliminated { background:#fff0f1!important; color:#922431!important; border-color:#c78c94!important; }
+html[data-theme="light"] body.admin-sport :is(.qr-image,.qr-code,img[src*="qr"],canvas[data-qr]) { background:#fff!important; }

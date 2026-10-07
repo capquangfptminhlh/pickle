@@ -25,7 +25,17 @@ const safeHttps=s=>{if(!s)return "#";try{const u=new URL(s,location.origin);retu
 function empty(icon,title,copy){return '<div class="app-empty-card"><span>'+icon+'</span><b>'+title+'</b><small>'+copy+'</small></div>'}
 function render(){
  if(!state)return;const t=state.tournaments.find(x=>x.id===id);
- if(!t){$("#tourName").textContent="Không tìm thấy giải";$("#tourMeta").textContent="Giải không tồn tại hoặc chưa được công khai.";document.querySelectorAll(".tournament-app-main section:not(.tournament-app-hero),.tournament-tabs").forEach(x=>x.hidden=true);return}
+ if(!t){
+   if(!$("#tourUnavailable")){
+     const unavailable=document.createElement("section");unavailable.id="tourUnavailable";unavailable.className="public-section";unavailable.setAttribute("role","status");
+     unavailable.innerHTML='<div class="public-container app-empty-card"><h1>Không tìm thấy giải</h1><p>Giải không tồn tại hoặc chưa được công khai.</p><a class="btn primary" href="index.html">Về trang chủ</a></div>';
+     document.querySelector(".tournament-app-main").prepend(unavailable);
+   }
+   document.querySelectorAll(".tournament-app-main>section,.tournament-tabs").forEach(x=>x.hidden=x.id!=="tourUnavailable");
+   return;
+ }
+ $("#tourUnavailable")?.remove();
+ document.querySelectorAll(".tournament-app-main>section,.tournament-tabs").forEach(x=>x.hidden=false);
  document.title=t.name+" | Pickle Tour";
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");

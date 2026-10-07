@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["standalone","minimal-ui"],
   "orientation": "any",
-  "background_color": "#0b1513",
-  "theme_color": "#0b1513",
+  "background_color": "#f4f7f4",
+  "theme_color": "#f4f7f4",
   "categories": ["sports","social"],
   "icons": [
     {"src": "/assets/app-icon-sport-v3.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}

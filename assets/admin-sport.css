@@ -2,8 +2,9 @@
    Scoped !important declarations intentionally win over the legacy UI layer
    and fixed light inline styles in operator templates. */
 body.admin-sport {
-  --bg:#0b1110; --surface:#15201b; --surface-2:#1b2a22; --surface-3:#23362a;
-  --text:#edf6ee; --muted:#a3b5a8; --line:#2a3b31;
+  --bg:#101914; --surface:#2a4033; --surface-2:#354f40; --surface-3:#354f40;
+  --text:#f6fbf7; --muted:#d0ded4; --line:#7c9b87;
+  --line-strong:#9ab5a3;
   --brand:#d9ff63; --brand-2:#bcdf49; --accent:#d9ff63; --dark:#102014;
   --pu-bg:var(--bg); --pu-surface:var(--surface); --pu-ink:var(--text);
   --pu-muted:var(--muted); --pu-line:var(--line); --pu-lime:var(--accent);
@@ -30,12 +31,12 @@ body.admin-sport .admin-skip-link:focus { transform:none; }
 body.admin-sport :is(.main,.content,.panel,.panel-head,.module-toolbar,.form-grid,.grid-2,.page-grid,.settings-layout,.club-grid) { min-width:0; }
 body.admin-sport .app-shell { grid-template-columns:250px minmax(0,1fr)!important; }
 body.admin-sport .sidebar {
-  background:#0c1510!important; border-right:1px solid var(--line);
+  background:#16231b!important; border-right:1px solid var(--line);
   padding:24px 15px 18px!important; height:100dvh;
 }
 body.admin-sport .brand { padding-bottom:26px; }
 body.admin-sport .brand strong { font-size:15px!important; letter-spacing:.04em; }
-body.admin-sport .brand span { color:var(--muted)!important; font-size:11px!important; letter-spacing:.1em; }
+body.admin-sport .brand span { color:var(--muted)!important; font-size:12px!important; letter-spacing:.1em; }
 body.admin-sport .nav-btn { min-height:48px!important; font-size:14px!important; color:var(--muted)!important; border-radius:12px!important; }
 body.admin-sport .nav-btn:hover { background:var(--surface-2)!important; color:var(--text)!important; }
 body.admin-sport .nav-btn.active { background:var(--surface-2)!important; color:var(--accent)!important; box-shadow:inset 3px 0 var(--accent)!important; }
@@ -43,10 +44,10 @@ body.admin-sport .nav-btn .ico { color:inherit!important; }
 body.admin-sport .side-bottom { border-color:var(--line)!important; }
 body.admin-sport .role-label { background:var(--surface)!important; border-color:var(--line)!important; color:var(--muted)!important; font-size:12px!important; }
 body.admin-sport .role-label strong { font-size:14px!important; }
-body.admin-sport .ghost { background:transparent!important; border-color:var(--line)!important; color:var(--muted)!important; min-height:44px!important; font-size:13px; }
+body.admin-sport .ghost { background:transparent!important; border-color:var(--line)!important; color:var(--muted)!important; min-height:44px!important; font-size:14px; }
 body.admin-sport .topbar {
   height:auto!important; min-height:88px; padding:18px 28px!important;
-  background:#0b1110f5!important; border-bottom:1px solid var(--line)!important;
+  background:#101914f5!important; border-bottom:1px solid var(--line)!important;
   box-shadow:none!important; gap:18px;
 }
 body.admin-sport .top-left>div { min-width:0; }
@@ -56,7 +57,7 @@ body.admin-sport .top-actions { flex-wrap:wrap; justify-content:flex-end; }
 body.admin-sport .top-actions a.mini { display:inline-flex; align-items:center; }
 body.admin-sport .content { width:100%!important; padding:28px 28px 64px!important; }
 body.admin-sport :is(.btn,.mini,.icon-btn,button.ghost,.score-control button) {
-  min-height:44px!important; border-radius:12px!important; font-size:13px!important;
+  min-height:44px!important; border-radius:12px!important; font-size:14px!important;
   font-weight:750; line-height:1.35; white-space:normal;
 }
 body.admin-sport .btn { padding:10px 16px!important; }
@@ -78,12 +79,12 @@ body.admin-sport :is(.panel-head,.module-toolbar) { margin-bottom:18px; gap:16px
 body.admin-sport :is(.panel-head h2,.module-toolbar h2,.sport-section-heading h2) { color:var(--text)!important; font-size:20px!important; font-weight:800; line-height:1.3; }
 body.admin-sport :is(.panel-head p,.module-toolbar p,.sport-section-heading p,.meta,.muted,.role-help,.csv-help,.activity-item p) { color:var(--muted)!important; font-size:12px!important; line-height:1.5; }
 body.admin-sport :is(.content,.score-card,.modal-card,.draw-setup-card) small { font-size:12px!important; color:var(--muted)!important; line-height:1.4; }
-body.admin-sport :is(.eyebrow,.admin-app-overline,.kpi .label,.metric-card>span,.club-home-metrics small,.referee-console-head small) { font-size:11px!important; font-weight:800; letter-spacing:.08em; color:var(--muted)!important; }
+body.admin-sport :is(.eyebrow,.admin-app-overline,.kpi .label,.metric-card>span,.club-home-metrics small,.referee-console-head small) { font-size:12px!important; font-weight:800; letter-spacing:.08em; color:var(--muted)!important; }
 body.admin-sport :is(.kpi strong,.metric-card>strong) { font-size:34px!important; color:var(--text)!important; font-variant-numeric:tabular-nums; }
 body.admin-sport :is(.kpis,.module-metrics) { display:grid!important; grid-template-columns:repeat(4,minmax(0,1fr))!important; gap:14px; }
 body.admin-sport :is(.kpi,.metric-card) { min-width:0; padding:20px; }
 body.admin-sport .actions { gap:8px; }
-body.admin-sport :is(.badge,.status-chip,.court-state-chip,.live-pill) { font-size:11px!important; border-radius:8px; letter-spacing:.02em; padding:5px 9px; }
+body.admin-sport :is(.badge,.status-chip,.court-state-chip,.live-pill) { font-size:12px!important; border-radius:8px; letter-spacing:.02em; padding:5px 9px; }
 body.admin-sport :is(.badge.live,.status-chip.success,.live-pill,.court-state-chip.live) { background:#183e2b!important; color:#83e1ac!important; }
 body.admin-sport :is(.badge.wait,.status-chip.warning,.court-state-chip.called) { background:#3f341b!important; color:#f7d584!important; }
 body.admin-sport :is(.badge.done,.court-state-chip) { background:var(--surface-2)!important; color:var(--muted)!important; }
@@ -93,10 +94,10 @@ body.admin-sport .status-chip.danger { background:#3a2023!important; color:#ffac
 body.admin-sport :is(.field,.score-options label) { font-size:12px!important; color:var(--muted)!important; font-weight:650; }
 body.admin-sport :is(.field input,.field select,.field textarea,.filters input,.filters select,.score-options select,.attendance-add select,.draw-group-row select,.draw-manual-list select,.quick-set-row input) {
   min-height:46px!important; max-width:100%; min-width:0; padding:10px 12px;
-  background:#0f1913!important; color:var(--text)!important; border:1px solid var(--line)!important;
+  background:#354f40!important; color:var(--text)!important; border:1px solid var(--line)!important;
   border-radius:12px!important; font-size:14px!important; color-scheme:dark;
 }
-body.admin-sport input::placeholder,body.admin-sport textarea::placeholder { color:#8ca292; opacity:1; }
+body.admin-sport input::placeholder,body.admin-sport textarea::placeholder { color:#d0ded4; opacity:1; }
 body.admin-sport input:is([type=checkbox],[type=radio]) { min-height:0!important; width:18px!important; height:18px; accent-color:var(--accent); }
 body.admin-sport :is(.field,.score-options) label:has(input:is([type=checkbox],[type=radio])),
 body.admin-sport label.field:has(input:is([type=checkbox],[type=radio])) { min-height:44px; align-content:center; }
@@ -105,20 +106,20 @@ body.admin-sport .table-wrap,body.admin-sport .standing-table-wrap { overflow:au
 body.admin-sport .table { min-width:860px; border-collapse:collapse; }
 body.admin-sport .table td:first-child { min-width:220px; }
 body.admin-sport .table :is(th,td) { border-color:var(--line)!important; text-align:left; padding:14px 16px; }
-body.admin-sport .table th { color:var(--muted)!important; background:#0f1913!important; font-size:11px!important; letter-spacing:.06em; }
+body.admin-sport .table th { color:var(--muted)!important; background:#354f40!important; font-size:12px!important; letter-spacing:.06em; }
 body.admin-sport .table td { background:transparent; color:var(--text)!important; font-size:14px!important; line-height:1.45; }
 body.admin-sport .table tbody tr { background:var(--surface)!important; }
 body.admin-sport .table tbody tr:hover { background:var(--surface-2)!important; }
 body.admin-sport .table td .actions { flex-wrap:nowrap; }
 body.admin-sport .table td .mini { white-space:nowrap; }
 body.admin-sport .standing-row { min-width:640px; font-size:14px; border-color:var(--line); }
-body.admin-sport .standing-row.head { font-size:11px; }
+body.admin-sport .standing-row.head { font-size:12px; }
 body.admin-sport .bracket { max-width:100%; overflow:auto; padding:8px 0 18px; }
 body.admin-sport :is(.tournament-bracket-preview,.bracket-ui-shell,.bracket-container) { max-width:100%; overflow:auto; }
 body.admin-sport .bracket-team { font-size:14px!important; color:var(--text)!important; }
 body.admin-sport .bracket-team.win { color:#83e1ac!important; background:#183e2b!important; }
-body.admin-sport :is(.round>h3,.bracket-match-meta,.bracket-section-title>span) { font-size:11px!important; color:var(--muted)!important; }
-body.admin-sport .bracket-match-meta b { font-size:11px!important; }
+body.admin-sport :is(.round>h3,.bracket-match-meta,.bracket-section-title>span) { font-size:12px!important; color:var(--muted)!important; }
+body.admin-sport .bracket-match-meta b { font-size:12px!important; }
 body.admin-sport :is(.bracket-plan-note,.bracket-plan-empty) { background:var(--surface-2)!important; color:var(--muted)!important; border-color:var(--line)!important; font-size:12px; }
 body.admin-sport :is(.team strong,.club-card h3,.booking-main h3,.tour-body h3,.activity-item strong,.account-row b) { color:var(--text)!important; font-size:15px!important; }
 body.admin-sport :is(.match-top,.vs,.booking-time span,.club-stat span,.account-row small) { color:var(--muted)!important; font-size:12px!important; }
@@ -127,7 +128,7 @@ body.admin-sport :is(.club-monogram,.metric-icon,.club-event-date) { background:
 body.admin-sport .club-event-home-row:hover { background:var(--surface-2); }
 body.admin-sport .club-event-home-row strong { font-size:14px; }
 body.admin-sport .club-event-home-row em { font-size:12px; }
-body.admin-sport .tour-cover { background:linear-gradient(135deg,#1b3926,#102014)!important; border-bottom:1px solid var(--line); }
+body.admin-sport .tour-cover { background:var(--surface-2)!important; border-bottom:1px solid var(--line); }
 body.admin-sport .tour-meta-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
 body.admin-sport .tour-meta-grid :is(small,b) { display:block; }
 body.admin-sport .tour-meta-grid b { color:var(--text); font-size:14px; }
@@ -136,22 +137,23 @@ body.admin-sport .tour-title-button:hover { color:var(--accent)!important; }
 body.admin-sport :is(.empty,.module-empty) { color:var(--muted)!important; background:var(--surface-2)!important; border-color:var(--line)!important; font-size:14px; padding:28px 18px; border-radius:12px; }
 body.admin-sport :is(.content-cover-placeholder,.sponsor-placeholder,.rule-summary span) { background:var(--surface-2)!important; color:var(--muted); }
 body.admin-sport .rule-summary span { font-size:12px; }
-body.admin-sport :is(.rank-badge,.qualify-status) { font-size:11px!important; }
-body.admin-sport :is(.toast,.pwa-toast) { background:var(--surface-2); color:var(--text); border:1px solid var(--line); font-size:13px; }
+body.admin-sport :is(.rank-badge,.qualify-status) { font-size:12px!important; }
+body.admin-sport :is(.toast,.pwa-toast) { background:var(--surface-2); color:var(--text); border:1px solid var(--line); font-size:14px; }
 body.admin-sport .report-ring { background:radial-gradient(closest-side,var(--surface) 76%,transparent 78%),conic-gradient(var(--accent) 0 calc(var(--p,0) * 1%),var(--surface-2) 0); }
 
 /* Dashboard: a quiet court-green canvas with lime reserved for action. */
 body.admin-sport .sport-dashboard { display:grid; gap:22px; }
 body.admin-sport .sport-dashboard>:is(.club-home-hero,.club-home-actions,.club-home-metrics) { margin-bottom:0!important; }
 body.admin-sport .club-home-hero {
-  min-height:174px; margin-bottom:22px; padding:28px!important; border:1px solid #3a5035;
-  border-radius:20px!important; background:linear-gradient(115deg,#1a3021,#112016)!important;
+  min-height:174px; margin-bottom:22px; padding:28px!important; border:1px solid #7c9b87;
+  border-radius:20px!important; background:var(--surface)!important;
   box-shadow:none!important;
 }
 body.admin-sport .club-home-hero h2 { font-size:32px!important; color:var(--text); line-height:1.15; }
-body.admin-sport .club-home-hero p { font-size:14px!important; color:#c4d7c5!important; white-space:normal!important; max-width:650px!important; }
-body.admin-sport .club-home-live { width:86px; height:86px; border-radius:18px; background:#0b111080!important; border-color:var(--line)!important; }
-body.admin-sport .club-home-live span { font-size:11px; color:#83e1ac; letter-spacing:0; text-align:center; white-space:nowrap; }
+body.admin-sport .club-home-hero:after {display:none!important}
+body.admin-sport .club-home-hero p { font-size:14px!important; color:#d0ded4!important; white-space:normal!important; max-width:650px!important; }
+body.admin-sport .club-home-live { width:86px; height:86px; border-radius:18px; background:#10191480!important; border-color:var(--line)!important; }
+body.admin-sport .club-home-live span { font-size:12px; color:#83e1ac; letter-spacing:0; text-align:center; white-space:nowrap; }
 body.admin-sport .club-home-actions { display:grid!important; grid-template-columns:repeat(4,minmax(0,1fr))!important; gap:14px!important; margin:0 0 22px!important; padding:0!important; overflow:visible!important; }
 body.admin-sport .club-home-actions button {
   min-width:0!important; width:auto; padding:20px!important; border-radius:16px!important;
@@ -170,7 +172,7 @@ body.admin-sport .sport-metric { min-width:0; }
 body.admin-sport .sport-section-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
 body.admin-sport .sport-section-heading :is(h2,p) { margin:0; }
 body.admin-sport .athlete-identity { display:flex; gap:12px; align-items:center; min-width:0; }
-body.admin-sport .athlete-avatar { width:44px; height:44px; flex:0 0 44px; display:grid; place-items:center; object-fit:cover; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); color:var(--accent); font-size:13px; font-weight:800; }
+body.admin-sport .athlete-avatar { width:44px; height:44px; flex:0 0 44px; display:grid; place-items:center; object-fit:cover; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); color:var(--accent); font-size:14px; font-weight:800; }
 body.admin-sport .athlete-meta { min-width:0; }
 body.admin-sport .athlete-meta :is(strong,b) { display:block; font-size:15px!important; color:var(--text); }
 body.admin-sport .table .athlete-meta :is(strong,b) { white-space:nowrap; }
@@ -192,7 +194,7 @@ body.admin-sport .score-board { padding:12px; background:var(--bg)!important; bo
 body.admin-sport .team-row { background:var(--surface-2)!important; border-color:var(--line)!important; color:var(--text)!important; }
 body.admin-sport .team-row strong { color:var(--text)!important; font-size:15px; }
 body.admin-sport .score-control span { color:var(--text)!important; }
-body.admin-sport .score-control button { color:var(--accent)!important; background:#273a28!important; font-size:24px!important; }
+body.admin-sport .score-control button { color:var(--accent)!important; background:#354f40!important; font-size:24px!important; }
 body.admin-sport :is(.referee-console,.referee-console-head>div,.score-options) { background:var(--surface-2)!important; border:1px solid var(--line)!important; color:var(--muted)!important; box-shadow:none!important; }
 body.admin-sport .referee-console-head strong { color:var(--text)!important; }
 body.admin-sport .referee-console-head>div { background:var(--surface)!important; }
@@ -203,19 +205,19 @@ body.admin-sport .quick-score-card h3 { flex-wrap:wrap; gap:8px; }
 body.admin-sport .quick-score-card h3 small { color:#83e1ac!important; }
 body.admin-sport .quick-set-row { min-width:0; }
 body.admin-sport .quick-set-row span { color:var(--muted); font-size:12px; }
-body.admin-sport :is(.quick-set-row input,.quick-score-a,.quick-score-b) { background:var(--bg)!important; color:var(--text)!important; border-color:var(--line)!important; }
+body.admin-sport :is(.quick-set-row input,.quick-score-a,.quick-score-b) { background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line-strong)!important; }
 body.admin-sport .score-note { font-size:12px; }
 body.admin-sport :is(.set-chip,.score-lead-tip) { background:#183e2b; border-color:#35684c; color:#a8ecc1; font-size:12px; }
 body.admin-sport :is(.player-picker-slot,.player-picker-result,.player-picker-selected) { background:var(--surface-2)!important; color:var(--text)!important; border-color:var(--line)!important; }
 body.admin-sport .player-picker-result { min-height:60px; padding:12px; }
-body.admin-sport .player-picker-result:hover { background:#263829!important; border-color:#829b4a!important; }
+body.admin-sport .player-picker-result:hover { background:#45634f!important; border-color:#829b4a!important; }
 body.admin-sport .player-picker-person strong { font-size:15px; color:var(--text); }
-body.admin-sport .player-picker-avatar { background:#33452c; color:var(--accent); }
+body.admin-sport .player-picker-avatar { background:#354f40; color:var(--accent); }
 body.admin-sport .player-picker-selected { border-color:#638645!important; }
 body.admin-sport .player-picker-empty { background:#3f341b; color:#f7d584; }
-body.admin-sport .tournament-control-hero { border:1px solid #3a5035; background:#102014; padding:20px; }
+body.admin-sport .tournament-control-hero { border:1px solid #7c9b87; background:var(--surface); padding:20px; }
 body.admin-sport .tournament-control-hero>div:first-child>b { font-size:22px; }
-body.admin-sport .tournament-control-hero>div:first-child>div { font-size:13px; color:var(--muted); opacity:1; }
+body.admin-sport .tournament-control-hero>div:first-child>div { font-size:14px; color:var(--muted); opacity:1; }
 body.admin-sport .tournament-control-hero>small { opacity:1; }
 body.admin-sport .tournament-ops-card>b { font-size:15px; }
 body.admin-sport :is(.draw-setup-overlay,.draw-wheel-overlay) { padding:12px; background:#020705c9; }
@@ -232,8 +234,8 @@ body.admin-sport .draw-setup-head :is(span,p) { font-size:12px; color:var(--mute
 body.admin-sport :is(.draw-setup-section,.draw-group-row,.draw-manual-list label,.draw-result-groups span) { background:var(--surface-2); border-color:var(--line); }
 body.admin-sport .draw-section-title { flex-wrap:wrap; }
 body.admin-sport :is(.draw-section-title b,.draw-group-row b,.draw-manual-list b) { font-size:14px; }
-body.admin-sport .draw-court-chips span { display:flex; align-items:center; min-height:44px; background:var(--surface); border-color:var(--line); color:var(--muted); font-size:13px; }
-body.admin-sport .draw-court-chips input:checked+span { background:#34452b; color:var(--accent); border-color:#829b4a; box-shadow:none; }
+body.admin-sport .draw-court-chips span { display:flex; align-items:center; min-height:44px; background:var(--surface); border-color:var(--line); color:var(--muted); font-size:14px; }
+body.admin-sport .draw-court-chips input:checked+span { background:#354f40; color:var(--accent); border-color:#829b4a; box-shadow:none; }
 body.admin-sport .draw-court-chips input:focus-visible+span { outline:2px solid var(--accent); outline-offset:3px; }
 body.admin-sport :is([data-draw-group-courts],[data-flex-group-courts]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 body.admin-sport .draw-group-row { min-width:0; }
@@ -278,7 +280,7 @@ body.admin-sport :is(.csv-preview,.csv-preview-row,.csv-preview-head) { backgrou
   body.admin-sport :is(.kpi,.metric-card) { padding:16px; }
   body.admin-sport .club-home-hero { min-height:156px; padding:20px!important; gap:12px; margin-bottom:18px; }
   body.admin-sport .club-home-hero h2 { font-size:26px!important; }
-  body.admin-sport .club-home-hero p { font-size:13px!important; }
+  body.admin-sport .club-home-hero p { font-size:14px!important; }
   body.admin-sport .club-home-live { width:76px; height:80px; }
   body.admin-sport .club-home-actions { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:10px!important; }
   body.admin-sport .club-home-actions button { padding:16px!important; }
@@ -297,9 +299,9 @@ body.admin-sport :is(.csv-preview,.csv-preview-row,.csv-preview-head) { backgrou
   body.admin-sport .table tr { display:table-row!important; padding:0!important; border:0!important; box-shadow:none!important; }
   body.admin-sport .table :is(th,td) { display:table-cell!important; padding:12px 14px!important; border-bottom:1px solid var(--line)!important; }
   body.admin-sport .table td:before { display:none!important; }
-  body.admin-sport .mobile-dock { left:10px; right:10px; height:74px; padding:6px; background:#15201bf5!important; border:1px solid var(--line)!important; border-radius:18px; }
-  body.admin-sport .mobile-dock button { min-height:56px; min-width:0; font-size:11px!important; color:var(--muted)!important; border-radius:12px; }
-  body.admin-sport .mobile-dock small { font-size:11px!important; line-height:1.2; }
+  body.admin-sport .mobile-dock { left:10px; right:10px; height:74px; padding:6px; background:#2a4033f5!important; border:1px solid var(--line)!important; border-radius:18px; }
+  body.admin-sport .mobile-dock button { min-height:56px; min-width:0; font-size:12px!important; color:var(--muted)!important; border-radius:12px; }
+  body.admin-sport .mobile-dock small { font-size:12px!important; line-height:1.2; }
   body.admin-sport .mobile-dock button.active { background:var(--surface-2)!important; color:var(--accent)!important; }
   body.admin-sport .mobile-dock button.active .ico-clone { color:var(--accent)!important; }
   body.admin-sport .app-fab { background:var(--accent)!important; color:var(--dark)!important; bottom:calc(98px + var(--safe-bottom)); box-shadow:0 8px 24px #0006; }
@@ -320,7 +322,7 @@ body.admin-sport :is(.csv-preview,.csv-preview-row,.csv-preview-head) { backgrou
   body.admin-sport .draw-setup-section { padding:12px; }
   body.admin-sport .draw-group-row { gap:8px; }
   body.admin-sport .draw-setup-actions { position:static; margin:16px 0 0; padding:0; display:grid; grid-template-columns:1fr; }
-  body.admin-sport .draw-setup-actions .btn { font-size:13px!important; }
+  body.admin-sport .draw-setup-actions .btn { font-size:14px!important; }
   body.admin-sport .tournament-control-actions .btn { flex:1 1 140px; }
   body.admin-sport .club-event-home-row { grid-template-columns:44px minmax(0,1fr); }
   body.admin-sport .club-event-home-row em { grid-column:2; }
@@ -342,64 +344,70 @@ body.admin-sport :is(.csv-preview,.csv-preview-row,.csv-preview-head) { backgrou
 
 
 /* Organizer workflow + tournament history v20261006 */
-body.admin-sport .organizer-flow{margin:18px 0 20px!important;background:linear-gradient(145deg,#14221b,#101913)!important;border-color:#385542!important}
+body.admin-sport .organizer-flow{margin:18px 0 20px!important;background:var(--surface)!important;border-color:#7c9b87!important}
 body.admin-sport .organizer-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
 body.admin-sport .organizer-flow-head h2{margin:4px 0 5px;color:var(--text);font-size:22px;line-height:1.2}
 body.admin-sport .organizer-flow-head p{margin:0;color:var(--muted);font-size:12px}
 body.admin-sport .organizer-flow-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-body.admin-sport .organizer-step{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;min-height:148px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#0f1813}
-body.admin-sport .organizer-step:after{content:"";position:absolute;left:31px;right:-11px;top:30px;height:2px;background:#2a3b31;z-index:0}
+body.admin-sport .organizer-step{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;min-height:148px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#354f40}
+body.admin-sport .organizer-step:after{content:"";position:absolute;left:31px;right:-11px;top:30px;height:2px;background:#7c9b87;z-index:0}
 body.admin-sport .organizer-step:last-child:after{display:none}
-body.admin-sport .organizer-step.is-done{border-color:#466746;background:linear-gradient(145deg,#13261a,#102017)}
+body.admin-sport .organizer-step.is-done{border-color:var(--accent);background:var(--surface-2)}
 body.admin-sport .organizer-step.is-done:after{background:#6e983f}
-body.admin-sport .organizer-step-no{position:relative;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#243129;color:#c6d3ca;font-size:12px;font-weight:900;border:1px solid #3c5145}
+body.admin-sport .organizer-step-no{position:relative;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#354f40;color:#e3ece6;font-size:12px;font-weight:900;border:1px solid #9ab5a3}
 body.admin-sport .organizer-step.is-done .organizer-step-no{background:var(--accent);color:var(--dark);border-color:var(--accent)}
 body.admin-sport .organizer-step>div{min-width:0;padding-top:2px}
 body.admin-sport .organizer-step>div b{display:block;color:var(--text);font-size:14px;line-height:1.25}
-body.admin-sport .organizer-step>div small{display:block;margin-top:4px;color:var(--muted)!important;font-size:10px!important;line-height:1.35}
-body.admin-sport .organizer-step .mini{grid-column:1/-1;margin-top:auto;min-height:38px!important;padding:7px 10px!important}
+body.admin-sport .organizer-step>div small{display:block;margin-top:4px;color:var(--muted)!important;font-size:12px!important;line-height:1.35}
+body.admin-sport .organizer-step .mini{grid-column:1/-1;margin-top:auto;min-height:44px!important;padding:7px 10px!important}
 body.admin-sport .dashboard-history-list{display:grid;gap:8px}
-body.admin-sport .dashboard-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#0f1913;color:var(--text);text-align:left}
-body.admin-sport .dashboard-history-list>button:hover{border-color:#496453;background:#17261e}
+body.admin-sport .dashboard-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#354f40;color:var(--text);text-align:left}
+body.admin-sport .dashboard-history-list>button:hover{border-color:#9ab5a3;background:#45634f}
 body.admin-sport .dashboard-history-list>button span{min-width:0;display:grid;gap:3px}
 body.admin-sport .dashboard-history-list>button span b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-body.admin-sport .dashboard-history-list>button strong{max-width:42%;color:var(--accent);font-size:11px;text-align:right}
+body.admin-sport .dashboard-history-list>button strong{max-width:42%;color:var(--accent);font-size:12px;text-align:right}
 body.admin-sport .dashboard-audit{margin-top:16px}
 body.admin-sport .tournament-history-section{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
 body.admin-sport .tournament-history-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-body.admin-sport .tournament-history-card{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#141f19,#101713);box-shadow:var(--shadow);cursor:pointer}
-body.admin-sport .tournament-history-card:hover{border-color:#47604f;transform:translateY(-2px)}
+body.admin-sport .tournament-history-card{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow);cursor:pointer}
+body.admin-sport .tournament-history-card:hover{border-color:#9ab5a3;transform:translateY(-2px)}
 body.admin-sport .tournament-history-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 body.admin-sport .tournament-history-top>div{min-width:0}
-body.admin-sport .tournament-history-top span:first-child{display:block;color:#89a393;font-size:9px;font-weight:900;letter-spacing:.1em}
+body.admin-sport .tournament-history-top span:first-child{display:block;color:#d0ded4;font-size:12px;font-weight:900;letter-spacing:.1em}
 body.admin-sport .tournament-history-top h3{margin:4px 0 3px;color:var(--text);font-size:17px;line-height:1.2}
-body.admin-sport .tournament-history-top p{margin:0;color:var(--muted);font-size:10px}
+body.admin-sport .tournament-history-top p{margin:0;color:var(--muted);font-size:12px}
 body.admin-sport .tournament-history-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-body.admin-sport .tournament-history-stats span{min-width:0;padding:10px;border:1px solid #283a30;border-radius:12px;background:#0d1611}
-body.admin-sport .tournament-history-stats small{display:block;color:var(--muted)!important;font-size:8px!important}
+body.admin-sport .tournament-history-stats span{min-width:0;padding:10px;border:1px solid #7c9b87;border-radius:12px;background:#354f40}
+body.admin-sport .tournament-history-stats small{display:block;color:var(--muted)!important;font-size:12px!important}
 body.admin-sport .tournament-history-stats b{display:block;margin-top:3px;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-body.admin-sport .tournament-insight{display:grid;gap:14px;padding:18px;border:1px solid #334a3b;border-radius:18px;background:linear-gradient(145deg,#132019,#0f1813)}
+body.admin-sport .tournament-insight{display:grid;gap:14px;padding:18px;border:1px solid #7c9b87;border-radius:18px;background:var(--surface)}
 body.admin-sport .tournament-insight-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-body.admin-sport .tournament-insight-head span{display:block;color:#8ca493;font-size:9px;font-weight:900;letter-spacing:.1em}
+body.admin-sport .tournament-insight-head span{display:block;color:#d0ded4;font-size:12px;font-weight:900;letter-spacing:.1em}
 body.admin-sport .tournament-insight-head h3{margin:4px 0 0;color:var(--text);font-size:19px}
-body.admin-sport .tournament-insight-head>b{padding:6px 10px;border-radius:999px;font-size:10px;white-space:nowrap}
+body.admin-sport .tournament-insight-head>b{padding:6px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
 body.admin-sport .tournament-insight-head>b.is-complete{background:#183e2b;color:#83e1ac}
 body.admin-sport .tournament-insight-head>b.is-running{background:#3f341b;color:#f7d584}
 body.admin-sport .tournament-insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
-body.admin-sport .tournament-insight-grid article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:14px;background:#0d1611}
+body.admin-sport .tournament-insight-grid article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:14px;background:#354f40}
 body.admin-sport .tournament-insight-grid article.champion{background:linear-gradient(145deg,#3a2d12,#211b0f);border-color:#6c5527}
-body.admin-sport .tournament-insight-grid small{display:block;font-size:8px!important;color:var(--muted)!important;letter-spacing:.08em}
+body.admin-sport .tournament-insight-grid small{display:block;font-size:12px!important;color:var(--muted)!important;letter-spacing:.08em}
 body.admin-sport .tournament-insight-grid strong{display:block;margin:3px 0;color:var(--text);font-size:21px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 body.admin-sport .tournament-insight-grid article.champion strong{color:#ffe28a;font-size:16px}
-body.admin-sport .tournament-insight-grid span{color:var(--muted);font-size:9px}
+body.admin-sport .tournament-insight-grid span{color:var(--muted);font-size:12px}
 body.admin-sport .tournament-stat-leaders{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:start}
 body.admin-sport .tournament-stat-leaders>div:first-child{padding-top:7px}
 body.admin-sport .tournament-stat-leaders>div:first-child b{display:block;color:var(--text);font-size:12px}
 body.admin-sport .tournament-stat-leader-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
-body.admin-sport .tournament-stat-leader{display:grid;grid-template-columns:24px minmax(0,1fr);gap:2px 7px;padding:9px 10px;border-radius:12px;background:#0d1611;border:1px solid var(--line)}
-body.admin-sport .tournament-stat-leader>span{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#24332a;color:var(--accent);font-size:9px;font-weight:900}
-body.admin-sport .tournament-stat-leader b{font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-body.admin-sport .tournament-stat-leader small{font-size:8px!important}
+body.admin-sport .tournament-stat-leader{display:grid;grid-template-columns:24px minmax(0,1fr);gap:2px 7px;padding:9px 10px;border-radius:12px;background:#354f40;border:1px solid var(--line)}
+body.admin-sport .tournament-stat-leader>span{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#2a4033;color:var(--accent);font-size:12px;font-weight:900}
+body.admin-sport .tournament-stat-leader b{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.admin-sport .tournament-stat-leader small{font-size:12px!important}
+/* Brighter operator cards and clear input edges keep dense data readable. */
+body.admin-sport :is(.field input,.field select,.field textarea,.filters input,.filters select,.score-options select,.attendance-add select,.draw-group-row select,.draw-manual-list select,.quick-set-row input) {border-color:var(--line-strong)!important}
+body.admin-sport :is(.btn.secondary,.btn.dark,.ghost) {border-color:var(--line-strong)!important}
+body.admin-sport :is(.organizer-flow-head p,.tournament-history-top p,.dashboard-history-list>button span b,.tournament-history-stats b,.tournament-stat-leader b) {font-size:14px!important}
+body.admin-sport .organizer-step-no {background:var(--surface);border-color:var(--line-strong)}
+body.admin-sport .organizer-step.is-done .organizer-step-no {background:var(--accent);border-color:var(--accent)}
 @media(max-width:980px){
   body.admin-sport .organizer-flow-track{grid-template-columns:repeat(2,minmax(0,1fr))}
   body.admin-sport .organizer-step:after{display:none}

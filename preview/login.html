@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#10281d">
+  <meta name="theme-color" content="#f4f7f4">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="../assets/app-icon-v2.svg" type="image/svg+xml">
   <title>Đăng nhập quản trị | Pickleup.vn</title>
-  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js?v=1"></script>
+<link rel="stylesheet" href="../assets/styles.css">
   <style>
     body{min-height:100dvh;display:grid;place-items:center;background:radial-gradient(circle at 20% 10%,rgba(216,255,103,.18),transparent 30%),#0d2118;padding:20px}
     .login-card{width:min(430px,100%);background:#fff;border-radius:26px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
@@ -20,9 +21,13 @@
     .security-state b{display:block;color:#173324;margin-bottom:4px}
   </style>
   <link rel="stylesheet" href="../assets/pickleup-ui.css?v=4">
+<link rel="stylesheet" href="../assets/site-sport.css?v=2">
+<link rel="stylesheet" href="../assets/site-light.css?v=1">
+<link rel="stylesheet" href="../assets/theme.css?v=1">
 </head>
-<body>
-  <main class="login-card">
+<body class="site-sport login-screen">
+<a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
+  <main class="login-card" id="site-main" tabindex="-1">
     <div class="login-brand"><img src="../assets/pickleup-logo-v2.svg" alt="Pickleup.vn" width="270" height="61" style="display:block;width:min(270px,82vw);height:auto"></div>
     <h1>Đăng nhập quản trị</h1>
     <p>Đăng nhập quản trị hoặc tài khoản trọng tài demo trên GitHub Pages.</p>
@@ -32,6 +37,7 @@
       <div id="error" class="login-error" style="min-height:18px;color:#b32b37;font-size:12px"></div>
       <button class="btn primary" type="submit">Đăng nhập</button>
     </form>
+    <a class="login-home-link" href="index.html">← Về trang chủ</a>
     <div class="security-state"><b>GitHub Pages chỉ là giao diện public</b><span style="display:block;margin-bottom:7px;opacity:.8">Bản này dùng dữ liệu demo cục bộ để kiểm tra giao diện và luồng trọng tài.</span><b>Tài khoản demo GitHub Pages</b>Email: <strong>admin@pickle.test</strong><br>Mật khẩu: <strong>ci-password-123</strong><br><span style="opacity:.8">Đây là tài khoản demo cục bộ, không phải tài khoản production.</span></div>
     <a class="mini" href="index.html" style="display:inline-block;margin-top:14px;text-decoration:none">← Về trang công khai</a>
   </main>

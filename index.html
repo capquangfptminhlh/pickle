@@ -7,17 +7,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pickleup.vn">
-  <meta name="theme-color" content="#0b7a4b">
+  <meta name="theme-color" content="#f4f7f4">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="assets/app-icon-sport-v3.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/app-icon-sport-v3.svg" sizes="192x192">
   <title>Pickleup.vn — Cộng đồng & Giải đấu Pickleball</title>
   <meta name="description" content="Cộng đồng pickleball: giải đấu, live score, bảng xếp hạng, người chơi và hoạt động thể thao trong một ứng dụng.">
-  <link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css?v=39">
+  <script src="assets/theme.js?v=1"></script>
+<link rel="stylesheet" href="assets/styles.css">  <link rel="stylesheet" href="assets/public.css?v=39">
   <link rel="stylesheet" href="assets/home-mobile.css?v=20261007-0807">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=6">
+<link rel="stylesheet" href="assets/site-sport.css?v=2">
+<link rel="stylesheet" href="assets/site-light.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=1">
 </head>
-<body class="public-body home-screen">
+<body class="public-body home-screen site-sport">
+<a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-sport-v3.svg" alt="Pickleup.vn"></a>
@@ -27,7 +32,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="site-main" tabindex="-1">
     <section class="desktop-app-hub" aria-label="Tổng quan Pickleup.vn">
       <div class="public-container">
         <div class="desktop-commandbar">

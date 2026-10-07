@@ -1,5 +1,16 @@
-const VERSION="pickleup-v31-admin-sport-20261006";
+const VERSION="pickleup-v33-theme-choice-20261007";
 const STATIC=[
+  // Offline templates request versioned URLs; cache those exact requests too.
+  "/assets/theme.js?v=1",
+  "/assets/theme.css?v=1",
+  "/assets/site-light.css?v=1",
+  "/assets/admin-light.css?v=1",
+  "/assets/site-sport.css?v=2",
+  "/assets/admin-sport.css?v=4",
+  "/assets/theme.js",
+  "/assets/theme.css",
+  "/assets/site-light.css",
+  "/assets/admin-light.css",
   "/assets/submit-mobile.css",
   "/assets/home-mobile.css",
   "/offline.html",
@@ -8,6 +19,7 @@ const STATIC=[
   "/assets/public.css",
   "/assets/pickleup-ui.css",
   "/assets/admin-sport.css",
+  "/assets/site-sport.css",
   "/assets/ui-motion.js",
   "/assets/draw-flex.js",
   "/referee.html",

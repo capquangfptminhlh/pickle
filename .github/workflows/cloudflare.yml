@@ -40,8 +40,13 @@ jobs:
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-legacy-ui.mjs
           node scripts/registry-design-ui.mjs
+          node scripts/registry-site-design-ui.mjs
+          SITE_THEME=light node scripts/registry-site-design-ui.mjs
+          DESIGN_THEME=light node scripts/registry-design-ui.mjs
+          SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
+          SITE_THEME=light SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
           DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
-          node --test scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs
+          node --test scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-theme.test.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Courtside client syntax
         run: |

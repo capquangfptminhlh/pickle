@@ -3,19 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b7a4b">
+  <meta name="theme-color" content="#f4f7f4">
   <meta name="robots" content="noindex,nofollow">
   <title>Trận đấu | Pickleup.vn</title>
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/match-live.css?v=1">
+  <script src="assets/theme.js?v=1"></script>
+<link rel="stylesheet" href="assets/match-live.css?v=1">
+<link rel="stylesheet" href="assets/site-sport.css?v=2">
+<link rel="stylesheet" href="assets/site-light.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=1">
 </head>
-<body>
+<body class="site-sport match-screen">
+<a class="site-skip-link" href="#matchApp">Đến nội dung chính</a>
   <header class="match-topbar">
     <a href="index.html" class="brand"><img src="assets/app-icon-v2.svg" alt=""><span><b>PICKLEUP.VN</b><small>LIVE MATCH</small></span></a>
     <span id="matchConnection" class="live-pill">● LIVE</span>
   </header>
 
-  <main id="matchApp" class="match-shell">
+  <main id="matchApp" class="match-shell" tabindex="-1">
     <section id="matchLoading" class="match-empty"><div>🏓</div><strong>Đang tải trận đấu...</strong></section>
     <section id="matchNotFound" class="match-empty" hidden><div>🔒</div><strong>Trận chưa được công khai</strong><span>BTC cần bật Công khai cho giải để VĐV xem bằng QR.</span><a href="index.html">Về trang giải đấu</a></section>
     <section id="matchCard" class="live-match-card" hidden>

@@ -6,14 +6,19 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0b7a4b">
+  <meta name="theme-color" content="#f4f7f4">
   <meta name="robots" content="noindex,nofollow">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
   <title>Courtside Referee | Pickleup.vn</title>
-  <link rel="stylesheet" href="assets/courtside.css?v=1">
+  <script src="assets/theme.js?v=1"></script>
+<link rel="stylesheet" href="assets/courtside.css?v=1">
+<link rel="stylesheet" href="assets/site-sport.css?v=2">
+<link rel="stylesheet" href="assets/site-light.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=1">
 </head>
-<body class="courtside-body">
+<body class="courtside-body site-sport">
+<a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
   <header class="courtside-top">
     <div class="courtside-brand">
       <img src="assets/app-icon-v2.svg" alt="">
@@ -26,7 +31,7 @@
     </div>
   </header>
 
-  <main class="courtside-main">
+  <main class="courtside-main" id="site-main" tabindex="-1">
     <section id="refSummary" class="ref-summary"></section>
     <section id="matchPicker" class="match-picker"></section>
 
