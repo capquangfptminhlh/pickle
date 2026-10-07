@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           SQL=$(cat <<'SQL'
           UPDATE tournaments
-          SET poster_url='/assets/tournaments/pickleup-tour-binh-loi-20261015-v2.svg?v=3',
+          SET poster_url='/assets/tournaments/pickleup-tour-binh-loi-20261015-original.webp?v=4',
               public_visible=1,status='registration',is_featured=1,featured_rank=100,
               updated_at=datetime('now')
           WHERE id='tour-pickleup-binh-loi-20261015';
@@ -46,7 +46,7 @@ jobs:
             '2026-10-11T09:00:00.000Z','2026-10-11T11:00:00.000Z','registration',1,1,90,
             'Hậu / Khoa','0968976902 / 0947669929','',
             'Vô địch: 1.000.000đ + 3 cup + 3 huy chương + quà NTT (nếu có); Á quân: 500.000đ + 3 cup + 3 huy chương + quà NTT; Hạng ba: 300.000đ + 3 cup + 3 huy chương + quà NTT',
-            '200.000đ / VĐV','/assets/tournaments/xe-tui-mu-mlp-chi-dep-20261011.svg?v=3','free',
+            '200.000đ / VĐV','/assets/tournaments/xe-tui-mu-mlp-chi-dep-20261011-original.webp?v=4','free',
             datetime('now'),datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
