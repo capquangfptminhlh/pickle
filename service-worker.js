@@ -49,7 +49,6 @@ async function cacheCore(){
 }
 
 self.addEventListener("install",event=>{
-  self.skipWaiting();
   event.waitUntil(cacheCore());
 });
 
@@ -80,8 +79,8 @@ self.addEventListener("fetch",event=>{
   if(req.mode==="navigate"){
     event.respondWith(
       fetch(new Request(req.url,{headers:req.headers,credentials:req.credentials,redirect:"follow"})).then(async res=>{
-        if(res.ok){try{const c=await caches.open(VERSION);await c.put(req,res.clone());}catch(_){}}
-        return res;
+        if(res.ok){try{const c=await caches.open(VERSION);await c.put(req,res.clone());}catch(_){}return res;}
+        return (await caches.match(req))||(await caches.match("/offline.html"))||res;
       }).catch(async()=>(await caches.match(req))||(await caches.match("/offline.html"))||new Response("<!doctype html><title>Offline</title><p>Mạng không khả dụng.</p>",{status:503,headers:{"Content-Type":"text/html; charset=utf-8"}}))
     );
     return;
