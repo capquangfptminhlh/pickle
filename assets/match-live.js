@@ -25,7 +25,7 @@
       serve.hidden=false;serve.textContent="🏓 Đang giao: "+(m.servingSide==="A"?team(m.a):team(m.b))+(d?.scoringMode==="side_out"?" · Server "+Number(m.serverNumber||2):"");
     }else serve.hidden=true;
     $("#matchUpdated").textContent="Cập nhật "+new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    $("#tournamentLink").href=t?"tournament.html?id="+encodeURIComponent(t.id):"index.html";
+    $("#tournamentLink").href=t?"tournament.html?id="+encodeURIComponent(t.id):"/";
     document.title=(team(m.a)+" vs "+team(m.b))+" | Pickleup.vn";
   }
   async function refresh(){

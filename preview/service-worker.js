@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v25-nav-redirect-fix-20261007";
+const VERSION="pickleup-preview-v26-redirect-safe-20261007";
 const CORE=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
@@ -47,7 +47,14 @@ self.addEventListener("fetch",event=>{
   if(req.mode==="navigate"){
     event.respondWith(
       fetch(new Request(req.url,{headers:req.headers,credentials:req.credentials,redirect:"follow"})).then(async res=>{
-        if(res.ok){try{const cache=await caches.open(VERSION);await cache.put(req,res.clone());}catch(_){}return res;}
+        if(res.ok){
+          let finalRes=res;
+          if(res.redirected){
+            finalRes=new Response(res.body,{status:res.status,statusText:res.statusText,headers:res.headers});
+          }
+          try{const cache=await caches.open(VERSION);await cache.put(req,finalRes.clone());}catch(_){}
+          return finalRes;
+        }
         return (await caches.match(req))||(await caches.match("./offline.html"))||res;
       }).catch(async()=>(await caches.match(req))||(await caches.match("./offline.html"))||new Response("<!doctype html><title>Offline</title><p>Mạng không khả dụng.</p>",{status:503,headers:{"Content-Type":"text/html; charset=utf-8"}}))
     );

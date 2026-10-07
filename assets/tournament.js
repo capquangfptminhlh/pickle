@@ -29,7 +29,7 @@ function render(){
  if(!t){
    if(!$("#tourUnavailable")){
      const unavailable=document.createElement("section");unavailable.id="tourUnavailable";unavailable.className="public-section";unavailable.setAttribute("role","status");
-     unavailable.innerHTML='<div class="public-container app-empty-card"><h1>Không tìm thấy giải</h1><p>Giải không tồn tại hoặc chưa được công khai.</p><a class="btn primary" href="index.html">Về trang chủ</a></div>';
+     unavailable.innerHTML='<div class="public-container app-empty-card"><h1>Không tìm thấy giải</h1><p>Giải không tồn tại hoặc chưa được công khai.</p><a class="btn primary" href="/">Về trang chủ</a></div>';
      document.querySelector(".tournament-app-main").prepend(unavailable);
    }
    document.querySelectorAll(".tournament-app-main>section,.tournament-tabs").forEach(x=>x.hidden=x.id!=="tourUnavailable");
