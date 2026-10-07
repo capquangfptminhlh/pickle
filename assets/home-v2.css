@@ -372,7 +372,8 @@ html[data-theme="dark"] body.home-v2 #publicTours .tour-venue-line b,
 html[data-theme="dark"] body.home-v2 #publicTours .tour-card-footer>span:first-child b{
   color:#f4f8ff!important;
 }
-html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-card{\n  background:#31495f!important;
+html[data-theme="dark"] body.home-v2 #publicTopPlayers .top-player-card{
+  background:#31495f!important;
   border-color:#536b82!important;
   color:#f5f9ff!important;
 }
