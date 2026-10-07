@@ -9,6 +9,7 @@ html[data-theme="light"] body.admin-sport {
   --pu-green:#047857; --pu-green-soft:#f1f5f9; --pu-dark:var(--dark);
   --shadow:0 4px 20px -2px rgba(15,23,42,.06); --shadow-lg:0 20px 70px rgba(15,23,42,.15);
   background:var(--bg)!important; color:var(--text)!important; color-scheme:light;
+  overflow-y:visible!important; overflow-x:clip!important; overscroll-behavior-y:auto!important;
 }
 html[data-theme="light"] body.admin-sport ::selection { background:#c7ed9e; color:var(--text); }
 html[data-theme="light"] body.admin-sport :is(button,a,input,select,textarea,[tabindex]):focus-visible {

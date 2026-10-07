@@ -1325,8 +1325,8 @@ linear-gradient(145deg,#06251b,#073629 58%,#051c16);color:#fff;border:1px solid 
 
 /* TOURNAMENT MOBILE SCROLL SAFETY V30 */
 html:has(body.tournament-app-page){height:auto!important;min-height:100%!important;overflow-y:auto!important;overscroll-behavior-y:auto!important}
-body.tournament-app-page{position:static!important;height:auto!important;min-height:100vh!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:auto!important;touch-action:auto!important;-webkit-overflow-scrolling:touch!important}
-body.tournament-app-page.route-leaving{overflow-y:auto!important}
+body.tournament-app-page{position:static!important;height:auto!important;min-height:100vh!important;overflow-x:clip!important;overflow-y:visible!important;overscroll-behavior-y:auto!important;touch-action:auto!important;-webkit-overflow-scrolling:touch!important}
+body.tournament-app-page.route-leaving{overflow-y:visible!important}
 .tournament-app-page .tournament-app-main{height:auto!important;min-height:100vh!important;overflow:visible!important}
 .tournament-app-page #knockout,.tournament-app-page #schedule,.tournament-app-page #participants,.tournament-app-page #standings{height:auto!important;max-height:none!important}
 .tournament-app-page #tourBracket,.tournament-app-page .court-board-grid{
@@ -1346,7 +1346,7 @@ body.tournament-app-page.route-leaving{overflow-y:auto!important}
 
 /* PLAYER PROFILE MOBILE ALIGNMENT V31 */
 html:has(body.player-profile-page){height:auto!important;min-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:auto!important}
-body.player-profile-page{position:static!important;height:auto!important;min-height:100vh!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:auto!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
+body.player-profile-page{position:static!important;height:auto!important;min-height:100vh!important;max-height:none!important;overflow-x:clip!important;overflow-y:visible!important;overscroll-behavior-y:auto!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
 .player-profile-page #playerRoot{position:static!important;width:100%!important;height:auto!important;min-height:calc(100vh - 64px)!important;max-height:none!important;overflow:visible!important}
 .player-profile-page .player-section-tight{height:auto!important;max-height:none!important;overflow:visible!important}
 .player-profile-page .player-layout,.player-profile-page .player-layout>div,.player-profile-page .player-layout>aside{min-width:0!important;max-width:100%!important}
@@ -1376,7 +1376,7 @@ body.player-profile-page{position:static!important;height:auto!important;min-hei
 }
 
 /* PUBLIC MOBILE SCROLL + ALIGN AUDIT V32 */
-html{overflow-x:hidden}
+html{overflow-y:auto;overflow-x:hidden}
 body.public-body{
   position:static!important;
   width:100%!important;
@@ -1384,13 +1384,13 @@ body.public-body{
   min-height:100vh!important;
   height:auto!important;
   max-height:none!important;
-  overflow-x:hidden!important;
-  overflow-y:auto!important;
+  overflow-x:clip!important;
+  overflow-y:visible!important;
   overscroll-behavior-y:auto!important;
   touch-action:pan-y!important;
   -webkit-overflow-scrolling:touch!important;
 }
-body.public-body.route-leaving{overflow-y:auto!important;touch-action:pan-y!important}
+body.public-body.route-leaving{overflow-y:visible!important;touch-action:pan-y!important}
 body.public-body main{height:auto!important;max-height:none!important;overflow:visible!important}
 @media(max-width:760px){
   body.public-body{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))!important}

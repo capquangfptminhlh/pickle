@@ -22,6 +22,7 @@ body.site-sport.site-sport:not(.admin-sport) {
   --green:#4ade80; --green2:#22c55e; --blue:#93c5fd; --yellow:#fde047; --purple:#c084fc;
   --shadow:var(--pu-shadow-sm);
   margin:0; min-height:100vh; max-width:100%;
+  overflow-y:visible!important; overflow-x:clip!important; overscroll-behavior-y:auto!important;
   background:var(--pu-bg)!important;
   color:var(--pu-ink)!important; color-scheme:dark;
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;

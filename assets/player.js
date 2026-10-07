@@ -9,8 +9,8 @@ function unlockPlayerScroll(){
   document.body.style.height="auto";
   document.body.style.minHeight="100vh";
   document.body.style.maxHeight="none";
-  document.body.style.overflowX="hidden";
-  document.body.style.overflowY="auto";
+  document.body.style.overflowX="clip";
+  document.body.style.overflowY="visible";
   document.body.style.touchAction="pan-y";
 }
 unlockPlayerScroll();

@@ -1,6 +1,7 @@
 /* Admin-only visual layer. Load after both shared stylesheets.
    Scoped !important declarations intentionally win over the legacy UI layer
    and fixed light inline styles in operator templates. */
+html { overflow-y:auto!important; overflow-x:hidden!important; }
 body.admin-sport {
   --bg:#080b0a; --surface:#2e3431; --surface-2:#242a27; --surface-3:#242a27;
   --text:#f8fafc; --muted:#cbd5e1; --line:#4e5853;
@@ -12,6 +13,7 @@ body.admin-sport {
   --shadow:0 8px 28px rgba(0,0,0,.4); --shadow-lg:0 24px 80px rgba(0,0,0,.6);
   background:var(--bg)!important; color:var(--text)!important;
   font-size:15px!important; line-height:1.5; color-scheme:dark;
+  overflow-y:visible!important; overflow-x:clip!important; overscroll-behavior-y:auto!important;
   overflow-wrap:break-word;
 }
 body.admin-sport ::selection { background:#d9ff6340; }
@@ -102,7 +104,7 @@ body.admin-sport input:is([type=checkbox],[type=radio]) { min-height:0!important
 body.admin-sport :is(.field,.score-options) label:has(input:is([type=checkbox],[type=radio])),
 body.admin-sport label.field:has(input:is([type=checkbox],[type=radio])) { min-height:44px; align-content:center; }
 body.admin-sport :is(.security-note,.special-result-box,.attendance-add,.quick-score-card) { background:var(--surface-2)!important; border-color:var(--line)!important; color:var(--muted)!important; }
-body.admin-sport .table-wrap,body.admin-sport .standing-table-wrap { overflow:auto!important; max-width:100%; min-width:0; background:var(--surface)!important; border:1px solid var(--line); border-radius:14px; }
+body.admin-sport .table-wrap,body.admin-sport .standing-table-wrap { overflow-x:auto!important; overflow-y:visible!important; max-width:100%; min-width:0; background:var(--surface)!important; border:1px solid var(--line); border-radius:14px; }
 body.admin-sport .table { min-width:860px; border-collapse:collapse; }
 body.admin-sport .table td:first-child { min-width:220px; }
 body.admin-sport .table :is(th,td) { border-color:var(--line)!important; text-align:left; padding:14px 16px; }

@@ -4,7 +4,8 @@ function unlockTournamentScroll(){
   document.body.classList.remove("app-drawer-open","route-leaving");
   document.body.style.position="static";
   document.body.style.height="auto";
-  document.body.style.overflowY="auto";
+  document.body.style.overflowY="visible";
+  document.body.style.overflowX="clip";
   document.body.style.touchAction="auto";
 }
 unlockTournamentScroll();

@@ -116,13 +116,14 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,
   --pu-ease:cubic-bezier(.2,.7,.2,1);
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;background:var(--pu-bg);overflow-x:hidden}
+html{scroll-behavior:smooth;background:var(--pu-bg);overflow-y:auto;overflow-x:hidden}
 body{
   background:
     radial-gradient(circle at 7% -8%,rgba(11,150,96,.045),transparent 28%),
     var(--pu-bg)!important;
   color:var(--pu-ink);
-  overflow-x:hidden;
+  overflow-y:visible;
+  overflow-x:clip;
   text-rendering:optimizeLegibility;
   -webkit-font-smoothing:antialiased;
 }

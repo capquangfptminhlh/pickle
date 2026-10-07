@@ -47,6 +47,7 @@ html[data-theme="light"] body.site-sport.site-sport:not(.admin-sport) {
   --yellow:#854d0e;
   --purple:#6b21a8;
   --shadow:var(--pu-shadow-sm);
+  overflow-y:visible!important; overflow-x:clip!important; overscroll-behavior-y:auto!important;
   background:var(--pu-bg)!important;
   color:var(--pu-ink)!important;
   color-scheme:light;
