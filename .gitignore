@@ -15,3 +15,4 @@ cloudflare/public/
 cloudflare/.dev.vars
 .worktrees/
 ui-artifacts/
+.superpowers/
