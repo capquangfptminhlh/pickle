@@ -459,7 +459,7 @@ export async function handleOperations(request,env){
     for(const club of newClubs.values())statements.push(env.DB.prepare("INSERT INTO clubs(id,name,slug,city,active,created_at,updated_at) VALUES(?,?,?,?,1,?,?)").bind(club.id,club.name,club.slug,"",changedAt,changedAt));
     for(const plan of plans){
       statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
-        .bind(plan.teamId,p.id,plan.name,plan.clubId,Number(plan.raw.seed)||null,String(plan.raw.group||"A"),changedAt));
+        .bind(plan.teamId,p.id,plan.name,plan.clubId,Number(plan.raw.seed)||null,plan.raw.group?String(plan.raw.group):null,changedAt));
       for(const playerId of plan.playerIds)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(plan.teamId,playerId));
     }
     if(statements.length)await env.DB.batch(statements);

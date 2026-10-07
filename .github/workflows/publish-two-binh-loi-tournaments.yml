@@ -70,6 +70,11 @@ jobs:
             name='MLP Team • 3 Nữ / Team • AB–BC–CA • Bốc thăm ngẫu nhiên',
             event_type='team',format='round_robin',best_of=3,points_to_win=9,win_by_two=0,
             active=1,updated_at=datetime('now');
+
+          UPDATE teams
+          SET group_code = NULL
+          WHERE division_id = 'division-xe-tui-mu-mlp-20261011'
+            AND (SELECT COUNT(*) FROM matches WHERE division_id = 'division-xe-tui-mu-mlp-20261011') = 0;
           SQL
           )
           npx wrangler d1 execute DB --remote --command "$SQL"

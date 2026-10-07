@@ -499,7 +499,7 @@ async function handleApi(request,env){
     const id=uid(),changedAt=nowIso(),statements=[];
     const clubId=await teamClub(env,b,statements);
     statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
-      .bind(id,p.id,name,clubId,b.seed??null,String(b.group||"A"),"active",changedAt));
+      .bind(id,p.id,name,clubId,b.seed??null,b.group?String(b.group):null,"active",changedAt));
     for(const playerId of roster.ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
     await env.DB.batch(statements);
     const row=await one(env,"SELECT * FROM teams WHERE id=?",id);
