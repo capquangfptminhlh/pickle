@@ -1,11 +1,11 @@
-const VERSION="pickleup-v40-relay-team-size-20261008";
+const VERSION="pickleup-v41-mobile-width-20261008";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",
   "/assets/site-light.css?v=1",
   "/assets/admin-light.css?v=2",
-  "/assets/site-sport.css?v=4",
+  "/assets/site-sport.css?v=5",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=54",

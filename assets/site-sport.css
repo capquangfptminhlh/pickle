@@ -418,6 +418,9 @@ body.site-sport.site-sport:not(.admin-sport) .qr-image {background:#fff!importan
    clipping the right edge of the hero card, quick tiles and sponsor strip. */
 @media(max-width:760px){
   body.site-sport.site-sport :is(.mobile-app-dashboard,.sponsor-strip-section)>.public-container{width:auto!important;max-width:none!important}
+  /* Same 100%-plus-margins overflow on other pages (e.g. the about hero). Player
+     profiles size their containers with calc() and are left alone. */
+  body.site-sport.site-sport:not(.player-profile-page) .public-container{width:auto!important}
   /* Section action buttons stretched to the row height with text stuck at the top. */
   body.site-sport.site-sport .section-title .btn.mini{display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center!important;height:auto!important;min-height:44px!important}
   /* Tournament tabs scroll sideways; fade the edge so the hidden tabs are discoverable. */
