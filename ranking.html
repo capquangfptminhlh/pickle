@@ -17,22 +17,22 @@
 <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/public.css?v=32">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=5">
-<link rel="stylesheet" href="assets/site-sport.css?v=3">
+<link rel="stylesheet" href="assets/site-sport.css?v=4">
 <link rel="stylesheet" href="assets/site-light.css?v=1">
-<link rel="stylesheet" href="assets/theme.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=2">
 </head>
 <body class="public-body community-public ranking-app-page site-sport">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
 <header class="public-header community-appbar">
   <div class="public-container public-nav">
     <a class="public-brand" href="/" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-v2.svg" alt="Pickleup.vn"></a>
-    <nav><a href="/#community">Cộng đồng</a><a href="/#tournaments">Giải đấu</a><a href="/ranking.html">BXH</a><a href="/#connect">Người chơi</a></nav>
-    <a class="btn primary" href="/login">Đăng nhập quản trị</a>
+    <nav aria-label="Điều hướng chính"><a href="/#tournaments">Giải đấu</a><a href="/#live">Live</a><a href="/ranking.html" aria-current="page">BXH</a><a href="/submit-tournament.html">Đăng giải</a><a href="/about.html">Giới thiệu</a></nav>
+    <a class="btn primary" href="/#tournaments">Đăng ký giải</a>
   </div>
 </header>
 <main class="ranking-app-main" id="site-main" tabindex="-1">
   <section class="public-container ranking-app-shell">
-    <div class="ranking-app-title"><div><span>BẢNG XẾP HẠNG</span><h1>Cộng đồng Pickleball</h1><p>Rating được lấy từ dữ liệu VĐV đã xác nhận.</p></div></div>
+    <div class="ranking-app-title"><div><span>BẢNG XẾP HẠNG</span><h1>Cộng đồng Pickleball</h1><p>Điểm trình độ do BTC xếp, tự cập nhật theo kết quả thi đấu. VĐV bằng điểm được xếp cùng hạng.</p></div></div>
     <div class="ranking-tabs"><button class="active" type="button" data-rank-mode="player">Cá nhân</button><button type="button" data-rank-mode="club">CLB</button><button type="button" data-rank-mode="area">Khu vực</button></div>
     <div id="rankingPodium" class="ranking-podium"></div>
     <div class="ranking-search-panel">
@@ -46,7 +46,7 @@
     </div>
   </section>
 </main>
-<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Ranking theo dữ liệu đã xác nhận</span></div></footer>
+<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Điểm trình độ do BTC quản lý</span><a class="footer-login" href="/login">BTC đăng nhập</a></div></footer>
 <script src="/socket.io/socket.io.js"></script>
 <script src="assets/members-binh-loi-data.js"></script>
 <script src="assets/api.js?v=42"></script>

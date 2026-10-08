@@ -14,15 +14,15 @@
 <meta name="description" content="Thông tin giải, nội dung thi đấu, đội tham dự, lịch, live score, bảng xếp hạng và bracket.">
 <script src="../assets/theme.js?v=1"></script>
 <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/public.css">
-<link rel="stylesheet" href="../assets/site-sport.css?v=3">
+<link rel="stylesheet" href="../assets/site-sport.css?v=4">
 <link rel="stylesheet" href="../assets/site-light.css?v=1">
-<link rel="stylesheet" href="../assets/theme.css?v=1">
+<link rel="stylesheet" href="../assets/theme.css?v=2">
 </head>
 <body class="public-body community-public tournament-app-page site-sport">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
 <header class="public-header community-appbar"><div class="public-container public-nav">
 <a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="../assets/pickleup-logo-v2.svg?v=17" alt="Pickleup.vn" width="220" height="50" style="display:block;width:min(220px,58vw);height:auto;object-fit:contain"></a>
-<nav><a href="index.html#tournaments">Giải đấu</a><a href="index.html#live">Live Score</a><a href="ranking.html">Ranking</a><a href="about.html">Giới thiệu</a></nav><a class="btn primary" href="login.html">Đăng nhập quản trị</a>
+<nav aria-label="Điều hướng chính"><a href="index.html#tournaments" aria-current="page">Giải đấu</a><a href="index.html#live">Live</a><a href="ranking.html">BXH</a><a href="submit-tournament.html">Đăng giải</a><a href="about.html">Giới thiệu</a></nav><a class="btn primary" href="index.html#tournaments">Đăng ký giải</a>
 </div></header>
 <main class="tournament-app-main" id="site-main" tabindex="-1">
 <section class="public-container tournament-event-hero">
@@ -59,10 +59,10 @@
   </div>
 </section>
 <nav class="public-container tournament-tabs">
-  <a href="#overview">Tổng quan</a><a href="#participants">VĐV đăng ký</a><a href="#schedule">Live / Lịch</a><a href="#standings">BXH</a><a href="#knockout">Bracket</a>
+  <a href="#overview">Thể lệ</a><a href="#participants">VĐV đăng ký</a><a href="#schedule">Lịch & live</a><a href="#standings">BXH</a><a href="#knockout">Sơ đồ</a>
 </nav>
 <section id="overview" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>THÔNG TIN GIẢI</span><h2>Nội dung thi đấu</h2></div></div>
+  <div class="app-section-head"><div><span>THỂ LỆ</span><h2>Nội dung & luật thi đấu</h2></div></div>
   <div id="tourDivisions" class="tournament-division-grid"></div>
 </div></section>
 <section id="participants" class="public-section community-section"><div class="public-container">
@@ -70,19 +70,19 @@
   <div id="tourTeams" class="tournament-team-grid"></div>
 </div></section>
 <section id="schedule" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>COURTSIDE</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill">0 live</span></div>
+  <div class="app-section-head"><div><span>TRỰC TIẾP</span><h2>Lịch & Live Score</h2></div><span id="tourLiveCount" class="app-count-pill is-idle">Chưa có trận live</span></div>
   <div id="tourMatches" class="public-match-grid app-match-list"></div>
 </div></section>
 <section id="standings" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>THI ĐẤU</span><h2>Bảng xếp hạng</h2></div></div><div id="tourStandings" class="grid-2"></div>
 </div></section>
 <section id="knockout" class="public-section community-section"><div class="public-container">
-  <div class="app-section-head"><div><span>KNOCKOUT</span><h2>Bracket</h2></div></div><div id="tourBracket"></div>
+  <div class="app-section-head"><div><span>LOẠI TRỰC TIẾP</span><h2>Sơ đồ thi đấu</h2></div></div><div id="tourBracket"></div>
 </div></section>
 <section id="tourSponsorsSection" class="public-section community-section"><div class="public-container">
   <div class="app-section-head"><div><span>ĐỒNG HÀNH</span><h2>Nhà tài trợ</h2></div></div><div id="tourSponsors" class="public-sponsor-strip"></div>
 </div></section>
 </main>
-<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span></div></footer>
+<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Dữ liệu giải được cập nhật từ bàn điều hành</span><a class="footer-login" href="login.html">BTC đăng nhập</a></div></footer>
 <script src="../assets/members-binh-loi-data.js"></script><script src="preview-api.js?v=17"></script><script src="../assets/match-format.js?v=1"></script><script src="../assets/bracket-ui.js?v=35"></script><script src="../assets/tournament.js?v=50"></script><script src="../assets/ui-motion.js"></script><script src="preview-pwa.js"></script>
 </body></html>

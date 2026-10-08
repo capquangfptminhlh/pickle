@@ -2,28 +2,30 @@ const API=window.PickleAPI;
 const $=s=>document.querySelector(s);
 const NAV=[
   ["dashboard","dashboard","Tổng quan"],
+  ["matches","calendar","Lịch & trận đấu"],
+  ["scores","score","Nhập điểm"],
+  ["courts","court","Sân thi đấu"],
+  ["standings","standings","Bảng xếp hạng"],
+  ["bracket","bracket","Sơ đồ thi đấu"],
+  ["referees","whistle","Trọng tài"],
   ["tournaments","trophy","Giải đấu"],
   ["registrations","checkin","Đăng ký & Check-in"],
   ["players","users","VĐV / Rating"],
+  ["payments","payment","Thanh toán"],
   ["clubs","club","CLB"],
   ["club_events","calendar","Lịch hoạt động CLB"],
   ["club_attendance","checkin","Điểm danh CLB"],
   ["treasury","payment","Thu chi CLB"],
-  ["matches","calendar","Lịch & trận đấu"],
-  ["scores","score","Nhập điểm"],
-  ["standings","standings","Bảng xếp hạng"],
-  ["bracket","bracket","Bracket"],
-  ["courts","court","Sân thi đấu"],
   ["bookings","booking","Booking sân"],
-  ["referees","whistle","Trọng tài"],
   ["accounts","users","Tài khoản & phân quyền"],
-  ["payments","payment","Thanh toán"],
-  ["sponsors","sponsor","Sponsor"],
+  ["sponsors","sponsor","Nhà tài trợ"],
   ["content","content","Tin tức & Media"],
   ["reports","report","Báo cáo"],
   ["audit","audit","Nhật ký"],
   ["settings","settings","Cấu hình & Branding"]
 ];
+// Sidebar sections: tournament-day tools first, club and system tools below.
+const NAV_GROUP={dashboard:"Ngày thi đấu",matches:"Ngày thi đấu",scores:"Ngày thi đấu",courts:"Ngày thi đấu",standings:"Ngày thi đấu",bracket:"Ngày thi đấu",referees:"Ngày thi đấu",tournaments:"Giải đấu",registrations:"Giải đấu",players:"Giải đấu",payments:"Giải đấu",clubs:"Câu lạc bộ",club_events:"Câu lạc bộ",club_attendance:"Câu lạc bộ",treasury:"Câu lạc bộ",bookings:"Câu lạc bộ",accounts:"Hệ thống",sponsors:"Hệ thống",content:"Hệ thống",reports:"Hệ thống",audit:"Hệ thống",settings:"Hệ thống"};
 const ICONS={
   dashboard:'<path d="M4 4h6v6H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 14h6v6H4z"/>',
   trophy:'<path d="M8 3h8v3h3v2c0 3-2 5-5 5a6 6 0 0 1-2 2v3h4v2H8v-2h4v-3a6 6 0 0 1-2-2c-3 0-5-2-5-5V6h3V3Zm0 5V6H7v2c0 1 .4 2 1.2 2.6A8 8 0 0 1 8 8Zm8 0c0 .9-.1 1.8-.2 2.6C16.6 10 17 9 17 8V6h-1Z"/>',
@@ -155,8 +157,15 @@ async function refresh({keepDialog=false}={}){
   render();
 }
 function renderNav(){
-  $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${iconSvg(ico)}</span><span>${label}</span></button>`).join("");
+  let group="";
+  $("#nav").innerHTML=visibleNav().map(([id,ico,label])=>{
+    const heading=NAV_GROUP[id]!==group?`<div class="nav-group-label" role="presentation">${NAV_GROUP[id]||""}</div>`:"";group=NAV_GROUP[id];
+    return heading+`<button class="nav-btn ${page===id?"active":""}" data-page="${id}"><span class="ico">${iconSvg(ico)}</span><span>${label}</span></button>`;
+  }).join("");
   document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>switchAdminPage(b.dataset.page));
+  // The header pill used to say LIVE even with nothing on court.
+  const pill=$("#adminLivePill"),live=(state.matches||[]).filter(m=>m.status==="live").length;
+  if(pill){pill.innerHTML=live?`<i></i> ${live} trận live`:"Chưa có trận live";pill.classList.toggle("is-idle",!live)}
 }
 function setHeader(title,sub){$("#pageTitle").textContent=title;$("#pageSub").textContent=sub}
 function matchCard(m){

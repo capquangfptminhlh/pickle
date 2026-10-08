@@ -17,17 +17,17 @@
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/public.css?v=39">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=7">
-  <link rel="stylesheet" href="assets/site-sport.css?v=3">
+  <link rel="stylesheet" href="assets/site-sport.css?v=4">
   <link rel="stylesheet" href="assets/site-light.css?v=1">
-  <link rel="stylesheet" href="assets/theme.css?v=1">
+  <link rel="stylesheet" href="assets/theme.css?v=2">
 </head>
 <body class="public-body site-sport">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="/" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-sport-v3.svg" alt="Pickleup.vn"></a>
-      <nav><a href="#news">Cộng đồng</a><a href="#tournaments">Giải đấu</a><a href="/ranking.html">BXH</a><a href="#top-players">Người chơi</a><a href="#live">Live</a></nav>
-      <a class="btn primary" href="/login">Đăng nhập quản trị</a>
+      <nav aria-label="Điều hướng chính"><a href="#tournaments">Giải đấu</a><a href="#live">Live</a><a href="/ranking.html">BXH</a><a href="/submit-tournament.html">Đăng giải</a><a href="/about.html">Giới thiệu</a></nav>
+      <a class="btn primary" href="#tournaments">Đăng ký giải</a>
     </div>
   </header>
 
@@ -43,7 +43,7 @@
         <div class="desktop-bento">
           <article class="desktop-hero-card">
             <div class="desktop-hero-copy">
-              <span class="desktop-kicker">PICKLEBALL COMMUNITY APP</span>
+              <span class="desktop-kicker">CỘNG ĐỒNG PICKLEBALL</span>
               <h1>Kết nối. Thi đấu.<br><em>Chơi cùng cộng đồng.</em></h1>
               <p>Theo dõi giải đấu, live score, bảng xếp hạng và người chơi trong một trải nghiệm thống nhất như ứng dụng.</p>
               <div class="desktop-hero-actions"><a href="#tournaments">Khám phá giải đấu</a><a href="#news">Vào cộng đồng</a></div>
@@ -51,7 +51,7 @@
             <div class="desktop-sport-art" aria-hidden="true"><span class="sport-ball"></span><span class="sport-paddle">P</span><i></i></div>
           </article>
           <aside class="desktop-today-card">
-            <div class="desktop-today-head"><div><small>HÔM NAY</small><h2>Hoạt động nổi bật</h2></div><span class="desktop-live-badge"><i></i> LIVE</span></div>
+            <div class="desktop-today-head"><div><small>HÔM NAY</small><h2>Hoạt động nổi bật</h2></div><span class="desktop-live-badge" id="desktopLiveBadge" hidden><i></i> LIVE</span></div>
             <div class="desktop-stat-grid">
               <a href="#live"><span>Đang live</span><strong id="desktopLiveCount">0</strong><small>trận</small></a>
               <a href="#tournaments"><span>Giải đấu</span><strong id="desktopTournamentCount">0</strong><small>giải</small></a>
@@ -71,6 +71,7 @@
             <span class="eyebrow">PICKLEUP.VN</span>
             <h2>Hôm nay có gì?</h2>
             <p><span class="status-dot"></span><strong id="mobileLiveCount">0</strong> trận đang live</p>
+            <a id="mobileNextUp" class="mobile-next-up" hidden></a>
           </div>
           <div class="mobile-app-badge"><img src="assets/app-icon-sport-v3.svg" alt="Pickleup.vn"></div>
         </div>
@@ -105,41 +106,41 @@
 
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">TOURNAMENTS</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div class="section-title"><div><span class="eyebrow">LỊCH GIẢI</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
 
     <section id="top-players" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">PLAYER RATING</span><h2>Top VĐV</h2></div><a class="section-link" href="/ranking.html">Xem toàn bộ ranking →</a></div>
+        <div class="section-title"><div><span class="eyebrow">TRÌNH ĐỘ</span><h2>VĐV điểm cao</h2></div><a class="section-link" href="/ranking.html">Xem bảng xếp hạng →</a></div>
         <div id="publicTopPlayers" class="top-player-grid"></div>
       </div>
     </section>
 
     <section id="live" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">COURTSIDE</span><h2>Live Score</h2></div><p>Tự cập nhật từ màn hình nhập điểm của BTC/trọng tài từ bàn điều hành.</p></div>
+        <div class="section-title"><div><span class="eyebrow">TRỰC TIẾP</span><h2>Live Score</h2></div><p>Tỉ số cập nhật ngay khi trọng tài nhập điểm.</p></div>
         <div id="publicMatches" class="public-match-grid"></div>
       </div>
     </section>
 
     <section id="ranking" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">STANDINGS</span><h2>Bảng xếp hạng vòng bảng</h2></div><p>Xếp theo số trận thắng, hiệu số và điểm ghi.</p></div>
+        <div class="section-title"><div><span class="eyebrow">VÒNG BẢNG</span><h2>Bảng xếp hạng vòng bảng</h2></div><p>Xếp theo số trận thắng, hiệu số và điểm ghi.</p></div>
         <div id="publicStandings" class="grid-2"></div>
       </div>
     </section>
 
     <section id="bracket" class="public-section soft-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">KNOCKOUT</span><h2>Bracket</h2></div><p>Người thắng bán kết tự động lên trận chung kết.</p></div>
+        <div class="section-title"><div><span class="eyebrow">LOẠI TRỰC TIẾP</span><h2>Sơ đồ thi đấu</h2></div><p>Đội thắng tự động vào vòng tiếp theo.</p></div>
         <div id="publicBracket"></div>
       </div>
     </section>
     <section id="news" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">MEDIA</span><h2>Tin tức & cập nhật</h2></div><p>Nội dung từ BTC giải đấu.</p></div>
+        <div class="section-title"><div><span class="eyebrow">TỪ BTC</span><h2>Tin tức & cập nhật</h2></div><p>Nội dung từ BTC giải đấu.</p></div>
         <div id="publicNews" class="news-grid"></div>
       </div>
     </section>
@@ -153,7 +154,7 @@
 
   </main>
 
-  <footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span></div></footer>
+  <footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Nền tảng vận hành giải pickleball • Dữ liệu do BTC nhập</span><a class="footer-login" href="/login">BTC đăng nhập</a></div></footer>
   
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/members-binh-loi-data.js"></script>

@@ -258,7 +258,7 @@
       ctx.state.divisions.forEach(d=>{
         const match=[...document.querySelectorAll(".rules-grid .panel")].find(x=>x.querySelector("h2")?.textContent===d.name);
         if(!match||match.dataset.crud)return;match.dataset.crud="1";
-        match.insertAdjacentHTML("beforeend",'<div class="actions" style="margin-top:14px"><button class="mini" data-crud-edit-division="'+d.id+'">Sửa đầy đủ</button><button class="mini danger-mini" data-crud-delete-division="'+d.id+'">Khóa/Xóa</button></div>');
+        match.insertAdjacentHTML("beforeend",'<div class="actions" style="margin-top:14px"><button class="mini" data-crud-edit-division="'+d.id+'">Sửa luật thi đấu</button><button class="mini danger-mini" data-crud-delete-division="'+d.id+'">Khóa/Xóa</button></div>');
       });
       document.querySelectorAll("[data-crud-edit-division]").forEach(b=>b.onclick=()=>editDivision(ctx.state.divisions.find(d=>d.id===b.dataset.crudEditDivision),ctx));
       document.querySelectorAll("[data-crud-delete-division]").forEach(b=>b.onclick=()=>danger("Khóa/xóa nội dung này? Nếu đã có trận/đăng ký, lịch sử sẽ được giữ.",()=>API.deleteDivision(b.dataset.crudDeleteDivision),ctx));

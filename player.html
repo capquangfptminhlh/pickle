@@ -17,17 +17,17 @@
 <link rel="stylesheet" href="assets/styles.css?v=28">
   <link rel="stylesheet" href="assets/public.css?v=32">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=5">
-<link rel="stylesheet" href="assets/site-sport.css?v=3">
+<link rel="stylesheet" href="assets/site-sport.css?v=4">
 <link rel="stylesheet" href="assets/site-light.css?v=1">
-<link rel="stylesheet" href="assets/theme.css?v=1">
+<link rel="stylesheet" href="assets/theme.css?v=2">
 </head>
 <body class="public-body community-public player-profile-page site-sport">
 <a class="site-skip-link" href="#playerRoot">Đến nội dung chính</a>
 <header class="public-header community-appbar">
   <div class="public-container public-nav">
     <a class="public-brand" href="/" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-v2.svg" alt="Pickleup.vn" width="220" height="50" style="display:block;width:min(220px,58vw);height:auto;object-fit:contain"></a>
-    <nav><a href="/#news">Cộng đồng</a><a href="/#tournaments">Giải đấu</a><a href="/ranking.html">BXH</a><a href="/#top-players">Người chơi</a></nav>
-    <a class="btn primary" href="/ranking.html">Bảng xếp hạng</a>
+    <nav aria-label="Điều hướng chính"><a href="/#tournaments">Giải đấu</a><a href="/#live">Live</a><a href="/ranking.html" aria-current="page">BXH</a><a href="/submit-tournament.html">Đăng giải</a><a href="/about.html">Giới thiệu</a></nav>
+    <a class="btn primary" href="/#tournaments">Đăng ký giải</a>
   </div>
 </header>
 <main id="playerRoot" tabindex="-1">
@@ -35,7 +35,7 @@
     <div class="public-container player-hero-grid">
       <div class="player-avatar-wrap"><div id="playerAvatar" class="player-avatar">P</div><span class="player-online-dot"></span></div>
       <div class="player-main">
-        <span class="eyebrow">PLAYER PROFILE</span>
+        <span class="eyebrow">HỒ SƠ VĐV</span>
         <h1 id="playerName">Đang tải...</h1>
         <p id="playerMeta">—</p>
         <div class="player-rating-row"><div class="player-rating"><span>RATING</span><strong id="playerRating">0.0</strong></div><div id="playerTags" class="player-tags"></div></div>
@@ -51,14 +51,14 @@
           <section class="panel player-panel"><div class="panel-head"><div><h2>Lịch sử rating</h2><p>Các lần điều chỉnh được ghi nhận</p></div></div><div id="ratingHistory"></div></section>
         </div>
         <aside>
-          <section class="panel player-panel"><div class="panel-head"><div><h2>Partner</h2><p>Những người từng đánh cùng</p></div></div><div id="partners"></div></section>
+          <section class="panel player-panel"><div class="panel-head"><div><h2>Đồng đội</h2><p>Cùng đội trong các giải đã đăng ký</p></div></div><div id="partners"></div></section>
           <section class="panel player-panel"><div class="panel-head"><div><h2>Giải đã tham gia</h2><p>Lịch sử đội và nội dung</p></div></div><div id="tournaments"></div></section>
         </aside>
       </div>
     </div>
   </section>
 </main>
-<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Hồ sơ VĐV được quản lý bởi BTC</span></div></footer>
+<footer class="public-footer"><div class="public-container"><b>PICKLEUP.VN</b><span>Hồ sơ VĐV được quản lý bởi BTC</span><a class="footer-login" href="/login">BTC đăng nhập</a></div></footer>
 <script src="assets/members-binh-loi-data.js?v=20260926-2015"></script>
 <script src="assets/api.js?v=42"></script>
 <script src="assets/player.js?v=31"></script>

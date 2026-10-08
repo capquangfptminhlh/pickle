@@ -412,3 +412,47 @@ body.site-sport.site-sport:not(.admin-sport) .qr-image {background:#fff!importan
 @media(prefers-reduced-motion:reduce) {
   body.site-sport.site-sport:not(.admin-sport) *,body.site-sport.site-sport:not(.admin-sport) *::before,body.site-sport.site-sport:not(.admin-sport) *::after {animation:none!important; transition:none!important; scroll-behavior:auto!important}
 }
+
+/* ---- Review fixes (2026-10): layout bugs found on pickleup.vn ---- */
+/* Mobile dashboard and sponsor containers were 100% wide plus 16px margins,
+   clipping the right edge of the hero card, quick tiles and sponsor strip. */
+@media(max-width:760px){
+  body.site-sport.site-sport :is(.mobile-app-dashboard,.sponsor-strip-section)>.public-container{width:auto!important;max-width:none!important}
+  /* Section action buttons stretched to the row height with text stuck at the top. */
+  body.site-sport.site-sport .section-title .btn.mini{display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center!important;height:auto!important;min-height:44px!important}
+  /* Tournament tabs scroll sideways; fade the edge so the hidden tabs are discoverable. */
+  body.site-sport.site-sport .tournament-tabs{overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+  body.site-sport.site-sport .tournament-tabs::-webkit-scrollbar{display:none}
+  body.site-sport.site-sport .tournament-tabs a{flex:0 0 auto!important;white-space:nowrap}
+}
+/* Desktop hero: keep the paragraph clear of the decorative paddle. */
+@media(min-width:761px){
+  body.site-sport.site-sport .desktop-hero-card p{max-width:min(590px,calc(100% - 250px))!important}
+  body.site-sport.site-sport .desktop-sport-art .sport-paddle{right:120px!important}
+}
+/* Live pill: red only while matches are live, readable white text on red. */
+html body.site-sport #tourLiveCount.is-idle{background:transparent!important;color:var(--pu-muted,#64748b)!important;border:1px solid var(--pu-line,#cbd5e1)!important;box-shadow:none!important;animation:none!important}
+html body.site-sport #schedule #tourLiveCount:not(.is-idle){background:#c81e1e!important;color:#fff!important}
+/* Next tournament card shown while nothing is live. */
+html body.site-sport :is(.public-next-up,.mobile-next-up){display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:1px solid var(--pu-line,#d4dcd7);background:var(--pu-surface,#fff);color:inherit;text-decoration:none}
+html body.site-sport :is(.public-next-up,.mobile-next-up)[hidden]{display:none!important}
+html body.site-sport .public-next-up-left{flex:0 0 auto;padding:8px 12px;border-radius:12px;background:#d9ff63;color:#0b2a1d;font-weight:900;font-size:14px;white-space:nowrap}
+html body.site-sport .public-next-up>span:nth-child(2){display:grid;gap:2px;min-width:0}
+html body.site-sport .public-next-up b,html body.site-sport .mobile-next-up b{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+html body.site-sport .public-next-up em{font-style:normal;font-size:13px;opacity:.8}
+html body.site-sport .public-next-up>i{margin-left:auto;font-style:normal;font-size:24px;opacity:.6}
+html body.site-sport .mobile-next-up{flex-direction:column;align-items:flex-start;gap:2px;margin-top:10px;padding:10px 12px}
+html body.site-sport .mobile-next-up span{font-size:13px;opacity:.8}
+html body.site-sport .footer-login{font-size:13px;color:inherit;opacity:.75;text-decoration:underline;text-underline-offset:3px}
+/* Ranking tie notice replaces the podium when places 1-3 are level. */
+html body.site-sport .ranking-tie-note{grid-column:1/-1}
+/* Third-place playoff sits below the main bracket. */
+html body .bracket-third-place{margin-top:18px}
+/* Admin sidebar group headings. */
+html body.admin-sport .nav-group-label{margin:14px 12px 4px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+html body.admin-sport .nav-group-label:first-child{margin-top:4px}
+/* Organizer stepper: the connector ran through the step titles like a strikethrough;
+   keep it in the gap between cards only. */
+html body.admin-sport .organizer-step:after{left:auto!important;right:-12px!important;width:12px!important}
+html body.admin-sport .live-pill.is-idle{background:transparent!important;color:var(--muted)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+html body.admin-sport .live-pill.is-idle{background:transparent!important;color:var(--muted)!important;border:1px solid var(--line)!important;box-shadow:none!important}
