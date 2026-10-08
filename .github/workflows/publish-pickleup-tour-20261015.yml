@@ -61,22 +61,35 @@ jobs:
             sponsor_package=excluded.sponsor_package,
             updated_at=datetime('now');
 
+          -- Best of 3 to 11 (win by 2, side-out) takes 35-50 minutes on court, so
+          -- schedule 45-minute slots; the poster awards one third place, so the
+          -- semifinal losers play it off. Rules change only before any match.
           INSERT INTO divisions(
             id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,
-            advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at
+            advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,
+            third_place_match,active,updated_at
           ) VALUES(
             'division-pickleup-binh-loi-20261015','tour-pickleup-binh-loi-20261015','Đôi nam tự do • Tối đa 16 cặp',
-            'doubles','pool_to_knockout',3,11,1,2,'head_to_head','side_out',15,20,1,datetime('now')
+            'doubles','pool_to_knockout',3,11,1,2,'head_to_head','side_out',15,45,1,1,datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
             name='Đôi nam tự do • Tối đa 16 cặp',
             event_type='doubles',
             format='pool_to_knockout',
+            match_slot_minutes=45,
+            third_place_match=1,
             active=1,
-            updated_at=datetime('now');
+            updated_at=datetime('now')
+          WHERE (SELECT COUNT(*) FROM matches WHERE division_id='division-pickleup-binh-loi-20261015')=0;
           SQL
           )
           npx wrangler d1 execute DB --remote --command "$SQL"
       - name: Verify production record
         run: |
-          curl -fsS https://pickleup.vn/api/public/state | grep -q 'tour-pickleup-binh-loi-20261015'
+          BODY="$(curl -fsS https://pickleup.vn/api/public/state)"
+          grep -q 'tour-pickleup-binh-loi-20261015' <<<"$BODY"
+          node -e '
+            const d=JSON.parse(process.argv[1]).divisions.find(x=>x.id==="division-pickleup-binh-loi-20261015");
+            if(d?.matchSlotMinutes!==45||d?.thirdPlaceMatch!==true){console.error("15/10 rules not applied:",JSON.stringify(d));process.exit(1)}
+            console.log("15/10 rules OK");
+          ' "$BODY"

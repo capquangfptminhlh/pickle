@@ -58,18 +58,25 @@ jobs:
             poster_url=excluded.poster_url,sponsor_package=excluded.sponsor_package,
             updated_at=datetime('now');
 
+          -- Poster rules: one rally game, pairs AB→BC→CA rotate every 9 points
+          -- (3 players × 9 = 27), the 27th point only counts on serve, pools then
+          -- knockout with a single third place. Rules change only before any match.
           INSERT INTO divisions(
             id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,
-            advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,active,updated_at
+            advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,
+            relay_segment_points,relay_team_size,final_point_on_serve,third_place_match,active,updated_at
           ) VALUES(
             'division-xe-tui-mu-mlp-20261011','tour-xe-tui-mu-mlp-20261011',
-            'MLP Team • 3 Nữ / Team • AB–BC–CA • Bốc thăm ngẫu nhiên','team','round_robin',
-            3,9,0,1,'head_to_head','rally',10,20,1,datetime('now')
+            'MLP Team • 3 Nữ / Team • AB–BC–CA • Bốc thăm ngẫu nhiên','team','pool_to_knockout',
+            1,27,0,2,'head_to_head','rally',10,20,9,3,1,1,1,datetime('now')
           )
           ON CONFLICT(id) DO UPDATE SET
             name='MLP Team • 3 Nữ / Team • AB–BC–CA • Bốc thăm ngẫu nhiên',
-            event_type='team',format='round_robin',best_of=3,points_to_win=9,win_by_two=0,
-            active=1,updated_at=datetime('now');
+            event_type='team',format='pool_to_knockout',best_of=1,points_to_win=27,win_by_two=0,
+            advance_count=2,scoring_mode='rally',relay_segment_points=9,relay_team_size=3,
+            final_point_on_serve=1,third_place_match=1,
+            active=1,updated_at=datetime('now')
+          WHERE (SELECT COUNT(*) FROM matches WHERE division_id='division-xe-tui-mu-mlp-20261011')=0;
 
           UPDATE teams
           SET group_code = NULL
@@ -83,3 +90,10 @@ jobs:
           BODY="$(curl -fsS https://pickleup.vn/api/public/state)"
           grep -q 'tour-pickleup-binh-loi-20261015' <<<"$BODY"
           grep -q 'tour-xe-tui-mu-mlp-20261011' <<<"$BODY"
+          node -e '
+            const d=JSON.parse(process.argv[1]).divisions.find(x=>x.id==="division-xe-tui-mu-mlp-20261011");
+            const want={format:"pool_to_knockout",bestOf:1,pointsToWin:27,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,relayTeamSize:3,finalPointOnServe:true,thirdPlaceMatch:true};
+            const bad=Object.entries(want).filter(([k,v])=>d?.[k]!==v);
+            if(bad.length){console.error("MLP rules not applied:",JSON.stringify(bad.map(([k])=>[k,d?.[k]])));process.exit(1)}
+            console.log("MLP rules OK");
+          ' "$BODY"
