@@ -45,17 +45,6 @@
     });
   }
 
-  function ripple(e){
-    const btn=e.target.closest(".btn,.mini,.icon-btn,.score-control button,.nav-btn");
-    if(!btn)return;
-    const r=btn.getBoundingClientRect(),s=document.createElement("span");
-    s.className="ripple";
-    s.style.left=(e.clientX-r.left)+"px";
-    s.style.top=(e.clientY-r.top)+"px";
-    btn.appendChild(s);
-    setTimeout(()=>s.remove(),650);
-  }
-
   function buildBackdrop(){
     if(!document.querySelector("#sidebar"))return;
     let backdrop=document.querySelector(".app-backdrop");
@@ -197,6 +186,28 @@
     addEventListener("scroll",update,{passive:true});update();
   }
 
+  function syncPublicHeader(){
+    const header=document.querySelector(".public-header");
+    if(!header)return;
+    const measure=()=>document.documentElement.style.setProperty("--public-header-height",Math.ceil(header.getBoundingClientRect().height)+"px");
+    measure();
+    if("ResizeObserver" in window)new ResizeObserver(measure).observe(header);
+    else addEventListener("resize",measure,{passive:true});
+    const path=p=>p.replace(/\/index\.html$/,"/");
+    const links=$$(".public-nav nav a",header);
+    const parentLink=links.find(a=>a.hasAttribute("aria-current"));
+    const parentCurrent=parentLink?.getAttribute("aria-current");
+    const sync=()=>{
+      const samePage=links.filter(a=>{const u=new URL(a.href);return u.origin===location.origin&&path(u.pathname)===path(location.pathname)&&u.search===location.search});
+      const current=samePage.find(a=>new URL(a.href).hash===location.hash)||samePage.find(a=>!new URL(a.href).hash)||parentLink||(!location.hash?samePage.find(a=>new URL(a.href).hash):null);
+      links.forEach(a=>{
+        if(a===current)a.setAttribute("aria-current",a===parentLink?parentCurrent:new URL(a.href).hash?"location":"page");
+        else a.removeAttribute("aria-current");
+      });
+    };
+    addEventListener("hashchange",sync);addEventListener("pageshow",sync);sync();
+  }
+
   function routeTransitions(){
     if(reduced)return;
     document.addEventListener("click",e=>{
@@ -281,10 +292,13 @@
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
-    enforcePublicScrollSafety();normalizeProjectLinks();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
-    document.addEventListener("pointerdown",ripple,{passive:true});
+    enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    const finishEntry=e=>{if(e.target===document.body&&e.animationName==="routeEnterFallback")document.body.classList.remove("route-entering")};
+    document.body.addEventListener("animationend",finishEntry);document.body.addEventListener("animationcancel",finishEntry);
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
-    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});addEventListener("pageshow",enforcePublicScrollSafety);addEventListener("focus",enforcePublicScrollSafety);document.addEventListener("visibilitychange",()=>{if(!document.hidden)enforcePublicScrollSafety()});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
+    addEventListener("pageshow",e=>{document.body.classList.remove("route-leaving");if(e.persisted)document.body.classList.remove("route-entering");enforcePublicScrollSafety()});
+    addEventListener("focus",enforcePublicScrollSafety);document.addEventListener("visibilitychange",()=>{if(!document.hidden)enforcePublicScrollSafety()});
     document.addEventListener("click",e=>{
       const score=e.target.closest("[data-score]");
       if(score&&navigator.vibrate)navigator.vibrate(score.dataset.delta==="1"?7:4);

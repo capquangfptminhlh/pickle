@@ -145,11 +145,13 @@ try{
             await skip.focus();assert.ok((await skip.boundingBox()).y>=0,"skip link becomes visible on focus");
             const target=(await skip.getAttribute("href")).slice(1);await skip.press("Enter");assert.equal(await page.evaluate(()=>document.activeElement.id),target,"keyboard skip reaches main content");
           }
-          await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)});
+          await page.evaluate(()=>{document.activeElement?.blur();scrollTo({top:0,behavior:"instant"})});
         }
+        await page.evaluate(()=>document.fonts.ready);
+        await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
         const suffix=path.includes("=missing")?"-missing":path.includes("site-fixture")?"-valid":"";
-        await page.screenshot({path:resolve(artifacts,`${process.env.SITE_BASELINE?"baseline-":""}${theme}-${viewport.width}-${path.split("?")[0].replace(/[/.]/g,"-")}${suffix}.png`),fullPage:!path.startsWith("referee")});
         if(path==="index.html")await page.screenshot({path:resolve(artifacts,`${theme}-${viewport.width}-home-viewport.png`)});
+        await page.screenshot({path:resolve(artifacts,`${process.env.SITE_BASELINE?"baseline-":""}${theme}-${viewport.width}-${path.split("?")[0].replace(/[/.]/g,"-")}${suffix}.png`),fullPage:!path.startsWith("referee")});
         console.log(failures.length===previousFailures?"PASS site UI":"CHECKED site UI",label);
       }catch(e){failures.push(label+": "+e.message);console.error("FAIL",failures.at(-1));console.error("DIAGNOSTIC",JSON.stringify(await page.evaluate(()=>({url:location.href,main:[...document.querySelectorAll("main")].map(el=>({cls:el.className,display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility,rect:el.getBoundingClientRect().toJSON()}))}))))}
       finally{await context.close()}

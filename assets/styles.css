@@ -406,8 +406,8 @@ button{cursor:pointer}
 ::view-transition-new(root){animation:routeIn .24s cubic-bezier(.2,.8,.2,1) both}
 @keyframes routeOut{to{opacity:0;transform:translateY(6px) scale(.995)}}
 @keyframes routeIn{from{opacity:0;transform:translateY(10px) scale(.995)}to{opacity:1;transform:none}}
-body{transition:opacity .15s ease,transform .15s ease}
-body.route-leaving{opacity:0;transform:translateY(6px)}
+body{transition:opacity .15s ease}
+body.route-leaving{opacity:0}
 .account-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid #edf1ef}
 .account-row:last-child{border-bottom:0}.account-row b{display:block;font-size:12px}.account-row small{display:block;margin-top:3px;color:var(--muted);font-size:9px}
 .account-owner{padding:14px;border:1px solid #e4ebe7;border-radius:16px;background:#f7faf8}
@@ -488,7 +488,7 @@ html[data-nav-direction="back"]::view-transition-new(root){animation:adminNewBac
 body.route-entering{animation:routeEnterFallback .28s cubic-bezier(.2,.8,.2,1) both}
 html.no-view-transition[data-nav-direction="forward"] #content.page-swap,
 html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:contentFallback .26s cubic-bezier(.2,.8,.2,1) both}
-@keyframes routeEnterFallback{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes routeEnterFallback{from{opacity:.25}to{opacity:1}}
 @keyframes contentFallback{from{opacity:.3;transform:translateY(7px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){
   body.route-entering,html[data-nav-direction] #content.page-swap{animation:none!important}

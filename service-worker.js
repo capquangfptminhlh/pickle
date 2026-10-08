@@ -1,11 +1,13 @@
-const VERSION="pickleup-v42-timeouts-board-20261008";
+const VERSION="pickleup-v43-motion-20261008";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",
   "/assets/site-light.css?v=1",
   "/assets/admin-light.css?v=2",
-  "/assets/site-sport.css?v=7",
+  "/assets/site-sport.css?v=8",
+  "/assets/styles.css?v=2",
+  "/assets/ui-motion.js?v=33",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=55",
