@@ -458,13 +458,12 @@ html body.admin-sport .nav-group-label:first-child{margin-top:4px}
    keep it in the gap between cards only. */
 html body.admin-sport .organizer-step:after{left:auto!important;right:-12px!important;width:12px!important}
 html body.admin-sport .live-pill.is-idle{background:transparent!important;color:var(--muted)!important;border:1px solid var(--line)!important;box-shadow:none!important}
-html body.admin-sport .live-pill.is-idle{background:transparent!important;color:var(--muted)!important;border:1px solid var(--line)!important;box-shadow:none!important}
-/* Court board (TV screen): keep the toolbar on one row on wide screens; the
-   theme toggle used to drop to a second row and the event name was clipped. */
+
+/* Court board (TV screen): the brand shrinks before the toolbar, and the
+   toolbar wraps right-aligned instead of pushing controls off screen. */
 @media(min-width:1100px){
   html body.site-sport.board-body .board-header{flex-wrap:nowrap!important;gap:16px!important}
-  html body.site-sport.board-body .board-brand{flex:1 1 auto;min-width:0}
-  html body.site-sport.board-body .board-tools{flex:0 1 auto;flex-wrap:nowrap!important;gap:8px!important}
+  html body.site-sport.board-body .board-brand{flex:1 1 260px;min-width:0}
+  html body.site-sport.board-body .board-tools{flex:0 1 auto;min-width:0;flex-wrap:wrap!important;justify-content:flex-end;gap:8px!important}
   html body.site-sport.board-body .board-tools select{max-width:230px;text-overflow:ellipsis}
-  html body.site-sport.board-body .board-tools>*{flex:0 0 auto}
 }
