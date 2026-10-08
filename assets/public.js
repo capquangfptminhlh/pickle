@@ -8,7 +8,7 @@ const initials=name=>(name||"P").trim().split(/\s+/).slice(-2).map(x=>x[0]).join
 const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
 const score=(m,side)=>m.current?.[side==="a"?0:1]??0;
 const badge=s=>s==="live"?'<span class="badge live">LIVE</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':s==="open"?'<span class="badge blue">ĐANG MỞ</span>':'<span class="badge wait">SẮP ĐẤU</span>';
-const avatar=(p,cls="top-player-avatar")=>p.avatar_url?'<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="'+esc(p.full_name)+'">':'<span class="'+cls+' avatar-fallback">'+esc(initials(p.full_name))+'</span>';
+const avatar=(p,cls="top-player-avatar")=>p.avatar_url?'<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="'+esc(p.full_name)+' loading="lazy" decoding="async">':'<span class="'+cls+' avatar-fallback">'+esc(initials(p.full_name))+'</span>';
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
 // Hide a whole homepage section while it has nothing to show; inline !important
 // beats the layered public stylesheets that force display on sections.

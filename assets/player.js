@@ -23,7 +23,7 @@ const esc=s=>String(s??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'
 const fmtDate=v=>v?new Date(v).toLocaleDateString('vi-VN'):'—';
 const initials=name=>(name||'P').split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase();
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
-function avatarHtml(url,name,cls='mini-avatar'){return url?'<img class="'+cls+'" src="'+esc(url)+'" alt="'+esc(name)+'">':'<span class="'+cls+' avatar-fallback">'+esc(initials(name))+'</span>';}
+function avatarHtml(url,name,cls='mini-avatar'){return url?'<img class="'+cls+'" src="'+esc(url)+'" alt="'+esc(name)+' loading="lazy" decoding="async">':'<span class="'+cls+' avatar-fallback">'+esc(initials(name))+'</span>';}
 function scoreLabel(m){return !m.sets?.length?'—':m.sets.map(s=>s.join('–')).join(' / ');}
 function render(data){
   const p=data.profile,s=data.stats;

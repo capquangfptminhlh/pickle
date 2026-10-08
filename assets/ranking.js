@@ -2,7 +2,7 @@ let players=[],mode="player";const $=s=>document.querySelector(s),$$=s=>[...docu
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const initials=name=>(name||"P").split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase();
 const avatar=(p,cls="ranking-avatar")=>p.avatar_url
- ? '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="'+esc(p.full_name)+'">'
+ ? '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="'+esc(p.full_name)+'"'+(cls==="podium-avatar"?"":' loading="lazy"')+' decoding="async">'
  : '<span class="'+cls+' ranking-avatar-fallback">'+esc(initials(p.full_name))+'</span>';
 const avg=arr=>arr.length?arr.reduce((n,p)=>n+Number(p.rating||0),0)/arr.length:0;
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};

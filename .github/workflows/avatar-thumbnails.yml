@@ -1,0 +1,58 @@
+name: Avatar thumbnails
+
+# Backfills 384px thumbnails for player avatars stored as full phone photos
+# (the ranking page downloaded ~25MB). Originals stay in R2 untouched; new
+# uploads are already downscaled in the browser by assets/api.js.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/avatar-thumbnails.yml"
+      - "cloudflare/scripts/avatar-thumbnails.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avatar-thumbnails
+  cancel-in-progress: false
+
+jobs:
+  thumbnails:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # sharp is pinned (0.35.5) via cloudflare/package.json overrides and ships
+      # prebuilt binaries, so the locked install is enough.
+      - name: Install Worker dependencies
+        working-directory: cloudflare
+        run: npm ci --ignore-scripts
+      - name: Size report before writing
+        working-directory: cloudflare
+        run: DRY_RUN=1 node scripts/avatar-thumbnails.mjs
+      - name: Write thumbnails and repoint avatars
+        working-directory: cloudflare
+        run: node scripts/avatar-thumbnails.mjs
+      - name: Verify public avatars are small
+        run: |
+          node -e '
+            (async()=>{
+              const players=await (await fetch("https://pickleup.vn/api/public/players")).json();
+              const media=players.filter(p=>/\/api\/media\/avatars/.test(p.avatar_url||""));
+              const large=[];
+              for(const p of media){
+                const r=await fetch(p.avatar_url);
+                const size=(await r.arrayBuffer()).byteLength;
+                if(!r.ok||size>150*1024)large.push([p.id,r.status,size]);
+              }
+              if(large.length){console.error("Large or broken avatars:",JSON.stringify(large));process.exit(1)}
+              console.log("Avatars OK:",media.length);
+            })();
+          '

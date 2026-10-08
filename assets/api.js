@@ -122,6 +122,22 @@
       if(!["application/pdf","image/jpeg","image/png","image/webp"].includes(blob.type))throw new Error("INVALID_FILE_TYPE");
       return URL.createObjectURL(blob);
     },
+    // Phone photos are 1-4MB but avatars render at 40-120px: downscale before
+    // upload. Falls back to the original file if the browser cannot decode it
+    // or the re-encode is not smaller.
+    shrinkImage:async(file,{max=384,quality=.82}={})=>{
+      try{
+        if(!file||!/^image\/(jpeg|png|webp)$/.test(file.type)||typeof createImageBitmap!=="function")return file;
+        const bitmap=await createImageBitmap(file);
+        const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+        const w=Math.max(1,Math.round(bitmap.width*scale)),h=Math.max(1,Math.round(bitmap.height*scale));
+        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(bitmap,0,0,w,h);bitmap.close?.();
+        const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
+        if(!blob||blob.size>=file.size)return file;
+        return new File([blob],String(file.name||"image").replace(/\.[a-z0-9]+$/i,"")+".jpg",{type:"image/jpeg"});
+      }catch{return file}
+    },
     uploadReceipt:async(file)=>{
       const form=new FormData();form.append("receipt",file);
       const res=await fetch(apiUrl("/api/uploads/receipt"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
@@ -130,14 +146,14 @@
       return data;
     },
     uploadImage:async(file)=>{
-      const form=new FormData();form.append("image",file);
+      const form=new FormData();form.append("image",await window.PickleAPI.shrinkImage(file,{max:1600,quality:.85}));
       const res=await fetch(apiUrl("/api/uploads/image"),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
       return data;
     },
     uploadPlayerAvatar:async(playerId,file)=>{
-      const form=new FormData();form.append("avatar",file);
+      const form=new FormData();form.append("avatar",await window.PickleAPI.shrinkImage(file,{max:384,quality:.82}));
       const res=await fetch(apiUrl(`/api/players/${encodeURIComponent(playerId)}/avatar`),{method:"POST",body:form,headers:authHeaders(),credentials:API_BASE?"omit":"include"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw Object.assign(new Error(data.error||"UPLOAD_FAILED"),{status:res.status,data});
