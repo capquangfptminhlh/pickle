@@ -125,6 +125,14 @@
     // Phone photos are 1-4MB but avatars render at 40-120px: downscale before
     // upload. Falls back to the original file if the browser cannot decode it
     // or the re-encode is not smaller.
+    // Repo posters (assets/tournaments/<name>-original.jpg) ship 640/1024px
+    // WebP variants built by cloudflare/scripts/poster-variants.mjs; any other
+    // poster URL (e.g. R2 uploads) is used as is.
+    posterSources:url=>{
+      const m=/^(.*\/assets\/tournaments\/[\w-]+)-original\.jpg(?:\?.*)?$/.exec(String(url||""));
+      if(!m)return {src:url||"",srcset:""};
+      return {src:m[1]+"-640.webp",srcset:m[1]+"-640.webp 640w, "+m[1]+"-1024.webp 1024w"};
+    },
     shrinkImage:async(file,{max=384,quality=.82}={})=>{
       try{
         if(!file||!/^image\/(jpeg|png|webp)$/.test(file.type)||typeof createImageBitmap!=="function")return file;

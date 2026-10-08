@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v28-tournament-20261008-avatars";
+const VERSION="pickleup-preview-v28-tournament-20261008-avatars-posters";
 const CORE=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
@@ -9,7 +9,7 @@ const CORE=[
   "../assets/styles.css?v=2",
   "../assets/ui-motion.js?v=34",
   "../assets/tournament-detail.css?v=1",
-  "../assets/tournament.js?v=51",
+  "../assets/tournament.js?v=52",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
   "../assets/admin-app.js?v=56",

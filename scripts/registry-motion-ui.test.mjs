@@ -88,10 +88,12 @@ for(const width of [375,680,761,768,844,1024,1101,1280,1440]){
 
 test("desktop menu follows the selected section and keeps it below the sticky header",async()=>{
   await withPage({width:844},async page=>{
-    assert.equal(await page.locator('.public-nav nav a[href="#tournaments"]').getAttribute("aria-current"),"location");
+    await page.waitForFunction(sel=>document.querySelector(sel)?.getAttribute("aria-current")==="location",'.public-nav nav a[href="#tournaments"]',{timeout:3000}).catch(()=>{});
+      assert.equal(await page.locator('.public-nav nav a[href="#tournaments"]').getAttribute("aria-current"),"location");
     await page.locator('.public-nav nav a[href="#live"]').click();
     await page.waitForFunction(()=>location.hash==="#live");
-    assert.equal(await page.locator('.public-nav nav a[href="#live"]').getAttribute("aria-current"),"location");
+    await page.waitForFunction(sel=>document.querySelector(sel)?.getAttribute("aria-current")==="location",'.public-nav nav a[href="#live"]',{timeout:3000}).catch(()=>{});
+      assert.equal(await page.locator('.public-nav nav a[href="#live"]').getAttribute("aria-current"),"location");
     assert.equal(await page.locator(".public-nav nav [aria-current]").count(),1);
     await page.waitForTimeout(900);
     const position=await page.evaluate(()=>({header:document.querySelector(".public-header").getBoundingClientRect().bottom,target:document.querySelector("#live").getBoundingClientRect().top}));
@@ -166,6 +168,7 @@ for(const width of [375,844,1440]){
       await page.locator(".tournament-division-card").first().waitFor();
       await page.locator('.tournament-tabs a[href="#participants"]').click();
       await page.waitForFunction(()=>location.hash==="#participants");
+      await page.waitForFunction(sel=>document.querySelector(sel)?.getAttribute("aria-current")==="location",'.tournament-tabs a[href="#participants"]',{timeout:3000}).catch(()=>{});
       assert.equal(await page.locator('.tournament-tabs a[href="#participants"]').getAttribute("aria-current"),"location");
       assert.equal(await page.locator(".tournament-tabs [aria-current]").count(),1);
       await page.waitForTimeout(900);

@@ -56,7 +56,7 @@ jobs:
           SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
           SITE_THEME=light SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
           DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
-          node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs
+          node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs scripts/registry-poster-variants.test.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Courtside client syntax
         run: |

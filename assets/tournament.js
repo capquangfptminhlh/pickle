@@ -49,7 +49,9 @@ function render(){
  const boardLink=$("#tourBoardLink");if(boardLink)boardLink.href="court-board.html?tournament="+encodeURIComponent(t.id);
  const banner=$("#tourBannerImage"),bannerWrap=document.querySelector(".tournament-event-banner-wrap");
  if(banner&&t.posterUrl){
-   banner.src=t.posterUrl;banner.alt="Poster "+t.name;banner.hidden=false;bannerWrap?.classList.add("has-banner");
+   const ps=window.PickleAPI?.posterSources?.(t.posterUrl)||{src:t.posterUrl,srcset:""};
+   if(ps.srcset){banner.sizes="(max-width:760px) 100vw, 620px";banner.srcset=ps.srcset}else banner.removeAttribute("srcset");
+   if(banner.getAttribute("src")!==ps.src)banner.src=ps.src;banner.alt="Poster "+t.name;banner.hidden=false;bannerWrap?.classList.add("has-banner");
  }else if(banner){
    banner.removeAttribute("src");banner.hidden=true;bannerWrap?.classList.remove("has-banner");
  }
