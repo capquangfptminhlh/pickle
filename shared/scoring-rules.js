@@ -37,6 +37,12 @@ export function validateMatchFormat({bestOf,pointsToWin,relaySegmentPoints=0,rel
   return null;
 }
 
+// USA Pickleball: two timeouts per game to 11, three for games to 15 or 21
+// (a 27-point relay game is played under the longer-game allowance).
+export function timeoutsPerGame(pointsToWin){
+  return Number(pointsToWin)>=15?3:2;
+}
+
 // Relay teams rotate pairs cyclically so everyone plays two legs:
 // 3 players AB, BC, CA; 4 players AB, BC, CD, DA. Leg count equals team size.
 export const RELAY_TEAM_SIZES=[3,4];

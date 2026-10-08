@@ -77,9 +77,9 @@
   function render(){
     renderSelect();
     const t=tournament();
-    $("#boardTournament").textContent=t?.name||"LIVE COURT BOARD";
+    $("#boardTournament").textContent=t?.name||"Bảng gọi sân";
     $("#boardMeta").textContent=t?[(t.venue||""),(t.date||"")].filter(Boolean).join(" · "):(internalMode?"Không có giải trong tài khoản này":"Chưa có giải công khai");
-    $("#dataMode").textContent=internalMode?"NỘI BỘ":"PUBLIC";$("#dataMode").classList.toggle("internal",internalMode);
+    $("#dataMode").textContent=internalMode?"NỘI BỘ":"CÔNG KHAI";$("#dataMode").classList.toggle("internal",internalMode);
     const cs=courts(),grid=$("#courtGrid"),empty=$("#boardEmpty");
     grid.innerHTML=cs.map(card).join("");empty.hidden=cs.length>0;
     $("#boardLoginLink").hidden=internalMode||Boolean(state.tournaments.length);
@@ -105,8 +105,8 @@
       state=await loadState();
       if(!tournamentId||!state.tournaments.some(t=>t.id===tournamentId))tournamentId=chooseTournament();
       render();
-      $("#boardConnection").textContent="● LIVE";$("#boardConnection").classList.remove("offline");
-    }catch(e){$("#boardConnection").textContent="● OFFLINE";$("#boardConnection").classList.add("offline")}
+      $("#boardConnection").textContent="● Trực tiếp";$("#boardConnection").classList.remove("offline");
+    }catch(e){$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
 
@@ -140,8 +140,8 @@
 
   refresh().then(()=>{
     const socket=window.io?.();
-    socket?.on("connect",()=>{$("#boardConnection").textContent="● LIVE";$("#boardConnection").classList.remove("offline")});
-    socket?.on("disconnect",()=>{$("#boardConnection").textContent="● OFFLINE";$("#boardConnection").classList.add("offline")});
+    socket?.on("connect",()=>{$("#boardConnection").textContent="● Trực tiếp";$("#boardConnection").classList.remove("offline")});
+    socket?.on("disconnect",()=>{$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")});
     socket?.on("public:state",schedule);socket?.on("match:update",schedule);
   });
 })();

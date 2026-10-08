@@ -1,7 +1,7 @@
 import {authenticate,canManageTournament} from "./auth.js";
 import {bodyJson,ok,fail,nowIso,uid,safeJsonParse} from "./util.js";
 import {broadcast} from "./realtime.js";
-import {validateSet,validateSeries} from "../../shared/scoring-rules.js";
+import {validateSet,validateSeries,timeoutsPerGame} from "../../shared/scoring-rules.js";
 
 const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
 const scoringFields=[...legacyScoringFields,"court_state","serving_side","server_number","timeout_a","timeout_b","medical_timeout_a","medical_timeout_b"];
@@ -185,7 +185,7 @@ async function mutationPlan(env,m,sets,action,body,at){
     const side=String(body.side||"").toUpperCase(),kind=String(body.kind||"standard");
     if(!["A","B"].includes(side)||!["standard","medical"].includes(kind))throw error("INVALID_TIMEOUT");
     const column=(kind==="medical"?"medical_timeout_":"timeout_")+side.toLowerCase();
-    const limit=kind==="medical"?1:2,current=Number(next[column]||0);
+    const limit=kind==="medical"?1:timeoutsPerGame(m.points_to_win),current=Number(next[column]||0);
     if(current>=limit)throw error(kind==="medical"?"MEDICAL_TIMEOUT_LIMIT":"TIMEOUT_LIMIT",409);
     next[column]=current+1;eventType="CORRECTION";payload={timeout:true,side,kind,count:next[column]};
   }else if(action==="quick-score"){

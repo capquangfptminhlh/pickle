@@ -142,3 +142,12 @@ test("third-place playoff is skipped when a semifinal is a bye",async()=>{
     assert.equal(r.status,200);assert.equal(r.data.thirdPlaceMatch,false);assert.equal(r.data.created,3);
   }finally{f.db.close()}
 });
+
+test("timeouts follow game length: two to 11, three to 15 and longer",async()=>{
+  for(const [points,allowed] of [[11,2],[15,3],[21,3],[27,3]]){
+    const f=await scoringFixture();
+    f.db.exec(`UPDATE divisions SET points_to_win=${points},best_of=1,win_by_two=0 WHERE id='division'; UPDATE matches SET status='live' WHERE id='match';`);
+    for(let i=0;i<allowed;i++)assert.equal((await f.api("timeout",{side:"A",kind:"standard"})).status,200,`${points}:${i}`);
+    const over=await f.api("timeout",{side:"A",kind:"standard"});assert.equal(over.status,409);assert.equal(over.data.error,"TIMEOUT_LIMIT");
+  }
+});

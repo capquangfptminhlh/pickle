@@ -9,20 +9,20 @@
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
   <script src="assets/theme.js?v=1"></script>
 <link rel="stylesheet" href="assets/match-live.css?v=1">
-<link rel="stylesheet" href="assets/site-sport.css?v=5">
+<link rel="stylesheet" href="assets/site-sport.css?v=6">
 <link rel="stylesheet" href="assets/site-light.css?v=1">
 <link rel="stylesheet" href="assets/theme.css?v=2">
 </head>
 <body class="site-sport match-screen">
 <a class="site-skip-link" href="#matchApp">Đến nội dung chính</a>
   <header class="match-topbar">
-    <a href="/" class="brand"><img src="assets/app-icon-v2.svg" alt=""><span><b>PICKLEUP.VN</b><small>LIVE MATCH</small></span></a>
-    <span id="matchConnection" class="live-pill">● LIVE</span>
+    <a href="/" class="brand"><img src="assets/app-icon-v2.svg" alt=""><span><b>PICKLEUP.VN</b><small>TỈ SỐ TRỰC TIẾP</small></span></a>
+    <span id="matchConnection" class="live-pill">● Đang kết nối…</span>
   </header>
 
   <main id="matchApp" class="match-shell" tabindex="-1">
     <section id="matchLoading" class="match-empty"><div>🏓</div><strong>Đang tải trận đấu...</strong></section>
-    <section id="matchNotFound" class="match-empty" hidden><div>🔒</div><strong>Trận chưa được công khai</strong><span>BTC cần bật Công khai cho giải để VĐV xem bằng QR.</span><a href="/">Về trang giải đấu</a></section>
+    <section id="matchNotFound" class="match-empty" hidden><div>🔒</div><strong>Không tìm thấy trận</strong><span>Trận chưa được công khai hoặc đã bị hủy. Hỏi BTC nếu bạn vừa quét QR tại sân.</span><a href="/">Về trang giải đấu</a></section>
     <section id="matchCard" class="live-match-card" hidden>
       <div class="match-meta-row">
         <div><small id="matchTournament">GIẢI ĐẤU</small><strong id="matchStage">—</strong></div>
@@ -42,6 +42,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/api.js?v=46"></script>
-  <script src="assets/match-live.js?v=1"></script>
+  <script src="assets/match-live.js?v=2"></script>
 </body>
 </html>

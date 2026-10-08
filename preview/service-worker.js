@@ -1,15 +1,15 @@
-const VERSION="pickleup-preview-v26-redirect-safe-20261007-mf3";
+const VERSION="pickleup-preview-v26-redirect-safe-20261007-mf4";
 const CORE=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
   "../assets/theme.css?v=2",
   "../assets/site-light.css?v=1",
   "../assets/admin-light.css?v=2",
-  "../assets/site-sport.css?v=5",
+  "../assets/site-sport.css?v=6",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=54",
-  "../assets/match-format.js?v=2",
+  "../assets/admin-app.js?v=55",
+  "../assets/match-format.js?v=3",
   "../assets/theme.js",
   "../assets/theme.css",
   "../assets/site-light.css",

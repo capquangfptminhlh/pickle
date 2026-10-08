@@ -9,7 +9,7 @@
   <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
   <script src="assets/theme.js?v=1"></script>
 <link rel="stylesheet" href="assets/court-board.css?v=2">
-<link rel="stylesheet" href="assets/site-sport.css?v=5">
+<link rel="stylesheet" href="assets/site-sport.css?v=6">
 <link rel="stylesheet" href="assets/site-light.css?v=1">
 <link rel="stylesheet" href="assets/theme.css?v=2">
 </head>
@@ -18,13 +18,13 @@
   <header class="board-header">
     <div class="board-brand">
       <img src="assets/pickleup-logo-v2.svg" alt="Pickleup.vn">
-      <div><strong id="boardTournament">LIVE COURT BOARD</strong><span id="boardMeta">Đang tải dữ liệu giải...</span></div>
+      <div><strong id="boardTournament">Bảng gọi sân</strong><span id="boardMeta">Đang tải dữ liệu giải...</span></div>
     </div>
     <div class="board-tools">
       <select id="tournamentSelect" aria-label="Chọn giải"></select>
-      <span id="dataMode" class="board-mode">PUBLIC</span>
+      <span id="dataMode" class="board-mode">CÔNG KHAI</span>
       <span id="boardClock">--:--:--</span>
-      <span id="boardConnection" class="board-live">● LIVE</span>
+      <span id="boardConnection" class="board-live">● Đang kết nối…</span>
       <button id="voiceBtn" type="button">🔇 Bật loa</button>
       <button id="announceNowBtn" type="button" hidden>🔊 Phát lại gọi sân</button>
       <button id="fullscreenBtn" type="button">⛶ Toàn màn hình</button>
@@ -58,6 +58,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/api.js?v=46"></script>
-  <script src="assets/court-board.js?v=2"></script>
+  <script src="assets/court-board.js?v=3"></script>
 </body>
 </html>

@@ -104,7 +104,9 @@
     if(d.thirdPlaceMatch)parts.push("Có tranh hạng ba");
     return parts.join(" • ");
   }
+  // Mirrors shared/scoring-rules.js timeoutsPerGame.
+  const timeoutLimit=d=>Number(d?.pointsToWin)>=15?3:2;
   const formatLabel=f=>FORMATS[f]||"Thể thức đang cập nhật";
   const eventLabel=e=>EVENTS[e]||"Nội dung";
-  window.PickleMatchFormat={esc,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
+  window.PickleMatchFormat={esc,timeoutLimit,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
 })();

@@ -851,8 +851,9 @@ function syncScoreDialog(){
   const leg=$("#relayLeg");
   if(leg){const text=window.PickleMatchFormat.legText(a,b,d);leg.hidden=!text;leg.textContent=text}
   if($("#serveStatus"))$("#serveStatus").textContent=(serveSide==="A"?teamName(activeMatch.a):teamName(activeMatch.b))+(mode==="rally"?" • quyền giao":" • Server "+serverNo);
-  if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/2";
-  if($("#timeoutB"))$("#timeoutB").textContent=Number(activeMatch.timeouts?.B||0)+"/2";
+  const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;
+  if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/"+timeoutMax;
+  if($("#timeoutB"))$("#timeoutB").textContent=Number(activeMatch.timeouts?.B||0)+"/"+timeoutMax;
   if($("#medicalA"))$("#medicalA").textContent=Number(activeMatch.medicalTimeouts?.A||0)+"/1";
   if($("#medicalB"))$("#medicalB").textContent=Number(activeMatch.medicalTimeouts?.B||0)+"/1";
   document.querySelectorAll("[data-service-side]").forEach(btn=>{
@@ -863,7 +864,7 @@ function syncScoreDialog(){
   document.querySelectorAll("[data-rally]").forEach(btn=>btn.disabled=locked);
   document.querySelectorAll("[data-timeout-side]").forEach(btn=>{
     const side=btn.dataset.timeoutSide,kind=btn.dataset.timeoutKind;
-    const used=Number((kind==="medical"?activeMatch.medicalTimeouts:activeMatch.timeouts)?.[side]||0),limit=kind==="medical"?1:2;
+    const used=Number((kind==="medical"?activeMatch.medicalTimeouts:activeMatch.timeouts)?.[side]||0),limit=kind==="medical"?1:timeoutMax;
     btn.disabled=locked||used>=limit;
   });
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
@@ -903,7 +904,7 @@ function scoreError(e){
     MATCH_COMPLETED:"Trận đã kết thúc. Hãy Undo trước khi sửa điểm.",MATCH_CANCELLED:"Trận đã hủy.",MATCH_TEAMS_REQUIRED:"Chưa xác định đủ hai đội.",
     INVALID_WINNER:"Đội thắng không khớp với tỉ số.",MATCH_ROSTER_LOCKED:"Trận đã có lịch sử thi đấu, không thể đổi hai đội.",
     INVALID_COURT_SCOPE:"Sân phải đang hoạt động và thuộc giải này.",INVALID_REFEREE_SCOPE:"Trọng tài phải đang hoạt động và được cấp quyền cho giải này.",
-    INVALID_SERVICE:"Trạng thái giao bóng không hợp lệ.",INVALID_TIMEOUT:"Timeout không hợp lệ.",TIMEOUT_LIMIT:"Đội này đã dùng đủ 2 timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội này đã dùng medical timeout.",INVALID_COURT_STATE:"Trạng thái điều phối sân không hợp lệ.",
+    INVALID_SERVICE:"Trạng thái giao bóng không hợp lệ.",INVALID_TIMEOUT:"Timeout không hợp lệ.",TIMEOUT_LIMIT:"Đội này đã dùng hết timeout của game.",MEDICAL_TIMEOUT_LIMIT:"Đội này đã dùng medical timeout.",INVALID_COURT_STATE:"Trạng thái điều phối sân không hợp lệ.",
     INVALID_TEAMS:"Chọn hai đội đang hoạt động thuộc cùng nội dung.",BRACKET_SLOT_OCCUPIED:"Vị trí ở nhánh sau đã có đội khác. Hãy kiểm tra bracket."}[e.message]||"Không thể lưu: "+e.message;
 }
 async function showScoreError(e){if(e.message==="VERSION_CONFLICT")await refresh({keepDialog:true});toast(scoreError(e))}

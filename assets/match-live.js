@@ -29,12 +29,13 @@
     document.title=(team(m.a)+" vs "+team(m.b))+" | Pickleup.vn";
   }
   async function refresh(){
-    try{state=await API.publicState();render();$("#matchConnection").textContent="● LIVE";$("#matchConnection").className="live-pill"}
-    catch{$("#matchConnection").textContent="● OFFLINE";$("#matchConnection").className="live-pill offline"}
+    try{state=await API.publicState();render();$("#matchConnection").textContent="● Cập nhật trực tiếp";$("#matchConnection").className="live-pill"}
+    catch{$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
-  if(!id){$("#matchLoading").hidden=true;$("#matchNotFound").hidden=false}else refresh().then(()=>{
+  // A link without ?id is a broken QR/link, not a private match.
+  if(!id){$("#matchLoading").hidden=true;$("#matchNotFound").hidden=false;$("#matchNotFound strong").textContent="Thiếu mã trận";$("#matchNotFound span").textContent="Hãy quét lại mã QR trên bảng gọi sân hoặc mở trận từ trang giải.";$("#matchConnection").hidden=true}else refresh().then(()=>{
     const socket=window.io?.();socket?.on("public:state",schedule);socket?.on("match:update",e=>{if(!e?.id||e.id===id)schedule()});
-    socket?.on("disconnect",()=>{$("#matchConnection").textContent="● OFFLINE";$("#matchConnection").className="live-pill offline"});
+    socket?.on("disconnect",()=>{$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"});
   });
 })();

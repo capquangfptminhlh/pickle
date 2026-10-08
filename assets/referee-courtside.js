@@ -62,7 +62,7 @@
     $("#modeBanner").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?" · điểm "+target+" phải cầm giao":"");
     const leg=window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
     $("#serveBanner").textContent=(serve==="A"?team(m.a):team(m.b))+(mode==="rally"?" · quyền giao":" · Server "+server);
-    $("#refTimeoutA").textContent=Number(m.timeouts?.A||0)+"/2";$("#refTimeoutB").textContent=Number(m.timeouts?.B||0)+"/2";
+    const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;$("#refTimeoutA").textContent=Number(m.timeouts?.A||0)+"/"+timeoutMax;$("#refTimeoutB").textContent=Number(m.timeouts?.B||0)+"/"+timeoutMax;
     $("#refMedicalA").textContent=Number(m.medicalTimeouts?.A||0)+"/1";$("#refMedicalB").textContent=Number(m.medicalTimeouts?.B||0)+"/1";
     $("#setHistory").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';
 
@@ -72,7 +72,7 @@
       btn.disabled=locked||(!isDoubles&&no===2)||(mode==="rally"&&no===2);
     });
     document.querySelectorAll("[data-timeout]").forEach(btn=>{
-      const side=btn.dataset.timeout,kind=btn.dataset.kind,used=Number((kind==="medical"?m.medicalTimeouts:m.timeouts)?.[side]||0),limit=kind==="medical"?1:2;
+      const side=btn.dataset.timeout,kind=btn.dataset.kind,used=Number((kind==="medical"?m.medicalTimeouts:m.timeouts)?.[side]||0),limit=kind==="medical"?1:timeoutMax;
       btn.disabled=locked||used>=limit;
     });
     setDisabled("[data-rally]",locked||setWon);
