@@ -1,0 +1,127 @@
+/* Tournament detail: bold sports hierarchy, scoped after the shared themes. */
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) {
+  --td-line:#d7dfd9;
+  --td-accent:#047857;
+  --td-dark:#10251b;
+  --td-muted-on-dark:#d1ddd5;
+}
+html:root[data-theme="dark"] body.site-sport.site-sport.tournament-detail:not(.admin-sport) {
+  --td-line:#55615b;
+  --td-accent:#d9ff63;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-app-main > .public-container,
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .public-section > .public-container {
+  width:calc(100% - 48px)!important; max-width:1280px!important; padding-inline:0!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-app-main {padding-top:28px!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-hero {
+  grid-template-columns:minmax(260px,360px) minmax(0,1fr); gap:28px; align-items:start; padding-top:0;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-banner-wrap {
+  border-radius:12px!important; box-shadow:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-summary {
+  padding:0!important; background:var(--pu-surface)!important; border:0!important; border-radius:12px!important; box-shadow:none!important; overflow:hidden;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top {
+  display:block; padding:26px 28px; background:var(--td-dark); border-left:5px solid #d9ff63;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top .tournament-app-kicker {
+  color:#d9ff63!important; font-size:11px!important; letter-spacing:.12em!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top h1 {
+  margin:10px 0 14px; color:#fff!important; font-size:clamp(30px,3.5vw,44px)!important; font-weight:950; line-height:1.06!important; letter-spacing:-.04em;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top p {color:var(--td-muted-on-dark)!important; font-size:13px!important; font-weight:400; line-height:1.55}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) #tourMeta {display:none}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-actions {justify-content:flex-start; margin-top:22px; gap:10px}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-actions a {
+  flex:0 1 auto!important; border-radius:6px!important; padding:12px 18px; min-height:46px!important; font-size:14px!important; box-shadow:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-actions .tournament-secondary-cta {background:transparent!important; color:#fff!important; border:1px solid #7f9988!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts {
+  grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:0; margin:0; padding:6px 24px;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts article {
+  gap:12px!important; min-height:0; padding:16px 4px!important; background:var(--pu-surface)!important;
+  border:0!important; border-bottom:1px solid var(--td-line)!important; border-radius:0!important; box-shadow:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts article:nth-child(odd) {padding-right:20px!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts article>span {
+  width:20px!important; height:24px!important; flex:0 0 20px!important; border-radius:0!important; background:transparent!important; color:var(--td-accent);
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts svg {width:20px; height:20px}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts small {font-size:12px!important; letter-spacing:.06em; line-height:1.4}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts b {font-size:14px!important; line-height:1.5; margin-top:5px; overflow-wrap:anywhere}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-prize-contact-grid {
+  grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:24px; margin:0; padding:22px 28px;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) :is(.tournament-prize-card,.tournament-contact-card) {
+  background:var(--pu-surface)!important; border:0!important; border-radius:0!important; padding:0!important; box-shadow:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-contact-card {border-left:1px solid var(--td-line)!important; padding-left:24px!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) :is(.tournament-prize-card,.tournament-contact-card)>span {
+  font-size:11px!important; letter-spacing:.06em; color:var(--td-accent)!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) :is(.tournament-prize-card,.tournament-contact-card) p {font-size:14px!important; font-weight:400; line-height:1.65; overflow-wrap:anywhere}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-contact-card b {font-size:16px!important; margin-top:8px}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats {
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr))!important; gap:0!important; margin:0; padding:18px 12px; background:var(--td-dark);
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats span {
+  min-width:0; padding:0 14px!important; border:0!important; border-right:1px solid #405447!important; border-radius:0!important; background:transparent!important; backdrop-filter:none;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats span:last-child {border-right:0!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats b {font-size:28px; font-weight:900; color:#d9ff63!important; line-height:1.15}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats small {font-size:12px!important; letter-spacing:.02em; color:var(--td-muted-on-dark)!important; margin-top:6px}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs {
+  display:flex!important; align-items:stretch; justify-content:flex-start; gap:24px!important;
+  position:sticky; top:var(--public-header-height,70px)!important; z-index:40;
+  margin-top:24px; margin-bottom:0; padding:0!important; min-height:56px; overflow-x:auto!important; flex-wrap:nowrap!important;
+  background:var(--pu-bg)!important; border:0!important; border-bottom:1px solid var(--td-line)!important; border-radius:0!important; box-shadow:none!important;
+  mask-image:none!important; -webkit-mask-image:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs a {
+  flex:0 0 auto!important; min-width:0!important; min-height:56px!important; padding:12px 8px!important; border:0!important;
+  border-bottom:3px solid transparent!important; border-radius:0!important; background:transparent!important; color:var(--pu-muted)!important;
+  font-size:14px!important; font-weight:750; box-shadow:none!important; transform:none!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs a:hover,
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs a[aria-current] {
+  background:transparent!important; border-bottom-color:var(--td-accent)!important; color:var(--td-accent)!important;
+}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .public-section {padding:28px 0!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) section[id] {scroll-margin-top:calc(var(--public-header-height,70px) + 76px)!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .app-section-head {margin-bottom:18px; padding-top:0}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .app-section-head h2 {font-size:28px!important; letter-spacing:-.025em}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-division-card {border-color:var(--td-line)!important; border-radius:10px!important; box-shadow:none!important}
+html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-app-main [hidden] {display:none!important}
+@media(min-width:761px) and (max-width:1100px) {
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-hero {grid-template-columns:240px minmax(0,1fr); gap:20px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top {padding:22px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-prize-contact-grid {grid-template-columns:1fr; gap:20px; padding:20px 24px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-contact-card {border-left:0!important; padding-left:0!important}
+}
+@media(max-width:760px) {
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-app-main > .public-container,
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .public-section > .public-container {width:calc(100% - 28px)!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-app-main {padding-top:14px!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-hero {grid-template-columns:minmax(0,1fr); gap:16px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-banner-wrap {max-width:360px; justify-self:center}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top {padding:22px 18px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-top h1 {font-size:30px!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-actions {gap:8px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-summary-actions a {flex:1 1 100%!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts {grid-template-columns:1fr!important; padding:4px 18px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-event-facts article {padding:14px 0!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-prize-contact-grid {grid-template-columns:1fr; padding:20px 18px; gap:20px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-contact-card {border-left:0!important; padding-left:0!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats {padding:16px 4px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats span {padding:0 8px!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats b {font-size:24px}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-hero-stats small {font-size:12px!important; letter-spacing:0}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs {margin-top:14px; gap:16px!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .tournament-tabs a {font-size:13px!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .public-section {padding:22px 0!important}
+  html:root body.site-sport.site-sport.tournament-detail:not(.admin-sport) .app-section-head h2 {font-size:24px!important}
+}

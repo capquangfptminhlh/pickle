@@ -225,6 +225,20 @@
     });
   }
 
+  function syncTournamentNavigation(){
+    const nav=document.querySelector(".tournament-tabs");
+    if(!nav)return;
+    const links=$$("a[href^='#']",nav);
+    const sync=()=>{
+      const current=links.find(a=>a.hash===location.hash)||links[0];
+      links.forEach(a=>{
+        const active=a===current;a.classList.toggle("active",active);
+        if(active)a.setAttribute("aria-current","location");else a.removeAttribute("aria-current");
+      });
+    };
+    addEventListener("hashchange",sync);addEventListener("pageshow",sync);sync();
+  }
+
   function heroParallax(){
     if(reduced||matchMedia("(max-width: 800px)").matches)return;
     const stage=document.querySelector(".hero-media-stage"),img=stage?.querySelector(".hero-sport-visual");
@@ -292,7 +306,7 @@
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
-    enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();syncTournamentNavigation();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
     const finishEntry=e=>{if(e.target===document.body&&e.animationName==="routeEnterFallback")document.body.classList.remove("route-entering")};
     document.body.addEventListener("animationend",finishEntry);document.body.addEventListener("animationcancel",finishEntry);
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));

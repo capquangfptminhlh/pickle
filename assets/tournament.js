@@ -23,6 +23,12 @@ const badge=s=>s==="live"?'<span class="badge live">LIVE</span>':s==="done"?'<sp
 const statusMeta=s=>({live:["ĐANG DIỄN RA","live"],registration:["ĐANG NHẬN ĐĂNG KÝ","blue"],open:["ĐANG NHẬN ĐĂNG KÝ","blue"],completed:["ĐÃ KẾT THÚC","done"],cancelled:["ĐÃ HỦY","done"]}[s]||["SẮP DIỄN RA","wait"]);
 const mf=window.PickleMatchFormat||{eventLabel:x=>x||"Nội dung",formatLabel:x=>x||"",rulesSummary:d=>`${d.bestOf} game • ${d.pointsToWin} điểm`};
 const safeHttps=s=>{if(!s)return "#";try{const u=new URL(s,location.origin);return u.protocol==="https:"?s:"#"}catch{return "#"}};
+const detailIcon=name=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+({
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2"/>',
+  racket:'<ellipse cx="14" cy="9" rx="6" ry="7" transform="rotate(35 14 9)"/><path d="m10 15-6 7-3-3 6-6M12 4l6 6M10 7l7 6M11 12l6-7"/>',
+  card:'<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'
+}[name]||'')+'</svg>';
 function empty(icon,title,copy){return '<div class="app-empty-card"><span>'+icon+'</span><b>'+title+'</b><small>'+copy+'</small></div>'}
 function render(){
  if(!state)return;const t=state.tournaments.find(x=>x.id===id);
@@ -56,11 +62,11 @@ function render(){
  const contactName=$("#tourContactName"),contactPhone=$("#tourContactPhone"),prize=$("#tourPrizePool");
  if(contactName)contactName.textContent=t.contactName||"BTC giải đấu";if(contactPhone)contactPhone.textContent=phone||"Thông tin liên hệ đang cập nhật";if(prize)prize.textContent=t.prizePool||"Cơ cấu giải thưởng đang cập nhật.";
  const facts=$("#tourEventFacts");if(facts)facts.innerHTML=[
-   ["📅","Thời gian",t.date||"Sắp diễn ra"],
-   ["🏓","Nội dung",t.format||divs[0]?.name||"Open"],
-   ["💳","Lệ phí",fee],
-   ["📍","Địa điểm",t.venue||"Đang cập nhật"]
- ].map(([icon,label,value])=>'<article><span>'+icon+'</span><div><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div></article>').join("");
+   ["calendar","Thời gian",t.date||"Sắp diễn ra"],
+   ["racket","Nội dung",t.format||divs[0]?.name||"Open"],
+   ["card","Lệ phí",fee],
+   ["pin","Địa điểm",t.venue||"Đang cập nhật"]
+ ].map(([icon,label,value])=>'<article><span>'+detailIcon(icon)+'</span><div><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div></article>').join("");
  $("#tourHeroStats").innerHTML=[
    ["Nội dung",divs.length],["Đội / cặp",teams.length],["Trận đấu",matches.length],["Đã xong",done.length]
  ].map(([k,v])=>'<span><b>'+v+'</b><small>'+k+'</small></span>').join("");

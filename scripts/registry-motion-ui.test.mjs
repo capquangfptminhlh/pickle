@@ -159,3 +159,24 @@ test("browser Back restores an admin page after a fallback route fade",async()=>
     assert.equal(await page.locator("body").evaluate(el=>getComputedStyle(el).opacity),"1");
   });
 });
+
+for(const width of [375,844,1440]){
+  test(`tournament section navigation marks its destination at ${width}px`,async()=>{
+    await withPage({width,path:"/tournament.html?id=tour"},async page=>{
+      await page.locator(".tournament-division-card").first().waitFor();
+      await page.locator('.tournament-tabs a[href="#participants"]').click();
+      await page.waitForFunction(()=>location.hash==="#participants");
+      assert.equal(await page.locator('.tournament-tabs a[href="#participants"]').getAttribute("aria-current"),"location");
+      assert.equal(await page.locator(".tournament-tabs [aria-current]").count(),1);
+      await page.waitForTimeout(900);
+      assert.ok(await page.evaluate(()=>document.querySelector("#participants").getBoundingClientRect().top>=document.querySelector(".tournament-tabs").getBoundingClientRect().bottom-1),"section heading stays below both navigation bars");
+    });
+  });
+}
+
+test("unavailable tournaments hide section navigation",async()=>{
+  await withPage({path:"/tournament.html?id=missing"},async page=>{
+    await page.locator("#tourUnavailable h1").waitFor();
+    assert.ok(await page.locator(".tournament-tabs").isHidden(),"no dead section links on an unavailable tournament");
+  });
+});

@@ -1,4 +1,4 @@
-const VERSION="pickleup-v43-motion-20261008";
+const VERSION="pickleup-v44-tournament-20261008";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
@@ -7,7 +7,9 @@ const STATIC=[
   "/assets/admin-light.css?v=2",
   "/assets/site-sport.css?v=8",
   "/assets/styles.css?v=2",
-  "/assets/ui-motion.js?v=33",
+  "/assets/ui-motion.js?v=34",
+  "/assets/tournament-detail.css?v=1",
+  "/assets/tournament.js?v=51",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=55",
