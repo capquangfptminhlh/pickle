@@ -6,31 +6,44 @@
   const RELAY=[0,5,7,9,11];
   const FORMATS={round_robin:"Vòng tròn",pool_to_knockout:"Vòng bảng + loại trực tiếp",single_elimination:"Loại trực tiếp",double_elimination:"Loại kép"};
   const EVENTS={singles:"Đơn",doubles:"Đôi",mixed_doubles:"Đôi nam nữ",team:"Đồng đội"};
-  // The MLP "chạy điểm" poster rule: AB to 9, BC to 18, CA to 27, rally,
-  // and the final point only counts for the serving side.
-  const MLP_RELAY={bestOf:1,pointsToWin:27,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,finalPointOnServe:true};
+  const TEAM_SIZES=[3,4];
+  // The MLP "chạy điểm" poster rule: 3 players, AB to 9, BC to 18, CA to 27,
+  // rally, and the final point only counts for the serving side.
+  const MLP_RELAY={bestOf:1,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,relayTeamSize:3,finalPointOnServe:true};
+  // Pairs rotate cyclically so every player plays two legs (mirrors shared/scoring-rules.js).
+  const relayPairs=n=>{const l="ABCD".slice(0,n);return [...l].map((x,i)=>x+l[(i+1)%n])};
+  const relayInfo=(seg,size)=>seg&&size?`Tổng ${seg*size} điểm: ${relayPairs(size).map((p,i)=>p+" đến "+seg*(i+1)).join(" → ")}`:"Mỗi game tính điểm riêng.";
 
   const withCurrent=(list,current)=>[...new Set([...list,Number(current)].filter(v=>Number.isFinite(v)))].sort((a,b)=>a-b);
   function pointOptions(selected){
     return withCurrent(POINTS,selected).map(v=>`<option value="${v}" ${Number(selected)===v?"selected":""}>${v}</option>`).join("");
   }
   function relayOptions(selected){
-    return withCurrent(RELAY,selected||0).map(v=>`<option value="${v}" ${Number(selected||0)===v?"selected":""}>${v?`Đổi cặp mỗi ${v} điểm`:"Không (mỗi game tính riêng)"}</option>`).join("");
+    return withCurrent(RELAY,selected||0).map(v=>`<option value="${v}" ${Number(selected||0)===v?"selected":""}>${v?`Mỗi lượt ${v} điểm`:"Không chạy điểm"}</option>`).join("");
   }
-  // Extra rule fields; ids are `${prefix}Relay`, `${prefix}FinalServe`, `${prefix}Third`.
+  function teamSizeOptions(selected){
+    const current=Number(selected)||3;
+    return TEAM_SIZES.map(v=>`<option value="${v}" ${current===v?"selected":""}>${v} người (${relayPairs(v).join(" → ")})</option>`).join("");
+  }
+  // Extra rule fields; ids are `${prefix}Relay`, `${prefix}TeamSize`, `${prefix}FinalServe`, `${prefix}Third`.
   // fields: CSS selectors of the form's own bestOf/points/scoring/winByTwo controls,
   // used by the MLP preset button.
   function extraFieldsHtml(prefix,d={},{disabled=false,fields={}}={}){
     const dis=disabled?"disabled":"";
     const preset=`data-mlp-preset="${esc(prefix)}" data-best="${esc(fields.bestOf||"")}" data-points="${esc(fields.points||"")}" data-scoring="${esc(fields.scoring||"")}" data-win2="${esc(fields.winByTwo||"")}"`;
-    return `<label class="field">Chạy điểm (đổi cặp)<select id="${prefix}Relay" ${dis}>${relayOptions(d.relaySegmentPoints)}</select></label>
+    const seg=Number(d.relaySegmentPoints||0),size=Number(d.relayTeamSize||0)||3;
+    return `<div class="relay-fields" style="display:contents" data-relay-prefix="${esc(prefix)}" ${preset.replace(/data-mlp-preset="[^"]*" /,"")}>
+      <label class="field">Chạy điểm (đổi cặp)<select id="${prefix}Relay" ${dis}>${relayOptions(seg)}</select></label>
+      <label class="field">Số người mỗi đội<select id="${prefix}TeamSize" ${dis||(seg?"":"disabled")}>${teamSizeOptions(size)}</select></label>
+      <small class="field full field-hint" id="${prefix}RelayInfo">${esc(relayInfo(seg,size))}</small></div>
       <label class="field" style="align-content:end"><span><input id="${prefix}FinalServe" type="checkbox" ${d.finalPointOnServe?"checked":""} ${dis}> Điểm cuối phải ghi khi cầm giao</span></label>
       <label class="field" style="align-content:end"><span><input id="${prefix}Third" type="checkbox" ${d.thirdPlaceMatch?"checked":""} ${dis}> Có trận tranh hạng ba</span></label>
-      ${disabled?"":`<div class="field full"><button type="button" class="btn secondary" ${preset}>Áp dụng luật MLP chạy điểm 9 → 18 → 27</button><small class="field-hint">1 game rally đến 27, cặp AB đến 9, BC đến 18, CA đến 27; điểm 27 phải ghi khi cầm giao.</small></div>`}`;
+      ${disabled?"":`<div class="field full"><button type="button" class="btn secondary" ${preset}>Áp dụng luật MLP chạy điểm (mỗi lượt 9 điểm)</button><small class="field-hint">1 game rally, mỗi cặp đánh 9 điểm rồi đổi cặp; tổng điểm = 9 × số người (3 người: 27, 4 người: 36); điểm cuối phải ghi khi cầm giao. Đổi "Số người mỗi đội" bất cứ lúc nào, tổng điểm tự cập nhật.</small></div>`}`;
   }
   function readExtra(prefix){
     const el=id=>document.getElementById(prefix+id);
-    return {relaySegmentPoints:Number(el("Relay")?.value||0),finalPointOnServe:Boolean(el("FinalServe")?.checked),thirdPlaceMatch:Boolean(el("Third")?.checked)};
+    const seg=Number(el("Relay")?.value||0);
+    return {relaySegmentPoints:seg,relayTeamSize:seg?Number(el("TeamSize")?.value||3):0,finalPointOnServe:Boolean(el("FinalServe")?.checked),thirdPlaceMatch:Boolean(el("Third")?.checked)};
   }
   document.addEventListener("click",e=>{
     const button=e.target.closest?.("[data-mlp-preset]");if(!button)return;
@@ -41,24 +54,37 @@
       else{if(el.tagName==="SELECT"&&![...el.options].some(o=>o.value===String(value)))el.add(new Option(String(value),String(value)));el.value=String(value)}
       el.dispatchEvent(new Event("change",{bubbles:true}));
     };
-    set(q(button.dataset.best),MLP_RELAY.bestOf);set(q(button.dataset.points),MLP_RELAY.pointsToWin);
-    set(q(button.dataset.scoring),MLP_RELAY.scoringMode);set(q(button.dataset.win2),MLP_RELAY.winByTwo);
+    set(q(button.dataset.scoring),MLP_RELAY.scoringMode);
+    // Keep the team size already chosen in the form (3 by default).
     set(document.getElementById(prefix+"Relay"),MLP_RELAY.relaySegmentPoints);set(document.getElementById(prefix+"FinalServe"),MLP_RELAY.finalPointOnServe);
+  });
+  // Relay total = points per leg × players: keep the form's own target, best-of
+  // and win-by-two in step so the admin never types a total by hand.
+  document.addEventListener("change",e=>{
+    const wrap=e.target.closest?.(".relay-fields");if(!wrap)return;
+    const prefix=wrap.dataset.relayPrefix,el=id=>document.getElementById(prefix+id),q=sel=>sel?document.querySelector(sel):null;
+    const seg=Number(el("Relay")?.value||0),size=Number(el("TeamSize")?.value||3);
+    if(el("TeamSize"))el("TeamSize").disabled=!seg;
+    if(el("RelayInfo"))el("RelayInfo").textContent=relayInfo(seg,size);
+    if(!seg)return;
+    const setVal=(node,value)=>{if(!node)return;if(node.type==="checkbox"){node.checked=Boolean(value);return}if(node.tagName==="SELECT"&&![...node.options].some(o=>o.value===String(value)))node.add(new Option(String(value),String(value)));node.value=String(value)};
+    setVal(q(wrap.dataset.points),seg*size);setVal(q(wrap.dataset.best),1);setVal(q(wrap.dataset.win2),false);
   });
   function relayLeg(a,b,d){
     const seg=Number(d?.relaySegmentPoints||0),target=Number(d?.pointsToWin||0);
     if(!seg||!target)return null;
     const count=Math.ceil(target/seg),index=Math.min(count-1,Math.floor(Math.max(Number(a)||0,Number(b)||0)/seg));
-    return {index,count,until:Math.min(target,(index+1)*seg)};
+    return {index,count,size:Number(d?.relayTeamSize||0)||count,until:Math.min(target,(index+1)*seg)};
   }
-  // "AB", "BC", "CA" for three-player relays; "Lượt n" otherwise.
-  function legName(index,count){
-    if(count===3)return "Cặp "+["AB","BC","CA"][index];
+  // "Cặp AB/BC/CA" (3 players) or "Cặp AB/BC/CD/DA" (4 players); "Lượt n" otherwise.
+  function legName(index,size){
+    if(TEAM_SIZES.includes(size))return "Cặp "+relayPairs(size)[index];
     return "Lượt "+(index+1);
   }
   function legText(a,b,d){
     const leg=relayLeg(a,b,d);if(!leg)return "";
-    return `Đang đánh: ${legName(leg.index,leg.count)} • đến ${leg.until} điểm`;
+    const next=leg.index+1<leg.count?` • tiếp theo: ${legName(leg.index+1,leg.size)}`:"";
+    return `Đang đánh: ${legName(leg.index,leg.size)} • đến ${leg.until} điểm${next}`;
   }
   // Sub-match labels for team events: three-player teams rotate AB/BC/CA,
   // classic MLP (four players) uses gender doubles plus Dreambreaker.
@@ -69,7 +95,8 @@
   function rulesSummary(d){
     if(!d)return "";
     const parts=[];
-    if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm đến ${d.pointsToWin}, đổi cặp mỗi ${d.relaySegmentPoints} điểm`);
+    const size=Number(d.relayTeamSize||0)||Math.round(Number(d.pointsToWin)/Number(d.relaySegmentPoints||1));
+    if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm ${size} lượt × ${d.relaySegmentPoints} = ${d.pointsToWin} điểm`,`Đội ${size} người, thứ tự cặp ${relayPairs(size).join(" → ")}`);
     else parts.push(`${Number(d.bestOf)===1?"1 game":`${d.bestOf} game thắng ${Math.ceil(Number(d.bestOf)/2)}`} • ${d.pointsToWin} điểm`);
     parts.push(d.scoringMode==="rally"?"Rally (pha nào cũng tính điểm)":"Chỉ bên giao được điểm");
     if(!Number(d.relaySegmentPoints))parts.push(d.winByTwo?"Thắng cách 2":"Không cần cách 2");
@@ -79,5 +106,5 @@
   }
   const formatLabel=f=>FORMATS[f]||"Thể thức đang cập nhật";
   const eventLabel=e=>EVENTS[e]||"Nội dung";
-  window.PickleMatchFormat={esc,MLP_RELAY,pointOptions,relayOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
+  window.PickleMatchFormat={esc,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
 })();

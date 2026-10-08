@@ -26,13 +26,23 @@ export function validateSeries(sets,bestOf=3,target=11,winByTwo=true,{requireCom
 
 // Returns an error code for an impossible match format, or null when playable.
 // A relay ("chạy điểm") is one running game, so it cannot be split into a series.
-export function validateMatchFormat({bestOf,pointsToWin,relaySegmentPoints=0}){
+export function validateMatchFormat({bestOf,pointsToWin,relaySegmentPoints=0,relayTeamSize=0}){
   if(![1,3,5].includes(bestOf))return "INVALID_BEST_OF";
   if(!Number.isSafeInteger(pointsToWin)||pointsToWin<1||pointsToWin>99)return "INVALID_POINTS_TO_WIN";
   if(!Number.isSafeInteger(relaySegmentPoints)||relaySegmentPoints<0||relaySegmentPoints>99)return "INVALID_RELAY_SEGMENT";
-  if(relaySegmentPoints&&relaySegmentPoints>=pointsToWin)return "INVALID_RELAY_SEGMENT";
-  if(relaySegmentPoints&&bestOf!==1)return "RELAY_REQUIRES_SINGLE_GAME";
+  if(!relaySegmentPoints)return null;
+  if(!RELAY_TEAM_SIZES.includes(relayTeamSize))return "INVALID_RELAY_TEAM_SIZE";
+  if(relaySegmentPoints*relayTeamSize!==pointsToWin)return "INVALID_RELAY_SEGMENT";
+  if(bestOf!==1)return "RELAY_REQUIRES_SINGLE_GAME";
   return null;
+}
+
+// Relay teams rotate pairs cyclically so everyone plays two legs:
+// 3 players AB, BC, CA; 4 players AB, BC, CD, DA. Leg count equals team size.
+export const RELAY_TEAM_SIZES=[3,4];
+export function relayPairs(teamSize){
+  const letters="ABCD".slice(0,teamSize);
+  return [...letters].map((x,i)=>x+letters[(i+1)%teamSize]);
 }
 
 // Which relay leg is on court: AB plays until the leader reaches one segment,

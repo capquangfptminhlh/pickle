@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {validateMatchFormat,relayLeg} from "../../shared/scoring-rules.js";
+import {validateMatchFormat,relayLeg,relayPairs} from "../../shared/scoring-rules.js";
 import {accountFixture} from "./helpers/accounts-fixture.mjs";
 import {scoringFixture} from "./helpers/scoring-fixture.mjs";
 
-const mlpRelay={bestOf:1,pointsToWin:27,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,finalPointOnServe:true};
+const mlpRelay={bestOf:1,pointsToWin:27,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,relayTeamSize:3,finalPointOnServe:true};
 
 async function fresh(){
   const f=await accountFixture();
@@ -26,9 +26,39 @@ test("match format validation accepts the MLP relay and rejects impossible forma
   assert.equal(validateMatchFormat({bestOf:2,pointsToWin:11}),"INVALID_BEST_OF");
   assert.equal(validateMatchFormat({bestOf:3,pointsToWin:0}),"INVALID_POINTS_TO_WIN");
   assert.equal(validateMatchFormat({bestOf:3,pointsToWin:100}),"INVALID_POINTS_TO_WIN");
-  assert.equal(validateMatchFormat({bestOf:3,pointsToWin:27,relaySegmentPoints:9}),"RELAY_REQUIRES_SINGLE_GAME");
-  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:27,relaySegmentPoints:27}),"INVALID_RELAY_SEGMENT");
-  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:27,relaySegmentPoints:1.5}),"INVALID_RELAY_SEGMENT");
+  assert.equal(validateMatchFormat({bestOf:3,pointsToWin:27,relaySegmentPoints:9,relayTeamSize:3}),"RELAY_REQUIRES_SINGLE_GAME");
+  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:27,relaySegmentPoints:9,relayTeamSize:4}),"INVALID_RELAY_SEGMENT");
+  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:27,relaySegmentPoints:1.5,relayTeamSize:3}),"INVALID_RELAY_SEGMENT");
+  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:45,relaySegmentPoints:9,relayTeamSize:5}),"INVALID_RELAY_TEAM_SIZE");
+  assert.equal(validateMatchFormat({bestOf:1,pointsToWin:36,relaySegmentPoints:9,relayTeamSize:4}),null);
+});
+
+test("relay pairs rotate so every player plays two legs",()=>{
+  assert.deepEqual(relayPairs(3),["AB","BC","CA"]);
+  assert.deepEqual(relayPairs(4),["AB","BC","CD","DA"]);
+  for(const n of [3,4]){
+    const legs=relayPairs(n).join("");
+    for(const x of "ABCD".slice(0,n))assert.equal(legs.split(x).length-1,2,x);
+  }
+});
+
+test("server derives the relay target from team size and points per leg",async()=>{
+  const f=await fresh();
+  try{
+    const four=await f.api("/api/tournaments/own/divisions",{name:"MLP 4",eventType:"team",scoringMode:"rally",relaySegmentPoints:9,relayTeamSize:4,pointsToWin:11,bestOf:1},"POST");
+    assert.equal(four.status,201);
+    let row=f.db.prepare("SELECT * FROM divisions WHERE id=?").get(four.data.id);
+    assert.equal(row.points_to_win,36);assert.equal(row.relay_team_size,4);
+    const three=await f.api("/api/divisions/"+four.data.id,{relayTeamSize:3});assert.equal(three.status,200);
+    row=f.db.prepare("SELECT * FROM divisions WHERE id=?").get(four.data.id);
+    assert.equal(row.points_to_win,27);assert.equal(row.relay_team_size,3);
+    const seven=await f.api("/api/divisions/"+four.data.id+"/full",{relaySegmentPoints:7});assert.equal(seven.status,200);
+    assert.equal(f.db.prepare("SELECT points_to_win FROM divisions WHERE id=?").get(four.data.id).points_to_win,21);
+    const five=await f.api("/api/divisions/"+four.data.id,{relayTeamSize:5});assert.equal(five.status,400);assert.equal(five.data.error,"INVALID_RELAY_TEAM_SIZE");
+    const off=await f.api("/api/divisions/"+four.data.id,{relaySegmentPoints:0,pointsToWin:11});assert.equal(off.status,200);
+    row=f.db.prepare("SELECT * FROM divisions WHERE id=?").get(four.data.id);
+    assert.equal(row.relay_team_size,0);assert.equal(row.points_to_win,11);
+  }finally{f.db.close()}
 });
 
 test("relay leg rotates pairs at every segment of the running score",()=>{
@@ -37,6 +67,7 @@ test("relay leg rotates pairs at every segment of the running score",()=>{
   assert.deepEqual(relayLeg(9,4,9,27),{index:1,count:3,until:18});
   assert.deepEqual(relayLeg(16,18,9,27),{index:2,count:3,until:27});
   assert.deepEqual(relayLeg(27,20,9,27),{index:2,count:3,until:27});
+  assert.deepEqual(relayLeg(30,26,9,36),{index:3,count:4,until:36});
   assert.equal(relayLeg(5,5,0,27),null);
 });
 

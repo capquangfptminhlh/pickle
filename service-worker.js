@@ -1,4 +1,4 @@
-const VERSION="pickleup-v39-match-format-20261008";
+const VERSION="pickleup-v40-relay-team-size-20261008";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
@@ -9,7 +9,7 @@ const STATIC=[
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=54",
-  "/assets/match-format.js?v=1",
+  "/assets/match-format.js?v=2",
   "/assets/match-format.js",
   "/assets/theme.js",
   "/assets/theme.css",

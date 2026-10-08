@@ -149,7 +149,7 @@ export async function loadState(env,{publicOnly=false}={}){
       bestOf:Number(d.best_of||3),pointsToWin:Number(d.points_to_win||11),winByTwo:bool(d.win_by_two),
       advanceCount:Number(d.advance_count||2),tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",
       minimumRestMinutes:Number(d.minimum_rest_minutes??15),matchSlotMinutes:Number(d.match_slot_minutes??20),
-      relaySegmentPoints:Number(d.relay_segment_points||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),active:bool(d.active)
+      relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),active:bool(d.active)
     })),
     courts:courtsRaw.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:Number(c.sort_order||0),active:bool(c.active)})),
     teams,players,teamPlayers,matches,audit
