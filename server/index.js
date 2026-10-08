@@ -1579,7 +1579,8 @@ app.post("/api/registrations/:id/checkin",authRequired,allow("super_admin","orga
   const row=await tx(async c=>{
     const before=(await c.query("select * from registrations where id=$1 for update",[req.params.id])).rows[0];
     if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    const after=(await c.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,req.params.id])).rows[0];
+    if(before.status==="cancelled")throw Object.assign(new Error("REGISTRATION_CANCELLED"),{status:409});
+    const after=(await c.query("update registrations set checked_in_by=case when checked_in_at is null then $1 else checked_in_by end,checked_in_at=coalesce(checked_in_at,now()) where id=$2 returning *",[req.user.sub,req.params.id])).rows[0];
     await audit(c,req.user,"registration",after.id,"CHECK_IN",before,after,"Tournament check-in");
     return after;
   });
@@ -1603,10 +1604,12 @@ app.get("/api/registrations/:id/checkin-qr",authRequired,allow("super_admin","or
   res.json({token:row.checkin_token,url,dataUrl});
 }));
 app.post("/api/checkin/:token/confirm",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const row=(await pool.query("select id from registrations where checkin_token=$1",[req.params.token])).rows[0];
+  const row=(await pool.query("select id,status from registrations where checkin_token=$1",[req.params.token])).rows[0];
   if(!row)return res.status(404).json({error:"NOT_FOUND"});
+  if(row.status==="cancelled")return res.status(409).json({error:"REGISTRATION_CANCELLED"});
   req.params.id=row.id;
-  const updated=(await pool.query("update registrations set checked_in_at=coalesce(checked_in_at,now()),checked_in_by=$1 where id=$2 returning *",[req.user.sub,row.id])).rows[0];
+  const updated=(await pool.query("update registrations set checked_in_by=case when checked_in_at is null then $1 else checked_in_by end,checked_in_at=coalesce(checked_in_at,now()) where id=$2 and status<>'cancelled' returning *",[req.user.sub,row.id])).rows[0];
+  if(!updated)return res.status(409).json({error:"REGISTRATION_CANCELLED"});
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) values($1,'registration',$2,'QR_CHECK_IN',$3,'QR check-in')",[req.user.sub,row.id,updated]);
   res.json(updated);
 }));

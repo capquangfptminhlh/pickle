@@ -727,8 +727,10 @@ export async function handleOperations(request,env){
   }
   p=route(path,"/api/checkin/:token/confirm");
   if(p&&method==="POST"){
-    const r=await one(env,"SELECT id FROM registrations WHERE checkin_token=?",p.token);if(!r)return fail("NOT_FOUND",request,env,404);
-    await env.DB.prepare("UPDATE registrations SET checked_in_at=COALESCE(checked_in_at,?) WHERE id=?").bind(nowIso(),r.id).run();
+    const r=await one(env,"SELECT id,status FROM registrations WHERE checkin_token=?",p.token);if(!r)return fail("NOT_FOUND",request,env,404);
+    if(r.status==="cancelled")return fail("REGISTRATION_CANCELLED",request,env,409);
+    const saved=await env.DB.prepare("UPDATE registrations SET checked_in_at=COALESCE(checked_in_at,?) WHERE id=? AND status<>'cancelled'").bind(nowIso(),r.id).run();
+    if(Number(saved.meta?.changes??saved.changes)===0)return fail("REGISTRATION_CANCELLED",request,env,409);
     return ok({ok:true,registrationId:r.id},request,env);
   }
 

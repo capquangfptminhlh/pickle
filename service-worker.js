@@ -1,4 +1,4 @@
-const VERSION="pickleup-v45-public-refresh-20261008-nozalo";
+const VERSION="pickleup-v46-checkin-20261008";
 const STATIC=[
   "/assets/public-refresh.css?v=1",
   "/assets/public-refresh.css",

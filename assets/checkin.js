@@ -6,6 +6,14 @@ async function load(){
     const r=await PickleAPI.publicCheckin(token);
     $("#checkinTeam").textContent=r.team_name||"Đội chưa đặt tên";
     $("#checkinMeta").textContent=[r.tournament_name,r.division_name,r.start_at?new Date(r.start_at).toLocaleString("vi-VN"):null].filter(Boolean).join(" • ");
+    if(r.status==="cancelled"){
+      $("#checkinState").textContent="!";
+      $("#checkinState").classList.remove("success");
+      $("#checkinStatus").innerHTML='<span class="status-chip warning">ĐÃ HỦY</span>';
+      $("#checkinNote").textContent="Đăng ký đã hủy. Vui lòng liên hệ BTC để đăng ký lại.";
+      $("#confirmCheckin").hidden=true;
+      return;
+    }
     if(r.checked_in_at){
       $("#checkinState").textContent="✓";
       $("#checkinState").classList.add("success");
@@ -26,7 +34,8 @@ async function load(){
 $("#confirmCheckin").onclick=async()=>{
   try{await PickleAPI.confirmCheckin(token);await load()}
   catch(e){
-    if(e.status===401){location.href="login.html?return="+encodeURIComponent(location.href)}
+    if(e.message==="REGISTRATION_CANCELLED"){await load()}
+    else if(e.status===401){location.href="login.html?return="+encodeURIComponent(location.href)}
     else $("#checkinNote").textContent="Không thể xác nhận: "+e.message;
   }
 };

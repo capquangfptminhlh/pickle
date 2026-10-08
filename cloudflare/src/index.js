@@ -931,7 +931,9 @@ async function handleApi(request,env){
     const r=await one(env,"SELECT r.*,d.tournament_id FROM registrations r JOIN divisions d ON d.id=r.division_id WHERE r.id=?",p.id);
     if(!r)return fail("NOT_FOUND",request,env,404);
     if(user.role==="organizer")await assertTournament(env,user,r.tournament_id);
-    await env.DB.prepare("UPDATE registrations SET checked_in_at=?,checked_in_by=? WHERE id=?").bind(nowIso(),user.id,p.id).run();
+    if(r.status==="cancelled")return fail("REGISTRATION_CANCELLED",request,env,409);
+    const saved=await env.DB.prepare("UPDATE registrations SET checked_in_by=CASE WHEN checked_in_at IS NULL THEN ? ELSE checked_in_by END,checked_in_at=COALESCE(checked_in_at,?) WHERE id=? AND status<>'cancelled'").bind(user.id,nowIso(),p.id).run();
+    if(Number(saved.meta?.changes??saved.changes)===0)return fail("REGISTRATION_CANCELLED",request,env,409);
     return ok({ok:true},request,env);
   }
   p=route(path,"/api/registrations/:id/undo-checkin");

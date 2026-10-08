@@ -92,4 +92,17 @@ const ruleDivision=(await api(`/api/tournaments/${tid}/divisions`,{name:"Configu
 const ruleTeams=[];for(let i=0;i<2;i++)ruleTeams.push((await api(`/api/divisions/${ruleDivision.id}/teams`,{name:`Rule Team ${i}`,playerIds:[players[i].id]})).data);
 const ruleMatch=(await api(`/api/divisions/${ruleDivision.id}/matches`,{teamAId:ruleTeams[0].id,teamBId:ruleTeams[1].id})).data;
 await action(ruleMatch.id,"quick-score",{sets:[[11,3]]},[400]);await action(ruleMatch.id,"quick-score",{sets:[[15,14]]});
-console.log("OPERATIONS_API_OK",JSON.stringify({scoreValidation:true,staleVersions:true,assignments:true,currentRefereeScope:true,undoSnapshots:true,historyDurable:true,concurrency:true,downstreamLocked:true,configuredRules:true}));
+// A cancelled registration must not be restored to attendance through an old QR.
+const registration=(await api(`/api/divisions/${did}/registrations`,{teamId:teams[0].id})).data;
+const savedRegistration=async()=>(await api('/api/registrations')).data.find(r=>r.id===registration.id);
+await api(`/api/registrations/${registration.id}/checkin`,{});
+const checkedAt=(await savedRegistration()).checked_in_at;
+await api(`/api/registrations/${registration.id}/checkin`,{});
+assert.equal((await savedRegistration()).checked_in_at,checkedAt);
+await api(`/api/registrations/${registration.id}/undo-checkin`,{});
+await api(`/api/registrations/${registration.id}`,{status:'cancelled'},{method:'PATCH'});
+for(const path of [`/api/registrations/${registration.id}/checkin`,`/api/checkin/${registration.checkin_token}/confirm`]){
+  const r=await api(path,{},{expected:[409]});assert.equal(r.data.error,'REGISTRATION_CANCELLED');
+}
+assert.equal((await savedRegistration()).checked_in_at,null);
+console.log("OPERATIONS_API_OK",JSON.stringify({scoreValidation:true,staleVersions:true,assignments:true,currentRefereeScope:true,undoSnapshots:true,historyDurable:true,concurrency:true,downstreamLocked:true,configuredRules:true,cancelledCheckin:true,idempotentCheckin:true}));
