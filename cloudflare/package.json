@@ -16,9 +16,7 @@
     "wrangler": "4.148.0"
   },
   "overrides": {
-    "miniflare": {
-      "sharp": "0.35.5"
-    }
+    "sharp": "0.35.5"
   },
   "dependencies": {
     "qrcode": "1.5.4"

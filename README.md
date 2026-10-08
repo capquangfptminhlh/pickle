@@ -95,7 +95,7 @@ Use `npm ci --ignore-scripts` at the root and in `cloudflare/` to install the
 committed dependency trees. CI audits development tools as well as production
 dependencies with `npm audit --audit-level=high`.
 
-Cloudflare overrides Miniflare's Sharp dependency to `0.35.5` because Wrangler
+Cloudflare overrides Sharp to `0.35.5` because Wrangler
 `4.148.0` still resolves the affected `0.35.4` version (GHSA-wq5f-xc86-pv6w).
 Remove the override when Wrangler's dependency tree includes a patched version,
 then repeat the audit, Worker build and local runtime tests.
