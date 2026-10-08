@@ -666,15 +666,16 @@ async function payments(){
 function auditPage(){setHeader("Nhật ký hệ thống","Theo dõi mọi thay đổi điểm và quản trị");return `<div class="panel">${state.audit.map(a=>`<div style="padding:13px 0;border-bottom:1px solid #edf1ef"><b>${a.action}</b><div style="font-size:12px;color:#73847b;margin-top:4px">${a.time} • ${a.user} • ${a.detail}</div></div>`).join("")||'<div class="empty">Chưa có log.</div>'}</div>`}
 function settings(){
   setHeader("Cấu hình","Rule thi đấu và bảo mật tài khoản");
-  return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảo mật tài khoản</h2><p>Đổi mật khẩu đăng nhập hiện tại</p></div><button class="btn secondary" data-action="changePassword">Đổi mật khẩu</button></div></div><div class="page-grid">${state.divisions.map(d=>`<div class="panel"><div class="panel-head"><div><h2>${d.name}</h2><p>${d.eventType} • ${d.format}</p></div></div>
+  return `<div class="panel" style="margin-bottom:16px"><div class="panel-head"><div><h2>Bảo mật tài khoản</h2><p>Đổi mật khẩu đăng nhập hiện tại</p></div><button class="btn secondary" data-action="changePassword">Đổi mật khẩu</button></div></div><div class="page-grid">${state.divisions.map(d=>`<div class="panel"><div class="panel-head"><div><h2>${escHtml(d.name)}</h2><p>${window.PickleMatchFormat.eventLabel(d.eventType)} • ${window.PickleMatchFormat.formatLabel(d.format)}</p></div></div>
     <div class="form-grid">
       <label class="field">Best of<select data-rule-best="${d.id}" ${canManage()?"":"disabled"}><option value="1" ${d.bestOf===1?"selected":""}>1</option><option value="3" ${d.bestOf===3?"selected":""}>3</option><option value="5" ${d.bestOf===5?"selected":""}>5</option></select></label>
-      <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}><option value="11" ${d.pointsToWin===11?"selected":""}>11</option><option value="15" ${d.pointsToWin===15?"selected":""}>15</option><option value="21" ${d.pointsToWin===21?"selected":""}>21</option></select></label>
+      <label class="field">Điểm thắng<select data-rule-points="${d.id}" ${canManage()?"":"disabled"}>${window.PickleMatchFormat.pointOptions(d.pointsToWin)}</select></label>
       <label class="field">Top đi tiếp<input data-rule-advance="${d.id}" type="number" min="1" max="16" value="${d.advanceCount}" ${canManage()?"":"disabled"}></label>
       <label class="field">Cách tính điểm<select data-rule-scoring="${d.id}" ${canManage()?"":"disabled"}><option value="side_out" ${d.scoringMode!=="rally"?"selected":""}>Side-out</option><option value="rally" ${d.scoringMode==="rally"?"selected":""}>Rally scoring</option></select></label>
       <label class="field">Nghỉ tối thiểu (phút)<input data-rule-rest="${d.id}" type="number" min="0" max="120" value="${d.minimumRestMinutes??15}" ${canManage()?"":"disabled"}></label>
       <label class="field">Thời lượng/trận (phút)<input data-rule-slot="${d.id}" type="number" min="5" max="180" value="${d.matchSlotMinutes??20}" ${canManage()?"":"disabled"}></label>
       <label class="field" style="align-content:end"><span><input data-rule-win2="${d.id}" type="checkbox" ${d.winByTwo?"checked":""} ${canManage()?"":"disabled"}> Thắng cách 2</span></label>
+      ${window.PickleMatchFormat.extraFieldsHtml("rule-"+d.id+"-",d,{disabled:!canManage(),fields:{bestOf:`[data-rule-best="${d.id}"]`,points:`[data-rule-points="${d.id}"]`,scoring:`[data-rule-scoring="${d.id}"]`,winByTwo:`[data-rule-win2="${d.id}"]`}})}
       ${canManage()?`<div class="field full"><button class="btn primary" data-save-rules="${d.id}">Lưu cấu hình</button></div>`:""}
     </div></div>`).join("")}</div>`;
 }
@@ -808,11 +809,14 @@ function openScore(id){
   $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time}`;
   $("#scoreTitle").textContent=isMlp?"Nhập điểm: MLP Đồng đội":isDoubles?"Nhập điểm: Đôi":"Nhập điểm trận";
   $("#teamAName").textContent=teamName(activeMatch.a);$("#teamBName").textContent=teamName(activeMatch.b);
+  $("#targetScore").innerHTML=window.PickleMatchFormat.pointOptions(d?.pointsToWin||11).replace(/>(\d+)</g,">$1 điểm<");
   $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
   $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
 
   const maxSets=Number(d?.bestOf||3);
-  const mlpLabels=["Trận 1: Đôi Nữ","Trận 2: Đôi Nam","Trận 3: Đôi Nam Nữ 1","Trận 4: Đôi Nam Nữ 2","Trận 5: Dreambreaker (nếu 2-2)"];
+  const roster=(state.teamPlayers?.[activeMatch.a]||[]).length||(state.teamPlayers?.[activeMatch.b]||[]).length;
+  const relay=Number(d?.relaySegmentPoints||0)>0;
+  const mlpLabels=relay?[`Chạy điểm đến ${d.pointsToWin}`]:window.PickleMatchFormat.teamGameLabels(roster);
   const existingSets=activeMatch.sets||[];
   let setsHtml="";
   for(let i=0;i<maxSets;i++){
@@ -834,7 +838,9 @@ function syncScoreDialog(){
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
   const serveSide=activeMatch.servingSide||"A",serverNo=Number(activeMatch.serverNumber||(isDoubles?2:1));
-  if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=mode==="rally"?"Rally scoring":"Side-out";
+  if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?` • điểm ${d.pointsToWin} phải cầm giao`:"");
+  const leg=$("#relayLeg");
+  if(leg){const text=window.PickleMatchFormat.legText(a,b,d);leg.hidden=!text;leg.textContent=text}
   if($("#serveStatus"))$("#serveStatus").textContent=(serveSide==="A"?teamName(activeMatch.a):teamName(activeMatch.b))+(mode==="rally"?" • quyền giao":" • Server "+serverNo);
   if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/2";
   if($("#timeoutB"))$("#timeoutB").textContent=Number(activeMatch.timeouts?.B||0)+"/2";
@@ -1056,18 +1062,19 @@ function openDivisionModal(){
     <label class="field full">Giải<select id="dTournament">${state.tournaments.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")}</select></label>
     <label class="field full">Tên nội dung<input id="dName" placeholder="VD: Đôi nam 3.0–3.5"></label>
     <label class="field">Loại<select id="dType"><option value="doubles">Doubles</option><option value="mixed_doubles">Mixed Doubles</option><option value="singles">Singles</option><option value="team">Team</option></select></label>
-    <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Bảng + Knockout</option><option value="round_robin">Round Robin</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Double Elimination</option></select></label>
+    <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Vòng bảng + loại trực tiếp</option><option value="round_robin">Vòng tròn (không có knockout)</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Loại kép</option></select></label>
     <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></label>
-    <label class="field">Điểm/set<select id="dPoints"><option value="11">11</option><option value="15">15</option><option value="21">21</option></select></label>
+    <label class="field">Điểm/set<select id="dPoints">${window.PickleMatchFormat.pointOptions(11)}</select></label>
     <label class="field">Top đi tiếp<input id="dAdvance" type="number" value="2" min="1"></label>
     <label class="field">Cách tính điểm<select id="dScoring"><option value="side_out">Side-out</option><option value="rally">Rally scoring</option></select></label>
     <label class="field">Nghỉ tối thiểu (phút)<input id="dRest" type="number" value="15" min="0" max="120"></label>
     <label class="field">Thời lượng/trận (phút)<input id="dSlot" type="number" value="20" min="5" max="180"></label>
     <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox" checked> Thắng cách 2</span></label>
+    ${window.PickleMatchFormat.extraFieldsHtml("dRule",{},{fields:{bestOf:"#dBest",points:"#dPoints",scoring:"#dScoring",winByTwo:"#dWin2"}})}
     <div class="field full"><button type="button" class="btn primary" id="saveDivision">Thêm nội dung</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),scoringMode:$("#dScoring").value,minimumRestMinutes:Number($("#dRest").value),matchSlotMinutes:Number($("#dSlot").value),winByTwo:$("#dWin2").checked});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+e.message)}};
+  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),scoringMode:$("#dScoring").value,minimumRestMinutes:Number($("#dRest").value),matchSlotMinutes:Number($("#dSlot").value),winByTwo:$("#dWin2").checked,...window.PickleMatchFormat.readExtra("dRule")});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+ruleError(e))}};
 }
 function openCourtModal(){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
@@ -1391,6 +1398,9 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
     }finally{button.disabled=false}
   };
 }
+function ruleError(e){
+  return ({RELAY_REQUIRES_SINGLE_GAME:"Chạy điểm chỉ dùng với 1 game (Best of 1).",INVALID_RELAY_SEGMENT:"Mốc đổi cặp phải nhỏ hơn điểm thắng.",INVALID_POINTS_TO_WIN:"Điểm thắng phải từ 1 đến 99.",INVALID_BEST_OF:"Best of chỉ nhận 1, 3 hoặc 5."})[e?.message]||e?.message||"Lỗi không xác định";
+}
 async function saveRules(id){
   try{
     await API.updateDivision(id,{
@@ -1400,10 +1410,11 @@ async function saveRules(id){
       scoringMode:document.querySelector(`[data-rule-scoring="${id}"]`).value,
       minimumRestMinutes:Number(document.querySelector(`[data-rule-rest="${id}"]`).value),
       matchSlotMinutes:Number(document.querySelector(`[data-rule-slot="${id}"]`).value),
-      winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked
+      winByTwo:document.querySelector(`[data-rule-win2="${id}"]`).checked,
+      ...window.PickleMatchFormat.readExtra("rule-"+id+"-")
     });
     await refresh();toast("Đã lưu rule thi đấu.");
-  }catch(e){toast("Không thể lưu: "+e.message)}
+  }catch(e){toast("Không thể lưu: "+ruleError(e))}
 }
 function openRegistrationModal(){
   if(!state.divisions.length||!state.teams.length)return toast("Chưa có nội dung hoặc đội.");

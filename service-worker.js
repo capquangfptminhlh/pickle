@@ -1,4 +1,4 @@
-const VERSION="pickleup-v38-redirect-safe-20261007";
+const VERSION="pickleup-v39-match-format-20261008";
 const STATIC=[
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
@@ -8,7 +8,9 @@ const STATIC=[
   "/assets/site-sport.css?v=3",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=53",
+  "/assets/admin-app.js?v=54",
+  "/assets/match-format.js?v=1",
+  "/assets/match-format.js",
   "/assets/theme.js",
   "/assets/theme.css",
   "/assets/site-light.css",

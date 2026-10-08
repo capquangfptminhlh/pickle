@@ -104,8 +104,16 @@ async function generateSingle(env,division,teams){
       created.push(m);
     }
   }
+  // A third-place playoff needs two real semifinal losers; a bye semifinal has none.
+  const semis=rounds>=2?created.filter(m=>m.roundNo===rounds-1):[];
+  const thirdPlace=Number(division.third_place_match)===1&&semis.length===2&&!semis.some(m=>m.status==="completed");
+  if(thirdPlace){
+    const id=uid();
+    semis.forEach((m,i)=>{m.loserNextId=id;m.loserNextSide=i===0?"A":"B"});
+    created.push({id,divisionId:division.id,a:null,b:null,stage:"Tranh hạng ba",roundNo:rounds,slot:"SE-3RD-M1"});
+  }
   await persistBracket(env,created);
-  return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal:Boolean(protectedSlots)};
+  return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal:Boolean(protectedSlots),thirdPlaceMatch:thirdPlace};
 }
 
 async function generateDouble(env,division,teams){

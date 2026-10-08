@@ -23,3 +23,23 @@ export function validateSeries(sets,bestOf=3,target=11,winByTwo=true,{requireCom
   if(requireComplete&&!winner)return result(false,"MATCH_NOT_FINISHED");
   return result(true);
 }
+
+// Returns an error code for an impossible match format, or null when playable.
+// A relay ("chạy điểm") is one running game, so it cannot be split into a series.
+export function validateMatchFormat({bestOf,pointsToWin,relaySegmentPoints=0}){
+  if(![1,3,5].includes(bestOf))return "INVALID_BEST_OF";
+  if(!Number.isSafeInteger(pointsToWin)||pointsToWin<1||pointsToWin>99)return "INVALID_POINTS_TO_WIN";
+  if(!Number.isSafeInteger(relaySegmentPoints)||relaySegmentPoints<0||relaySegmentPoints>99)return "INVALID_RELAY_SEGMENT";
+  if(relaySegmentPoints&&relaySegmentPoints>=pointsToWin)return "INVALID_RELAY_SEGMENT";
+  if(relaySegmentPoints&&bestOf!==1)return "RELAY_REQUIRES_SINGLE_GAME";
+  return null;
+}
+
+// Which relay leg is on court: AB plays until the leader reaches one segment,
+// BC until two segments, and so on. null when the format has no relay.
+export function relayLeg(a,b,segmentPoints,target){
+  if(!segmentPoints||segmentPoints<1||!target)return null;
+  const count=Math.ceil(target/segmentPoints);
+  const index=Math.min(count-1,Math.floor(Math.max(Number(a)||0,Number(b)||0)/segmentPoints));
+  return {index,count,until:Math.min(target,(index+1)*segmentPoints)};
+}

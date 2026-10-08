@@ -27,3 +27,12 @@ html body.site-sport :is(.courtside-top,.courtside-top-actions,.board-tools,.mat
 html body.admin-sport .topbar .top-left {display:flex!important;align-items:center;gap:12px;flex:1;min-width:0}
 html body.admin-sport .topbar .top-left>div {flex:1;min-width:0}
 html body.admin-sport .topbar #themeToggle {margin-left:auto}
+
+/* Match-format rule hints (relay leg, final-point rule) shared by admin, referee and public pages. */
+html body :is(.relay-leg,.leg-banner) {
+  display:block;margin:8px 0;padding:8px 12px;border-radius:10px;
+  border:1px solid rgba(4,120,87,.45);background:rgba(4,120,87,.12);
+  font:800 13px/1.35 Inter,system-ui,sans-serif;letter-spacing:.01em;
+}
+html body :is(.relay-leg,.leg-banner)[hidden] {display:none!important}
+html body .field-hint {display:block;margin-top:6px;font-size:12px;line-height:1.4;opacity:.8}

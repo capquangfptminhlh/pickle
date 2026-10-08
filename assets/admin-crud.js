@@ -172,14 +172,15 @@
     modal("Sửa nội dung thi đấu",'<div class="form-grid">'+
       '<label class="field full">Tên nội dung<input id="crudDName" value="'+esc(d.name)+'"></label>'+
       '<label class="field">Loại<select id="crudDType">'+[["singles","Singles"],["doubles","Doubles"],["mixed_doubles","Mixed Doubles"],["team","Team"]].map(([v,l])=>'<option value="'+v+'" '+(d.eventType===v?"selected":"")+'>'+l+'</option>').join("")+'</select></label>'+
-      '<label class="field">Thể thức<select id="crudDFormat">'+[["round_robin","Round Robin"],["pool_to_knockout","Bảng + Knockout"],["single_elimination","Single Elimination"],["double_elimination","Double Elimination"]].map(([v,l])=>'<option value="'+v+'" '+(d.format===v?"selected":"")+'>'+l+'</option>').join("")+'</select></label>'+
+      '<label class="field">Thể thức<select id="crudDFormat">'+[["round_robin","Vòng tròn"],["pool_to_knockout","Vòng bảng + loại trực tiếp"],["single_elimination","Loại trực tiếp"],["double_elimination","Loại kép"]].map(([v,l])=>'<option value="'+v+'" '+(d.format===v?"selected":"")+'>'+l+'</option>').join("")+'</select></label>'+
       '<label class="field">Best of<select id="crudDBest">'+[1,3,5].map(v=>'<option value="'+v+'" '+(d.bestOf===v?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
-      '<label class="field">Điểm/set<select id="crudDPoints">'+[11,15,21].map(v=>'<option value="'+v+'" '+(d.pointsToWin===v?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
+      '<label class="field">Điểm/set<select id="crudDPoints">'+window.PickleMatchFormat.pointOptions(d.pointsToWin)+'</select></label>'+
       '<label class="field">Top đi tiếp<input id="crudDAdvance" type="number" min="1" value="'+d.advanceCount+'"></label>'+
       '<label class="field">Cách tính điểm<select id="crudDScoring"><option value="side_out" '+(d.scoringMode!=="rally"?"selected":"")+'>Side-out</option><option value="rally" '+(d.scoringMode==="rally"?"selected":"")+'>Rally scoring</option></select></label>'+
       '<label class="field">Nghỉ tối thiểu (phút)<input id="crudDRest" type="number" min="0" max="120" value="'+(d.minimumRestMinutes??15)+'"></label>'+
       '<label class="field">Thời lượng/trận (phút)<input id="crudDSlot" type="number" min="5" max="180" value="'+(d.matchSlotMinutes??20)+'"></label>'+
-      '<label class="field" style="align-content:end"><span><input id="crudDWin2" type="checkbox" '+(d.winByTwo?"checked":"")+'> Win by 2</span></label>'+
+      '<label class="field" style="align-content:end"><span><input id="crudDWin2" type="checkbox" '+(d.winByTwo?"checked":"")+'> Thắng cách 2</span></label>'+
+      window.PickleMatchFormat.extraFieldsHtml("crudDRule",d,{fields:{bestOf:"#crudDBest",points:"#crudDPoints",scoring:"#crudDScoring",winByTwo:"#crudDWin2"}})+
       '<label class="field full"><span><input id="crudDActive" type="checkbox" '+(d.active!==false?"checked":"")+'> Nội dung đang hoạt động</span></label>'+
       '<div class="field full"><button id="crudSaveD" type="button" class="btn primary">Lưu nội dung</button></div></div>');
     $("#crudSaveD").onclick=async()=>{
@@ -189,7 +190,8 @@
           bestOf:Number($("#crudDBest").value),pointsToWin:Number($("#crudDPoints").value),
           advanceCount:Number($("#crudDAdvance").value),scoringMode:$("#crudDScoring").value,
           minimumRestMinutes:Number($("#crudDRest").value),matchSlotMinutes:Number($("#crudDSlot").value),
-          winByTwo:$("#crudDWin2").checked,active:$("#crudDActive").checked
+          winByTwo:$("#crudDWin2").checked,active:$("#crudDActive").checked,
+          ...window.PickleMatchFormat.readExtra("crudDRule")
         });
         close();await ctx.refresh();ctx.toast("Đã cập nhật nội dung.");
       }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}

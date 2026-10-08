@@ -156,7 +156,14 @@ async function mutationPlan(env,m,sets,action,body,at){
     let scored=false,sideOut=false;
     if(String(m.scoring_mode||"side_out")==="rally"){
       const column=side==="A"?"current_score_a":"current_score_b";
-      next[column]+=1;next.serving_side=side;next.server_number=1;scored=true;
+      const a=next.current_score_a+(side==="A"?1:0),b=next.current_score_b+(side==="B"?1:0);
+      // "Điểm cuối phải cầm giao": a receiving side that wins the would-be
+      // game point only takes the serve back.
+      if(Number(m.final_point_on_serve)===1&&side!==serveBefore&&validateSet(a,b,Number(m.points_to_win),Boolean(m.win_by_two))){
+        next.serving_side=side;next.server_number=1;sideOut=true;
+      }else{
+        next[column]+=1;next.serving_side=side;next.server_number=1;scored=true;
+      }
     }else if(side===next.serving_side){
       const column=side==="A"?"current_score_a":"current_score_b";
       next[column]+=1;scored=true;
@@ -271,7 +278,7 @@ export async function handleScoring(request,env){
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
   const id=decodeURIComponent(match[1]),action=match[2];
   const user=await authenticate(request,env);if(!user)return fail("AUTH_REQUIRED",request,env,401);
-  const m=await one(env,"SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
+  const m=await one(env,"SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.final_point_on_serve,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
   if(!m)return fail("NOT_FOUND",request,env,404);
   if(!(await authorize(env,user,m)))return fail("FORBIDDEN",request,env,403);
   const body=await bodyJson(request);

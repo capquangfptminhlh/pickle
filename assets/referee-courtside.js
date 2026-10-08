@@ -59,7 +59,8 @@
     $("#queueLabel").textContent=qm[0];$("#queueLabel").className="queue-pill "+qm[1];
     $("#refTeamA").textContent=team(m.a);$("#refTeamB").textContent=team(m.b);
     $("#refScoreA").textContent=a;$("#refScoreB").textContent=b;
-    $("#modeBanner").textContent=mode==="rally"?"Rally scoring":"Side-out";
+    $("#modeBanner").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?" · điểm "+target+" phải cầm giao":"");
+    const leg=window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
     $("#serveBanner").textContent=(serve==="A"?team(m.a):team(m.b))+(mode==="rally"?" · quyền giao":" · Server "+server);
     $("#refTimeoutA").textContent=Number(m.timeouts?.A||0)+"/2";$("#refTimeoutB").textContent=Number(m.timeouts?.B||0)+"/2";
     $("#refMedicalA").textContent=Number(m.medicalTimeouts?.A||0)+"/1";$("#refMedicalB").textContent=Number(m.medicalTimeouts?.B||0)+"/1";

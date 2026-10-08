@@ -21,7 +21,7 @@ const fmtRating=v=>{const n=Number(v);return Number.isFinite(n)?(Math.round(n*10
 const athleteChip=p=>{const av=p?.avatar_url?`<img src="${esc(p.avatar_url)}" alt="${esc(p.full_name||"VĐV")}" loading="lazy" class="tour-athlete-avatar">`:`<span class="tour-athlete-avatar tour-athlete-fallback">${esc(initials(p?.full_name))}</span>`;return `<span class="tour-athlete-chip">${av}<span class="tour-athlete-copy"><b>${esc(p?.full_name||"VĐV")}</b><small><strong>${fmtRating(p?.rating)}</strong> điểm</small></span></span>`}
 const badge=s=>s==="live"?'<span class="badge live">LIVE</span>':s==="done"?'<span class="badge done">KẾT THÚC</span>':'<span class="badge wait">SẮP ĐẤU</span>';
 const statusMeta=s=>({live:["ĐANG DIỄN RA","live"],registration:["ĐANG NHẬN ĐĂNG KÝ","blue"],open:["ĐANG NHẬN ĐĂNG KÝ","blue"],completed:["ĐÃ KẾT THÚC","done"],cancelled:["ĐÃ HỦY","done"]}[s]||["SẮP DIỄN RA","wait"]);
-const formatLabel=f=>({pool_to_knockout:"Vòng bảng → Loại trực tiếp",round_robin:"Vòng tròn",knockout:"Loại trực tiếp"}[f]||String(f||""));
+const mf=window.PickleMatchFormat||{eventLabel:x=>x||"Nội dung",formatLabel:x=>x||"",rulesSummary:d=>`${d.bestOf} game • ${d.pointsToWin} điểm`};
 const safeHttps=s=>{if(!s)return "#";try{const u=new URL(s,location.origin);return u.protocol==="https:"?s:"#"}catch{return "#"}};
 function empty(icon,title,copy){return '<div class="app-empty-card"><span>'+icon+'</span><b>'+title+'</b><small>'+copy+'</small></div>'}
 function render(){
@@ -64,8 +64,8 @@ function render(){
  $("#tourHeroStats").innerHTML=[
    ["Nội dung",divs.length],["Đội / cặp",teams.length],["Trận đấu",matches.length],["Đã xong",done.length]
  ].map(([k,v])=>'<span><b>'+v+'</b><small>'+k+'</small></span>').join("");
- $("#tourLiveCount").textContent=(live.length?"● "+live.length+" LIVE":"0 live")+" • "+(realtimeConnected?"REALTIME":"CÔNG KHAI");$("#tourLiveCount").classList.toggle("is-realtime",realtimeConnected);$("#tourTeamCount").textContent=teams.length+" đội";
- $("#tourDivisions").innerHTML=divs.map(d=>'<article class="tournament-division-card"><div><span>'+esc(d.eventType||"Nội dung")+'</span><h3>'+esc(d.name)+'</h3><p>'+esc(d.format||"")+'</p></div><div class="division-rule-pills"><b>Best of '+esc(d.bestOf)+'</b><b>'+esc(d.pointsToWin)+' điểm</b><b>'+(d.winByTwo?"Cách 2":"Không cách 2")+'</b></div></article>').join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
+ $("#tourLiveCount").textContent=live.length?"● "+live.length+" trận đang live":"Chưa có trận live";$("#tourLiveCount").classList.toggle("is-realtime",realtimeConnected&&live.length>0);$("#tourLiveCount").classList.toggle("is-idle",!live.length);$("#tourTeamCount").textContent=teams.length+" đội";
+ $("#tourDivisions").innerHTML=divs.map(d=>'<article class="tournament-division-card"><div><span>'+esc(mf.eventLabel(d.eventType))+'</span><h3>'+esc(d.name)+'</h3><p>'+esc(mf.formatLabel(d.format))+'</p></div><div class="division-rule-pills">'+mf.rulesSummary(d).split(" • ").map(x=>'<b>'+esc(x)+'</b>').join("")+'</div></article>').join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
  $("#tourTeams").innerHTML=(()=>{
    const sorted=[...teams].sort((a,b)=>String(a.group||"ZZ").localeCompare(String(b.group||"ZZ"),"vi")||Number(a.seed||999)-Number(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
    const existingGroups=[...new Set(sorted.map(x=>x.group).filter(Boolean))].sort();
@@ -77,7 +77,7 @@ function render(){
        '<div class="tournament-group-list">'+sorted.map((x,rowIndex)=>{
          const d=divs.find(v=>v.id===x.divisionId),ps=teamPlayers(x.id),avg=ps.length?ps.reduce((s,p)=>s+Number(p.rating||0),0)/ps.length:null;
          const athletes=ps.length?'<div class="tour-athlete-list">'+ps.map(athleteChip).join("")+'</div>':'<small class="tour-no-athlete">Chưa có hồ sơ VĐV/avatar</small>';
-         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+' • '+esc(d?.name||"")+'</small>'+athletes+'</div></article>';
+         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
        }).join("")+'</div></section>';
    }
    const groupKeys=existingGroups.length?existingGroups:["__ungrouped__"];
@@ -89,7 +89,7 @@ function render(){
        '<div class="tournament-group-list">'+rows.map((x,rowIndex)=>{
          const d=divs.find(v=>v.id===x.divisionId),ps=teamPlayers(x.id),avg=ps.length?ps.reduce((s,p)=>s+Number(p.rating||0),0)/ps.length:null;
          const athletes=ps.length?'<div class="tour-athlete-list">'+ps.map(athleteChip).join("")+'</div>':'<small class="tour-no-athlete">Chưa có hồ sơ VĐV/avatar</small>';
-         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+' • '+esc(d?.name||"")+'</small>'+athletes+'</div></article>';
+         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
        }).join("")+'</div></section>';
    }).join("");
  })()||empty("👥","Chưa có đội / cặp tham dự","Danh sách sẽ xuất hiện khi BTC thêm đội."); const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5; const ordered=[...matches].sort((a,b)=>queueRank(a)-queueRank(b)||String(a.time).localeCompare(String(b.time)));
@@ -122,11 +122,22 @@ function render(){
   const groupEntries=isDrawn?divs.flatMap(d=>[...new Set(teams.filter(x=>x.divisionId===d.id).map(x=>x.group).filter(Boolean))].sort().map(g=>({d,g}))):[];
   $("#tourStandings").innerHTML=groupEntries.map(({d,g})=>{const advance=Math.max(1,Number(d.advanceCount||2)),rows=sortGroupTeams(teams.filter(x=>x.divisionId===d.id&&x.group===g),matches.filter(m=>m.divisionId===d.id));return '<div class="public-standings"><div class="panel-head"><div><span class="eyebrow">'+esc(d.name)+' • BẢNG '+esc(g)+'</span><h2>Xếp hạng Bảng '+esc(g)+'</h2></div><span class="badge blue">TOP '+advance+' ĐI TIẾP</span></div><div class="standing-table-wrap"><div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>'+rows.map((r,i)=>{const qualified=i<advance,rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span>':'<span class="rank-badge rank-other">Hạng '+(i+1)+'</span>';const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';const diff=r.pf-r.pa;return '<div class="standing-row '+qCls+'"><b>'+(i+1)+'</b><span><b>'+esc(r.name)+'</b><small class="muted-block">'+esc(r.club||"")+'</small></span><span>'+r.w+'-'+r.l+'</span><span>'+(r.sw||0)+'-'+(r.sl||0)+'</span><span>'+r.pf+'-'+r.pa+'</span><b>'+(diff>0?'+':'')+diff+'</b><div>'+rankTag+(qualified?'<small class="qualify-status">Vào vòng trong</small>':'')+'</div></div>';}).join("")+'</div></div>'}).join("")||empty("📊","Chưa có bảng xếp hạng","Kết quả vòng bảng sẽ tự cập nhật.");
  const hasKnockout=matches.some(m=>m.bracketSlot)||matches.some(m=>/bán kết|chung kết|tứ kết/i.test(m.stage||""));
+ const roundRobinOnly=divs.length>0&&divs.every(d=>d.format==="round_robin");
+ const knockoutDiv=divs.find(d=>d.format!=="round_robin")||divs[0];
+ const advance=Math.max(1,Number(knockoutDiv?.advanceCount||2));
+ const help=$("#knockout .tournament-bracket-help");
+ if(help)help.textContent=roundRobinOnly
+   ?"Thể thức vòng tròn: thứ hạng chung cuộc lấy theo bảng xếp hạng, không có vòng loại trực tiếp."
+   :knockoutDiv?.format==="pool_to_knockout"
+     ?`Top ${advance} mỗi bảng vào vòng loại trực tiếp${knockoutDiv?.thirdPlaceMatch?", có trận tranh hạng ba":""}.`
+     :`Loại trực tiếp đến Chung kết${knockoutDiv?.thirdPlaceMatch?", có trận tranh hạng ba":""}.`;
  const bracketHtml=hasKnockout
    ?(window.PickleBracket?.render(matches,team,{admin:false})||"")
-   :(window.PickleBracket?.renderPlan(teams)||empty("🏆","Chưa có sơ đồ","BTC chưa chia bảng."));
+   :roundRobinOnly
+     ?empty("📊","Không có vòng loại trực tiếp","Xem thứ hạng ở mục Bảng xếp hạng.")
+     :(window.PickleBracket?.renderPlan(teams,{advance,thirdPlace:Boolean(knockoutDiv?.thirdPlaceMatch)})||empty("🏆","Chưa có sơ đồ","BTC chưa chia bảng."));
  const champ=window.PickleBracket?.champion(matches,team);
- $("#tourBracket").innerHTML=bracketHtml+(champ&&champ!=="Chưa xác định"?'<div class="public-champion"><span>CHAMPION</span><strong>'+esc(champ)+'</strong></div>':"");
+ $("#tourBracket").innerHTML=bracketHtml+(champ&&champ!=="Chưa xác định"?'<div class="public-champion"><span>VÔ ĐỊCH</span><strong>'+esc(champ)+'</strong></div>':"");
  requestAnimationFrame(()=>{requestAnimationFrame(drawBracketConnectors)});
  const relevant=sponsors.filter(s=>!s.tournament_id||s.tournament_id===t.id);
  $("#tourSponsors").innerHTML=relevant.map(s=>'<a class="public-sponsor" href="'+esc(safeHttps(s.website_url))+'" '+(safeHttps(s.website_url)!=="#"?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có nhà tài trợ công khai.</span>';
