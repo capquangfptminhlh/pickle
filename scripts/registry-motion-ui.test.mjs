@@ -43,6 +43,11 @@ async function withPage(options,fn){
       const req=route.request(),r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);
       await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
     });
+    if(path.startsWith("/preview/")){
+      const state=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
+      state.tournaments.forEach(t=>{t.isFeatured=true;t.posterUrl="/assets/tournaments/pickleup-tour-binh-loi-20261015-original.jpg"});
+      await page.addInitScript(state=>localStorage.setItem("pickle-local-state-v1",JSON.stringify(state)),state);
+    }
     await page.goto(base+path,{waitUntil:"domcontentloaded"});
     await page.locator(admin?".club-home-hero":".public-header").first().waitFor();
     await page.evaluate(()=>document.fonts.ready);
@@ -183,3 +188,23 @@ test("unavailable tournaments hide section navigation",async()=>{
     assert.ok(await page.locator(".tournament-tabs").isHidden(),"no dead section links on an unavailable tournament");
   });
 });
+
+for(const width of [375,844,1440])for(const path of ["/","/preview/index.html"]){
+  test(`home ${path} tournament labels leave the original poster unobstructed at ${width}px`,async()=>{
+    await withPage({width,path},async page=>{
+      const card=page.locator("#publicTours .tour-card").first();
+      await card.waitFor();
+      const media=await card.locator(".tour-media").boundingBox();
+      for(const label of await card.locator(".badge,.tour-card-feature,.tour-featured-badge").all()){
+        const box=await label.boundingBox();
+        if(!box)continue;
+        const overlap=Math.min(media.x+media.width,box.x+box.width)>Math.max(media.x,box.x)&&Math.min(media.y+media.height,box.y+box.height)>Math.max(media.y,box.y);
+        assert.equal(overlap,false,"status and sponsorship labels must not cover poster content");
+      }
+      if(width===375){
+        const title=await card.locator("h3").boundingBox(),dock=await page.locator(".public-mobile-dock").boundingBox();
+        assert.ok(title.y+title.height<=dock.y,"the first tournament name is readable before scrolling past a tall poster");
+      }
+    });
+  });
+}

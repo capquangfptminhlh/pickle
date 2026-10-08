@@ -38,7 +38,7 @@ function podiumCard(item,index,rank=index+1){
 }
 function render(){
  const rows=currentRows();
- $$(".ranking-tabs button").forEach(b=>b.classList.toggle("active",b.dataset.rankMode===mode));
+ $$(".ranking-tabs button").forEach(b=>{const active=b.dataset.rankMode===mode;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active))});
  $("#rankClub").hidden=mode!=="player";
  if($("#rankGender"))$("#rankGender").hidden=mode!=="player";
  $("#rankSearch").placeholder=mode==="player"?"Tìm VĐV hoặc CLB...":mode==="club"?"Tìm CLB...":"Tìm khu vực...";
@@ -47,15 +47,15 @@ function render(){
  // A podium only makes sense when places 1-3 are actually separated.
  const tiedTop=top.length>1&&ranks[1]===ranks[0]||top.length>2&&ranks[2]===ranks[1];
  $("#rankingPodium").innerHTML=!top.length
-   ?'<div class="app-empty-card"><span>📊</span><b>Chưa có dữ liệu ranking</b><small>Dữ liệu thật sẽ xuất hiện khi có VĐV được công khai.</small></div>'
+   ?'<div class="app-empty-card"><b>Chưa có dữ liệu ranking</b><small>Dữ liệu thật sẽ xuất hiện khi có VĐV được công khai.</small></div>'
    :tiedTop
-     ?'<div class="app-empty-card ranking-tie-note"><span>🤝</span><b>Chưa phân định Top 3</b><small>Các VĐV dẫn đầu đang bằng điểm. Thứ hạng sẽ tách ra khi có kết quả thi đấu.</small></div>'
+     ?'<div class="app-empty-card ranking-tie-note"><b>Chưa phân định Top 3</b><small>Các VĐV dẫn đầu đang bằng điểm. Thứ hạng sẽ tách ra khi có kết quả thi đấu.</small></div>'
      :order.filter(i=>top[i]).map(i=>podiumCard(top[i],i,ranks[i])).join("");
  $("#rankingRows").innerHTML=rows.map((item,i)=>{
    const gTag=item.gender==="female"?" • Nữ":item.gender==="male"?" • Nam":"";
    if(mode==="player")return '<div class="ranking-app-row"><b class="ranking-app-rank">'+ranks[i]+'</b><a class="ranking-app-player" href="player.html?id='+encodeURIComponent(item.id)+'">'+avatar(item)+'<span><b>'+esc(item.full_name)+'</b><small>'+esc(item.club_name||item.nickname||"Tự do")+gTag+(tier(item)?' • Trình '+esc(tier(item)):'')+(item.club_city?' • '+esc(item.club_city):'')+'</small></span></a><strong class="ranking-app-rating">'+fmtRating(item.rating)+'</strong></div>';
    return '<div class="ranking-app-row"><b class="ranking-app-rank">'+ranks[i]+'</b><div class="ranking-app-player"><span class="ranking-avatar ranking-avatar-fallback">'+esc(initials(item.name))+'</span><span><b>'+esc(item.name)+'</b><small>'+item.members+' VĐV'+(item.city?' • '+esc(item.city):'')+'</small></span></div><strong class="ranking-app-rating">'+fmtRating(item.rating)+'</strong></div>';
- }).join("")||'<div class="app-empty-card"><span>🔎</span><b>Không có dữ liệu phù hợp</b><small>Thử từ khóa khác.</small></div>';
+ }).join("")||'<div class="app-empty-card"><b>Không có dữ liệu phù hợp</b><small>Thử từ khóa khác.</small></div>';
 }
 async function load(){
  try{

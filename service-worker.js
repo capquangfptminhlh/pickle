@@ -1,5 +1,9 @@
-const VERSION="pickleup-v44-tournament-20261008-avatars-posters";
+const VERSION="pickleup-v45-public-refresh-20261008";
 const STATIC=[
+  "/assets/public-refresh.css?v=1",
+  "/assets/public-refresh.css",
+  "/assets/ranking.js?v=2",
+  "/assets/public.js?v=52",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",

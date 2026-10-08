@@ -1,5 +1,11 @@
-const VERSION="pickleup-preview-v28-tournament-20261008-avatars-posters";
+const VERSION="pickleup-preview-v29-public-refresh-20261008";
 const CORE=[
+  "./preview-public.js?v=2",
+  "../assets/public-refresh.css?v=1",
+  "../assets/public-refresh.css",
+  "../assets/ranking.js?v=2",
+  "../assets/pickleup-logo-sport-v3.svg",
+  "../assets/app-icon-sport-v3.svg",
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
   "../assets/theme.css?v=2",

@@ -7,10 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pickleup.vn">
-  <link rel="apple-touch-icon" href="../assets/app-icon-v2.svg">
+  <link rel="apple-touch-icon" href="../assets/app-icon-sport-v3.svg">
   <meta name="theme-color" content="#f4f7f4">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="../assets/app-icon-v2.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/app-icon-sport-v3.svg" type="image/svg+xml">
   <title>Bảng xếp hạng | Pickleup.vn</title>
   <meta name="description" content="Bảng xếp hạng rating VĐV pickleball trên Pickleup.vn.">
   <script src="../assets/theme.js?v=1"></script>
@@ -19,12 +19,13 @@
 <link rel="stylesheet" href="../assets/site-sport.css?v=8">
 <link rel="stylesheet" href="../assets/site-light.css?v=1">
 <link rel="stylesheet" href="../assets/theme.css?v=2">
+<link rel="stylesheet" href="../assets/public-refresh.css?v=1">
 </head>
-<body class="public-body community-public ranking-app-page site-sport">
+<body class="public-body community-public ranking-app-page site-sport public-refresh">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
 <header class="public-header community-appbar">
   <div class="public-container public-nav">
-    <a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="../assets/pickleup-logo-v2.svg" alt="Pickleup.vn"></a>
+    <a class="public-brand" href="index.html" aria-label="Pickleup.vn"><img class="brand-logo" src="../assets/pickleup-logo-sport-v3.svg" alt="Pickleup.vn"></a>
     <nav aria-label="Điều hướng chính"><a href="index.html#tournaments">Giải đấu</a><a href="index.html#live">Live</a><a href="ranking.html" aria-current="page">BXH</a><a href="submit-tournament.html">Đăng giải</a><a href="about.html">Giới thiệu</a></nav>
     <a class="btn primary" href="index.html#tournaments">Đăng ký giải</a>
   </div>
@@ -36,7 +37,7 @@
     <div id="rankingPodium" class="ranking-podium"></div>
     <div class="ranking-search-panel">
       <div class="ranking-search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="rankSearch" aria-label="Tìm VĐV hoặc CLB" placeholder="Tìm VĐV hoặc CLB..."></div>
-      <select id="rankGender" aria-label="Lọc giới tính"><option value="">Tất cả giới tính</option><option value="male">Nam (2.5)</option><option value="female">Nữ (2.0)</option></select>
+      <select id="rankGender" aria-label="Lọc giới tính"><option value="">Tất cả giới tính</option><option value="male">Nam</option><option value="female">Nữ</option></select>
       <select id="rankClub" aria-label="Lọc CLB"><option value="">Tất cả CLB</option></select>
     </div>
     <div class="ranking-list-card">
@@ -49,7 +50,7 @@
 
 <script src="../assets/members-binh-loi-data.js"></script>
 <script src="preview-api.js"></script>
-<script src="../assets/ranking.js"></script>
+<script src="../assets/ranking.js?v=2"></script>
 <script src="../assets/ui-motion.js?v=34"></script>
 <script src="preview-pwa.js"></script>
 </body>

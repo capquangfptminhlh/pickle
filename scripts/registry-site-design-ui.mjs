@@ -85,7 +85,7 @@ try{
         checks(label+" "+theme+" theme",()=>{assert.ok(style.theme,"site theme missing");assert.ok(theme==="light"?luminance(style.bg)>.8:luminance(style.bg)<.03,"selected canvas brightness");assert.ok(style.scheme.includes(theme));assert.ok(contrast(style.fg,style.bg)>=7,"body text contrast")});
         const samples=await page.locator('.bracket-plan-note,.bracket-plan-empty,.bracket-plan-match .bracket-team,.division-rule-pills b,.public-section>.public-container,.panel,.tour-body,.top-player-card,.news-card,.community-post-card,.connect-player-card,.ranking-tabs,.ranking-list-card,.ranking-search-panel,.podium-player,.tournament-event-summary,.tournament-event-facts article,.tournament-prize-card,.tournament-contact-card,.player-stat,.player-match,.login-card,.checkin-card,.ref-team-card,.ref-control-card,.live-match-card,.card,.package-card').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el);let p=el;while(p.parentElement&&getComputedStyle(p).backgroundColor==="rgba(0, 0, 0, 0)")p=p.parentElement;return {cls:el.className,bg:getComputedStyle(p).backgroundColor,fg:s.color}}));
         for(const s of samples)checks(label+" surface "+s.cls,()=>{assert.ok(theme==="light"?luminance(s.bg)>.5:luminance(s.bg)<.08,"selected surface brightness");assert.ok(contrast(s.fg,s.bg)>=4.5,"surface text contrast")});
-        const coreCards=await page.locator('.login-card,.ranking-search-panel,.top-player-card,.tour-card,.club-home-actions button').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderTopColor})));
+        const coreCards=await page.locator('.login-card,.top-player-card,.tour-card,.club-home-actions button').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderRightColor})));
         for(const card of coreCards)checks(label+" clear card separation",()=>assert.ok(theme==="light"?contrast(card.bg,card.border)>=1.5:contrast(card.bg,style.bg)>=1.5,"cards must stand apart from their surroundings"));
         const inputs=await page.locator('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {id:el.id,bg:s.backgroundColor,fg:s.color,font:parseFloat(s.fontSize),height:r.height,x:r.x,right:r.right}}));
         for(const s of inputs)checks(label+" field "+s.id,()=>{assert.ok(theme==="light"?luminance(s.bg)>.5:luminance(s.bg)<.08,"selected field brightness");assert.ok(contrast(s.fg,s.bg)>=4.5,"field text contrast");assert.ok(s.height>=44,"field touch height");assert.ok(s.font>=14,"field text size");assert.ok(s.x>=-1&&s.right<=viewport.width+1,"field must fit viewport")});
@@ -111,6 +111,13 @@ try{
         if(!process.env.SITE_BASELINE&&path==="ranking.html"){
           await page.locator("#rankSearch").fill("Nguyễn Minh");await page.waitForFunction(()=>document.querySelectorAll("#rankingRows a").length===1);assert.match(await page.locator("#rankingRows").innerText(),/Nguyễn Minh/);
           await page.locator("#rankSearch").fill("không tồn tại");await page.waitForFunction(()=>document.querySelectorAll("#rankingRows a").length===0);await page.locator("#rankSearch").fill("");
+          for(const [mode,title] of [["club","CLB"],["area","Khu vực"],["player","VĐV"]]){
+            await page.locator(`[data-rank-mode="${mode}"]`).click();
+            assert.equal(await page.locator(`[data-rank-mode="${mode}"]`).getAttribute("aria-pressed"),"true","selected ranking mode is announced");
+            assert.match(await page.locator(".ranking-list-head").innerText(),new RegExp(title));
+            assert.equal(await page.locator("#rankGender").isVisible(),mode==="player","player filters follow the ranking mode");
+            assert.equal(await page.locator("#rankClub").isVisible(),mode==="player");
+          }
         }
         if(path==="preview/tournament.html?id=tour"){await expectPoster(page.locator("#tourBannerImage"));const ratio=await page.locator(".tournament-event-banner-wrap").evaluate(el=>el.clientWidth/el.clientHeight);assert.ok(Math.abs(ratio-2/3)<.02,"preview portrait poster ratio")}
         if(!process.env.SITE_BASELINE&&path==="tournament.html?id=tour"){
