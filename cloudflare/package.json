@@ -13,7 +13,12 @@
     "check": "npm run build:assets && wrangler deploy --dry-run --outdir .wrangler-dist"
   },
   "devDependencies": {
-    "wrangler": "4.143.0"
+    "wrangler": "4.148.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "0.35.5"
+    }
   },
   "dependencies": {
     "qrcode": "1.5.4"

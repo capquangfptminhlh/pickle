@@ -85,5 +85,20 @@ Score changes are persisted in `score_events`; account, club, attendance, treasu
 ## Governance
 This project bootstraps from `capquangfptminhlh/seo-web` Website OS. Governance evidence is under `governance/`.
 
+`governance/website-os.manifest.yml` is a snapshot of the central manifest at the
+source commit recorded in `.website-os.yml`. Resolve the manifest's standards and
+enforcement tools in that central repository, rather than relative to this local
+snapshot. Restoring this file does not certify the project's launch completeness.
+
+## Dependency maintenance
+Use `npm ci --ignore-scripts` at the root and in `cloudflare/` to install the
+committed dependency trees. CI audits development tools as well as production
+dependencies with `npm audit --audit-level=high`.
+
+Cloudflare overrides Miniflare's Sharp dependency to `0.35.5` because Wrangler
+`4.148.0` still resolves the affected `0.35.4` version (GHSA-wq5f-xc86-pv6w).
+Remove the override when Wrangler's dependency tree includes a patched version,
+then repeat the audit, Worker build and local runtime tests.
+
 ## Deployment status
 The repository contains the production backend/auth stack, but a public secure admin deployment still requires a server runtime + PostgreSQL + HTTPS. GitHub Pages is used only for the public/static presentation and intentionally does not provide a fake secured admin session.

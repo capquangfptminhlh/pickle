@@ -1,0 +1,158 @@
+version: 1.3.0
+status: normative
+updated_at: 2026-08-17
+source_repository: capquangfptminhlh/seo-web
+source_branch: main
+entrypoint: AGENTS.md
+
+bootstrap:
+  required_in_every_project_repo: true
+  project_entry_file: AGENTS.md
+  recommended_project_pointer_file: .website-os.yml
+  failure_state: "HOLD — WEBSITE OS BOOTSTRAP MISSING OR STALE"
+  project_must_not_claim_compliance_without_bootstrap: true
+
+enforcement_engine:
+  required: true
+  version: 1.1.0
+  standard: standards/Website_OS_Enforcement_Engine_v1.0.0.md
+  cli: engine/website_os_engine.py
+  policy: engine/policy.yml
+  requirements: engine/requirements.txt
+  default_gate_mode: auto
+  default_evidence_dir: .website-os/evidence
+  default_output_dir: .website-os/out
+  fail_closed: true
+  outputs:
+    - website-os-report.json
+    - website-os-summary.md
+    - website-os.sarif
+    - website-os-attestation.json
+
+full_scope_launch_completeness:
+  required: true
+  version: 1.0.0
+  standard: standards/Website_OS_Full_Scope_Launch_Completeness_Gate_v1.0.0.md
+  machine_policy: governance/full-scope-launch-policy.yml
+  pre_build_failure_state: "HOLD — FULL-SCOPE PLAN NOT COMPLETE — DO NOT START PRODUCTION BUILD"
+  release_failure_state: "HOLD — WEBSITE NOT LAUNCH-COMPLETE — DO NOT CLAIM 100% COMPLETE"
+  required_pre_build_artifacts:
+    - project-scope-matrix.csv
+    - page-inventory.csv
+    - keyword-page-coverage.csv
+    - image-production-plan.csv
+    - launch-scope-decision-record.yml
+  required_release_artifacts:
+    - launch-completeness.yml
+    - page-build-verification.csv
+    - image-asset-manifest.csv
+    - release-evidence.yml
+  completion_language: "100% launch-complete for the approved scope as of <observed_at>."
+  post_launch_default_max_qualified_articles_per_day: 3
+  post_launch_quota_is_not_ranking_guarantee: true
+
+documentation_readiness:
+  self_governance: true
+  version: 1.0.0
+  standard: standards/Website_OS_Documentation_Readiness_Gate_v1.0.0.md
+  machine_policy: governance/documentation-readiness-policy.yml
+  cli: scripts/wos_doc_readiness.py
+  template: templates/documentation-readiness.yml
+  failure_state: "HOLD — DOCUMENTATION READINESS NOT COMPLETE — DO NOT CLAIM COMPLETE EDITION"
+  complete_edition_minimum_level: REFERENCE_IMPLEMENTED
+  enterprise_proven_minimum_level: ENTERPRISE_PROVEN
+  source_corpus_must_be_present_for_complete_claim: true
+  source_manifest_required_for_complete_claim: true
+  source_manifest_sha256_required_for_complete_claim: true
+  local_source_manifest_sha256_must_match_bytes: true
+  placeholder_evidence_refs_prohibited_for_complete_claim: true
+  required_volume_dimensions:
+    - rules
+    - contracts
+    - examples
+    - tests
+    - failure_cases
+    - evidence
+    - reference_implementation
+  duplication_migration_warning_threshold: 0.15
+  duplication_target_threshold: 0.08
+
+mandatory_read_order:
+  - AGENTS.md
+  - agent-policy.yml
+  - README.md
+  - standards/Website_OS_Universal_Project_Bootstrap_v1.0.0.md
+  - standards/Website_OS_Enforcement_Engine_v1.0.0.md
+  - standards/Website_OS_Keyword_Intelligence_Gate_v1.0.0.md
+  - standards/Website_OS_Full_Scope_Launch_Completeness_Gate_v1.0.0.md
+  - governance/full-scope-launch-policy.yml
+  - standards/Website_OS_Current_UIUX_Intelligence_Update_v1.0.0.md
+  - standards/Website_OS_UIUX_Structural_Diversity_Engine_v1.0.1.md
+  - standards/Website_OS_Approved_Demo_Lock_Rule_v1.0.0.md
+
+conditional_reading:
+  - rule: "Read project-relevant QA/evidence files referenced by AGENTS.md, README.md, standards, or the project bootstrap."
+  - rule: "If a normative referenced file is missing or unreadable, HOLD the dependent work instead of inventing its contents."
+  - rule: "For existing/rebuild projects, read the target project's own AGENTS.md and project-specific governance after the central Website OS bootstrap."
+  - rule: "When editing, auditing, releasing, or claiming maturity for the Website OS documentation corpus itself, read the Documentation Readiness standard and machine policy."
+
+project_bootstrap_contract:
+  central_repo_must_be_read_first: true
+  project_repo_may_extend_but_not_weaken_central_rules: true
+  project_repo_override_requires_decision_record: true
+  central_normative_rules_take_precedence_over_project_defaults: true
+  user_explicit_override_takes_precedence_when_allowed_by_policy: true
+  record_source_commit_sha: true
+  record_bootstrap_observed_at: true
+  enforcement_engine_must_run_when_ci_is_available: true
+  enforcement_outputs_should_be_retained_as_build_artifacts: true
+  full_scope_plan_required_before_production_build: true
+  launch_complete_pass_required_before_100_percent_claim: true
+
+required_project_bootstrap_fields:
+  - website_os_source_repo
+  - website_os_source_ref
+  - website_os_manifest
+  - website_os_entrypoint
+  - observed_at
+  - source_commit_sha
+  - project_name
+  - project_repo
+  - compliance_status
+
+freshness:
+  default_source_ref: main
+  exact_commit_pin_recommended_for_reproducible_runs: true
+  refresh_before_new_major_project_phase: true
+  refresh_when_source_manifest_version_changes: true
+
+compliance:
+  PASS_requires:
+    - central manifest loaded
+    - mandatory read order completed
+    - source commit recorded
+    - no missing normative file
+    - project bootstrap file present
+    - enforcement engine policy resolved
+  HOLD_when:
+    - central repo unavailable
+    - manifest unavailable
+    - mandatory normative file unavailable
+    - enforcement engine or policy unavailable
+    - project claims compliance without reading central governance
+    - project bootstrap points to an unresolvable source ref
+    - production build starts before full-scope plan PASS
+    - final handoff claims 100% while launch scope is incomplete
+
+core_principles:
+  - "One central governance source of truth."
+  - "Every project starts by bootstrapping Website OS."
+  - "Project rules may extend, not silently weaken, central rules."
+  - "Policy is executable."
+  - "No provenance = no trusted PASS."
+  - "No bootstrap PASS = no governed project execution."
+  - "Full keyword plan before full page plan."
+  - "Full page plan before production build."
+  - "Full image plan before asset production."
+  - "100% means launch-scope completeness, not a ranking guarantee."
+  - "Complete Edition is an evidence state, not a document-size claim."
