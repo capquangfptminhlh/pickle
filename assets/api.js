@@ -59,18 +59,6 @@
       }catch(e){}
       const localState=JSON.parse(localStorage.getItem("pickle-local-state-v1")||"null");
       if(localState?.players?.length)return localState.players;
-      if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS?.length){
-        return window.PICKLE_BINH_LOI_MEMBERS.map((r,i)=>({
-          id:r.zaloId?("zl-"+r.zaloId):("p-"+i),
-          full_name:r.fullName||r.name,
-          avatar_url:r.avatarUrl||r.avatar_url||"",
-          gender:r.gender||"male",
-          rating:Number(r.rating)||(r.gender==="female"?2.0:2.5),
-          club_name:r.club||"CLB Pickleball Bình Lợi",
-          club_city:"TP.HCM",
-          nickname:r.role!=="Thành viên"?r.role:""
-        }));
-      }
       return [];
     },
     publicPlayer:async(id)=>{

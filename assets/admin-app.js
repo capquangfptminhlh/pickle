@@ -1154,7 +1154,6 @@ function openCsvImportModal(){
     <label class="field full">Hoặc dán trực tiếp (CSV / JSON quét từ Zalo)<textarea id="csvPaste" rows="3" placeholder="Dán dữ liệu CSV hoặc JSON danh sách hội viên Zalo vào đây..."></textarea></label>
     <div class="field full" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div class="csv-help" id="csvHelp" style="margin:0"><b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,skillLevel,nickname,gender</div>
-      <button type="button" class="mini" id="lhmPresetBtn" style="font-size:12px;padding:6px 12px;background:#0d2118;color:#dfff69;border:1px solid #dfff6944;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">⚡ Nạp 1,015 hội viên Bình Lợi (LHM CRM)</button>
     </div>
     <div class="field full"><div id="csvPreview" class="csv-preview">Chọn file hoặc dán dữ liệu để xem trước.</div></div>
     <div class="security-note" id="csvIssues" role="alert" hidden style="grid-column:1/-1;overflow-wrap:anywhere"></div>
@@ -1162,7 +1161,7 @@ function openCsvImportModal(){
   </div>`;
   $("#genericDialog").showModal();
   let rows=[];
-  const type=$("#csvType"),file=$("#csvFile"),paste=$("#csvPaste"),preview=$("#csvPreview"),btn=$("#csvImportBtn"),lhmBtn=$("#lhmPresetBtn");
+  const type=$("#csvType"),file=$("#csvFile"),paste=$("#csvPaste"),preview=$("#csvPreview"),btn=$("#csvImportBtn");
   const issueBox=$("#csvIssues");
   const showIssues=error=>{
     const issues=error.data?.detail?.issues||error.data?.issues||error.issues||[];
@@ -1191,30 +1190,7 @@ function openCsvImportModal(){
     }
     issueBox.hidden=false;
   };
-  if(lhmBtn){
-    lhmBtn.onclick=async()=>{
-      try{
-        lhmBtn.disabled=true;
-        lhmBtn.textContent="Đang nạp 1,015 hội viên...";
-        type.value="players";updateHelp();
-        if(typeof window!=="undefined"&&window.PICKLE_BINH_LOI_MEMBERS&&window.PICKLE_BINH_LOI_MEMBERS.length){
-          rows=window.PICKLE_BINH_LOI_MEMBERS;
-        }else{
-          const res=await fetch("assets/members-binh-loi.json");
-          if(!res.ok)throw new Error("Không thể tải file dữ liệu.");
-          rows=await res.json();
-        }
-        renderPreview();
-        toast("Đã nạp 1,015 hội viên CLB Bình Lợi từ LHM CRM!");
-      }catch(err){
-        toast("Lỗi tải dữ liệu: "+err.message);
-      }finally{
-        lhmBtn.disabled=false;
-        lhmBtn.textContent="⚡ Nạp 1,015 hội viên Bình Lợi (LHM CRM)";
-      }
-    };
-  }
-  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2,player3,player4 <small>(đơn: 1 VĐV; đôi / đôi nam nữ: 2; đồng đội: 1–4)</small>':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,skillLevel,nickname,gender';if(lhmBtn)lhmBtn.style.display=teams?"none":"inline-block";};
+  const updateHelp=()=>{const teams=type.value==="teams";$("#csvDivisionWrap").style.display=teams?"grid":"none";$("#csvHelp").innerHTML=teams?'<b>Header đội:</b> name,club,group,seed,player1,player2,player3,player4 <small>(đơn: 1 VĐV; đôi / đôi nam nữ: 2; đồng đội: 1–4)</small>':'<b>Header VĐV:</b> fullName,avatarUrl,phone,club,rating,skillLevel,nickname,gender';};
   type.onchange=()=>{updateHelp();rows=[];preview.textContent="Chọn file hoặc dán dữ liệu để xem trước.";issueBox.hidden=true;btn.disabled=true};updateHelp();
   const renderPreview=()=>{
     if(!rows.length){preview.textContent="Không có dữ liệu hợp lệ.";btn.disabled=true;return}

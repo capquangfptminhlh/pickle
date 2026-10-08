@@ -1,8 +1,8 @@
-const VERSION="pickleup-v45-public-refresh-20261008";
+const VERSION="pickleup-v45-public-refresh-20261008-nozalo";
 const STATIC=[
   "/assets/public-refresh.css?v=1",
   "/assets/public-refresh.css",
-  "/assets/ranking.js?v=2",
+  "/assets/ranking.js?v=3",
   "/assets/public.js?v=52",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
@@ -16,7 +16,7 @@ const STATIC=[
   "/assets/tournament.js?v=52",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=56",
+  "/assets/admin-app.js?v=57",
   "/assets/match-format.js?v=3",
   "/assets/match-format.js",
   "/assets/theme.js",
@@ -47,7 +47,6 @@ const STATIC=[
   "/assets/match-live.js",
   "/assets/pwa.js",
   "/assets/login.js",
-  "/assets/members-binh-loi-data.js",
   "/assets/app-icon-sport-v3.svg",
   "/assets/app-icon-sport-v3.svg",
   "/assets/pickleup-logo-sport-v3.svg"

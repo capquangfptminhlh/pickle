@@ -1,9 +1,9 @@
-const VERSION="pickleup-preview-v29-public-refresh-20261008";
+const VERSION="pickleup-preview-v29-public-refresh-20261008-nozalo";
 const CORE=[
   "./preview-public.js?v=2",
   "../assets/public-refresh.css?v=1",
   "../assets/public-refresh.css",
-  "../assets/ranking.js?v=2",
+  "../assets/ranking.js?v=3",
   "../assets/pickleup-logo-sport-v3.svg",
   "../assets/app-icon-sport-v3.svg",
   // Offline templates request versioned URLs; cache those exact requests too.
@@ -18,7 +18,7 @@ const CORE=[
   "../assets/tournament.js?v=52",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=56",
+  "../assets/admin-app.js?v=57",
   "../assets/match-format.js?v=3",
   "../assets/theme.js",
   "../assets/theme.css",
@@ -30,7 +30,7 @@ const CORE=[
   "../assets/site-sport.css","../assets/admin-sport.css",
   "../assets/login.js","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
-  "../assets/tournament.js","../assets/checkin.js","../assets/members-binh-loi-data.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
+  "../assets/tournament.js","../assets/checkin.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
 ];
 
 self.addEventListener("install",event=>{
