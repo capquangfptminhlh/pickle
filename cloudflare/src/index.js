@@ -4,7 +4,7 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
-import {divisionMatchRules} from "./division-rules.js";
+import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 
 export {TournamentRoom};
@@ -406,7 +406,7 @@ async function handleApi(request,env){
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
     const rules=divisionMatchRules(b),id=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,relay_segment_points,relay_team_size,final_point_on_serve,third_place_match,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(id,p.id,name,eventType,format,rules.bestOf,rules.pointsToWin,asBool(b.winByTwo??true)?1:0,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,nowIso()).run();
+      .bind(id,p.id,name,eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,nowIso()).run();
     const row=await one(env,"SELECT * FROM divisions WHERE id=?",id);await createAudit(env,user,"division",id,"CREATE",null,row);await emitUpdate(env,p.id);
     return ok(row,request,env,201);
   }
@@ -417,8 +417,10 @@ async function handleApi(request,env){
     if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
     const rules=divisionMatchRules(b,before);
+    const scoringMode=["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out";
+    await assertScoringRulesEditable(env,p.id,before,{...rules,scoringMode});
     await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,relay_segment_points=?,relay_team_size=?,final_point_on_serve=?,third_place_match=?,active=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),eventType,format,rules.bestOf,rules.pointsToWin,b.winByTwo===undefined?before.win_by_two:(asBool(b.winByTwo)?1:0),Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
+      .bind(String(b.name??before.name),eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);await createAudit(env,user,"division",p.id,"UPDATE",before,after);await emitUpdate(env,tid);return ok(after,request,env);
   }
   if(p&&method==="DELETE"){

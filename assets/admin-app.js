@@ -868,7 +868,7 @@ function syncScoreDialog(){
     btn.disabled=locked||used>=limit;
   });
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
-  const setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
+  const setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
   $("#finishSet").disabled=locked||!setWon;
   const need=Math.ceil(Number(d?.bestOf||3)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
@@ -1385,7 +1385,7 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
   };
 }
 function ruleError(e){
-  return ({RELAY_REQUIRES_SINGLE_GAME:"Chạy điểm chỉ dùng với 1 game (Best of 1).",INVALID_RELAY_SEGMENT:"Mốc đổi cặp phải nhỏ hơn điểm thắng.",INVALID_POINTS_TO_WIN:"Điểm thắng phải từ 1 đến 99.",INVALID_BEST_OF:"Best of chỉ nhận 1, 3 hoặc 5."})[e?.message]||e?.message||"Lỗi không xác định";
+  return ({RULES_LOCKED_AFTER_START:"Nội dung đã có trận bắt đầu: không thể đổi luật tính điểm nữa (vẫn đổi được tên, thời lượng, thời gian nghỉ).",INVALID_RELAY_TEAM_SIZE:"Chạy điểm hỗ trợ đội 3 hoặc 4 người.",RELAY_REQUIRES_SINGLE_GAME:"Chạy điểm chỉ dùng với 1 game (Best of 1).",INVALID_RELAY_SEGMENT:"Mốc đổi cặp phải nhỏ hơn điểm thắng.",INVALID_POINTS_TO_WIN:"Điểm thắng phải từ 1 đến 99.",INVALID_BEST_OF:"Best of chỉ nhận 1, 3 hoặc 5."})[e?.message]||e?.message||"Lỗi không xác định";
 }
 async function saveRules(id){
   try{

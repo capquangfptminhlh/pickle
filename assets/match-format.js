@@ -104,6 +104,15 @@
     if(d.thirdPlaceMatch)parts.push("Có tranh hạng ba");
     return parts.join(" • ");
   }
+  // Mirrors shared/scoring-rules.js validateSet: a game ends exactly at the
+  // target, or two clear out of a win-by-two deuce.
+  function gameWon(a,b,target,winByTwo){
+    a=Number(a)||0;b=Number(b)||0;target=Number(target)||11;
+    const hi=Math.max(a,b),lo=Math.min(a,b);
+    if(a===b||hi<target)return false;
+    if(!winByTwo)return hi===target;
+    return hi===target?hi-lo>=2:hi-lo===2;
+  }
   // Mirrors shared/scoring-rules.js timeoutsPerGame.
   const timeoutLimit=d=>Number(d?.pointsToWin)>=15?3:2;
   // Structured rules for the public "Thể lệ" sheet: a relay timeline (if any)
@@ -133,5 +142,5 @@
   }
   const formatLabel=f=>FORMATS[f]||"Thể thức đang cập nhật";
   const eventLabel=e=>EVENTS[e]||"Nội dung";
-  window.PickleMatchFormat={esc,timeoutLimit,ruleSheet,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
+  window.PickleMatchFormat={esc,gameWon,timeoutLimit,ruleSheet,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
 })();

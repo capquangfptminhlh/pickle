@@ -48,7 +48,7 @@
     const m=activeMatch();
     if(!m){showPicker();return}
     const d=division(m),a=Number(m.current?.[0]||0),b=Number(m.current?.[1]||0),locked=["done","completed","walkover","cancelled"].includes(m.status)||Boolean(m.winner);
-    const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b),setWon=a!==b&&hi>=target&&(!winByTwo||hi-lo>=2);
+    const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b),setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
     const winsA=(m.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length,winsB=(m.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length,need=Math.ceil(Number(d?.bestOf||3)/2);
     const matchWon=setWon&&(a>b?winsA+1:winsB+1)>=need;
     const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out",serve=m.servingSide||"A",server=Number(m.serverNumber||(isDoubles?2:1));

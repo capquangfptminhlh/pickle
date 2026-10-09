@@ -3,7 +3,12 @@ const score=value=>typeof value==="number"&&Number.isSafeInteger(value)&&value>=
 export function validateSet(a,b,target=11,winByTwo=true){
   if(!score(a)||!score(b)||!Number.isSafeInteger(target)||target<1)return false;
   const high=Math.max(a,b),low=Math.min(a,b);
-  return a!==b&&high>=target&&(!winByTwo||high-low>=2);
+  if(a===b||high<target)return false;
+  // A game stops the moment it is won: exactly at the target, or beyond it
+  // only out of a win-by-two deuce, which ends exactly two points clear.
+  // So 15-10 or 12-9 to 11 (and 22-20 to 21 without win-by-two) are typos.
+  if(!winByTwo)return high===target;
+  return high===target?high-low>=2:high-low===2;
 }
 
 // A series must stop as soon as either side wins the configured majority.

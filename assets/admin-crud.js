@@ -194,7 +194,7 @@
           ...window.PickleMatchFormat.readExtra("crudDRule")
         });
         close();await ctx.refresh();ctx.toast("Đã cập nhật nội dung.");
-      }catch(e){ctx.toast("Không thể cập nhật: "+e.message)}
+      }catch(e){ctx.toast("Không thể cập nhật: "+({RULES_LOCKED_AFTER_START:"nội dung đã có trận bắt đầu, không thể đổi luật tính điểm (vẫn đổi được tên, thời lượng, nghỉ).",INVALID_RELAY_TEAM_SIZE:"chạy điểm hỗ trợ đội 3 hoặc 4 người.",RELAY_REQUIRES_SINGLE_GAME:"chạy điểm chỉ dùng với 1 game."}[e.message]||e.message))}
     };
   }
 
