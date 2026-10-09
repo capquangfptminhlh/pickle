@@ -57,6 +57,13 @@ test('theme preference defaults to white, survives navigation, and synchronizes 
       if(await offlinePage.locator('html').getAttribute('data-theme')!=='light')console.error('THEME_OFFLINE_DIAGNOSTIC',JSON.stringify({scope,browser:browser.version(),events:offlineEvents,state:await offlinePage.evaluate(async()=>({url:location.href,title:document.title,html:document.documentElement.outerHTML.slice(0,4000),controller:navigator.serviceWorker.controller?.scriptURL,caches:await Promise.all((await caches.keys()).map(async name=>{const cache=await caches.open(name);return {name,keys:(await cache.keys()).map(request=>request.url),theme:await (await cache.match(new URL('/assets/theme.js?v=1',location.origin)))?.text()}}))}))}));
       assert.equal(await offlinePage.locator('html').getAttribute('data-theme'),'light',scope+' first offline fallback loads cached theme');
       assert.equal(await offlinePage.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(244, 247, 244)');
+      const offlineFonts=await offlinePage.evaluate(async()=>{
+        const sample='Nguyễn Trọng Tài — ĐƯỜNG ĐẾN CHỨC VÔ ĐỊCH 0123456789';
+        const ui=await document.fonts.load('400 16px Barlow',sample);
+        const display=await document.fonts.load('800 32px "Barlow Condensed"',sample);
+        return ui.length>=2&&display.length>=2&&[...ui,...display].every(face=>face.status==='loaded');
+      });
+      assert.ok(offlineFonts,scope+' first offline fallback retains Vietnamese sports typography');
       await offlinePage.locator('#themeToggle').click();assert.equal(await offlinePage.locator('html').getAttribute('data-theme'),'dark');
       assert.equal(await offlinePage.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(16, 25, 20)');
       await offline.close();

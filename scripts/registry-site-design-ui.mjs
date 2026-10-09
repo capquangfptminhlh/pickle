@@ -155,6 +155,17 @@ try{
           await page.evaluate(()=>{document.activeElement?.blur();scrollTo({top:0,behavior:"instant"})});
         }
         await page.evaluate(()=>document.fonts.ready);
+        // Verify the real downloaded faces, including Vietnamese accents, rather than fallback fonts.
+        assert.match(await page.locator('body').evaluate(el=>getComputedStyle(el).fontFamily),/^Barlow(?:,|$)/,'shared UI font');
+        const loadedFonts=await page.evaluate(async()=>{
+          const sample='Nguyễn Trọng Tài — ĐƯỜNG ĐẾN CHỨC VÔ ĐỊCH 0123456789';
+          const ui=await document.fonts.load('400 16px Barlow',sample);
+          const display=await document.fonts.load('800 32px "Barlow Condensed"',sample);
+          return [...ui,...display].every(face=>face.status==='loaded')&&ui.length>=2&&display.length>=2;
+        });
+        assert.ok(loadedFonts,'Latin and Vietnamese font subsets load without fallback');
+        const headings=await page.locator('h1,h2,h3,h4').evaluateAll(els=>els.filter(el=>el.getBoundingClientRect().height).map(el=>getComputedStyle(el).fontFamily));
+        assert.ok(headings.every(family=>family.startsWith('"Barlow Condensed"')),'sports display font on visible headings');
         await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
         const suffix=path.includes("=missing")?"-missing":path.includes("site-fixture")?"-valid":"";
         if(path==="index.html")await page.screenshot({path:resolve(artifacts,`${theme}-${viewport.width}-home-viewport.png`)});

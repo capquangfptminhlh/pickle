@@ -1,5 +1,21 @@
-const VERSION="pickleup-preview-v29-public-refresh-20261008-nozalo-rules-lock-strict";
+const VERSION="pickleup-preview-v30-sport-typography-20261009";
 const CORE=[
+  "../assets/typography.css?v=1",
+  "../assets/typography.css",
+  "../assets/fonts/barlow-400-vietnamese.woff2",
+  "../assets/fonts/barlow-400-latin.woff2",
+  "../assets/fonts/barlow-500-vietnamese.woff2",
+  "../assets/fonts/barlow-500-latin.woff2",
+  "../assets/fonts/barlow-600-vietnamese.woff2",
+  "../assets/fonts/barlow-600-latin.woff2",
+  "../assets/fonts/barlow-700-vietnamese.woff2",
+  "../assets/fonts/barlow-700-latin.woff2",
+  "../assets/fonts/barlow-800-vietnamese.woff2",
+  "../assets/fonts/barlow-800-latin.woff2",
+  "../assets/fonts/barlow-condensed-700-vietnamese.woff2",
+  "../assets/fonts/barlow-condensed-700-latin.woff2",
+  "../assets/fonts/barlow-condensed-800-vietnamese.woff2",
+  "../assets/fonts/barlow-condensed-800-latin.woff2",
   "./preview-public.js?v=2",
   "../assets/public-refresh.css?v=1",
   "../assets/public-refresh.css",
