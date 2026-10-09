@@ -1,5 +1,6 @@
-const VERSION="pickleup-v47-resilience-20261009-rules-lock-strict";
+const VERSION="pickleup-v48-draw-validation-20261009";
 const STATIC=[
+  "/assets/draw-flex.js?v=3",
   "/assets/referee-courtside.js?v=5",
   "/assets/court-board.js?v=4",
   "/assets/match-live.js?v=3",

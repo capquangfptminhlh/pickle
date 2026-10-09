@@ -7,6 +7,23 @@ import vm from "node:vm";
 
 const source=await readFile(new URL("../assets/draw-flex.js",import.meta.url),"utf8");
 
+for(const action of ["save","run"])test(`invalid ${action} draw counts show an actionable operator message`,async()=>{
+  const require=createRequire(import.meta.url),{chromium}=require("playwright"),browser=await chromium.launch({headless:true});
+  try{
+    const page=await browser.newPage();page.setDefaultTimeout(3000);page.on("dialog",dialog=>dialog.accept());
+    await page.setContent('<button data-auto-draw="division">Draw</button>');
+    await page.evaluate(()=>{
+      window.state={divisions:[{id:"division",tournamentId:"tour",advanceCount:2}],teams:["a","b","c","d"].map(id=>({id,divisionId:"division",name:id})),courts:[{id:"court",tournamentId:"tour",name:"Court"}],matches:[]};
+      window.toasts=[];window.toast=message=>toasts.push(message);
+      const reject=async()=>{throw new Error("INVALID_DRAW_OPTIONS")};
+      window.API={drawConfig:async()=>({}),saveDrawConfig:reject,runDraw:reject};
+    });
+    await page.addScriptTag({content:source});await page.locator("[data-auto-draw]").click();await page.locator("[data-flex-advance]").fill("1.5");
+    await page.locator(`[data-flex-${action}]`).click();await page.waitForFunction(()=>toasts.some(t=>t.includes("phải là số nguyên")));
+    assert.equal(await page.evaluate(()=>toasts.some(t=>t.includes("INVALID_DRAW_OPTIONS"))),false);
+  }finally{await browser.close()}
+});
+
 test("draw button polish stops mutating after labels are current",()=>{
   let writes=0,callback;
   const button=dataset=>{

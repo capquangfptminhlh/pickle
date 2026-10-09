@@ -16,6 +16,12 @@ async function userRequired(request,env){
 }
 function httpError(code,status=400){return Object.assign(new Error(code),{status})}
 function asBool(v){return v===true||v===1||v==="1"||v==="true"}
+function invalidDrawOptions(body){
+  return ["groupCount","teamsPerGroup","advanceCount"].some(key=>{
+    const value=body[key];
+    return value!==undefined&&value!==null&&value!==""&&(!["number","string"].includes(typeof value)||!Number.isSafeInteger(Number(value)));
+  });
+}
 const SKILL_LEVELS=["A+","A","B+","B","C+","C"];
 const SKILL_WEIGHT={"A+":6,"A":5,"B+":4,"B":3,"C+":2,"C":1};
 function skillLevel(v,fallback="B"){
@@ -634,6 +640,7 @@ async function handleApi(request,env){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     await assertDivision(env,user,p.id);
     const b=await bodyJson(request),mode=["random","seeded","manual"].includes(String(b.mode))?String(b.mode):"random";
+    if(invalidDrawOptions(b))return fail("INVALID_DRAW_OPTIONS",request,env,400);
     const groupCount=Math.max(1,Math.min(26,Number(b.groupCount||2)));
     const teamsPerGroup=Math.max(2,Math.min(32,Number(b.teamsPerGroup||4)));
     const advanceCount=Math.max(1,Math.min(16,Number(b.advanceCount||2)));
@@ -646,6 +653,7 @@ async function handleApi(request,env){
   if(p&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     const tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    if(invalidDrawOptions(b))return fail("INVALID_DRAW_OPTIONS",request,env,400);
     const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
     const revision=Number((await one(env,"SELECT revision FROM division_draw_revisions WHERE division_id=?",p.id))?.revision||0);
     const tournament=await one(env,"SELECT id,name,public_visible FROM tournaments WHERE id=?",tid);

@@ -158,7 +158,7 @@
       try{
         await API.saveDrawConfig(divisionId,makePayload());
         toast("Đã lưu thiết lập chia bảng.");
-      }catch(e){toast("Không thể lưu: "+e.message)}
+      }catch(e){toast("Không thể lưu: "+(e.message==="INVALID_DRAW_OPTIONS"?"Số bảng, số đội/bảng và số đội đi tiếp phải là số nguyên.":e.message))}
     };
 
     modal.querySelector("[data-flex-run]").onclick=async()=>{
@@ -185,6 +185,7 @@
       }catch(e){
         closeModal();
         const msg={
+          INVALID_DRAW_OPTIONS:"Số bảng, số đội/bảng và số đội đi tiếp phải là số nguyên.",
           GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã bắt đầu.",
           GROUP_TOO_SMALL:"Mỗi bảng phải có ít nhất 2 đội.",
           GROUP_CAPACITY_EXCEEDED:"Số đội/bảng vượt cấu hình.",
