@@ -15,6 +15,27 @@ const end=source.indexOf("for(const [pid,selector,label]",start);
 assert.ok(start>=0&&end>start,"match regression section must exist");
 const checks=source.slice(start,end);
 
+test("tournament record smoke accepts uppercase presentation and still rejects a wrong record",async t=>{
+  const recordCheck=source.split('\n').find(line=>line.includes('tournament route shows wrong record'));
+  assert.ok(recordCheck,'tournament record assertion exists');
+  const browser=await chromium.launch({headless:true});
+  try{
+    for(const scenario of [
+      {title:'UI Smoke Tournament',expected:[]},
+      {title:'Another Tournament',expected:['tournament route shows wrong record']}
+    ])await t.test(scenario.title,async()=>{
+      const ppage=await browser.newPage(),failures=[];
+      try{
+        await ppage.setContent('<style>h1{text-transform:uppercase}</style><h1 id="tourName"></h1>');
+        await ppage.locator('#tourName').evaluate((el,title)=>el.textContent=title,scenario.title);
+        assert.equal(await ppage.locator('#tourName').innerText(),scenario.title.toUpperCase());
+        await vm.runInNewContext(`(async()=>{${recordCheck}})()`,{ppage,failures});
+        assert.deepEqual(failures.flatMap(f=>f.errors),scenario.expected);
+      }finally{await ppage.close()}
+    });
+  }finally{await browser.close()}
+});
+
 test("match smoke waits for rendered controls and preserves scoring safeguards",async t=>{
   const browser=await chromium.launch({headless:true});
   try{

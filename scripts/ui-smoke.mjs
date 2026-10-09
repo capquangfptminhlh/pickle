@@ -368,7 +368,7 @@ if(!(await ppage.locator(".top-player-card").count()))failures.push({label:"prev
 const eventHref=await ppage.locator(".tour-card").first().getAttribute("href").catch(()=>null);
 if(eventHref){
   await goto(ppage,preview+"/"+eventHref,"preview tournament detail");
-  if(!(await ppage.locator("#tourName").innerText()).includes("UI Smoke Tournament"))failures.push({label:"preview tournament detail",errors:["tournament route shows wrong record"]});
+  if(!(await ppage.locator("#tourName").textContent()||"").includes("UI Smoke Tournament"))failures.push({label:"preview tournament detail",errors:["tournament route shows wrong record"]});
 }
 await goto(ppage,preview+"/index.html","preview populated home return");
 const playerHref=await ppage.locator(".top-player-card").first().getAttribute("href").catch(()=>null);
