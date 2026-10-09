@@ -1,6 +1,6 @@
 (()=>{
   const API=window.PickleAPI,$=s=>document.querySelector(s);
-  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false;
+  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false,refreshVersion=0;
   const announced=new Set();
   let voiceEnabled=localStorage.getItem("pickle-board-voice")==="1";
 
@@ -97,16 +97,19 @@
 
   async function loadState(){
     const internal=await API.optionalAdminState().catch(()=>null);
-    if(internal?.tournaments?.length){internalMode=true;return internal}
-    internalMode=false;return API.publicState();
+    if(internal?.tournaments?.length)return {state:internal,internal:true};
+    return {state:await API.publicState(),internal:false};
   }
   async function refresh(){
+    const version=++refreshVersion;
     try{
-      state=await loadState();
+      const next=await loadState();
+      if(version!==refreshVersion)return;
+      state=next.state;internalMode=next.internal;
       if(!tournamentId||!state.tournaments.some(t=>t.id===tournamentId))tournamentId=chooseTournament();
       render();
       $("#boardConnection").textContent="● Trực tiếp";$("#boardConnection").classList.remove("offline");
-    }catch(e){$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")}
+    }catch(e){if(version===refreshVersion){$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")}}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
 

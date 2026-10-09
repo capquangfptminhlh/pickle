@@ -1,7 +1,7 @@
 (()=>{
   const API=window.PickleAPI,$=s=>document.querySelector(s);
   const id=new URLSearchParams(location.search).get("id")||"";
-  let state=null,refreshTimer=null;
+  let state=null,refreshTimer=null,refreshVersion=0;
   const team=x=>state?.teams?.find(t=>t.id===x)?.name||(x==="TBD"||!x?"Chưa xác định":x);
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
 
@@ -29,8 +29,9 @@
     document.title=(team(m.a)+" vs "+team(m.b))+" | Pickleup.vn";
   }
   async function refresh(){
-    try{state=await API.publicState();render();$("#matchConnection").textContent="● Cập nhật trực tiếp";$("#matchConnection").className="live-pill"}
-    catch{$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"}
+    const version=++refreshVersion;
+    try{const next=await API.publicState();if(version!==refreshVersion)return;state=next;render();$("#matchConnection").textContent="● Cập nhật trực tiếp";$("#matchConnection").className="live-pill"}
+    catch{if(version===refreshVersion){$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"}}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
   // A link without ?id is a broken QR/link, not a private match.

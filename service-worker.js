@@ -1,5 +1,8 @@
-const VERSION="pickleup-v46-checkin-20261008";
+const VERSION="pickleup-v47-resilience-20261009";
 const STATIC=[
+  "/assets/referee-courtside.js?v=4",
+  "/assets/court-board.js?v=4",
+  "/assets/match-live.js?v=3",
   "/assets/public-refresh.css?v=1",
   "/assets/public-refresh.css",
   "/assets/ranking.js?v=3",

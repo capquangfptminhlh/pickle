@@ -58,6 +58,7 @@ jobs:
           DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
           node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/registry-checkin-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs scripts/registry-poster-variants.test.mjs
           node --test scripts/registry-preview.test.mjs
+          node --test scripts/registry-network-ui.test.mjs
       - name: Courtside client syntax
         run: |
           node --check assets/player-avatar-input.js

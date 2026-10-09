@@ -184,6 +184,7 @@ async function handleApi(request,env){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
 
   if(method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(request,env)});
+  if(["POST","PUT","PATCH","DELETE"].includes(method)&&request.body!==null&&/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type")||""))await bodyJson(request.clone());
   const score=await handleScoring(request,env);
   if(score)return score;
   const extra=await handleOperations(request,env);
@@ -644,6 +645,7 @@ async function handleApi(request,env){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
     const tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
     const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
+    const revision=Number((await one(env,"SELECT revision FROM division_draw_revisions WHERE division_id=?",p.id))?.revision||0);
     const tournament=await one(env,"SELECT id,name,public_visible FROM tournaments WHERE id=?",tid);
     const teams=await rows(env,"SELECT id,name,seed,group_code FROM teams WHERE division_id=? AND status='active' ORDER BY COALESCE(seed,9999),name",p.id);
     if(teams.length<2)return fail("NOT_ENOUGH_TEAMS",request,env,400);
@@ -706,12 +708,12 @@ async function handleApi(request,env){
       groupCourts[g]=chosen;
     }
     const publicPayload={tournamentId:tid,tournamentName:tournament?.name||"",divisionId:p.id,divisionName:division?.name||"",teamCount:teams.length,groupCount,mode};
-    if(tournament?.public_visible)await broadcast(env,"draw:start",publicPayload,"public");
-    await broadcast(env,"draw:start",publicPayload,tid);
-
-    await env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NULL AND (stage LIKE 'Bảng %' OR stage='Vòng bảng')").bind(p.id).run();
-    await env.DB.prepare("UPDATE divisions SET advance_count=?,updated_at=? WHERE id=?").bind(advanceCount,nowIso(),p.id).run();
-    for(const team of teams)await env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(assignments[team.id],nowIso(),team.id).run();
+    const at=nowIso(),statements=[
+      env.DB.prepare("INSERT INTO division_draw_revisions(division_id,revision,expected_revision) VALUES(?,1,?) ON CONFLICT(division_id) DO UPDATE SET revision=division_draw_revisions.revision+1,expected_revision=excluded.expected_revision").bind(p.id,revision),
+      env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NULL AND (stage LIKE 'Bảng %' OR stage='Vòng bảng')").bind(p.id),
+      env.DB.prepare("UPDATE divisions SET advance_count=?,updated_at=? WHERE id=?").bind(advanceCount,at,p.id)
+    ];
+    for(const team of teams)statements.push(env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(assignments[team.id],at,team.id));
 
     let created=0;
     const groupSummary=[];
@@ -719,21 +721,30 @@ async function handleApi(request,env){
       const list=grouped.get(g),courtPool=groupCourts[g];let ci=0;
       for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
         const courtId=courtPool[ci++%courtPool.length];
-        await env.DB.prepare("INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,?,'scheduled',1,?)")
-          .bind(uid(),p.id,courtId,list[i].id,list[j].id,"Bảng "+g,nowIso()).run();
+        statements.push(env.DB.prepare("INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,?,'scheduled',1,?)")
+          .bind(uid(),p.id,courtId,list[i].id,list[j].id,"Bảng "+g,at));
         created++;
       }
       groupSummary.push({group:g,count:list.length,courtIds:courtPool});
     }
     const config={mode,groupCount,teamsPerGroup,advanceCount,courtIds,groupCourts,manualAssignments:mode==="manual"?assignments:{}};
-    await env.DB.batch([
+    statements.push(
       env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()),
       env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) VALUES(?,'division',?,'RUN_GROUP_DRAW',?,?)").bind(user.id,p.id,JSON.stringify({config,groupSummary,created}),"Bốc thăm chia bảng và xếp sân")
-    ]);
+    );
+    try{await env.DB.batch(statements)}catch(error){
+      const message=String(error?.message||"");
+      if(message.includes("DRAW_VERSION_CONFLICT"))return fail("DRAW_VERSION_CONFLICT",request,env,409);
+      if(message.includes("GROUP_STAGE_ALREADY_STARTED"))return fail("GROUP_STAGE_ALREADY_STARTED",request,env,409);
+      throw error;
+    }
     const teamById=new Map(teams.map(x=>[x.id,x]));
     const donePayload={...publicPayload,advanceCount,created,groups:groupSummary,assignments:Object.entries(assignments).map(([teamId,group])=>({teamId,teamName:teamById.get(teamId)?.name||"",group}))};
-    if(tournament?.public_visible)await broadcast(env,"draw:complete",donePayload,"public");
-    await broadcast(env,"draw:complete",donePayload,tid);
+    for(const room of [...(tournament?.public_visible?["public"]:[]),tid]){
+      for(const [event,payload] of [["draw:start",publicPayload],["draw:complete",donePayload]]){
+        try{await broadcast(env,event,payload,room)}catch(error){console.error("draw_broadcast_failed",{divisionId:p.id,event,error:String(error.message)})}
+      }
+    }
     await emitUpdate(env,tid);
     return ok({ok:true,...donePayload,config},request,env);
   }

@@ -1,7 +1,7 @@
 (()=>{
   const API=window.PickleAPI;
   const $=s=>document.querySelector(s);
-  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},user=null,activeId=null,busy=false,refreshTimer=null;
+  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
 
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
@@ -104,15 +104,18 @@
 
   async function refresh({quiet=false}={}){
     if(refreshTimer){clearTimeout(refreshTimer);refreshTimer=null}
+    const version=++refreshVersion;
     try{
-      state=await API.adminState();
+      const next=await API.adminState();
+      if(version!==refreshVersion)return;
+      state=next;
       renderSummary();renderPicker();
       if(activeId){
         if(activeMatch())renderScore();else showPicker();
       }
       if(!quiet)$("#connectionState").textContent="Đã cập nhật";
     }catch(e){
-      if(e.message!=="AUTH_REQUIRED")toast("Không thể tải dữ liệu.");
+      if(version===refreshVersion&&e.message!=="AUTH_REQUIRED")toast("Không thể tải dữ liệu.");
     }
   }
   function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh({quiet:true}),180)}

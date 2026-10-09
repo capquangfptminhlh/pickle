@@ -45,7 +45,11 @@ export function fail(code,request,env,status=400,detail){
 }
 
 export async function bodyJson(request){
-  try{return await request.json()}catch{return {}}
+  if(request.body===null)return {};
+  let data;
+  try{data=await request.json()}catch{throw Object.assign(new Error("INVALID_JSON"),{status:400})}
+  if(data===null||typeof data!=="object"||Array.isArray(data))throw Object.assign(new Error("INVALID_JSON"),{status:400});
+  return data;
 }
 
 export function bool(v){return Boolean(Number(v))}
