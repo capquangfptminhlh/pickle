@@ -170,7 +170,7 @@ test("browser Back restores an admin page after a fallback route fade",async()=>
 for(const width of [375,844,1440]){
   test(`tournament section navigation marks its destination at ${width}px`,async()=>{
     await withPage({width,path:"/tournament.html?id=tour"},async page=>{
-      await page.locator(".tournament-division-card").first().waitFor();
+      await page.locator("#tourDivisions > *").first().waitFor();
       await page.locator('.tournament-tabs a[href="#participants"]').click();
       await page.waitForFunction(()=>location.hash==="#participants");
       await page.waitForFunction(sel=>document.querySelector(sel)?.getAttribute("aria-current")==="location",'.tournament-tabs a[href="#participants"]',{timeout:3000}).catch(()=>{});

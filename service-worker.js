@@ -1,4 +1,4 @@
-const VERSION="pickleup-v47-resilience-20261009";
+const VERSION="pickleup-v47-resilience-20261009-rules";
 const STATIC=[
   "/assets/referee-courtside.js?v=4",
   "/assets/court-board.js?v=4",
@@ -16,11 +16,11 @@ const STATIC=[
   "/assets/styles.css?v=2",
   "/assets/ui-motion.js?v=34",
   "/assets/tournament-detail.css?v=1",
-  "/assets/tournament.js?v=52",
+  "/assets/tournament.js?v=53",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=57",
-  "/assets/match-format.js?v=3",
+  "/assets/match-format.js?v=4",
   "/assets/match-format.js",
   "/assets/theme.js",
   "/assets/theme.css",

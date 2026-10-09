@@ -1,0 +1,74 @@
+/* Tournament "Thể lệ" sheet: one full-width card per division with a relay
+   timeline (running-score formats) and large, scannable rule facts.
+   Uses the public-refresh / tournament-detail tokens for light and dark. */
+html:root body.site-sport.site-sport:not(.admin-sport) #tourDivisions {
+  display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:16px!important;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-sheet {
+  margin:0; padding:0; overflow:hidden;
+  background:var(--pu-surface,#fff)!important; color:var(--pu-ink,#12231a)!important;
+  border:1px solid var(--td-line,var(--pu-line,#c2cec5))!important; border-radius:12px!important; box-shadow:none!important;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-sheet-head {
+  padding:22px 26px 20px; background:var(--td-dark,#10251b)!important; border-left:5px solid #d9ff63;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-sheet-head span {
+  display:block; color:#d9ff63!important; font-size:12px!important; font-weight:800!important;
+  letter-spacing:.1em!important; text-transform:uppercase;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-sheet-head h3 {
+  margin:8px 0 0!important; color:#fff!important; font-size:clamp(20px,2.2vw,26px)!important;
+  line-height:1.25!important; letter-spacing:-.02em!important; text-wrap:balance;
+}
+
+/* Relay timeline: one segment per pair, proportional to its points. */
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay {
+  display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px;
+  margin:20px 26px 0; padding:0;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg {
+  display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  padding:12px 14px; border-radius:8px;
+  background:var(--pu-surface-2,#edf1ee)!important; border-top:4px solid var(--td-accent,#047857);
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg:nth-child(2) {opacity:.92}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg:nth-child(3) {opacity:.84}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg:nth-child(4) {opacity:.76}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg b {
+  color:var(--pu-ink,#12231a)!important; font-size:22px!important; font-weight:900!important; letter-spacing:.02em;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg span {
+  color:var(--pu-muted,#475c4f)!important; font-size:14px!important; font-weight:700!important; font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+
+/* Facts: big value, small label above, one-line note below. */
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0;
+  margin:20px 26px 24px; padding:0;
+  border-top:1px solid var(--td-line,var(--pu-line,#c2cec5));
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts>div {
+  padding:16px 16px 4px 0; border-bottom:1px solid var(--td-line,var(--pu-line,#c2cec5)); min-width:0;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts dt {
+  color:var(--pu-muted,#475c4f)!important; font-size:12px!important; font-weight:700!important;
+  text-transform:uppercase; letter-spacing:.06em;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts dd {
+  margin:6px 0 2px!important; color:var(--pu-ink,#12231a)!important; font-size:24px!important; font-weight:900!important;
+  line-height:1.15!important; letter-spacing:-.02em; font-variant-numeric:tabular-nums;
+}
+html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts small {
+  display:block; padding-bottom:12px; color:var(--pu-muted,#475c4f)!important; font-size:13px!important; line-height:1.4!important;
+}
+
+@media(max-width:760px){
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-sheet-head {padding:18px 18px 16px}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay {margin:16px 18px 0}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg {flex-direction:column; gap:2px; padding:10px 12px}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg b {font-size:20px!important}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-relay-leg span {font-size:13px!important}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts {grid-template-columns:repeat(2,minmax(0,1fr)); margin:16px 18px 18px}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts>div {padding-right:10px}
+  html:root body.site-sport.site-sport:not(.admin-sport) .rule-facts dd {font-size:20px!important}
+}

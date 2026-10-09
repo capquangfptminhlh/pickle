@@ -106,7 +106,32 @@
   }
   // Mirrors shared/scoring-rules.js timeoutsPerGame.
   const timeoutLimit=d=>Number(d?.pointsToWin)>=15?3:2;
+  // Structured rules for the public "Thể lệ" sheet: a relay timeline (if any)
+  // plus short facts, each a big value with a one-line note.
+  function ruleSheet(d){
+    if(!d)return {kicker:"",facts:[],relay:null};
+    const seg=Number(d.relaySegmentPoints||0),target=Number(d.pointsToWin||0);
+    const size=Number(d.relayTeamSize||0)||(seg?Math.round(target/seg):0);
+    const relay=seg&&TEAM_SIZES.includes(size)?relayPairs(size).map((pair,i)=>({pair,from:i*seg,to:Math.min(target,(i+1)*seg)})):null;
+    const bestOf=Number(d.bestOf||1),facts=[];
+    if(relay)facts.push({label:"Điểm thắng",value:`${target} điểm`,note:`1 game chạy điểm, ${size} lượt × ${seg}`});
+    else{
+      facts.push({label:"Mỗi trận",value:bestOf===1?"1 game":`${bestOf} game`,note:bestOf===1?"thắng game là thắng trận":`thắng ${Math.ceil(bestOf/2)} game trước`});
+      facts.push({label:"Điểm mỗi game",value:`${target} điểm`,note:d.winByTwo?"phải thắng cách 2":"không cần cách 2"});
+    }
+    facts.push(d.scoringMode==="rally"
+      ?{label:"Cách tính",value:"Rally",note:"pha nào cũng tính điểm"}
+      :{label:"Cách tính",value:"Giao bóng",note:"chỉ bên giao được điểm"});
+    if(d.finalPointOnServe)facts.push({label:"Điểm quyết định",value:`Điểm ${target}`,note:"phải ghi khi đang cầm giao"});
+    if(d.format==="pool_to_knockout")facts.push({label:"Vào loại trực tiếp",value:`Top ${Math.max(1,Number(d.advanceCount||2))}`,note:"mỗi bảng"});
+    else if(d.format==="round_robin")facts.push({label:"Xếp hạng",value:"Vòng tròn",note:"không có loại trực tiếp"});
+    if(d.format!=="round_robin")facts.push(d.thirdPlaceMatch
+      ?{label:"Hạng ba",value:"Có trận",note:"2 đội thua bán kết đá tranh"}
+      :{label:"Hạng ba",value:"Đồng hạng",note:"không đá tranh hạng ba"});
+    facts.push({label:"Timeout",value:`${timeoutLimit(d)} lần`,note:"mỗi đội, mỗi game"});
+    return {kicker:`${eventLabel(d.eventType)} · ${formatLabel(d.format)}`,facts,relay};
+  }
   const formatLabel=f=>FORMATS[f]||"Thể thức đang cập nhật";
   const eventLabel=e=>EVENTS[e]||"Nội dung";
-  window.PickleMatchFormat={esc,timeoutLimit,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
+  window.PickleMatchFormat={esc,timeoutLimit,ruleSheet,MLP_RELAY,relayPairs,pointOptions,relayOptions,teamSizeOptions,extraFieldsHtml,readExtra,relayLeg,legName,legText,teamGameLabels,rulesSummary,formatLabel,eventLabel};
 })();

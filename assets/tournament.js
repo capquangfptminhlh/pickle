@@ -73,7 +73,12 @@ function render(){
    ["Nội dung",divs.length],["Đội / cặp",teams.length],["Trận đấu",matches.length],["Đã xong",done.length]
  ].map(([k,v])=>'<span><b>'+v+'</b><small>'+k+'</small></span>').join("");
  $("#tourLiveCount").textContent=live.length?"● "+live.length+" trận đang live":"Chưa có trận live";$("#tourLiveCount").classList.toggle("is-realtime",realtimeConnected&&live.length>0);$("#tourLiveCount").classList.toggle("is-idle",!live.length);$("#tourTeamCount").textContent=teams.length+" đội";
- $("#tourDivisions").innerHTML=divs.map(d=>'<article class="tournament-division-card"><div><span>'+esc(mf.eventLabel(d.eventType))+'</span><h3>'+esc(d.name)+'</h3><p>'+esc(mf.formatLabel(d.format))+'</p></div><div class="division-rule-pills">'+mf.rulesSummary(d).split(" • ").map(x=>'<b>'+esc(x)+'</b>').join("")+'</div></article>').join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
+ $("#tourDivisions").innerHTML=divs.map(d=>{
+   const sheet=mf.ruleSheet?mf.ruleSheet(d):{kicker:mf.eventLabel(d.eventType),facts:[],relay:null};
+   const relay=sheet.relay?'<div class="rule-relay" role="img" aria-label="'+esc("Thứ tự cặp: "+sheet.relay.map(l=>l.pair+" đến "+l.to).join(", "))+'">'+sheet.relay.map(l=>'<div class="rule-relay-leg"><b>'+esc(l.pair)+'</b><span>'+l.from+' → '+l.to+'</span></div>').join("")+'</div>':"";
+   return '<article class="rule-sheet"><header class="rule-sheet-head"><span>'+esc(sheet.kicker)+'</span><h3>'+esc(d.name)+'</h3></header>'+relay+
+     '<dl class="rule-facts">'+sheet.facts.map(f=>'<div><dt>'+esc(f.label)+'</dt><dd>'+esc(f.value)+'</dd><small>'+esc(f.note)+'</small></div>').join("")+'</dl></article>';
+ }).join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
  $("#tourTeams").innerHTML=(()=>{
    const sorted=[...teams].sort((a,b)=>String(a.group||"ZZ").localeCompare(String(b.group||"ZZ"),"vi")||Number(a.seed||999)-Number(b.seed||999)||String(a.name).localeCompare(String(b.name),"vi"));
    const existingGroups=[...new Set(sorted.map(x=>x.group).filter(Boolean))].sort();

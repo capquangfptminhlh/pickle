@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v29-public-refresh-20261008-nozalo";
+const VERSION="pickleup-preview-v29-public-refresh-20261008-nozalo-rules";
 const CORE=[
   "./preview-public.js?v=2",
   "../assets/public-refresh.css?v=1",
@@ -15,11 +15,11 @@ const CORE=[
   "../assets/styles.css?v=2",
   "../assets/ui-motion.js?v=34",
   "../assets/tournament-detail.css?v=1",
-  "../assets/tournament.js?v=52",
+  "../assets/tournament.js?v=53",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
   "../assets/admin-app.js?v=57",
-  "../assets/match-format.js?v=3",
+  "../assets/match-format.js?v=4",
   "../assets/theme.js",
   "../assets/theme.css",
   "../assets/site-light.css",
