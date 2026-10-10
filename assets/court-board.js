@@ -23,8 +23,22 @@
     const query=new URLSearchParams(location.search).get("tournament");
     const available=state.tournaments;
     if(query&&available.some(t=>t.id===query))return query;
-    const live=available.find(t=>["live","ongoing","in_progress"].includes(String(t.status||"").toLowerCase()));
-    return live?.id||available[0]?.id||"";
+    const activeStates=new Set(["live","called","on_deck","warming_up"]);
+    const ranked=available.map((t,index)=>{
+      const ids=new Set(state.divisions.filter(d=>d.tournamentId===t.id).map(d=>d.id));
+      const terminalStates=new Set(["done","completed","walkover","cancelled"]);
+      const tournamentMatches=state.matches.filter(m=>ids.has(m.divisionId)&&!terminalStates.has(m.status)&&!m.winner);
+      const running=tournamentMatches.filter(m=>m.status==="live"||m.courtState==="live").length;
+      const queued=tournamentMatches.filter(m=>activeStates.has(m.courtState)&&m.status!=="live").length;
+      const statusLive=["live","ongoing","in_progress"].includes(String(t.status||"").toLowerCase())?1:0;
+      const assigned=tournamentMatches.filter(m=>m.courtId).length;
+      const activeCourts=state.courts.filter(c=>c.tournamentId===t.id&&c.active!==false).length;
+      return {id:t.id,index,priority:[running,queued,statusLive,assigned,activeCourts]};
+    }).sort((a,b)=>{
+      for(let i=0;i<a.priority.length;i++)if(a.priority[i]!==b.priority[i])return b.priority[i]-a.priority[i];
+      return a.index-b.index;
+    });
+    return ranked[0]?.id||"";
   }
 
   function renderSelect(){

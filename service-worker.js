@@ -1,4 +1,4 @@
-const VERSION="pickleup-v60-mlp-court-control-20261010";
+const VERSION="pickleup-v61-court-board-default-20261010";
 const STATIC=[
   "/assets/referee-arena.css?v=1",
   "/assets/referee-arena.css",
@@ -21,7 +21,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-800-latin.woff2",
   "/assets/draw-flex.js?v=5",
   "/assets/referee-courtside.js?v=7",
-  "/assets/court-board.js?v=6",
+  "/assets/court-board.js?v=7",
   "/assets/court-board.css?v=3",
   "/assets/match-live.js?v=3",
   "/assets/public-refresh.css?v=1",

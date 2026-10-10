@@ -21,6 +21,13 @@ const base=`http://127.0.0.1:${server.address().port}`;
 
 function seedMlpDay(f){
   f.db.exec(`
+    INSERT INTO tournaments(id,name,slug,start_at,status,public_visible) VALUES
+      ('future-empty','Giải tương lai chưa xếp sân','future-empty','2026-10-15T06:00:00Z','registration',1),
+      ('historical-walkover','Giải cũ đã xử thắng','historical-walkover','2026-10-20T06:00:00Z','completed',1);
+    INSERT INTO divisions(id,tournament_id,name,event_type,format) VALUES
+      ('historical-division','historical-walkover','Nội dung cũ','team','pool_to_knockout');
+    INSERT INTO courts(id,tournament_id,name,sort_order) VALUES
+      ('historical-court','historical-walkover','Sân lịch sử',1);
     UPDATE divisions SET name='MLP Đồng đội',event_type='team',points_to_win=27,best_of=1,win_by_two=0,
       scoring_mode='rally',relay_segment_points=9,relay_team_size=3,final_point_on_serve=1 WHERE id='division';
     UPDATE teams SET name='Zelda / An / Mai',group_code='A' WHERE id='a';
@@ -41,6 +48,8 @@ function seedMlpDay(f){
       ('match-3','division','court-3','ref','a','b','Bảng A','2026-10-10T01:10:00Z','scheduled'),
       ('match-4','division','court-4','ref','a','b','Bảng A','2026-10-10T01:20:00Z','scheduled'),
       ('unassigned','division',NULL,'ref','a','b','Bảng A','2026-10-10T01:30:00Z','scheduled');
+    INSERT INTO matches(id,division_id,court_id,team_a_id,team_b_id,winner_team_id,stage,status,court_state) VALUES
+      ('historical-match','historical-division','historical-court','a','b','a','Bảng A','walkover','called');
   `);
 }
 
@@ -93,9 +102,18 @@ try{
 
   const board=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'});
   board.on('pageerror',error=>errors.push(error.message));await board.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens.admin);await wireApi(board,f);
-  await board.goto(base+'/court-board.html?tournament=tour');await board.locator('.tv-court').first().waitFor();
+  await board.goto(base+'/court-board.html');await board.locator('.tv-court').first().waitFor();
+  assert.equal(await board.locator('#tournamentSelect').inputValue(),'tour','TV board defaults to the tournament with live court activity');
+  assert.equal(await board.locator('.tv-court').count(),4,'the default TV board shows all courts from the active tournament');
   const boardText=await board.locator('.tv-court').first().innerText();assert.match(boardText,/Cặp AB · Zelda \+ An/);assert.match(boardText,/Đội: Zelda \/ An \/ Mai/);
   await board.close();
+
+  f.db.exec("UPDATE matches SET status='completed',court_state='done',winner_team_id='a' WHERE id='match'");
+  const terminalBoard=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'});
+  terminalBoard.on('pageerror',error=>errors.push(error.message));await terminalBoard.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens.admin);await wireApi(terminalBoard,f);
+  await terminalBoard.goto(base+'/court-board.html');await terminalBoard.locator('.tv-court').first().waitFor();
+  assert.equal(await terminalBoard.locator('#tournamentSelect').inputValue(),'tour','terminal walkovers do not outrank a tournament with pending assigned matches');
+  await terminalBoard.close();
 
   const referee=await browser.newPage({viewport:{width:375,height:900},serviceWorkers:'block'});
   referee.on('pageerror',error=>errors.push(error.message));
