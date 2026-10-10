@@ -675,7 +675,7 @@ async function refereesPage(){
   if(!canReferees())return '<div class="panel empty">Bạn không có quyền quản lý tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
   return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản • chỉ hiện trọng tài thuộc giải bạn quản lý</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Giải được giao</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b></td><td>${escHtml(r.email)}</td><td>${escHtml(r.tournament_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Đăng nhập</th><th>Giải được giao</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b></td><td>${escHtml(r.email)}</td><td>${escHtml(r.tournament_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
   </div>`;
 }
 async function accountsPage(){
@@ -690,7 +690,7 @@ async function accountsPage(){
   </div>
   <div class="panel"><div class="panel-head"><div><h2>${isOwner?"Tài khoản con":"Tài khoản trọng tài"}</h2><p>${children.length} tài khoản • phân quyền tại server</p></div><button class="btn primary" data-action="newUser">${isOwner?"Tạo tài khoản con":"Tạo trọng tài"}</button></div>
     <div class="role-help"><span><b>Chủ giải</b>Chỉ vận hành các giải mình sở hữu/được gán và VĐV trong các giải đó.</span><span><b>Trọng tài</b>Chỉ thấy trận được phân công; được nhập điểm và cập nhật thông tin cơ bản VĐV của trận đó.</span><span><b>Khách xem</b>Không cần tài khoản; chỉ đọc danh sách VĐV, lịch, BXH và bracket từ link công khai.</span>${isOwner?'<span><b>Quản lý CLB / Thu ngân</b>Giới hạn theo CLB hoặc nghiệp vụ được giao.</span>':""}</div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Đăng nhập</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
       ${children.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b>${r.club_name?`<small style="display:block;color:#73847b">${escHtml(r.club_name)}</small>`:""}</td><td>${escHtml(r.email)}</td><td>${roleLabel(r.role)}</td><td>${escHtml(r.tournament_name||r.club_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="6">Chưa có tài khoản con.</td></tr>'}
     </tbody></table></div>
   </div>`;
@@ -1510,7 +1510,7 @@ async function openEditRefereeModal(id){
   $("#genericTitle").textContent="Quản lý trọng tài";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên<input id="erName" value="${escHtml(r.display_name||"")}"></label>
-    <label class="field full">Email<input id="erEmail" type="email" value="${escHtml(r.email||"")}"></label>
+    <label class="field full">Tên đăng nhập<input id="erEmail" type="text" autocomplete="username" value="${escHtml(r.username||r.email||"")}"></label>
     <label class="field full">Giải được giao<select id="erTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===r.tournament_id_scope?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="12"></label>
     <label class="field full"><span><input id="erActive" type="checkbox" ${r.active?"checked":""}> Tài khoản hoạt động</span></label>
@@ -1521,9 +1521,9 @@ async function openEditRefereeModal(id){
   $("#saveRefereeEdit").onclick=async()=>{try{
     const password=$("#erPassword").value,tournamentId=$("#erTournament").value||null;
     if(user?.role==="organizer"&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.updateReferee(id,{name:$("#erName").value.trim(),email:$("#erEmail").value.trim(),active:$("#erActive").checked,tournamentId,...(password?{password}:{})});
+    await API.updateReferee(id,{name:$("#erName").value.trim(),username:$("#erEmail").value.trim(),active:$("#erActive").checked,tournamentId,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã cập nhật và reset mật khẩu.":"Đã cập nhật trọng tài.");
-  }catch(e){toast("Không thể cập nhật: "+e.message)}};
+  }catch(e){toast({INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập đã được sử dụng."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
 function openRefereeModal(tournamentId){
   const tournaments=state.tournaments||[];
@@ -1531,7 +1531,7 @@ function openRefereeModal(tournamentId){
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên<input id="rName" required maxlength="120" autocomplete="name"></label>
-    <label class="field full">Email<input id="rEmail" type="email" required autocomplete="off"></label>
+    <label class="field full">Tên đăng nhập<input id="rEmail" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ví dụ: trongtai01"><small>3–32 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.</small></label>
     <label class="field full">Giải được giao<select id="rTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===tournamentId?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu tạm (12–64 ký tự)<input id="rPassword" type="password" required minlength="12" maxlength="64" autocomplete="new-password"></label>
     <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
@@ -1545,14 +1545,14 @@ function openRefereeModal(tournamentId){
     if(save.disabled)return;
     const name=$("#rName").value.trim(),email=$("#rEmail").value.trim(),password=$("#rPassword").value,scope=$("#rTournament").value||null;
     if(!name)return showError("Nhập tên trọng tài.");
-    if(!email||!$("#rEmail").checkValidity())return showError("Email không hợp lệ.");
+    if(!/^[a-z0-9][a-z0-9._-]{2,31}$/i.test(email)&&!(email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return showError("Tên đăng nhập không hợp lệ.");
     if(password.length<12||password.length>64)return showError("Mật khẩu phải từ 12–64 ký tự.");
     if(user?.role==="organizer"&&!scope)return showError("Chọn giải cho trọng tài.");
     save.disabled=true;errorBox.hidden=true;
     try{
-      await API.createReferee({name,email,password,tournamentId:scope});
+      await API.createReferee({name,username:email,password,tournamentId:scope});
       dlg.close();if(typeof tournamentId==="string")page="referees";await render();toast("Đã tạo trọng tài.");
-    }catch(e){showError(e instanceof TypeError?"Mất kết nối. Kiểm tra mạng rồi thử tạo trọng tài lại.":({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_EMAIL:"Email không hợp lệ.",EMAIL_EXISTS:"Email đã được sử dụng. Hãy nhập email khác.",FIELDS_REQUIRED:"Nhập đủ tên, email và mật khẩu.",TOURNAMENT_REQUIRED:"Chọn giải cho trọng tài.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền tạo trọng tài cho giải này.",INTERNAL_ERROR:"Máy chủ chưa thể tạo tài khoản. Hãy thử lại.",REQUEST_FAILED:"Không thể gửi yêu cầu tạo tài khoản. Hãy thử lại."}[e.message]||"Không thể tạo trọng tài: "+e.message))}finally{save.disabled=false}
+    }catch(e){showError(e instanceof TypeError?"Mất kết nối. Kiểm tra mạng rồi thử tạo trọng tài lại.":({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",INVALID_EMAIL:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập đã được sử dụng. Hãy nhập tên khác.",FIELDS_REQUIRED:"Nhập đủ tên, tên đăng nhập và mật khẩu.",TOURNAMENT_REQUIRED:"Chọn giải cho trọng tài.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền tạo trọng tài cho giải này.",INTERNAL_ERROR:"Máy chủ chưa thể tạo tài khoản. Hãy thử lại.",REQUEST_FAILED:"Không thể gửi yêu cầu tạo tài khoản. Hãy thử lại."}[e.message]||"Không thể tạo trọng tài: "+e.message))}finally{save.disabled=false}
   };
   for(const field of [$("#rName"),$("#rEmail"),$("#rPassword")])field.onkeydown=e=>{
     if(e.key==="Enter"&&!e.isComposing){e.preventDefault();save.click()}
@@ -1567,7 +1567,7 @@ async function openUserModal(){
   $("#genericTitle").textContent=isOrganizer?"Tạo trọng tài":"Tạo tài khoản con";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên hiển thị<input id="uName" autocomplete="off"></label>
-    <label class="field full">Email đăng nhập<input id="uEmail" type="email" autocomplete="off"></label>
+    <label class="field full"><span id="uLoginLabel">Email đăng nhập</span><input id="uEmail" type="email" autocomplete="off"></label>
     <label class="field full">Vai trò<select id="uRole" ${isOrganizer?"disabled":""}>${isOrganizer?'<option value="referee">Trọng tài</option>':'<option value="organizer">Chủ giải</option><option value="referee">Trọng tài</option><option value="club_manager">Quản lý CLB</option><option value="finance">Thu ngân</option>'}</select></label>
     <label class="field full" id="uTournamentWrap">Giải được gán<select id="uTournament"><option value="">${isOrganizer?"Chọn giải":"Không giới hạn / tự sở hữu"}</option>${tournaments.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full" id="uClubWrap" hidden>CLB được quản lý<select id="uClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}">${escHtml(x.name)}</option>`).join("")}</select></label>
@@ -1576,13 +1576,13 @@ async function openUserModal(){
     <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uTournamentWrap").hidden=![ "organizer","referee" ].includes(r);};$("#uRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uTournamentWrap").hidden=![ "organizer","referee" ].includes(r);$("#uLoginLabel").textContent=r==="referee"?"Tên đăng nhập":"Email đăng nhập";$("#uEmail").type=r==="referee"?"text":"email";};$("#uRole").onchange=syncRole;syncRole();
   $("#saveUser").onclick=async()=>{try{
     const role=$("#uRole").value,tournamentId=["organizer","referee"].includes(role)?($("#uTournament").value||null):null;
     if(isOrganizer&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.createUser({name:$("#uName").value.trim(),email:$("#uEmail").value.trim(),role,clubId:["club_manager","finance"].includes(role)?($("#uClub").value||null):null,tournamentId,password:$("#uPassword").value});
+    await API.createUser({name:$("#uName").value.trim(),...(role==="referee"?{username:$("#uEmail").value.trim()}:{email:$("#uEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#uClub").value||null):null,tournamentId,password:$("#uPassword").value});
     $("#genericDialog").close();await render();toast(isOrganizer?"Đã tạo trọng tài.":"Đã tạo tài khoản con.");
-  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_EMAIL:"Email không hợp lệ.",NAME_TOO_LONG:"Tên hiển thị quá dài.",EMAIL_EXISTS:"Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_REQUIRED:"Hãy chọn giải.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",INVALID_TOURNAMENT:"Giải không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",INVALID_EMAIL:"Email không hợp lệ.",NAME_TOO_LONG:"Tên hiển thị quá dài.",EMAIL_EXISTS:"Tên đăng nhập hoặc Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_REQUIRED:"Hãy chọn giải.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",INVALID_TOURNAMENT:"Giải không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
 }
 async function openEditUserModal(id){
   const isOrganizer=user?.role==="organizer";
@@ -1592,7 +1592,7 @@ async function openEditUserModal(id){
   $("#genericTitle").textContent=isOrganizer?"Sửa tài khoản trọng tài":"Sửa tài khoản con";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên hiển thị<input id="euName" value="${escHtml(r.display_name||"")}"></label>
-    <label class="field full">Email<input id="euEmail" type="email" value="${escHtml(r.email||"")}"></label>
+    <label class="field full"><span id="euLoginLabel">Email</span><input id="euEmail" type="email" value="${escHtml(r.username||r.email||"")}"></label>
     <label class="field full">Vai trò<select id="euRole" ${isOrganizer?"disabled":""}>${isOrganizer?'<option value="referee">Trọng tài</option>':`<option value="organizer" ${r.role==="organizer"?"selected":""}>Chủ giải</option><option value="referee" ${r.role==="referee"?"selected":""}>Trọng tài</option><option value="club_manager" ${r.role==="club_manager"?"selected":""}>Quản lý CLB</option><option value="finance" ${r.role==="finance"?"selected":""}>Thu ngân</option>`}</select></label>
     <label class="field full" id="euTournamentWrap">Giải được gán<select id="euTournament"><option value="">${isOrganizer?"Chọn giải":"Không giới hạn / tự sở hữu"}</option>${tournaments.map(t=>`<option value="${t.id}" ${t.id===r.tournament_id_scope?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full" id="euClubWrap">CLB được quản lý<select id="euClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}" ${x.id===r.club_id?"selected":""}>${escHtml(x.name)}</option>`).join("")}</select></label>
@@ -1601,13 +1601,13 @@ async function openEditUserModal(id){
     <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{const role=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(role);$("#euTournamentWrap").hidden=![ "organizer","referee" ].includes(role);};$("#euRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const role=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(role);$("#euTournamentWrap").hidden=![ "organizer","referee" ].includes(role);$("#euLoginLabel").textContent=role==="referee"?"Tên đăng nhập":"Email";$("#euEmail").type=role==="referee"?"text":"email";};$("#euRole").onchange=syncRole;syncRole();
   $("#saveUserEdit").onclick=async()=>{try{
     const password=$("#euPassword").value,role=$("#euRole").value,tournamentId=["organizer","referee"].includes(role)?($("#euTournament").value||null):null;
     if(isOrganizer&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.updateUser(id,{name:$("#euName").value.trim(),email:$("#euEmail").value.trim(),role,clubId:["club_manager","finance"].includes(role)?($("#euClub").value||null):null,tournamentId,active:$("#euActive").checked,...(password?{password}:{})});
+    await API.updateUser(id,{name:$("#euName").value.trim(),...(role==="referee"?{username:$("#euEmail").value.trim()}:{email:$("#euEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#euClub").value||null):null,tournamentId,active:$("#euActive").checked,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
-  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",EMAIL_EXISTS:"Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",ORGANIZER_CAN_ONLY_EDIT_REFEREE:"Chủ giải chỉ được quản lý tài khoản trọng tài.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
+  }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập hoặc Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",ORGANIZER_CAN_ONLY_EDIT_REFEREE:"Chủ giải chỉ được quản lý tài khoản trọng tài.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
 document.addEventListener("click",e=>{
   const score=e.target.closest("[data-score]");if(score&&activeMatch)return scorePoint(score.dataset.score,Number(score.dataset.delta));

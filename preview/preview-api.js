@@ -510,7 +510,22 @@
     quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
-    referees:async()=>clone(state.referees),createReferee:async p=>{if(!p.password||String(p.password).length<12)throw new Error("PASSWORD_TOO_SHORT");const r={id:uid(),email:p.email,display_name:p.name,active:true,password:String(p.password)};state.referees.push(r);persist();return clone(r)},updateReferee:async(id,p)=>{const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");Object.assign(r,{display_name:p.name??r.display_name,email:p.email??r.email,active:p.active??r.active,...(p.password?{password:String(p.password)}:{})});persist();return clone(r)},
+    referees:async()=>clone(state.referees),
+    createReferee:async p=>{
+      if(!p.password||String(p.password).length<12)throw new Error("PASSWORD_TOO_SHORT");
+      const login=String(p.username??p.email??"").trim().toLowerCase();
+      if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(login)&&!(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)&&login.length<=254))throw new Error("INVALID_USERNAME");
+      if(state.referees.some(r=>String(r.email).toLowerCase()===login))throw new Error("EMAIL_EXISTS");
+      const r={id:uid(),email:login,username:login.includes('@')?null:login,display_name:p.name,active:true,tournament_id_scope:p.tournamentId||null,password:String(p.password)};
+      state.referees.push(r);persist();return clone(r);
+    },
+    updateReferee:async(id,p)=>{
+      const r=state.referees.find(x=>x.id===id);if(!r)throw new Error("NOT_FOUND");
+      const login=String(p.username??p.email??r.email).trim().toLowerCase();
+      if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(login)&&!(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)&&login.length<=254))throw new Error("INVALID_USERNAME");
+      if(state.referees.some(x=>x.id!==id&&String(x.email).toLowerCase()===login))throw new Error("EMAIL_EXISTS");
+      Object.assign(r,{display_name:p.name??r.display_name,email:login,username:login.includes('@')?null:login,active:p.active??r.active,...(p.password?{password:String(p.password)}:{})});persist();return clone(r);
+    },
     registrations:async()=>clone(state.registrations),
     createRegistration:async(did,p)=>{
       const d=state.divisions.find(x=>x.id===did),t=state.tournaments.find(x=>x.id===d?.tournamentId),team=state.teams.find(x=>x.id===p.teamId&&x.divisionId===did&&x.status!=="withdrawn");

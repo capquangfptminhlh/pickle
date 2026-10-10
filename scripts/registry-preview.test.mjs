@@ -5,7 +5,7 @@ import {readFileSync} from "node:fs";
 import {webcrypto} from "node:crypto";
 
 function fixture(eventType="doubles"){
-  const state={clubs:[{id:"club",name:"CLB Đặng",active:true}],tournaments:[],divisions:[{id:"division",eventType}],courts:[],teams:[],teamPlayers:{},players:[{id:"p1",full_name:"Đặng Văn A",active:true},{id:"p2",full_name:"Nguyễn Văn B",active:true},{id:"p3",full_name:"Trần Văn C",active:true}],matches:[],registrations:[],posts:[],sponsors:[],audit:[]};
+  const state={clubs:[{id:"club",name:"CLB Đặng",active:true}],tournaments:[],divisions:[{id:"division",eventType}],courts:[],teams:[],teamPlayers:{},players:[{id:"p1",full_name:"Đặng Văn A",active:true},{id:"p2",full_name:"Nguyễn Văn B",active:true},{id:"p3",full_name:"Trần Văn C",active:true}],matches:[],referees:[],registrations:[],posts:[],sponsors:[],audit:[]};
   let persisted=JSON.stringify(state);
   const context={window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class{},crypto:webcrypto,localStorage:{getItem:()=>persisted,setItem:(_key,value)=>persisted=value},console,Date,Set,Map};
   vm.runInNewContext(readFileSync(new URL("../preview/preview-api.js",import.meta.url),"utf8"),context);
@@ -49,4 +49,12 @@ test("Preview metadata preserves an unchanged archived club",async()=>{
   const f=fixture(),a=await f.api.createTeam("division",{name:"A",clubId:"club",playerIds:["p1","p2"]});
   await f.api.updateClub("club",{name:"CLB Đặng",active:false});await f.api.updateTeam(a.id,{name:"Metadata",clubId:"club"});
   assert.equal(f.read().teams[0].clubId,"club");assert.equal(f.read().teams[0].club,"CLB Đặng");
+});
+
+test('Preview creates, renames and logs in a referee without email',async()=>{
+ const f=fixture(),password='PreviewRefereeUsername123!';
+ const created=await f.api.createReferee({username:'TT_LOCAL',name:'Trọng tài',password});assert.equal(created.username,'tt_local');
+ await assert.rejects(()=>f.api.createReferee({username:'tt_local',name:'Trùng tên',password}),{message:'EMAIL_EXISTS'});
+ await f.api.updateReferee(created.id,{username:'TT_NEW'});
+ const login=await f.api.login('TT_NEW',password);assert.equal(login.user.role,'referee');
 });

@@ -6,8 +6,8 @@ async function api(path,body,{actor={},method=body===undefined?"GET":"POST",expe
   const response=await fetch(base+path,{method,headers:{...actor,...(body===undefined?{}:{"Content-Type":"application/json"})},body:body===undefined?undefined:JSON.stringify(body)});
   const data=await response.json();assert.ok(expected.includes(response.status),`${method} ${path}: ${response.status} ${JSON.stringify(data)}`);return {data,response};
 }
-async function login(email,password){
-  const {data,response}=await api("/api/auth/login",{email,password});
+async function login(email,password,field='email'){
+  const {data,response}=await api("/api/auth/login",{[field]:email,password});
   return data.token?{Authorization:"Bearer "+data.token}:{Cookie:response.headers.get("set-cookie").split(";")[0]};
 }
 const admin=await login(process.env.ADMIN_EMAIL||"admin@pickle.test",process.env.ADMIN_PASSWORD||"cloudflare-test-password-123");
@@ -54,4 +54,22 @@ assert.equal(preserved.tournament_id_scope,null);
 await api(`/api/users/${foreign.id}`,{tournamentId:other},{actor:admin,method:"PATCH"});
 const genericClear=(await api(`/api/users/${foreign.id}`,{tournamentId:null},{actor:admin,method:"PATCH"})).data;
 assert.equal(genericClear.tournament_id_scope,null);
-console.log("ACCOUNT_API_OK",JSON.stringify({names:true,scopePreserved:true,foreignTargetsDenied:true,emailSaved:true,passwordReset:true,disabledSessionRejected:true}));
+const username=`tt-${stamp}`;
+const named=(await api('/api/users/referees',{username:username.toUpperCase(),name:'Trọng tài không email',password,tournamentId:own},{actor:organizer})).data;
+assert.equal(named.username,username);assert.equal(named.tournament_id_scope,own);
+const usernameSession=await login(username.toUpperCase(),password,'username');
+assert.equal((await api('/api/auth/me',undefined,{actor:usernameSession})).data.user.role,'referee');
+await api('/api/users/referees',{username:username.toUpperCase(),name:'Tên trùng',password,tournamentId:own},{actor:organizer,expected:[409]});
+await api('/api/users/referees',{username:'has spaces',name:'Sai tên đăng nhập',password,tournamentId:own},{actor:organizer,expected:[400]});
+const usernameList=(await api('/api/users/referees',undefined,{actor:organizer})).data;
+assert.equal(usernameList.find(x=>x.id===named.id).username,username);
+await api(`/api/users/${named.id}`,{name:'Tên hiển thị đã sửa'},{actor:organizer,method:'PATCH'});
+const renamed=`tt-new-${stamp}`;
+const renamedUser=(await api(`/api/users/referees/${named.id}`,{username:renamed,password:newPassword},{actor:organizer,method:'PATCH'})).data;
+assert.equal(renamedUser.username,renamed);assert.equal(renamedUser.tournament_id_scope,own);
+await api('/api/auth/me',undefined,{actor:usernameSession,expected:[401]});
+await api('/api/auth/login',{username,password},{expected:[401]});
+await login(renamed,newPassword,'username');
+await api(`/api/users/${named.id}`,{active:false},{actor:organizer,method:'PATCH'});
+await api('/api/auth/login',{username:renamed,password:newPassword},{expected:[401]});
+console.log("ACCOUNT_API_OK",JSON.stringify({names:true,scopePreserved:true,foreignTargetsDenied:true,emailSaved:true,passwordReset:true,disabledSessionRejected:true,refereeWithoutEmail:true,usernameRenameAndLock:true}));

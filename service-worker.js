@@ -1,4 +1,4 @@
-const VERSION="pickleup-v56-center-all-matches-20261010";
+const VERSION="pickleup-v57-referee-username-20261010";
 const STATIC=[
   "/assets/referee-arena.css?v=1",
   "/assets/referee-arena.css",
@@ -39,7 +39,7 @@ const STATIC=[
   "/assets/tournament.js?v=53",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=64",
+  "/assets/admin-app.js?v=65",
   "/assets/match-format.js?v=5",
   "/assets/match-format.js",
   "/assets/theme.js",
@@ -69,7 +69,7 @@ const STATIC=[
   "/assets/match-live.css",
   "/assets/match-live.js",
   "/assets/pwa.js",
-  "/assets/login.js",
+  "/assets/login.js?v=3",
   "/assets/app-icon-sport-v3.svg",
   "/assets/app-icon-sport-v3.svg",
   "/assets/pickleup-logo-sport-v3.svg"

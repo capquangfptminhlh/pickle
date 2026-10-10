@@ -14,6 +14,7 @@ import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
 import {validateSet,validateSeries} from "../shared/scoring-rules.js";
+import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../shared/account-login.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(__dirname,"..");
@@ -636,15 +637,15 @@ const pruneLoginBuckets=()=>{
 setInterval(pruneLoginBuckets,LOGIN_WINDOW_MS).unref();
 const dummyPasswordHash=await hashPassword("invalid-"+randomUUID());
 app.post("/api/auth/login",wrap(async(req,res)=>{
-  const email=String(req.body.email||"").toLowerCase().trim();
+  const email=normalizeLogin(req.body.username??req.body.email);
   const password=String(req.body.password||"");
-  if(!validEmail(email)||!password||password.length>64)return res.status(401).json({error:"INVALID_CREDENTIALS"});
+  if(!validLoginIdentifier(email)||!password||password.length>64)return res.status(401).json({error:"INVALID_CREDENTIALS"});
   const key=loginKey(req,email),ipKey=loginIpKey(req);
   if(bucketBlocked(loginAttempts,key,LOGIN_MAX_ATTEMPTS)||bucketBlocked(loginIpAttempts,ipKey,LOGIN_IP_MAX_ATTEMPTS))return res.status(429).json({error:"TOO_MANY_LOGIN_ATTEMPTS"});
   const u=(await pool.query("select * from app_users where email=$1 and active=true",[email])).rows[0];
   const hash=u?.password_hash||dummyPasswordHash;
   const passwordOk=await verifyPassword(password,hash);
-  if(!u||!u.password_hash||!passwordOk){
+  if(!u||!u.password_hash||!passwordOk||(!email.includes('@')&&u.role!=="referee")){
     recordBucketFailure(loginAttempts,key);recordBucketFailure(loginIpAttempts,ipKey);
     return res.status(401).json({error:"INVALID_CREDENTIALS"});
   }
@@ -2079,13 +2080,14 @@ app.get("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(re
     ${where}
     order by case when u.role='super_admin' then 0 else 1 end,u.display_name
   `,params);
-  res.json(rows);
+  res.json(rows.map(row=>({...row,username:accountUsername(row)})));
 }));
 app.post("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const email=String(req.body.email||"").toLowerCase().trim(),name=String(req.body.name||"").trim();
+  const name=String(req.body.name||"").trim();
   const password=String(req.body.password||""),role=String(req.body.role||"");
+  const login=accountLogin(req.body,role),email=login.value;
   if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(!login.valid)return res.status(400).json({error:login.error});
   if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   if(req.user.role==="organizer"&&role!=="referee")return res.status(403).json({error:"ORGANIZER_CAN_ONLY_CREATE_REFEREE"});
   if(!["organizer","referee","club_manager","finance"].includes(role))return res.status(400).json({error:"INVALID_CHILD_ROLE"});
@@ -2109,7 +2111,7 @@ app.post("/api/users",authRequired,allow("super_admin","organizer"),wrap(async(r
     returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
   `,[email,name,role,h,clubId,tournamentId])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_CHILD_ACCOUNT',$3)",[req.user.sub,row.id,row]);
-  res.status(201).json(row);
+  res.status(201).json({...row,username:accountUsername(row)});
 }));
 app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   if(req.params.id===req.user.sub&&req.body.active!==undefined&&!Boolean(req.body.active))return res.status(400).json({error:"CANNOT_DISABLE_SELF"});
@@ -2137,10 +2139,10 @@ app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(as
     if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
     passwordHash=await hashPassword(String(req.body.password));
   }
-  const email=req.body.email?String(req.body.email).toLowerCase().trim():before.email;
+  const login=accountLogin(req.body,role,before.email),email=login.value;
   const name=req.body.name===undefined?before.display_name:String(req.body.name).trim();
   if(!name||!email)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  if(!validEmail(email))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(!login.valid)return res.status(400).json({error:login.error});
   if(name.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   const duplicate=(await pool.query("select 1 from app_users where email=$1 and id<>$2",[email,req.params.id])).rowCount;
   if(duplicate)return res.status(409).json({error:"EMAIL_EXISTS"});
@@ -2150,7 +2152,7 @@ app.patch("/api/users/:id",authRequired,allow("super_admin","organizer"),wrap(as
     where id=$8 returning id,email,display_name,role,active,created_at,club_id,tournament_id_scope
   `,[name,email,role,req.body.active===undefined?before.active:Boolean(req.body.active),passwordHash,clubId,tournamentId,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_CHILD_ACCOUNT',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
-  res.json(after);
+  res.json({...after,username:accountUsername(after)});
 }));
 
 app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
@@ -2163,12 +2165,12 @@ app.get("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap
     select u.id,u.email,u.display_name,u.active,u.tournament_id_scope,tr.name tournament_name
     from app_users u left join tournaments tr on tr.id=u.tournament_id_scope
     ${where} order by u.display_name
-  `,params);res.json(rows);
+  `,params);res.json(rows.map(row=>({...row,username:accountUsername(row)})));
 }));
 app.post("/api/users/referees",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
-  const {email,name,password}=req.body;if(!email||!name||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
-  const normalized=String(email).toLowerCase().trim(),tournamentId=req.body.tournamentId||null;
-  if(!validEmail(normalized))return res.status(400).json({error:"INVALID_EMAIL"});
+  const {name,password}=req.body,login=accountLogin(req.body,'referee');if(!login.value||!String(name||'').trim()||!password)return res.status(400).json({error:"FIELDS_REQUIRED"});
+  const normalized=login.value,tournamentId=req.body.tournamentId||null;
+  if(!login.valid)return res.status(400).json({error:login.error});
   if(String(name).trim().length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   if(!validPassword(String(password)))return res.status(400).json({error:"PASSWORD_POLICY"});
   if((await pool.query("select 1 from app_users where email=$1",[normalized])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
@@ -2185,7 +2187,7 @@ app.post("/api/users/referees",authRequired,allow("super_admin","organizer"),wra
     returning id,email,display_name,role,active,tournament_id_scope
   `,[normalized,String(name).trim(),h,tournamentId])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'user',$2,'CREATE_REFEREE',$3)",[req.user.sub,row.id,row]);
-  res.status(201).json(row);
+  res.status(201).json({...row,username:accountUsername(row)});
 }));
 app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"),wrap(async(req,res)=>{
   const before=(await pool.query("select id,email,display_name,role,active,tournament_id_scope from app_users where id=$1 and role='referee'",[req.params.id])).rows[0];
@@ -2202,9 +2204,9 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"
     if(!validPassword(String(req.body.password)))return res.status(400).json({error:"PASSWORD_POLICY"});
     passwordHash=await hashPassword(String(req.body.password));
   }
-  const nextEmail=req.body.email?String(req.body.email).toLowerCase().trim():null;
+  const login=accountLogin(req.body,'referee',before.email),nextEmail=login.value;
   const nextName=req.body.name===undefined?null:String(req.body.name).trim();
-  if(nextEmail&&!validEmail(nextEmail))return res.status(400).json({error:"INVALID_EMAIL"});
+  if(!login.valid)return res.status(400).json({error:login.error});
   if(nextName&&nextName.length>120)return res.status(400).json({error:"NAME_TOO_LONG"});
   if(nextEmail&&(await pool.query("select 1 from app_users where email=$1 and id<>$2",[nextEmail,req.params.id])).rowCount)return res.status(409).json({error:"EMAIL_EXISTS"});
   const after=(await pool.query(`
@@ -2215,7 +2217,7 @@ app.patch("/api/users/referees/:id",authRequired,allow("super_admin","organizer"
     returning id,email,display_name,role,active,tournament_id_scope
   `,[nextName,nextEmail,req.body.active??null,passwordHash,tournamentId,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) values($1,'user',$2,'UPDATE_REFEREE',$3,$4,$5)",[req.user.sub,after.id,before,after,passwordHash?"Password reset":null]);
-  res.json(after);
+  res.json({...after,username:accountUsername(after)});
 }));
 
 app.get("/api/audit",authRequired,allow("super_admin"),wrap(async(req,res)=>{

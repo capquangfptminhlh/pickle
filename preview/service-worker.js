@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v35-center-all-matches-20261010";
+const VERSION="pickleup-preview-v36-referee-username-20261010";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,7 +34,7 @@ const CORE=[
   "../assets/tournament.js?v=53",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=64",
+  "../assets/admin-app.js?v=65",
   "../assets/match-format.js?v=5",
   "../assets/theme.js",
   "../assets/theme.css",
@@ -44,7 +44,7 @@ const CORE=[
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
   "../assets/site-sport.css","../assets/admin-sport.css",
-  "../assets/login.js","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
+  "../assets/login.js?v=3","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
   "../assets/tournament.js","../assets/checkin.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
 ];

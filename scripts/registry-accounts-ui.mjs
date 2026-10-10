@@ -60,12 +60,21 @@ try{
         }
         await page.locator(`[data-edit-referee="${refId}"]`).click();
         assert.equal(await page.locator("#erTournament").inputValue(),scope);
-        const email=`updated-${actor}-${viewport.width}@test.vn`;
+        const email=`updated-${actor}-${viewport.width}`;
         await page.locator("#erEmail").fill(email);await page.locator("#saveRefereeEdit").click();
         await page.waitForFunction(()=>!document.querySelector("#genericDialog").open);
         const saved=f.db.prepare("SELECT email,tournament_id_scope FROM app_users WHERE id=?").get(refId);
         assert.equal(saved.email,email);assert.equal(saved.tournament_id_scope,scope);
         assert.ok(f.db.prepare("SELECT id FROM audit_logs WHERE action='UPDATE_REFEREE' AND entity_id=?").get(refId));
+        await navigate('accounts');await page.locator('[data-action="newUser"]').click();
+        if(actor==='admin')await page.locator('#uRole').selectOption('referee');
+        assert.equal(await page.locator('#uEmail').getAttribute('type'),'text');
+        const username=`new-${actor}-${viewport.width}`;
+        await page.locator('#uName').fill('Trọng tài không email');await page.locator('#uEmail').fill(username);
+        await page.locator('#uTournament').selectOption(scope);await page.locator('#uPassword').fill('NoEmailReferee123!');
+        await page.locator('#saveUser').click();await page.waitForFunction(()=>!document.querySelector('#genericDialog').open);
+        const created=f.db.prepare('SELECT role,tournament_id_scope FROM app_users WHERE email=?').get(username);
+        assert.equal(created.role,'referee');assert.equal(created.tournament_id_scope,scope);
         if(actor==="admin"){
           f.db.exec("UPDATE app_users SET display_name='Trọng tài <b>an toàn</b>' WHERE id='foreign';");
           await navigate("matches");await page.locator('[data-action="newMatch"]').click();

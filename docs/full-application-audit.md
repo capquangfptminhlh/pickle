@@ -20,7 +20,7 @@
 | Các màn hình theo quyền | 102 lượt mở trang, 5 quyền: super admin, BTC, trọng tài, quản lý CLB, thu ngân; 1440px và 375px; kiểm tra lỗi JS và API không thành công | Kiểm tra mở trang; không phải mọi thao tác CRUD trên từng trang |
 | Lỗi kết nối và cập nhật điểm | Phản hồi cũ đến sau, mất phản hồi đã ghi điểm, offline trước ghi điểm, tài khoản bị khóa khi đang nhập | Fixture backend thật; thông báo realtime được kích hoạt trong harness |
 | Khôi phục tạo giải, chỉnh luật, chọn nội dung, tiến độ | Các regression có ca đỏ trước sửa, ca xanh sau sửa; cả desktop/mobile | Không chứng minh mọi biến thể mạng hoặc trình duyệt |
-| Backend | 1.150 test Worker chạy lại thành công, gồm 4 ca đóng WebSocket | Unit/integration API; không phải 1.150 lượt thao tác UI |
+| Backend | 1.156 test Worker chạy lại thành công, gồm 4 ca đóng WebSocket và 6 ca tên đăng nhập trọng tài | Unit/integration API; không phải 1.156 lượt thao tác UI |
 | Bản build | Build assets và Wrangler deploy dry-run thành công | Dry-run không phải xác nhận đã triển khai |
 
 Realtime và service worker không chạy trong harness lifecycle/role-pages. Các bộ realtime/PWA riêng tiếp tục nằm trong CI. Hai pipeline chạy toàn bộ regression hiện có, PostgreSQL integration và Worker D1 smoke trước khi chốt triển khai.
@@ -39,6 +39,8 @@ node scripts/registry-operator-center-ui.mjs
 Trong `cloudflare/`: `npm test` và `npm run check`.
 
 CI đã bổ sung lifecycle, role-pages và recovery/progress để lỗi tương tự không bị bỏ qua chỉ vì các bài test đơn lẻ đều xanh.
+
+Theo yêu cầu bổ sung, tài khoản trọng tài không cần email. Form tạo/sửa trong trung tâm giải và mục tài khoản dùng tên đăng nhập; đăng nhập chấp nhận tên đăng nhập hoặc email cũ. Worker và Node dùng cùng quy tắc chuẩn hóa/kiểm tra; unique constraint giữ tên không trùng. Tên hiển thị hỗ trợ tiếng Việt, tên đăng nhập dùng 3–32 chữ không dấu/số/dấu `. _ -` và không phân biệt hoa/thường. Các ca lifecycle đã chuyển sang tạo và đăng nhập trọng tài bằng tên không có `@`; kiểm tra tài khoản bao gồm đổi tên, reset mật khẩu, khóa, scope và tương thích tài khoản email cũ.
 
 ## Kiểm tra production
 

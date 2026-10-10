@@ -114,7 +114,7 @@ try{
     await page.locator('#genericBody .tournament-insight-grid strong').filter({hasText:/^0\/2$/}).waitFor({timeout:12000});
     assert.equal(f.db.prepare('SELECT count(*) n FROM matches WHERE division_id=?').get(did).n,2);note('draw-two-groups');
     await page.locator('[data-center-referees]').click();await page.locator('#rName').fill('QA referee');
-    const email='qa-'+tag+'@test.vn';await page.locator('#rEmail').fill(email);await page.locator('#rPassword').fill(password);await page.locator('#saveReferee').click();
+    const email='qa-'+tag;await page.locator('#rEmail').fill(email);await page.locator('#rPassword').fill(password);await page.locator('#saveReferee').click();
     await page.locator('#genericDialog').waitFor({state:'hidden'});refId=f.db.prepare('SELECT id FROM app_users WHERE email=?').get(email).id;
     const refContext=await browser.newContext({viewport:{width:cfg.width,height:900}});
     refContext.on('page',p=>{p.setDefaultTimeout(6000);p.on('pageerror',e=>errors.push(e.stack||e.message));p.on('dialog',d=>d.accept())});

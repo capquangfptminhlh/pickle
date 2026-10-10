@@ -6,6 +6,7 @@ import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
 import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
+import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../../shared/account-login.js";
 
 export {TournamentRoom};
 
@@ -33,9 +34,8 @@ function shuffleCrypto(items){
   for(let i=out.length-1;i>0;i--){const r=new Uint32Array(1);crypto.getRandomValues(r);const j=Math.floor((r[0]/4294967296)*(i+1));[out[i],out[j]]=[out[j],out[i]]}
   return out;
 }
-function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||""))&&String(v||"").length<=254}
 function accountUser(row){
-  return {...publicUser(row),display_name:row.display_name,tournament_id_scope:row.tournament_id_scope||null,
+  return {...publicUser(row),username:accountUsername(row),display_name:row.display_name,tournament_id_scope:row.tournament_id_scope||null,
     club_id:row.club_id||null,tournament_name:row.tournament_name||null,club_name:row.club_name||null};
 }
 function accountAudit(env,user,id,action,before,after,reason=null){
@@ -229,9 +229,10 @@ async function handleApi(request,env){
 
   if(path==="/api/auth/login"&&method==="POST"){
     await ensureBootstrapAdmin(env);
-    const b=await bodyJson(request),email=String(b.email||"").trim().toLowerCase(),password=String(b.password||"");
+    const b=await bodyJson(request),email=normalizeLogin(b.username??b.email),password=String(b.password||"");
+    if(!validLoginIdentifier(email))return fail("INVALID_CREDENTIALS",request,env,401);
     const row=await one(env,"SELECT * FROM app_users WHERE email=?",email);
-    if(!row||!row.active||!(await verifyPassword(password,row.password_hash)))return fail("INVALID_CREDENTIALS",request,env,401);
+    if(!row||!row.active||(!email.includes('@')&&row.role!=="referee")||!(await verifyPassword(password,row.password_hash)))return fail("INVALID_CREDENTIALS",request,env,401);
     const token=await signSession(env,row);
     return ok({token,user:publicUser(row)},request,env);
   }
@@ -823,9 +824,10 @@ async function handleApi(request,env){
   const refereeWrite=path==="/api/users/referees"||Boolean(refereeAccount);
   if((path==="/api/users"||path==="/api/users/referees")&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");const b=await bodyJson(request);
-    const email=String(b.email||"").trim().toLowerCase(),name=String(b.name||"").trim(),password=String(b.password||""),role=refereeWrite?"referee":String(b.role||"referee");
+    const name=String(b.name||"").trim(),password=String(b.password||""),role=refereeWrite?"referee":String(b.role||"referee");
+    const login=accountLogin(b,role),email=login.value;
     if(!email||!name||!password)return fail("FIELDS_REQUIRED",request,env,400);
-    if(!validEmail(email))return fail("INVALID_EMAIL",request,env,400);
+    if(!login.valid)return fail(login.error,request,env,400);
     if(name.length>120)return fail("NAME_TOO_LONG",request,env,400);
     if(password.length<12||password.length>64)return fail("PASSWORD_POLICY",request,env,400);
     if(user.role==="organizer"&&role!=="referee")return fail("ORGANIZER_CAN_ONLY_CREATE_REFEREE",request,env,403);
@@ -866,9 +868,9 @@ async function handleApi(request,env){
     if(target.role==="super_admin"&&target.id!==user.id)return fail("OWNER_ACCOUNT_PROTECTED",request,env,403);
     const role=refereeWrite||user.role==="organizer"?"referee":(target.role==="super_admin"?"super_admin":(b.role===undefined?target.role:String(b.role)));
     if(target.role!=="super_admin"&&!["organizer","referee","club_manager","finance"].includes(role))return fail("INVALID_CHILD_ROLE",request,env,400);
-    const email=String(b.email??target.email).trim().toLowerCase(),name=String(b.name??b.displayName??target.display_name).trim();
+    const login=accountLogin(b,role,target.email),email=login.value,name=String(b.name??b.displayName??target.display_name).trim();
     if(!email||!name)return fail("FIELDS_REQUIRED",request,env,400);
-    if(!validEmail(email))return fail("INVALID_EMAIL",request,env,400);
+    if(!login.valid)return fail(login.error,request,env,400);
     if(name.length>120)return fail("NAME_TOO_LONG",request,env,400);
     if(await one(env,"SELECT id FROM app_users WHERE email=? AND id<>?",email,p.id))return fail("EMAIL_EXISTS",request,env,409);
     const scopedRole=["club_manager","finance"].includes(role);
