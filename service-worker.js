@@ -1,4 +1,4 @@
-const VERSION="pickleup-v51-operator-center-20261010";
+const VERSION="pickleup-v52-operator-entry-20261010";
 const STATIC=[
   "/assets/referee-arena.css?v=1",
   "/assets/referee-arena.css",
@@ -39,7 +39,7 @@ const STATIC=[
   "/assets/tournament.js?v=53",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=60",
+  "/assets/admin-app.js?v=61",
   "/assets/match-format.js?v=5",
   "/assets/match-format.js",
   "/assets/theme.js",

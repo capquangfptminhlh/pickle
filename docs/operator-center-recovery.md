@@ -12,6 +12,10 @@ continues to draw setup for the same tournament. Changing the tournament in
 the court form does not draw the original division under a different scope.
 The backend still requires valid courts and blocks redrawing started matches.
 
+The dashboard's operator-center button also used a card click handler that
+ignored every button click, including its own trigger. Direct trigger clicks
+now open the center; unrelated nested card controls remain independent.
+
 The referee action opens creation directly with the tournament selected.
 Client validation and server/network failures appear inside the form. Inputs
 remain available for retry; repeated saves are disabled while pending; Enter
@@ -25,7 +29,7 @@ The fallback retains notifications inside an open dialog.
 Validation:
 
 - `scripts/registry-operator-center-ui.mjs`: real Worker and migrated SQLite,
-  admin/organizer at 1440/375 pixels, zero-court recovery, saved draw, 16 teams
+  admin/organizer at 1440/375 pixels, dashboard entry, zero-court recovery, saved draw, 16 teams
   assigned to four groups, 24 scheduled matches, draw completion broadcast,
   notification stacking and nonblocking clicks, scoped account creation,
   blank/invalid/short input without writes, duplicate email, network retry,

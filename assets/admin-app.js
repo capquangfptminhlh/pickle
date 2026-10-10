@@ -743,7 +743,11 @@ function applyMatchFilters(){
 }
 function bindDynamic(){
   document.querySelector("[data-test-16]")?.addEventListener("click",create16PairTestTournament);
-  document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{if(e.target.closest("button,a,select,input"))return;openTournamentDetail(card.dataset.openTournament)});
+  document.querySelectorAll("[data-open-tournament]").forEach(card=>card.onclick=e=>{
+    const control=e.target.closest("button,a,select,input");
+    if(control&&control!==card)return;
+    openTournamentDetail(card.dataset.openTournament);
+  });
   document.querySelectorAll("[data-manage-tournament]").forEach(button=>button.onclick=()=>openTournamentDetail(button.dataset.manageTournament));
   document.querySelectorAll("[data-tournament-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTournamentDetail(b.dataset.tournamentRoster)});
   document.querySelectorAll("[data-share-roster]").forEach(b=>b.onclick=e=>{e.stopPropagation();shareTournamentRoster(b.dataset.shareRoster)});

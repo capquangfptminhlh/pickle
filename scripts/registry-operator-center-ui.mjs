@@ -51,6 +51,12 @@ try{
       try{await fn();console.log('PASS',actor,width,name)}catch(e){failures.push(`${actor} ${width} ${name}: ${e.message}`);console.error('FAIL',failures.at(-1));await page.screenshot({path:resolve(root,`ui-artifacts/operator-center/${actor}-${width}-${name}.png`)});}
     };
     try{
+      await check('dashboard-entry',async()=>{
+        await page.goto(base+'/admin.html');
+        await page.locator('button[data-open-tournament="own"]').click();
+        await page.locator('[data-center-draw]').waitFor();
+        assert.match(await page.locator('#genericTitle').innerText(),/Giải của tôi/);
+      });
       await check('zero-courts-draw',async()=>{
         await center();await page.locator('[data-center-draw]').click();
         await page.locator('#courtCountValue').waitFor();
