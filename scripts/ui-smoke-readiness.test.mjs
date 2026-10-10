@@ -15,6 +15,27 @@ const end=source.indexOf("for(const [pid,selector,label]",start);
 assert.ok(start>=0&&end>start,"match regression section must exist");
 const checks=source.slice(start,end);
 
+test('route smoke settles startup requests and keeps real failures scoped to their document',async()=>{
+  const helpers=source.slice(source.indexOf('async function inspect('),source.indexOf('const page=await browser.newPage'));
+  const failures=[],{goto}=vm.runInNewContext(helpers+';({goto})',{failures});
+  const browser=await chromium.launch({headless:true}),page=await browser.newPage();
+  let settled=false;
+  await page.route('http://smoke.test/fixture/**',async route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path.endsWith('/slow')){await new Promise(r=>setTimeout(r,600));settled=true;await route.fulfill({body:'ok'});return}
+    if(path.endsWith('/broken')){await route.fulfill({status:503,body:'real failure'});return}
+    await route.fulfill({contentType:'text/html',body:path.endsWith('/old')?'<h1>Old</h1><script>fetch("/fixture/slow").catch(()=>console.error("aborted old startup"))</script>':'<h1>Next</h1><script>fetch("/fixture/broken")</script>'});
+  });
+  try{
+    await page.goto('http://smoke.test/fixture/old',{waitUntil:'domcontentloaded'});
+    await goto(page,'http://smoke.test/fixture/next','next document');
+    assert.ok(settled,'previous startup request completes before navigation');
+    assert.ok(failures.some(f=>f.label==='next document'&&f.errors.some(e=>e.includes('http 503'))),'real failed response remains a smoke failure');
+    assert.ok(failures.every(f=>f.errors.every(e=>!e.includes('aborted old startup'))),'previous page is not aborted by test navigation');
+    for(const event of ['console','pageerror','response'])assert.equal(page.listenerCount(event),0,'inspection listeners detached after route');
+  }finally{await browser.close()}
+});
+
 test("tournament record smoke accepts uppercase presentation and still rejects a wrong record",async t=>{
   const recordCheck=source.split('\n').find(line=>line.includes('tournament route shows wrong record'));
   assert.ok(recordCheck,'tournament record assertion exists');

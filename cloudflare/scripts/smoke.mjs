@@ -19,7 +19,7 @@ const tvPage=(await raw("/court-board.html")).data.text||"";
 const refereePage=(await raw("/referee.html")).data.text||"";
 const matchPage=(await raw("/match.html")).data.text||"";
 assert(tvPage.includes('id="boardTournament"')&&tvPage.includes('id="tournamentSelect"'),"TV court board static page served");
-assert(refereePage.includes("REFEREE COURTSIDE"),"referee courtside static page served");
+assert(refereePage.includes('id="matchPicker"')&&refereePage.includes('id="scoreSurface"'),"referee courtside static page served");
 assert(matchPage.includes('id="matchCard"')&&matchPage.includes('id="matchNotFound"'),"QR live match static page served");
 
 const login=(await raw("/api/auth/login",{method:"POST",body:{email:"admin@pickle.test",password:"cloudflare-test-password-123"}})).data;

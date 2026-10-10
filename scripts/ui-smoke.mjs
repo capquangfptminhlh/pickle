@@ -11,24 +11,29 @@ const failures=[];
 
 async function inspect(page,label){
   const errs=[];
-  page.on("pageerror",e=>errs.push("pageerror: "+e.message));
-  page.on("console",m=>{if(m.type()==="error")errs.push("console: "+m.text())});
-  page.on("response",r=>{
+  const onPageError=e=>errs.push("pageerror: "+e.message);
+  const onConsole=m=>{if(m.type()==="error")errs.push("console: "+m.text())};
+  const onResponse=r=>{
     const t=r.request().resourceType();
     if(r.status()>=400&&["document","script","stylesheet","xhr","fetch"].includes(t)&&!r.url().includes("favicon")){
       errs.push("http "+r.status()+": "+r.url());
     }
-  });
+  };
+  page.on("pageerror",onPageError);page.on("console",onConsole);page.on("response",onResponse);
   return ()=>{
+    page.off("pageerror",onPageError);page.off("console",onConsole);page.off("response",onResponse);
     const unique=[...new Set(errs)].filter(x=>!x.includes("ERR_ABORTED"));
     if(unique.length)failures.push({label,errors:unique});
   };
 }
 async function goto(page,url,label){
+  // Finish the previous document's startup fetches before navigating away.
+  // Aborting them can deliver its rejected fetch to the next page's inspector.
+  await page.waitForLoadState("networkidle");
   const end=await inspect(page,label);
   const r=await page.goto(url,{waitUntil:"domcontentloaded"});
   if(!r||r.status()>=400)failures.push({label,errors:["navigation status "+(r?.status()??"none")]});
-  await page.waitForTimeout(350);
+  await page.waitForLoadState("networkidle");
   end();
 }
 
