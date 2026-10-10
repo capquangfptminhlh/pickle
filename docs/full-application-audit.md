@@ -8,6 +8,7 @@
 2. Chốt hết vòng bảng đã chuyển giải vào lịch sử trước khi tạo knockout. Nay các nội dung knockout phải hoàn tất chung kết; nội dung vòng tròn không cần chung kết. Nội dung khác có đội nhưng chưa thi đấu vẫn giữ giải đang vận hành. Nhận diện chung kết loại kép của cả Worker và PostgreSQL/preview, không nhận nhầm chung kết nhánh thắng.
 3. Double click hoặc thử lại khi tạo sân thất bại tạo thêm giải. Nay khóa thao tác đang lưu, giữ mã giải đã tạo và đối chiếu sân đã lưu trước khi thử lại, kể cả trường hợp phản hồi tạo sân bị mất sau khi server đã lưu.
 4. BTC không có đường sửa luật nội dung đã tạo từ trung tâm giải. Nay có nút **Luật thi đấu** dùng editor hiện có. Quyền và khóa đổi luật sau khi trận bắt đầu vẫn do backend kiểm tra.
+5. Kiểm tra WebSocket thật nhận heartbeat nhưng đóng kết nối bất thường `1006`. Bổ sung phản hồi đóng kết nối tường minh và không gửi các mã chẩn đoán dự trữ lên wire; phải kiểm tra lại đóng kết nối thật sau triển khai trước khi xác nhận đã khắc phục. Cách gọi này an toàn cả khi runtime tự phản hồi đóng kết nối, theo [tài liệu Cloudflare](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
 
 ## Bằng chứng tại bản sửa
 
@@ -18,7 +19,7 @@
 | Các màn hình theo quyền | 102 lượt mở trang, 5 quyền: super admin, BTC, trọng tài, quản lý CLB, thu ngân; 1440px và 375px; kiểm tra lỗi JS và API không thành công | Kiểm tra mở trang; không phải mọi thao tác CRUD trên từng trang |
 | Lỗi kết nối và cập nhật điểm | Phản hồi cũ đến sau, mất phản hồi đã ghi điểm, offline trước ghi điểm, tài khoản bị khóa khi đang nhập | Fixture backend thật; thông báo realtime được kích hoạt trong harness |
 | Khôi phục tạo giải, chỉnh luật, chọn nội dung, tiến độ | Các regression có ca đỏ trước sửa, ca xanh sau sửa; cả desktop/mobile | Không chứng minh mọi biến thể mạng hoặc trình duyệt |
-| Backend | 1.146 test Worker chạy lại thành công | Unit/integration API; không phải 1.146 lượt thao tác UI |
+| Backend | 1.150 test Worker chạy lại thành công, gồm 4 ca đóng WebSocket | Unit/integration API; không phải 1.150 lượt thao tác UI |
 | Bản build | Build assets và Wrangler deploy dry-run thành công | Dry-run không phải xác nhận đã triển khai |
 
 Realtime và service worker không chạy trong harness lifecycle/role-pages. Các bộ realtime/PWA riêng tiếp tục nằm trong CI. Hai pipeline chạy toàn bộ regression hiện có, PostgreSQL integration và Worker D1 smoke trước khi chốt triển khai.

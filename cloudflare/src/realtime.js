@@ -19,7 +19,12 @@ export class TournamentRoom {
   async webSocketMessage(ws,message){
     if(String(message)==="ping"){try{ws.send("pong")}catch{}}
   }
-  async webSocketClose(){}
+  async webSocketClose(ws,code,reason){
+    // Explicitly reciprocate closure, including runtimes which do not auto-reply.
+    // Reserved diagnostic codes cannot be sent in a WebSocket Close frame.
+    const replyCode=[1005,1006,1015].includes(code)?1000:code;
+    try{ws.close(replyCode,reason||"")}catch{}
+  }
   async webSocketError(){}
 }
 
