@@ -76,8 +76,12 @@ create table if not exists teams (
 create table if not exists team_players (
   team_id uuid not null references teams(id) on delete cascade,
   player_id uuid not null references players(id) on delete cascade,
+  slot_no smallint,
   primary key (team_id, player_id)
 );
+
+alter table team_players add column if not exists slot_no smallint;
+create unique index if not exists idx_team_players_team_slot on team_players(team_id,slot_no) where slot_no is not null;
 
 create table if not exists courts (
   id uuid primary key default gen_random_uuid(),

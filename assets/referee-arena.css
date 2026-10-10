@@ -135,3 +135,4 @@ html:root[data-theme="dark"] body.site-sport.site-sport.courtside-body.referee-a
 }
 @media(prefers-reduced-motion:reduce){html:root body.site-sport.site-sport.courtside-body.referee-arena button {transition:none!important;transform:none!important;}}
 
+.ref-team-roster{display:block;margin-top:5px;color:#72847a;font-size:10px;font-weight:650;line-height:1.25}

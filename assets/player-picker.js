@@ -3,7 +3,7 @@
   const normalize=value=>String(value||"").trim().toLocaleLowerCase("vi");
   const initials=name=>String(name||"VĐV").trim().split(/\s+/).slice(-2).map(part=>part[0]||"").join("").toUpperCase();
 
-  function mount({root,players=[],count=2,excludedIds=[],selectedIds=[],onChange=()=>{},formatRating=value=>Number(value||0).toFixed(2)}){
+  function mount({root,players=[],count=2,slotLabels=[],excludedIds=[],selectedIds=[],onChange=()=>{},formatRating=value=>Number(value||0).toFixed(2)}){
     if(!root)throw new Error("PLAYER_PICKER_ROOT_REQUIRED");
     let slotCount=Math.max(1,Number(count)||1),excluded=new Set(excludedIds),selected=[...selectedIds];
     const initialSelection=new Set(selectedIds);
@@ -51,7 +51,7 @@
       selected=Array.from({length:slotCount},(_,index)=>selected[index]&&(!excluded.has(selected[index])||initialSelection.has(selected[index]))?selected[index]:null);
       for(let index=0;index<slotCount;index++){
         const slot=document.createElement("div");slot.className="player-picker-slot";slot.dataset.playerPickerSlot=String(index);
-        const label=document.createElement("label");label.className="field full";label.append(`VĐV ${index+1}`);
+        const label=document.createElement("label");label.className="field full";label.append(slotLabels[index]||`VĐV ${index+1}`);
         const input=document.createElement("input");input.type="search";input.autocomplete="off";input.placeholder="Tìm tên, biệt danh, CLB hoặc điện thoại";input.dataset.playerSearch=String(index);label.appendChild(input);
         const results=document.createElement("div");results.className="player-picker-results";results.dataset.playerResults=String(index);
         const chosen=document.createElement("div");chosen.className="player-picker-selected";chosen.dataset.playerSelected=String(index);chosen.hidden=true;

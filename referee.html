@@ -57,7 +57,7 @@
 
       <div class="ref-score-grid">
         <article class="ref-team-card team-a">
-          <div class="ref-team-head"><small>ĐỘI A <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamA">—</strong></div>
+          <div class="ref-team-head"><small>ĐỘI A <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamA">—</strong><span class="ref-team-roster" id="refRosterA"></span></div>
           <div class="ref-score-wrap"><div id="refScoreA" class="ref-score">0</div><span class="ref-point-feedback" aria-hidden="true"></span></div>
           <button class="rally-hit" type="button" data-rally="A" aria-label="Đội A thắng rally"><span aria-hidden="true">+</span> THẮNG RALLY</button>
           <div class="score-correct">
@@ -67,7 +67,7 @@
         </article>
 
         <article class="ref-team-card team-b">
-          <div class="ref-team-head"><small>ĐỘI B <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamB">—</strong></div>
+          <div class="ref-team-head"><small>ĐỘI B <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamB">—</strong><span class="ref-team-roster" id="refRosterB"></span></div>
           <div class="ref-score-wrap"><div id="refScoreB" class="ref-score">0</div><span class="ref-point-feedback" aria-hidden="true"></span></div>
           <button class="rally-hit" type="button" data-rally="B" aria-label="Đội B thắng rally"><span aria-hidden="true">+</span> THẮNG RALLY</button>
           <div class="score-correct">
@@ -115,7 +115,8 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/api.js?v=53"></script>
   <script src="assets/match-format.js?v=5"></script>
-  <script src="assets/referee-courtside.js?v=6"></script>
+  <script src="assets/team-lineup.js?v=1"></script>
+  <script src="assets/referee-courtside.js?v=7"></script>
   <script src="/assets/pwa.js"></script>
 </body>
 </html>

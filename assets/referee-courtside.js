@@ -68,7 +68,10 @@
     $("#courtLabel").textContent=court(m);
     $("#stageLabel").textContent=m.stage||d?.name||"Trận đấu";
     $("#queueLabel").textContent=qm[0];$("#queueLabel").className="queue-pill "+qm[1];
-    $("#refTeamA").textContent=team(m.a);$("#refTeamB").textContent=team(m.b);
+    const lineupA=window.PickleTeamLineup?.match(m.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(m.b,d,a,b,state);
+    $("#refTeamA").textContent=lineupA?.label||team(m.a);$("#refTeamB").textContent=lineupB?.label||team(m.b);
+    if($("#refRosterA"))$("#refRosterA").textContent=lineupA?.relay?`Đội: ${team(m.a)}`:"";
+    if($("#refRosterB"))$("#refRosterB").textContent=lineupB?.relay?`Đội: ${team(m.b)}`:"";
     const specialResult=Boolean(m.winner&&m.resultReason);
     const finalScore=m.winner&&!specialResult&&(m.sets||[]).length?m.sets[m.sets.length-1]:null;
     $("#refScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#refScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
@@ -85,9 +88,9 @@
       card.querySelector(".ref-serving").hidden=locked||side!==serve;
     });
     $("#modeBanner").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?" · điểm "+target+" phải cầm giao":"");
-    const leg=window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
+    const leg=window.PickleTeamLineup?.legText(m.a,m.b,d,a,b,state)||window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
     $(".serve-banner>span").textContent=locked?"ĐÃ CHỐT":"ĐANG GIAO";
-    $("#serveBanner").textContent=m.winner?team(m.winner)+" · thắng trận":(serve==="A"?team(m.a):team(m.b))+(mode==="rally"?" · quyền giao":" · Người giao "+server);
+    $("#serveBanner").textContent=m.winner?team(m.winner)+" · thắng trận":(serve==="A"?(lineupA?.label||team(m.a)):(lineupB?.label||team(m.b)))+(mode==="rally"?" · quyền giao":" · Người giao "+server);
     const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;$("#refTimeoutA").textContent=Number(m.timeouts?.A||0)+"/"+timeoutMax;$("#refTimeoutB").textContent=Number(m.timeouts?.B||0)+"/"+timeoutMax;
     $("#refMedicalA").textContent=Number(m.medicalTimeouts?.A||0)+"/1";$("#refMedicalB").textContent=Number(m.medicalTimeouts?.B||0)+"/1";
     $("#setHistory").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';

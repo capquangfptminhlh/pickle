@@ -135,7 +135,18 @@ const validHttpsUrl=s=>{if(!s)return true;try{return new URL(String(s)).protocol
 const validAssetUrl=s=>!s||String(s).startsWith("/uploads/media/")||String(s).startsWith("/uploads/avatars/")||validHttpsUrl(s);
 const slugify=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const nowTime=d=>d?new Date(d).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";
-const publicStatus=s=>s==="scheduled"?"wait":s==="completed"?"done":s;
+const publicStatus=s=>["scheduled","ready"].includes(s)?"wait":s==="completed"?"done":s;
+const lineupNameKey=value=>String(value||"").normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi");
+function orderedLineup(team,roster){
+  const slotted=[...roster].sort((a,b)=>Number(a.slot_no)-Number(b.slot_no));
+  if(slotted.length&&slotted.every((row,index)=>Number(row.slot_no)===index+1))return {rows:slotted,source:"assigned"};
+  const names=String(team?.name||"").split("/").map(lineupNameKey).filter(Boolean);
+  if(names.length===roster.length&&new Set(names).size===names.length){
+    const byName=new Map(roster.map(row=>[lineupNameKey(row.full_name),row]));
+    if(byName.size===roster.length&&names.every(name=>byName.has(name)))return {rows:names.map(name=>byName.get(name)),source:"inferred"};
+  }
+  return {rows:roster,source:"unassigned"};
+}
 const clubScope=(user,requested=null)=>{
   if(user?.role==="club_manager")return user.clubId||null;
   if(user?.role==="finance"&&user.clubId)return user.clubId;
@@ -234,6 +245,7 @@ function filterStateToTournamentIds(state,ids,{includeAudit=false}={}){
     teams,
     players:(state.players||[]).filter(p=>playerIds.has(p.id)),
     teamPlayers,
+    teamLineupSources:Object.fromEntries([...teamIds].map(id=>[id,state.teamLineupSources?.[id]||"unassigned"])),
     matches:state.matches.filter(m=>divisionIds.has(m.divisionId)),
     audit:includeAudit?state.audit:[]
   };
@@ -252,7 +264,7 @@ async function loadState({publicOnly=false}={}){
     contactName:t.contact_name||null,contactPhone:t.contact_phone||null
   }));
   const tournamentIds=tournaments.map(t=>t.id);
-  if(!tournamentIds.length)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},matches:[],audit:[]};
+  if(!tournamentIds.length)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[],audit:[]};
 
   const divisions=(await pool.query(
     publicOnly
@@ -268,21 +280,26 @@ async function loadState({publicOnly=false}={}){
   `,[divisionIds])).rows:[];
   const teamIds=teamRows.map(t=>t.id);
   const rosterRows=teamIds.length?(await pool.query(`
-    select tp.team_id,p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.club_id,c.name club_name
+    select tp.team_id,tp.slot_no,p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.club_id,c.name club_name
     from team_players tp
     join players p on p.id=tp.player_id
     left join clubs c on c.id=p.club_id
     where tp.team_id=any($1::uuid[]) ${publicOnly?"and p.active=true":""}
-    order by tp.team_id,p.full_name
+    order by tp.team_id,tp.slot_no nulls last,p.full_name
   `,[teamIds])).rows:[];
-  const playerMap=new Map(),teamPlayers={};
+  const playerMap=new Map(),rosterByTeam=new Map(),teamPlayers={},teamLineupSources={};
   for(const r of rosterRows){
-    if(!teamPlayers[r.team_id])teamPlayers[r.team_id]=[];
-    teamPlayers[r.team_id].push(r.id);
+    if(!rosterByTeam.has(r.team_id))rosterByTeam.set(r.team_id,[]);
+    rosterByTeam.get(r.team_id).push(r);
     if(!playerMap.has(r.id))playerMap.set(r.id,{
       id:r.id,full_name:r.full_name,nickname:r.nickname||"",gender:r.gender||"other",
       rating:Number(r.rating||0),avatar_url:r.avatar_url||"",club_id:r.club_id||null,club_name:r.club_name||""
     });
+  }
+  for(const team of teamRows){
+    const lineup=orderedLineup(team,rosterByTeam.get(team.id)||[]);
+    teamPlayers[team.id]=lineup.rows.map(row=>row.id);
+    teamLineupSources[team.id]=lineup.source;
   }
   const players=[...playerMap.values()];
   const matchRows=divisionIds.length?(await pool.query(`
@@ -319,7 +336,11 @@ async function loadState({publicOnly=false}={}){
   const matches=matchRows.map(m=>({
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
-    current:[m.current_score_a,m.current_score_b],winner:m.winner_team_id||null,version:m.version,refereeId:m.referee_user_id||null,courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,startedAt:m.started_at||null
+    current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,courtId:m.court_id||null,
+    resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
+    courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
+    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   }));
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
@@ -328,7 +349,7 @@ async function loadState({publicOnly=false}={}){
     time:nowTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type
   }));
   for(const t of tournaments)t.teams=teamRows.filter(x=>divisions.some(d=>d.id===x.division_id&&d.tournament_id===t.id)).length;
-  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,players,teamPlayers,matches,audit};
+  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:Boolean(d.final_point_on_serve),active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,players,teamPlayers,teamLineupSources,matches,audit};
 }
 
 async function loadAdminState(user){
@@ -354,6 +375,7 @@ async function loadAdminState(user){
       teams:state.teams.filter(t=>teamIds.has(t.id)),
       players:(state.players||[]).filter(p=>playerIds.has(p.id)).map(p=>({...p,phone:""})),
       teamPlayers,
+      teamLineupSources:Object.fromEntries([...teamIds].map(id=>[id,state.teamLineupSources?.[id]||"unassigned"])),
       matches,
       audit:[]
     };
@@ -952,7 +974,7 @@ app.post("/api/clubs",authRequired,allow("super_admin","organizer"),wrap(async(r
 app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),teamManageParam,wrap(async(req,res)=>{
   const playerId=req.body.playerId;if(!playerId)return res.status(400).json({error:"PLAYER_REQUIRED"});
   await tx(async c=>{
-    const team=(await c.query("select t.id,t.division_id,d.event_type from teams t join divisions d on d.id=t.division_id where t.id=$1",[req.params.id])).rows[0];
+    const team=(await c.query("select t.id,t.division_id,t.name,d.event_type from teams t join divisions d on d.id=t.division_id where t.id=$1",[req.params.id])).rows[0];
     if(!team)throw Object.assign(new Error("NOT_FOUND"),{status:404});
     await c.query("select id from divisions where id=$1 for update",[team.division_id]);
     const player=(await c.query("select id,active from players where id::text=$1",[String(playerId)])).rows[0];
@@ -961,9 +983,16 @@ app.post("/api/teams/:id/players",authRequired,allow("super_admin","organizer"),
     if((await c.query("select 1 from team_players where team_id=$1 and player_id=$2",[team.id,player.id])).rowCount)return;
     await assertRosterEditable(c,team.id);
     if((await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id where t.division_id=$1 and tp.player_id=$2 and t.id<>$3 and t.status<>'withdrawn'",[team.division_id,player.id,team.id])).rowCount)throw Object.assign(new Error("PLAYER_ALREADY_IN_DIVISION"),{status:409});
-    const count=Number((await c.query("select count(*)::int as count from team_players where team_id=$1",[team.id])).rows[0]?.count||0);
+    const roster=(await c.query("select tp.player_id,tp.slot_no,p.full_name from team_players tp join players p on p.id=tp.player_id where tp.team_id=$1 order by tp.slot_no nulls last,tp.player_id",[team.id])).rows;
+    const count=roster.length;
     if(count>=playerCountRange(team.event_type).max)throw Object.assign(new Error("INVALID_PLAYER_COUNT"),{status:400});
-    await c.query("insert into team_players(team_id,player_id) values($1,$2)",[team.id,player.id]);
+    const lineup=orderedLineup(team,roster);
+    if(team.event_type==="team"&&lineup.source==="unassigned")throw Object.assign(new Error("TEAM_LINEUP_ORDER_REQUIRED"),{status:409});
+    if(lineup.source!=="assigned"){
+      await c.query("update team_players set slot_no=null where team_id=$1",[team.id]);
+      for(const [index,row] of lineup.rows.entries())await c.query("update team_players set slot_no=$1 where team_id=$2 and player_id=$3",[index+1,team.id,row.player_id]);
+    }
+    await c.query("insert into team_players(team_id,player_id,slot_no) values($1,$2,$3)",[team.id,player.id,count+1]);
   });
   await emitState();res.status(201).json({ok:true});
 }));
@@ -1051,8 +1080,8 @@ app.post("/api/divisions/:id/import-teams",authRequired,allow("super_admin","org
       }
       const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed,status) values($1,$2,$3,$4,$5,'active') returning id",[d.id,name,clubId,String(raw.group||"A").trim()||"A",Number(raw.seed)||null])).rows[0];
       ids.push(t.id);created++;
-      for(const playerId of playerIds){
-        await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);linkedPlayers++;
+      for(const [index,playerId] of playerIds.entries()){
+        await c.query("insert into team_players(team_id,player_id,slot_no) values($1,$2,$3)",[t.id,playerId,index+1]);linkedPlayers++;
       }
     }
     await audit(c,req.user,"team_import",d.id,"IMPORT_TEAMS",null,{created,linkedPlayers,ids},`${created} teams`);
@@ -1137,7 +1166,7 @@ app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"
       clubId=cr.id;
     }
     const t=(await c.query("insert into teams(division_id,name,club_id,group_code,seed) values($1,$2,$3,$4,$5) returning *",[req.params.id,name,clubId,group,seed||null])).rows[0];
-    for(const playerId of roster.ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[t.id,playerId]);
+    for(const [index,playerId] of roster.ids.entries())await c.query("insert into team_players(team_id,player_id,slot_no) values($1,$2,$3)",[t.id,playerId,index+1]);
     const after={...t,playerIds:roster.ids};await audit(c,req.user,"team",t.id,"CREATE_TEAM_WITH_ROSTER",null,after,name);return after;
   });
   await emitState();res.status(201).json(row);
@@ -1983,12 +2012,13 @@ app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamMan
     const d=(await c.query("select id,event_type from divisions where id=$1 for update",[tid.division_id])).rows[0];
     // Team identity is stable; permit score-result FK checks while locking metadata.
     const before=(await c.query("select * from teams where id=$1 for no key update",[req.params.id])).rows[0];if(!before)throw Object.assign(new Error("NOT_FOUND"),{status:404});
-    const oldIds=(await c.query("select player_id from team_players where team_id=$1 order by player_id",[before.id])).rows.map(x=>x.player_id);
+    const oldRoster=(await c.query("select player_id,slot_no from team_players where team_id=$1 order by slot_no nulls last,player_id",[before.id])).rows;
+    const oldIds=oldRoster.map(x=>x.player_id),slotsAssigned=orderedLineup(before,oldRoster).source==="assigned";
     const status=req.body.status??before.status;
     if(!["active","withdrawn"].includes(status))throw Object.assign(new Error("INVALID_TEAM_STATUS"),{status:400});
     let ids=oldIds;
     if(req.body.playerIds!==undefined){try{ids=validatePlayerIds(d.event_type,req.body.playerIds)}catch(error){throw Object.assign(error,{status:400})}}
-    const changed=ids.length!==oldIds.length||ids.some(id=>!oldIds.includes(id));
+    const changed=req.body.playerIds!==undefined&&(!slotsAssigned||ids.length!==oldIds.length||ids.some((id,index)=>id!==oldIds[index]));
     if(changed)await assertRosterEditable(c,before.id);
     if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(c,before.division_id,ids,{currentTeamId:before.id});
     let clubId=before.club_id;
@@ -1996,7 +2026,7 @@ app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamMan
     const name=String(req.body.name??before.name).trim();if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
     if(changed)await c.query("delete from team_players where team_id=$1",[before.id]);
     const row=(await c.query("update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *",[name,clubId,req.body.group??before.group_code,req.body.seed??before.seed,status,before.id])).rows[0];
-    if(changed)for(const id of ids)await c.query("insert into team_players(team_id,player_id) values($1,$2)",[before.id,id]);
+    if(changed)for(const [index,id] of ids.entries())await c.query("insert into team_players(team_id,player_id,slot_no) values($1,$2,$3)",[before.id,id,index+1]);
     const result={...row,playerIds:ids};await audit(c,req.user,"team",before.id,"UPDATE_TEAM",{...before,playerIds:oldIds},result,"Cập nhật đội / cặp");return result;
   });
   await emitState();res.json(after);

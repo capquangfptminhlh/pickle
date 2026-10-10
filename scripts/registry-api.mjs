@@ -30,6 +30,9 @@ const b=await create([players[1].id,players[3].id]);
 const conflict=await api(`/api/teams/${a.id}`,{status:"active"},"PATCH",[409]);assert.equal(conflict.data.error,"PLAYER_ALREADY_IN_DIVISION");
 await api(`/api/teams/${a.id}`,{playerIds:[players[0].id,players[2].id],status:"active"},"PATCH");
 const match=(await api(`/api/divisions/${did}/matches`,{teamAId:a.id,teamBId:b.id,stage:"Regression"})).data;
+const queuedMatch=(await state()).matches.find(item=>item.id===match.id);
+assert.equal(queuedMatch.status,"wait");assert.equal(queuedMatch.courtState,"scheduled");
+assert.ok(Object.hasOwn(queuedMatch,"scheduledAt"));assert.deepEqual(queuedMatch.timeouts,{A:0,B:0});
 await api(`/api/matches/${match.id}/point`,{side:"A",delta:1,version:match.version||1});
 const locked=await api(`/api/teams/${a.id}`,{playerIds:[players[0].id,players[1].id]},"PATCH",[409]);assert.equal(locked.data.error,"TEAM_ROSTER_LOCKED");
 await api(`/api/teams/${a.id}`,{name:"Metadata remains editable"},"PATCH");
@@ -42,4 +45,4 @@ const d4=(await api(`/api/tournaments/${tid}/divisions`,{name:"CSV Errors",event
 const missing=await api(`/api/divisions/${d4.id}/import-teams`,{rows:[{name:"Invalid",player1:"Missing "+stamp,player2:names[1]+stamp}]},"POST",[400]);
 assert.ok((missing.data.detail?.issues||missing.data.issues).some(x=>x.row===1&&x.field==="player1"&&x.reason==="PLAYER_NOT_FOUND"));
 assert.equal((await state()).teams.filter(x=>x.divisionId===d4.id).length,0);
-console.log("REGISTRY_API_OK",JSON.stringify({club:true,replaceRoster:true,registrationPreserved:true,invalidCount:true,reactivationConflict:true,historyLock:true,unicodeCsv:true,concurrentCreation:true,rowErrors:true}));
+console.log("REGISTRY_API_OK",JSON.stringify({club:true,replaceRoster:true,registrationPreserved:true,invalidCount:true,reactivationConflict:true,historyLock:true,courtQueueState:true,unicodeCsv:true,concurrentCreation:true,rowErrors:true}));

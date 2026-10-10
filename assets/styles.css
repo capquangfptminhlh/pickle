@@ -401,7 +401,7 @@ button{cursor:pointer}
 
 
 /* APP PAGE TRANSITIONS + ACCOUNT MANAGEMENT */
-@view-transition{navigation:auto}
+@view-transition{navigation:none}
 ::view-transition-old(root){animation:routeOut .16s ease both}
 ::view-transition-new(root){animation:routeIn .24s cubic-bezier(.2,.8,.2,1) both}
 @keyframes routeOut{to{opacity:0;transform:translateY(6px) scale(.995)}}
@@ -657,4 +657,39 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
   .service-controls,.timeout-controls{display:grid;grid-template-columns:1fr 1fr}
   .service-controls>span{grid-column:1/-1}
   .service-controls .mini,.timeout-controls .mini{width:100%;min-height:40px}
+}
+
+/* Court-first tournament operations */
+.tournament-court-control{padding:16px;border:1px solid #193c2c;border-radius:20px;background:#0d2118;color:#fff;box-shadow:0 14px 34px rgba(9,35,23,.12)}
+.tournament-court-control-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:14px}
+.tournament-court-control-head span{display:block;color:#d9ff5a;font-size:10px;font-weight:900;letter-spacing:.16em}
+.tournament-court-control-head h2{margin:3px 0 0;color:#fff;font-size:24px;line-height:1}
+.tournament-court-control-head p{margin:7px 0 0;color:#b7c8bf;font-size:11px}
+.tournament-court-control-head .btn{background:#fff;color:#10281d;border-color:#fff;text-decoration:none;white-space:nowrap}
+.tournament-court-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tournament-court-card{min-width:0;overflow:hidden;border:1px solid #557064;border-radius:17px;background:#f9fbfa;color:#102018}
+.tournament-court-card.is-live{border-color:#d9ff5a;box-shadow:inset 0 4px #d9ff5a}
+.tournament-court-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px 10px;border-bottom:1px solid #dce5e0}
+.tournament-court-card>header small{display:block;color:#62756b;font-size:8px;font-weight:900;letter-spacing:.18em}
+.tournament-court-card>header h3{margin:1px 0 0;font-size:20px;line-height:1;text-transform:uppercase}
+.court-card-state{padding:6px 8px;border-radius:7px;background:#dfe9e4;color:#315444;font-size:9px;font-weight:950;letter-spacing:.06em}
+.court-card-state.live{background:#dbff58;color:#102018}.court-card-state.idle{background:#edf1ef;color:#77857e}
+.court-card-current{display:grid;gap:10px;padding:13px 14px}
+.court-card-kicker{display:flex;justify-content:space-between;gap:8px;color:#64766d;font-size:9px;text-transform:uppercase}
+.court-card-kicker b{color:#11784f;letter-spacing:.08em}.is-live .court-card-kicker b{color:#a54513}
+.court-card-score{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
+.court-card-score>div{display:grid;gap:3px;min-width:0}.court-card-score strong{overflow:hidden;color:#11241a;font-size:13px;line-height:1.25;text-overflow:ellipsis}.court-card-score small{overflow:hidden;color:#64766d;font-size:9px;line-height:1.25;text-overflow:ellipsis}.court-card-score i{margin:2px 0;color:#8a9891;font-size:8px;font-style:normal;font-weight:900}
+.court-card-score>b{min-width:64px;color:#0c2016;font-size:29px;line-height:1;text-align:right;font-variant-numeric:tabular-nums}
+.court-card-meta{display:flex;gap:12px;flex-wrap:wrap;color:#5e7067;font-size:10px}
+.court-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.court-card-actions .btn{min-height:38px;padding:0 10px}
+.court-card-next{display:grid;gap:4px;padding:11px 14px;background:#edf3f0;border-top:1px solid #dce5e0}
+.court-card-next>span{color:#5b6d64;font-size:8px;font-weight:950;letter-spacing:.13em}.court-card-next>b{font-size:11px;line-height:1.35}.court-card-next i{color:#76877e;font-size:9px;font-style:normal}.court-card-next small{color:#6c7b73;font-size:9px}
+.court-card-empty{min-height:138px;display:grid;place-items:center;padding:20px;color:#708078;font-size:11px;text-align:center}
+.tournament-unassigned{border:1px solid #d7e0db;border-radius:15px;background:#f7faf8;color:#13271c}
+.tournament-unassigned summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer}.tournament-unassigned summary b{font-size:12px}.tournament-unassigned summary span{color:#75827b;font-size:10px}
+.tournament-unassigned>div{display:grid;gap:7px;padding:0 12px 12px}.tournament-unassigned .mini{display:flex;align-items:center;justify-content:space-between;gap:12px;white-space:normal;text-align:left}.tournament-unassigned .mini span{color:#6d7d74;font-size:9px}
+.score-roster{display:block;margin-top:4px;color:#6b7b73;font-size:9px;font-weight:650;line-height:1.3}
+@media(max-width:760px){
+  .tournament-court-control{padding:12px;border-radius:17px}.tournament-court-control-head{align-items:stretch;flex-direction:column}.tournament-court-control-head .btn{width:100%;justify-content:center}
+  .tournament-court-grid{grid-template-columns:1fr}.court-card-kicker{align-items:flex-start;flex-direction:column}.court-card-score strong{white-space:normal}.tournament-unassigned summary,.tournament-unassigned .mini{align-items:flex-start;flex-direction:column}
 }

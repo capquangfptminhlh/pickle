@@ -54,6 +54,7 @@ jobs:
           node --test scripts/registry-api-client.test.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
+          node scripts/mlp-court-control-ui.mjs
           node scripts/registry-legacy-ui.mjs
           node scripts/registry-design-ui.mjs
           node scripts/registry-site-design-ui.mjs
@@ -69,6 +70,7 @@ jobs:
         run: |
           node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
+          node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
           node --check assets/match-live.js
