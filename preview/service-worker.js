@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v36-referee-username-20261010";
+const VERSION="pickleup-preview-v39-mlp-court-control-20261010";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -28,14 +28,16 @@ const CORE=[
   "../assets/site-light.css?v=1",
   "../assets/admin-light.css?v=2",
   "../assets/site-sport.css?v=8",
-  "../assets/styles.css?v=2",
+  "../assets/styles.css?v=3",
   "../assets/ui-motion.js?v=34",
   "../assets/tournament-detail.css?v=1",
   "../assets/tournament.js?v=53",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=65",
+  "../assets/admin-app.js?v=68",
+  "../assets/admin-crud.js?v=9",
   "../assets/match-format.js?v=5",
+  "../assets/team-lineup.js?v=1",
   "../assets/theme.js",
   "../assets/theme.css",
   "../assets/site-light.css",
@@ -44,7 +46,7 @@ const CORE=[
   "./index.html","./login.html","./admin.html","./ranking.html","./tournament.html","./player.html","./checkin.html","./about.html","./offline.html",
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
   "../assets/site-sport.css","../assets/admin-sport.css",
-  "../assets/login.js?v=3","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
+  "../assets/login.js?v=3","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/team-lineup.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
   "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
   "../assets/tournament.js","../assets/checkin.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
 ];

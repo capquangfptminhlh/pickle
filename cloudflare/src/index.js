@@ -29,6 +29,19 @@ function skillLevel(v,fallback="B"){
   const s=String(v||"").trim().toUpperCase();
   return SKILL_LEVELS.includes(s)?s:fallback;
 }
+function lineupNameKey(value){return String(value||"").normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi")}
+function rosterWithSequentialSlots(roster){
+  const sorted=[...roster].sort((a,b)=>Number(a.slot_no)-Number(b.slot_no));
+  return sorted.length&&sorted.every((row,index)=>Number(row.slot_no)===index+1)?sorted:null;
+}
+function rosterOrderForAppend(team,roster){
+  const assigned=rosterWithSequentialSlots(roster);if(assigned)return assigned;
+  if(team.event_type!=="team")return roster;
+  const names=String(team.name||"").split("/").map(lineupNameKey).filter(Boolean);
+  if(names.length!==roster.length||new Set(names).size!==names.length)return null;
+  const byName=new Map(roster.map(row=>[lineupNameKey(row.full_name),row]));
+  return byName.size===roster.length&&names.every(name=>byName.has(name))?names.map(name=>byName.get(name)):null;
+}
 function shuffleCrypto(items){
   const out=[...items];
   for(let i=out.length-1;i>0;i--){const r=new Uint32Array(1);crypto.getRandomValues(r);const j=Math.floor((r[0]/4294967296)*(i+1));[out[i],out[j]]=[out[j],out[i]]}
@@ -493,7 +506,7 @@ async function handleApi(request,env){
       const item=prepared[i],id=uid(),name=item.pair.map(x=>x.full_name).join(" / ");
       statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
         .bind(id,p.id,name,item.clubId,i+1,null,"active",changedAt));
-      for(const player of item.pair)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,player.id));
+      item.pair.forEach((player,index)=>statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(id,player.id,index+1)));
       statements.push(env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason,created_at) VALUES(?,'team',?,'DRAW_BALANCED_TEAM',?,?,?)")
         .bind(user.id,id,JSON.stringify({divisionId:p.id,playerIds:item.pair.map(x=>x.id),skills:item.pair.map(x=>x.skill_level),seed:i+1}),name,changedAt));
       result.push({id,name,seed:i+1,totalSkill:item.score,players:item.pair.map(x=>({id:x.id,name:x.full_name,gender:x.gender,skillLevel:x.skill_level}))});
@@ -512,7 +525,7 @@ async function handleApi(request,env){
     const clubId=await teamClub(env,b,statements);
     statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
       .bind(id,p.id,name,clubId,b.seed??null,b.group?String(b.group):null,"active",changedAt));
-    for(const playerId of roster.ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(id,playerId));
+    roster.ids.forEach((playerId,index)=>statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(id,playerId,index+1)));
     await env.DB.batch(statements);
     const row=await one(env,"SELECT * FROM teams WHERE id=?",id);
     await createAudit(env,user,"team",id,"CREATE_TEAM_WITH_ROSTER",null,{...row,playerIds:roster.ids},name);
@@ -521,14 +534,15 @@ async function handleApi(request,env){
   p=route(path,"/api/teams/:id");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),tid=await assertTeam(env,user,p.id),before=await one(env,"SELECT * FROM teams WHERE id=?",p.id),b=await bodyJson(request);
-    const oldIds=(await rows(env,"SELECT player_id FROM team_players WHERE team_id=? ORDER BY player_id",p.id)).map(x=>x.player_id);
+    const oldRoster=await rows(env,"SELECT player_id,slot_no FROM team_players WHERE team_id=? ORDER BY CASE WHEN slot_no IS NULL THEN 1 ELSE 0 END,slot_no,player_id",p.id);
+    const oldIds=oldRoster.map(x=>x.player_id),slotsAssigned=Boolean(rosterWithSequentialSlots(oldRoster));
     const status=String(b.status??before.status);
     if(!["active","withdrawn"].includes(status))throw httpError("INVALID_TEAM_STATUS");
     let ids=oldIds,changed=false;
     if(b.playerIds!==undefined){
       const d=await one(env,"SELECT event_type FROM divisions WHERE id=?",before.division_id);
       try{ids=validatePlayerIds(d.event_type,b.playerIds)}catch(error){throw httpError(error.message)}
-      changed=ids.length!==oldIds.length||ids.some(id=>!oldIds.includes(id));
+      changed=!slotsAssigned||ids.length!==oldIds.length||ids.some((id,index)=>id!==oldIds[index]);
     }
     if(changed){
       const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id)) LIMIT 1",p.id,p.id);
@@ -543,7 +557,7 @@ async function handleApi(request,env){
     if(changed)statements.push(env.DB.prepare("DELETE FROM team_players WHERE team_id=?").bind(p.id));
     statements.push(env.DB.prepare("UPDATE teams SET name=?,club_id=?,seed=?,group_code=?,status=?,updated_at=? WHERE id=?")
       .bind(after.name,after.club_id,after.seed,after.group_code,after.status,changedAt,p.id));
-    if(changed)for(const id of ids)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(p.id,id));
+    if(changed)ids.forEach((id,index)=>statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(p.id,id,index+1)));
     statements.push(rosterAudit(env,user,p.id,{...before,playerIds:oldIds},after));
     await env.DB.batch(statements);
     await emitUpdate(env,tid);return ok(after,request,env);
@@ -557,14 +571,23 @@ async function handleApi(request,env){
     const player=playerId?await one(env,"SELECT id,active FROM players WHERE id=?",playerId):null;
     if(!player)return fail("PLAYER_NOT_FOUND",request,env,404);
     if(!player.active)return fail("PLAYER_INACTIVE",request,env,400);
-    const team=await one(env,"SELECT t.id,t.division_id,d.event_type FROM teams t JOIN divisions d ON d.id=t.division_id WHERE t.id=?",p.id);
+    const team=await one(env,"SELECT t.id,t.division_id,t.name,d.event_type FROM teams t JOIN divisions d ON d.id=t.division_id WHERE t.id=?",p.id);
     const existing=await one(env,"SELECT 1 AS found FROM team_players WHERE team_id=? AND player_id=?",p.id,playerId);
     if(existing)return ok({ok:true},request,env);
     const assigned=await one(env,"SELECT 1 AS found FROM team_players tp JOIN teams t ON t.id=tp.team_id WHERE t.division_id=? AND tp.player_id=? AND t.id<>? AND t.status<>'withdrawn'",team.division_id,playerId,p.id);
     if(assigned)return fail("PLAYER_ALREADY_IN_DIVISION",request,env,409);
-    const count=Number((await one(env,"SELECT COUNT(*) AS count FROM team_players WHERE team_id=?",p.id))?.count||0);
+    const roster=await rows(env,"SELECT tp.player_id,tp.slot_no,p.full_name FROM team_players tp JOIN players p ON p.id=tp.player_id WHERE tp.team_id=? ORDER BY CASE WHEN tp.slot_no IS NULL THEN 1 ELSE 0 END,tp.slot_no,tp.player_id",p.id);
+    const count=roster.length;
     if(count>=playerCountRange(team.event_type).max)return fail("INVALID_PLAYER_COUNT",request,env,400);
-    await env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(p.id,playerId).run();await emitUpdate(env,tid);return ok({ok:true},request,env);
+    const ordered=rosterOrderForAppend(team,roster);
+    if(!ordered)return fail("TEAM_LINEUP_ORDER_REQUIRED",request,env,409);
+    const statements=[];
+    if(!rosterWithSequentialSlots(roster)){
+      statements.push(env.DB.prepare("UPDATE team_players SET slot_no=NULL WHERE team_id=?").bind(p.id));
+      ordered.forEach((row,index)=>statements.push(env.DB.prepare("UPDATE team_players SET slot_no=? WHERE team_id=? AND player_id=?").bind(index+1,p.id,row.player_id)));
+    }
+    statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(p.id,playerId,count+1));
+    await env.DB.batch(statements);await emitUpdate(env,tid);return ok({ok:true},request,env);
   }
 
   p=route(path,"/api/divisions/:id/matches");

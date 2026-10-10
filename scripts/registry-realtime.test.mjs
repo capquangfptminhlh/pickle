@@ -26,10 +26,11 @@ test("homepage refetches invalidation hints without replacing its state with a p
   assert.equal(vm.runInNewContext("state.matches[0].id",context),"new");
 });
 test("PWA updates wait for user acceptance and never cache authentication or scores",async()=>{
-  const handlers={},calls={skip:0},deleted=[];
-  const context={self:{location:{origin:"https://test.invalid"},addEventListener:(e,fn)=>handlers[e]=fn,skipWaiting:()=>calls.skip++,clients:{claim:async()=>{}}},caches:{open:async()=>({add:async()=>{}}),keys:async()=>["other-app","pickleup-old"],delete:async k=>deleted.push(k)},URL,Promise};
+  const handlers={},calls={skip:0},deleted=[],precache=[];
+  const context={self:{location:{origin:"https://test.invalid"},addEventListener:(e,fn)=>handlers[e]=fn,skipWaiting:()=>calls.skip++,clients:{claim:async()=>{}}},caches:{open:async()=>({add:async url=>precache.push(url)}),keys:async()=>["other-app","pickleup-old"],delete:async k=>deleted.push(k)},URL,Promise};
   vm.runInNewContext(source("service-worker.js"),context);
   let wait;handlers.install({waitUntil:p=>wait=p});await wait;assert.equal(calls.skip,0);
+  for(const url of ["/assets/styles.css?v=3","/assets/admin-app.js?v=68","/assets/admin-crud.js?v=9","/assets/court-board.css?v=3","/assets/court-board.js?v=6"])assert.ok(precache.includes(url),`missing exact offline asset ${url}`);
   handlers.activate({waitUntil:p=>wait=p});await wait;assert.ok(!deleted.includes("other-app"));
   for(const url of ["/api/auth/session","/api/public/state","/socket.io/socket.io.js","/uploads/receipts/a.pdf"]){let cached=false;handlers.fetch({request:{method:"GET",url:"https://test.invalid"+url},respondWith:()=>cached=true});assert.equal(cached,false)}
   handlers.message({data:{type:"SKIP_WAITING"}});assert.equal(calls.skip,1);

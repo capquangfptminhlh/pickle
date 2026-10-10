@@ -9,6 +9,9 @@
   const division=m=>state.divisions.find(d=>d.id===m.divisionId);
   const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5;
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI VĐV","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
+  const matchLineup=(m,id)=>window.PickleTeamLineup?.match(id,division(m),Number(m.current?.[0]||0),Number(m.current?.[1]||0),state);
+  const matchTeam=(m,id)=>matchLineup(m,id)?.label||team(id);
+  const matchRoster=(m,id)=>{const lineup=matchLineup(m,id);return lineup?.relay&&lineup.text?'<small class="tv-team-roster">Đội: '+esc(lineup.text)+'</small>':''};
 
   function divisionIds(){return new Set(state.divisions.filter(d=>d.tournamentId===tournamentId).map(d=>d.id))}
   function matches(){const ids=divisionIds();return state.matches.filter(m=>ids.has(m.divisionId)&&m.status!=="cancelled")}
@@ -43,12 +46,12 @@
     const q=m.status==="live"?"live":m.status==="done"?"done":m.courtState||"scheduled",meta=qMeta(q),isLive=m.status==="live";
     const d=division(m),serve=m.servingSide||"A",server=Number(m.serverNumber||2),mode=d?.scoringMode||"side_out";
     const score=isLive?'<div class="tv-score"><b>'+Number(m.current?.[0]||0)+'</b><i>:</i><b>'+Number(m.current?.[1]||0)+'</b></div>':'<div class="tv-vs">VS</div>';
-    const serveText=isLive?'<span class="serve-dot"></span>'+(serve==="A"?team(m.a):team(m.b))+(mode==="side_out"?" · S"+server:""):'';
+    const serveText=isLive?'<span class="serve-dot"></span>'+(serve==="A"?matchTeam(m,m.a):matchTeam(m,m.b))+(mode==="side_out"?" · S"+server:""):'';
     const qr=isTournamentPublic()?'<button class="tv-qr" type="button" data-match-qr="'+esc(m.id)+'">▦ QR</button>':'';
     return '<article class="tv-court '+(isLive?"live":"")+'">'+
       '<header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><div class="tv-head-actions"><b class="tv-state '+meta[1]+'">'+meta[0]+'</b>'+qr+'</div></header>'+
-      '<div class="tv-match"><div class="tv-team"><small>ĐỘI A</small><strong>'+esc(team(m.a))+'</strong></div>'+score+'<div class="tv-team right"><small>ĐỘI B</small><strong>'+esc(team(m.b))+'</strong></div></div>'+
-      '<footer class="tv-court-foot"><span>'+esc(m.stage||d?.name||"Trận đấu")+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(team(next.a))+" vs "+esc(team(next.b)):"")+'</span></footer></article>';
+      '<div class="tv-match"><div class="tv-team"><small>ĐỘI A</small><strong>'+esc(matchTeam(m,m.a))+'</strong>'+matchRoster(m,m.a)+'</div>'+score+'<div class="tv-team right"><small>ĐỘI B</small><strong>'+esc(matchTeam(m,m.b))+'</strong>'+matchRoster(m,m.b)+'</div></div>'+
+      '<footer class="tv-court-foot"><span>'+esc(m.stage||d?.name||"Trận đấu")+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(matchTeam(next,next.a))+" vs "+esc(matchTeam(next,next.b)):"")+'</span></footer></article>';
   }
 
   function calledMatches(){return matches().filter(m=>m.courtState==="called"&&m.status!=="live").sort((a,b)=>String(a.calledAt||"").localeCompare(String(b.calledAt||"")))}

@@ -37,8 +37,72 @@ async function fixture(){
   };
   const create=(ids,extra={})=>api("/api/divisions/division/teams",{name:"Audit Team",playerIds:ids,...extra});
   const members=id=>sqlite.prepare("SELECT player_id FROM team_players WHERE team_id=? ORDER BY player_id").all(id).map(x=>x.player_id);
-  return {sqlite,DB,api,create,members};
+  const orderedMembers=id=>sqlite.prepare("SELECT player_id FROM team_players WHERE team_id=? ORDER BY slot_no").all(id).map(x=>x.player_id);
+  return {sqlite,DB,api,create,members,orderedMembers};
 }
+
+test("team roster persists the submitted A/B/C slot order",async()=>{
+  const f=await fixture();try{
+    f.sqlite.exec("UPDATE divisions SET event_type='team',relay_team_size=3,relay_segment_points=9,points_to_win=27 WHERE id='division'");
+    const columns=f.sqlite.prepare("PRAGMA table_info(team_players)").all().map(column=>column.name);
+    assert.ok(columns.includes("slot_no"),"team_players must persist the MLP slot number");
+    const created=await f.create(["p3","p1","p2"]);assert.equal(created.status,201);
+    assert.deepEqual(f.orderedMembers(created.data.id),["p3","p1","p2"]);
+    const reordered=await f.api(`/api/teams/${created.data.id}`,{playerIds:["p2","p3","p1"]},"PATCH");
+    assert.equal(reordered.status,200);
+    assert.deepEqual(f.orderedMembers(created.data.id),["p2","p3","p1"],"reordering the same athletes must update A/B/C slots");
+  }finally{f.sqlite.close()}
+});
+
+test("legacy MLP rosters are inferred only from an exact slash-separated team name",async()=>{
+  const f=await fixture();try{
+    f.sqlite.exec(`UPDATE divisions SET event_type='team',relay_team_size=3 WHERE id='division';
+      INSERT INTO teams(id,division_id,name) VALUES('legacy','division','Trần Văn C / Đặng Văn A / Nguyễn Văn B');
+      INSERT INTO team_players(team_id,player_id) VALUES('legacy','p1'),('legacy','p2'),('legacy','p3');`);
+    let response=await f.api('/api/admin/state',undefined,'GET');assert.equal(response.status,200);
+    assert.deepEqual(response.data.teamPlayers.legacy,['p3','p1','p2']);
+    assert.equal(response.data.teamLineupSources.legacy,'inferred');
+    response=await f.api('/api/teams/legacy',{playerIds:['p3','p1','p2']},'PATCH');assert.equal(response.status,200);
+    assert.deepEqual(f.orderedMembers('legacy'),['p3','p1','p2']);
+    response=await f.api('/api/admin/state',undefined,'GET');assert.equal(response.data.teamLineupSources.legacy,'assigned');
+    f.sqlite.exec("UPDATE teams SET name='Biệt đội 123' WHERE id='legacy'; UPDATE team_players SET slot_no=NULL WHERE team_id='legacy'");
+    response=await f.api('/api/admin/state',undefined,'GET');assert.equal(response.status,200);
+    assert.equal(response.data.teamLineupSources.legacy,'unassigned');
+  }finally{f.sqlite.close()}
+});
+
+test("saving an unchanged inferred order persists sequential A/B/C slots",async()=>{
+  const f=await fixture();try{
+    f.sqlite.exec(`UPDATE divisions SET event_type='team',relay_team_size=3 WHERE id='division';
+      INSERT INTO teams(id,division_id,name) VALUES('legacy','division','Đặng Văn A / Nguyễn Văn B / Trần Văn C');
+      INSERT INTO team_players(team_id,player_id) VALUES('legacy','p1'),('legacy','p2'),('legacy','p3');`);
+    let state=await f.api('/api/admin/state',undefined,'GET');assert.equal(state.data.teamLineupSources.legacy,'inferred');
+    const saved=await f.api('/api/teams/legacy',{playerIds:['p1','p2','p3']},'PATCH');assert.equal(saved.status,200);
+    assert.deepEqual(f.orderedMembers('legacy'),['p1','p2','p3']);
+    state=await f.api('/api/admin/state',undefined,'GET');assert.equal(state.data.teamLineupSources.legacy,'assigned');
+  }finally{f.sqlite.close()}
+});
+
+test("adding an athlete normalizes a safely inferred legacy lineup before appending the new slot",async()=>{
+  const f=await fixture();try{
+    f.sqlite.exec(`UPDATE divisions SET event_type='team',relay_team_size=3 WHERE id='division';
+      INSERT INTO teams(id,division_id,name) VALUES('legacy','division','Nguyễn Văn B / Đặng Văn A');
+      INSERT INTO team_players(team_id,player_id) VALUES('legacy','p1'),('legacy','p2');`);
+    const added=await f.api('/api/teams/legacy/players',{playerId:'p3'},'POST');assert.equal(added.status,200);
+    assert.deepEqual(f.orderedMembers('legacy'),['p2','p1','p3']);
+    const state=await f.api('/api/admin/state',undefined,'GET');assert.equal(state.data.teamLineupSources.legacy,'assigned');
+  }finally{f.sqlite.close()}
+});
+
+test("adding an athlete refuses an ambiguous legacy team instead of creating partial slots",async()=>{
+  const f=await fixture();try{
+    f.sqlite.exec(`UPDATE divisions SET event_type='team',relay_team_size=3 WHERE id='division';
+      INSERT INTO teams(id,division_id,name) VALUES('legacy','division','Biệt đội 123');
+      INSERT INTO team_players(team_id,player_id) VALUES('legacy','p1'),('legacy','p2');`);
+    const added=await f.api('/api/teams/legacy/players',{playerId:'p3'},'POST');assert.equal(added.status,409);assert.equal(added.data.error,'TEAM_LINEUP_ORDER_REQUIRED');
+    assert.deepEqual(f.members('legacy'),['p1','p2']);
+  }finally{f.sqlite.close()}
+});
 
 test("team creation persists an existing Unicode club name",async()=>{
   const f=await fixture();try{

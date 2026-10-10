@@ -44,6 +44,7 @@
   let state=JSON.parse(localStorage.getItem(KEY)||"null")||emptyState();
   if(state.branding?.name==="Pickle Tour"){state.branding.name="Pickleup.vn";localStorage.setItem(KEY,JSON.stringify(state));}
   state.clubEvents||=[];state.clubAttendance||={};state.clubTransactions||=[];
+  const withLineupSources=value=>({...value,teamLineupSources:Object.fromEntries(Object.keys(value.teamPlayers||{}).map(teamId=>[teamId,"assigned"]))});
   state.ratingProcessedKeys||=[];
   const avatarMigration=state.players?.some(p=>!p.avatar_url);
   if(avatarMigration){
@@ -285,9 +286,9 @@
     me:async()=>clone(requireSession()),
     logout:async()=>{localStorage.removeItem(AUTH_KEY);return {ok:true}},
     changePassword:async()=>{throw Object.assign(new Error("PREVIEW_DEMO_ACCOUNT"),{status:400})},
-    publicState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(state)},
+    publicState:async()=>{recomputeStats();evaluateTournamentRatings();return clone(withLineupSources(state))},
     submitTournament:async(payload,bannerFile=null)=>{const isFeatured=payload.sponsorPackage==="top_sponsor"||payload.sponsorPackage==="highlight";const posterUrl=bannerFile?await fileData(bannerFile):(payload.posterUrl||null);const t={id:"tour-"+Date.now(),name:payload.name,date:payload.startAt?new Date(payload.startAt).toLocaleDateString("vi-VN"):"Sắp diễn ra",startAt:payload.startAt,endAt:payload.endAt,venue:payload.venue,format:payload.divisionName||"Open",status:"open",publicVisible:true,teams:0,isFeatured,featuredRank:payload.sponsorPackage==="top_sponsor"?100:50,sponsorPackage:payload.sponsorPackage||"free",posterUrl};state.tournaments.unshift(t);persist();return {success:true,tournament:t};},
-    adminState:async()=>{recomputeStats();evaluateTournamentRatings();const s=requireSession();if(s.user.role!=="referee")return clone(state);const matches=(state.matches||[]).filter(m=>m.refereeId===s.user.id);const dids=new Set(matches.map(m=>m.divisionId));const tids=new Set((state.divisions||[]).filter(d=>dids.has(d.id)).map(d=>d.tournamentId));const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(Boolean));return clone({...state,tournaments:(state.tournaments||[]).filter(t=>tids.has(t.id)),divisions:(state.divisions||[]).filter(d=>dids.has(d.id)),courts:(state.courts||[]).filter(c=>tids.has(c.tournamentId)),teams:(state.teams||[]).filter(t=>teamIds.has(t.id)),matches,referees:[]})},
+    adminState:async()=>{recomputeStats();evaluateTournamentRatings();const s=requireSession();if(s.user.role!=="referee")return clone(withLineupSources(state));const matches=(state.matches||[]).filter(m=>m.refereeId===s.user.id);const dids=new Set(matches.map(m=>m.divisionId));const tids=new Set((state.divisions||[]).filter(d=>dids.has(d.id)).map(d=>d.tournamentId));const teamIds=new Set(matches.flatMap(m=>[m.a,m.b]).filter(Boolean));return clone(withLineupSources({...state,tournaments:(state.tournaments||[]).filter(t=>tids.has(t.id)),divisions:(state.divisions||[]).filter(d=>dids.has(d.id)),courts:(state.courts||[]).filter(c=>tids.has(c.tournamentId)),teams:(state.teams||[]).filter(t=>teamIds.has(t.id)),matches,referees:[]}))},
     publicPlayers:async()=>{
       if(state.players&&state.players.length){
         return clone(state.players.map(p=>({...p,club_city:state.clubs.find(c=>c.id===p.club_id)?.city||""})));
@@ -409,7 +410,7 @@
       const division=state.divisions.find(d=>d.id===t.divisionId),oldIds=state.teamPlayers[id]||[],status=p.status??t.status;
       if(!["active","withdrawn"].includes(status))throw new Error("INVALID_TEAM_STATUS");
       const ids=p.playerIds===undefined?oldIds:validatePreviewPlayerIds(division.eventType,p.playerIds);
-      const changed=ids.length!==oldIds.length||ids.some(playerId=>!oldIds.includes(playerId));
+      const changed=ids.length!==oldIds.length||ids.some((playerId,index)=>playerId!==oldIds[index]);
       if(changed&&state.matches.some(m=>(m.a===id||m.b===id)&&(m.startedAt||m.started_at||["live","done","completed","walkover"].includes(m.status)||m.winner||(m.sets||[]).length||(m.current||[]).some(Number))))throw new Error("TEAM_ROSTER_LOCKED");
       if(changed||(t.status==='withdrawn'&&status==='active')){
         validatePreviewPlayerIds(division.eventType,ids);

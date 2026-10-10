@@ -18,7 +18,7 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({headless:true}),failures=[];
+const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})}),failures=[];
 await mkdir(resolve(root,'ui-artifacts/operator-center'),{recursive:true});
 try{
   for(const actor of ['admin','organizer'])for(const width of [1440,375]){

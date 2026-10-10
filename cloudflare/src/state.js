@@ -14,6 +14,17 @@ function fmtDate(value){
   try{return new Date(value).toLocaleDateString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}catch{return "Chưa chốt"}
 }
 function publicStatus(s){return ["scheduled","ready"].includes(s)?"wait":s==="completed"?"done":s}
+function lineupNameKey(value){return String(value||"").normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi")}
+function orderedLineup(team,roster){
+  const slotted=[...roster].sort((a,b)=>Number(a.slot_no)-Number(b.slot_no));
+  if(slotted.length&&slotted.every((row,index)=>Number(row.slot_no)===index+1))return {rows:slotted,source:"assigned"};
+  const names=String(team?.name||"").split("/").map(lineupNameKey).filter(Boolean);
+  if(names.length===roster.length&&new Set(names).size===names.length){
+    const byName=new Map(roster.map(row=>[lineupNameKey(row.full_name),row]));
+    if(byName.size===roster.length&&names.every(name=>byName.has(name)))return {rows:names.map(name=>byName.get(name)),source:"inferred"};
+  }
+  return {rows:roster,source:"unassigned"};
+}
 
 export async function loadState(env,{publicOnly=false}={}){
   const tournamentsRaw=await rows(env,
@@ -32,7 +43,7 @@ export async function loadState(env,{publicOnly=false}={}){
     contactName:t.contact_name||null,contactPhone:t.contact_phone||null
   }));
   const tournamentIds=new Set(tournaments.map(t=>t.id));
-  if(!tournamentIds.size)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},matches:[],audit:[]};
+  if(!tournamentIds.size)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[],audit:[]};
 
   const divisionsRaw=(await rows(env,"SELECT * FROM divisions ORDER BY rowid"))
     .filter(d=>tournamentIds.has(d.tournament_id)&&(publicOnly?bool(d.active):true));
@@ -48,17 +59,22 @@ export async function loadState(env,{publicOnly=false}={}){
   const teamIds=new Set(teamsRaw.map(t=>t.id));
 
   const rosterRaw=(await rows(env,
-    "SELECT tp.team_id,p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.avatar_url,p.club_id,p.phone,p.active,c.name AS club_name FROM team_players tp JOIN players p ON p.id=tp.player_id LEFT JOIN clubs c ON c.id=p.club_id ORDER BY tp.team_id,p.full_name"
+    "SELECT tp.team_id,tp.slot_no,p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.avatar_url,p.club_id,p.phone,p.active,c.name AS club_name FROM team_players tp JOIN players p ON p.id=tp.player_id LEFT JOIN clubs c ON c.id=p.club_id ORDER BY tp.team_id,CASE WHEN tp.slot_no IS NULL THEN 1 ELSE 0 END,tp.slot_no,p.full_name"
   )).filter(r=>teamIds.has(r.team_id)&&(publicOnly?bool(r.active):true));
-  const teamPlayers={},playerMap=new Map();
+  const rosterByTeam=new Map(),teamPlayers={},teamLineupSources={},playerMap=new Map();
   for(const r of rosterRaw){
-    if(!teamPlayers[r.team_id])teamPlayers[r.team_id]=[];
-    teamPlayers[r.team_id].push(r.id);
+    if(!rosterByTeam.has(r.team_id))rosterByTeam.set(r.team_id,[]);
+    rosterByTeam.get(r.team_id).push(r);
     if(!playerMap.has(r.id))playerMap.set(r.id,{
       id:r.id,full_name:r.full_name,nickname:r.nickname||"",gender:r.gender||"other",
       rating:Number(r.rating||0),skillLevel:r.skill_level||"B",avatar_url:r.avatar_url||"",club_id:r.club_id||null,
       club_name:r.club_name||"",phone:publicOnly?undefined:(r.phone||""),active:bool(r.active)
     });
+  }
+  for(const team of teamsRaw){
+    const lineup=orderedLineup(team,rosterByTeam.get(team.id)||[]);
+    teamPlayers[team.id]=lineup.rows.map(row=>row.id);
+    teamLineupSources[team.id]=lineup.source;
   }
   if(!publicOnly){
     const allPlayers=await rows(env,
@@ -152,7 +168,7 @@ export async function loadState(env,{publicOnly=false}={}){
       relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),active:bool(d.active)
     })),
     courts:courtsRaw.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:Number(c.sort_order||0),active:bool(c.active)})),
-    teams,players,teamPlayers,matches,audit
+    teams,players,teamPlayers,teamLineupSources,matches,audit
   };
 }
 
@@ -182,7 +198,7 @@ export async function loadAdminState(env,user){
       courts:state.courts.filter(c=>tournamentIds.has(c.tournamentId)),
       teams:state.teams.filter(t=>teamIds.has(t.id)),
       players:state.players.filter(p=>playerIds.has(p.id)).map(p=>({...p,phone:""})),
-      teamPlayers,matches,audit:[]
+      teamPlayers,teamLineupSources:Object.fromEntries([...teamIds].map(id=>[id,state.teamLineupSources?.[id]||"unassigned"])),matches,audit:[]
     };
   }
   return loadState(env,{publicOnly:true});
@@ -201,6 +217,7 @@ function filterState(state,allowed){
     tournaments:state.tournaments.filter(t=>allowed.has(t.id)),
     divisions,courts:state.courts.filter(c=>allowed.has(c.tournamentId)),teams,
     players:state.players.filter(p=>playerIds.has(p.id)),teamPlayers,
+    teamLineupSources:Object.fromEntries([...teamIds].map(id=>[id,state.teamLineupSources?.[id]||"unassigned"])),
     matches:state.matches.filter(m=>divisionIds.has(m.divisionId)),audit:[]
   };
 }

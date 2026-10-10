@@ -15,7 +15,8 @@ const server=createServer(async(req,res)=>{try{
  res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.woff2':'font/woff2'})[extname(full)]||'application/octet-stream');res.end(await readFile(full));
 }catch{res.writeHead(404).end()}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const base=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch();
+const browserOptions=process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{};
+const base=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch(browserOptions);
 try{
  for(const reducedMotion of ['no-preference','reduce']){
   const f=await scoringFixture();f.db.exec("UPDATE divisions SET points_to_win=15,best_of=3,scoring_mode='rally',win_by_two=1 WHERE id='division'; UPDATE teams SET name='Nguyễn Minh / Trần Thuỳ Anh' WHERE id='a'; UPDATE teams SET name='Hoàng Nam / Lê Thanh Hà' WHERE id='b';");

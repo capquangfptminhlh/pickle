@@ -102,7 +102,10 @@
     if(t.clubId&&!clubs.some(club=>club.id===t.clubId))clubs.push({id:t.clubId,name:t.club||t.club_name||"CLB hiện tại",active:false});
     const initialIds=[...(ctx.state.teamPlayers?.[t.id]||[])];
     const division=ctx.state.divisions.find(d=>d.id===t.divisionId);
-    const count=division?.eventType==="singles"?1:division?.eventType==="team"?4:2;
+    const count=division?.eventType==="singles"?1:division?.eventType==="team"?(Number(division.relayTeamSize)||4):2;
+    const slotLabels=division?.eventType==="team"?Array.from({length:count},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
+    const lineupSource=ctx.state.teamLineupSources?.[t.id]||"assigned";
+    const lineupUnassigned=division?.eventType==="team"&&lineupSource==="unassigned";
     const excludedIds=ctx.state.teams.filter(team=>team.id!==t.id&&team.divisionId===t.divisionId&&team.status!=="withdrawn").flatMap(team=>ctx.state.teamPlayers?.[team.id]||[]);
     const locked=(ctx.state.matches||[]).some(match=>[match.a,match.b,match.team_a_id,match.team_b_id].includes(t.id)&&(
       match.startedAt||match.started_at||match.winner||match.winner_team_id||
@@ -110,7 +113,7 @@
       (match.current||[]).some(score=>Number(score)!==0)||Number(match.current_score_a||0)!==0||Number(match.current_score_b||0)!==0
     ));
     modal("Sửa đội / cặp",'<div class="form-grid">'+
-      '<div class="field full security-note" id="crudTeamRosterNote"><span>'+(locked?'Trận của đội đã bắt đầu hoặc có điểm / kết quả. Thành viên đã khóa; bạn vẫn có thể sửa thông tin đội.':'Chọn thành viên từ hồ sơ VĐV hệ thống. '+(count===4?'Nội dung đồng đội cần 1–4 VĐV.':'Nội dung này cần '+count+' VĐV.'))+'</span></div>'+
+      '<div class="field full security-note" id="crudTeamRosterNote"><span>'+(locked?'Trận của đội đã bắt đầu hoặc có điểm / kết quả. Thành viên đã khóa; bạn vẫn có thể sửa thông tin đội.':lineupUnassigned?'Đội cũ chưa có thứ tự A/B/C rõ ràng. Hãy chọn lại từng vị trí rồi lưu trước khi nhập điểm.':'Chọn thành viên theo đúng vị trí thi đấu. '+(division?.eventType==='team'?'Thứ tự A/B/C quyết định cặp AB → BC → CA.':'Nội dung này cần '+count+' VĐV.'))+'</span></div>'+
       '<div class="field full" id="crudTeamPlayerPicker"></div>'+
       '<div id="crudTeamResetWrap" style="grid-column:1/-1" hidden><button id="crudTeamResetMembers" type="button" class="mini">Khôi phục thành viên ban đầu</button></div>'+
       '<label class="field full">Tên đội / cặp<input id="crudTeamName" value="'+esc(t.name)+'"></label>'+
@@ -121,9 +124,10 @@
       '<div class="security-note" style="grid-column:1/-1" id="crudTeamError" role="alert" hidden></div>'+
       '<div class="field full"><button id="crudSaveTeam" type="button" class="btn primary">Lưu đội</button></div></div>');
     let picker,membersEdited=false;
-    const mountPicker=()=>window.PicklePlayerPicker.mount({root:$("#crudTeamPlayerPicker"),players:roster,count,excludedIds,selectedIds:initialIds,onChange:ids=>{
+    const sameOrder=ids=>ids.length===initialIds.length&&ids.every((id,index)=>id===initialIds[index]);
+    const mountPicker=()=>window.PicklePlayerPicker.mount({root:$("#crudTeamPlayerPicker"),players:roster,count,slotLabels,excludedIds,selectedIds:initialIds,onChange:ids=>{
       membersEdited=true;
-      $("#crudTeamResetWrap").hidden=ids.length===initialIds.length&&ids.every(id=>initialIds.includes(id));
+      $("#crudTeamResetWrap").hidden=sameOrder(ids);
     }});
     picker=mountPicker();
     $("#crudTeamResetMembers").onclick=()=>{
@@ -136,7 +140,8 @@
       try{
         const payload={name:$("#crudTeamName").value.trim(),clubId:$("#crudTeamClub").value||null,group:$("#crudTeamGroup").value.trim(),seed:Number($("#crudTeamSeed").value)||null,status:$("#crudTeamStatus").value};
         const ids=picker.values();
-        if(!locked&&membersEdited&&(ids.length!==initialIds.length||ids.some(id=>!initialIds.includes(id))))payload.playerIds=ids;
+        const shouldPersistLineup=lineupSource==="inferred"||(lineupSource==="unassigned"&&membersEdited)||(membersEdited&&!sameOrder(ids));
+        if(!locked&&shouldPersistLineup)payload.playerIds=ids;
         await API.updateTeam(t.id,payload);
         close();await ctx.refresh();ctx.toast("Đã cập nhật đội.");
       }catch(e){

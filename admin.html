@@ -14,7 +14,7 @@
   <title>Pickleup.vn Admin</title>
   <meta name="description" content="Quản trị giải đấu pickleball, lịch đấu, nhập điểm, bảng xếp hạng và bracket.">  <meta name="robots" content="noindex,nofollow">
   <script src="assets/theme.js?v=1"></script>
-<link rel="stylesheet" href="assets/styles.css?v=2">
+<link rel="stylesheet" href="assets/styles.css?v=3">
   <link rel="stylesheet" href="assets/pickleup-ui.css?v=7">
   <link rel="stylesheet" href="assets/site-sport.css?v=8">
   <link rel="stylesheet" href="assets/admin-sport.css?v=5">
@@ -80,7 +80,7 @@
 
       <div class="score-board">
         <div class="team-row">
-          <div><small>ĐỘI A</small><strong id="teamAName"></strong></div>
+          <div><small>ĐỘI A</small><strong id="teamAName"></strong><span class="score-roster" id="teamARoster"></span></div>
           <div class="score-control">
             <button type="button" data-score="a" data-delta="-1" aria-label="Giảm điểm đội A">−</button>
             <span id="scoreA">0</span>
@@ -88,7 +88,7 @@
           </div>
         </div>
         <div class="team-row">
-          <div><small>ĐỘI B</small><strong id="teamBName"></strong></div>
+          <div><small>ĐỘI B</small><strong id="teamBName"></strong><span class="score-roster" id="teamBRoster"></span></div>
           <div class="score-control">
             <button type="button" data-score="b" data-delta="-1" aria-label="Giảm điểm đội B">−</button>
             <span id="scoreB">0</span>
@@ -166,10 +166,11 @@
   <script src="assets/admin-modules.js"></script>
   <script src="assets/bracket-ui.js?v=26"></script>
   <script src="assets/match-format.js?v=5"></script>
-  <script src="assets/admin-crud.js?v=8"></script>
+  <script src="assets/team-lineup.js?v=1"></script>
+  <script src="assets/admin-crud.js?v=9"></script>
   <script src="assets/player-picker.js?v=2"></script>
   <script src="assets/player-avatar-input.js?v=1"></script>
-  <script src="assets/admin-app.js?v=65"></script>
+  <script src="assets/admin-app.js?v=68"></script>
   <script src="assets/draw-flex.js?v=5"></script>
   <script src="assets/ui-motion.js?v=34"></script>
   <script src="/assets/pwa.js"></script>

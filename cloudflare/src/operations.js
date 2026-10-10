@@ -273,9 +273,9 @@ async function importLegacyState(env,user,state){
     group.push(prepareImport("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
       .bind(String(t.id),String(t.divisionId),String(t.name||"Đội"),clubId?String(clubId):null,t.seed==null?null:Number(t.seed),String(t.group||t.group_code||"")||null,String(t.status||"active"),now));
     const pids=Array.isArray(teamPlayers[t.id])?teamPlayers[t.id]:[];
-    for(const pid of pids){
+    for(const [slotIndex,pid] of pids.entries()){
       // OR IGNORE still runs BEFORE INSERT guards; exclude duplicates before INSERT.
-      group.push(prepareImport("INSERT INTO team_players(team_id,player_id) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM team_players WHERE team_id=? AND player_id=?)").bind(String(t.id),String(pid),String(t.id),String(pid)));
+      group.push(prepareImport("INSERT INTO team_players(team_id,player_id,slot_no) SELECT ?,?,? WHERE NOT EXISTS (SELECT 1 FROM team_players WHERE team_id=? AND player_id=?)").bind(String(t.id),String(pid),slotIndex+1,String(t.id),String(pid)));
     }
     groups.push(group);
   }
@@ -461,7 +461,7 @@ export async function handleOperations(request,env){
     for(const plan of plans){
       statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,'active',?)")
         .bind(plan.teamId,p.id,plan.name,plan.clubId,Number(plan.raw.seed)||null,plan.raw.group?String(plan.raw.group):null,changedAt));
-      for(const playerId of plan.playerIds)statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id) VALUES(?,?)").bind(plan.teamId,playerId));
+      plan.playerIds.forEach((playerId,index)=>statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(plan.teamId,playerId,index+1)));
     }
     if(statements.length)await env.DB.batch(statements);
     const created=plans.length,linkedPlayers=plans.reduce((sum,plan)=>sum+plan.playerIds.length,0);
