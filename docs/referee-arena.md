@@ -1,0 +1,7 @@
+# Referee courtside UI
+
+The scoreboard uses a dark surface in both themes, lime for A and cyan for B. Rules (target, required margin and games to win) come from the assigned division. Relay segment and final-point-on-serve constraints remain visible in the service strip. Completed matches retain the last game's final score rather than showing the backend's cleared current score.
+
+Motion uses the browser's native animation API after refreshed, confirmed state changes: score increase/decrease, service change, game history and winner banner. Unchanged refreshes do not replay it; failed writes cannot create an optimistic score. New game resets do not flash as point gains. Animations cancel when replaced, and all effects stop when reduced motion is enabled, including a preference change while the page is open. The existing expected-version, busy and stale-refresh guards remain in place.
+
+Run `node scripts/registry-referee-arena-ui.mjs` with Playwright Chromium installed. It tests the actual Worker with local SQLite fixtures and the real referee page in both motion preferences, plus 320/375/844/1440 layouts in both themes. It covers setup rules, confirmed points, Undo, unchanged refresh, failed score writes, side-out service changes, relay rules and confirmed completion. It runs in both GitHub workflows. Authentication and live socket transport are covered by existing suites; this fixture harness blocks the socket script and does not modify production data.

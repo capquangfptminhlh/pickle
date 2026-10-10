@@ -48,6 +48,7 @@ jobs:
           node scripts/registry-ui.mjs
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-scoring-ui.mjs
+          node scripts/registry-referee-arena-ui.mjs
           node scripts/registry-legacy-ui.mjs
           node scripts/registry-design-ui.mjs
           node scripts/registry-site-design-ui.mjs

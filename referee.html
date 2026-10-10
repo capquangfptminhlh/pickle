@@ -18,13 +18,14 @@
 <link rel="stylesheet" href="assets/theme.css?v=2">
 <link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/typography.css?v=1">
+<link rel="stylesheet" href="assets/referee-arena.css?v=1">
 </head>
-<body class="courtside-body site-sport">
+<body class="courtside-body site-sport referee-arena">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
   <header class="courtside-top">
     <div class="courtside-brand">
       <img src="assets/app-icon-v2.svg" alt="">
-      <div><strong>PICKLEUP.VN</strong><small>REFEREE COURTSIDE</small></div>
+      <div><strong>PICKLEUP.VN</strong><small>TRỌNG TÀI · COURTSIDE</small></div>
     </div>
     <div class="courtside-top-actions">
       <span id="connectionState" class="connection-pill">Đang kết nối</span>
@@ -51,24 +52,27 @@
         <small id="legBanner" class="leg-banner" hidden></small>
       </div>
 
+      <div id="refRules" class="ref-rules" aria-label="Luật thi đấu"></div>
+      <div class="ref-game-line"><span id="refGameLabel">GAME 1</span><span id="refGameWins"></span></div>
+
       <div class="ref-score-grid">
         <article class="ref-team-card team-a">
-          <div class="ref-team-head"><small>ĐỘI A</small><strong id="refTeamA">—</strong></div>
-          <div id="refScoreA" class="ref-score">0</div>
-          <button class="rally-hit" type="button" data-rally="A"><span>🏓</span> THẮNG RALLY</button>
+          <div class="ref-team-head"><small>ĐỘI A <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamA">—</strong></div>
+          <div class="ref-score-wrap"><div id="refScoreA" class="ref-score">0</div><span class="ref-point-feedback" aria-hidden="true"></span></div>
+          <button class="rally-hit" type="button" data-rally="A" aria-label="Đội A thắng rally"><span aria-hidden="true">+</span> THẮNG RALLY</button>
           <div class="score-correct">
-            <button type="button" data-correct="A" data-delta="-1">−1</button>
-            <button type="button" data-correct="A" data-delta="1">+1</button>
+            <button type="button" data-correct="A" data-delta="-1" aria-label="Sửa điểm đội A, trừ 1">−1</button>
+            <button type="button" data-correct="A" data-delta="1" aria-label="Sửa điểm đội A, cộng 1">+1</button>
           </div>
         </article>
 
         <article class="ref-team-card team-b">
-          <div class="ref-team-head"><small>ĐỘI B</small><strong id="refTeamB">—</strong></div>
-          <div id="refScoreB" class="ref-score">0</div>
-          <button class="rally-hit" type="button" data-rally="B"><span>🏓</span> THẮNG RALLY</button>
+          <div class="ref-team-head"><small>ĐỘI B <span class="ref-serving" hidden>● GIAO</span></small><strong id="refTeamB">—</strong></div>
+          <div class="ref-score-wrap"><div id="refScoreB" class="ref-score">0</div><span class="ref-point-feedback" aria-hidden="true"></span></div>
+          <button class="rally-hit" type="button" data-rally="B" aria-label="Đội B thắng rally"><span aria-hidden="true">+</span> THẮNG RALLY</button>
           <div class="score-correct">
-            <button type="button" data-correct="B" data-delta="-1">−1</button>
-            <button type="button" data-correct="B" data-delta="1">+1</button>
+            <button type="button" data-correct="B" data-delta="-1" aria-label="Sửa điểm đội B, trừ 1">−1</button>
+            <button type="button" data-correct="B" data-delta="1" aria-label="Sửa điểm đội B, cộng 1">+1</button>
           </div>
         </article>
       </div>
@@ -76,6 +80,7 @@
       <div id="setHistory" class="set-strip"></div>
       <div id="scoreHint" class="score-hint" hidden></div>
 
+      <div class="ref-controls">
       <section class="ref-control-card">
         <div class="control-title"><span>Quyền giao</span><small id="serverHelp">Chỉnh khi trọng tài cần sửa</small></div>
         <div id="serviceButtons" class="service-buttons">
@@ -87,17 +92,18 @@
       </section>
 
       <section class="ref-control-card">
-        <div class="control-title"><span>Timeout</span><small>Ghi nhận vào audit log</small></div>
+        <div class="control-title"><span>Hội ý & y tế</span><small>Số lần đã sử dụng / giới hạn</small></div>
         <div class="timeout-grid">
-          <button type="button" data-timeout="A" data-kind="standard">⏱ A <b id="refTimeoutA">0/2</b></button>
-          <button type="button" data-timeout="B" data-kind="standard">⏱ B <b id="refTimeoutB">0/2</b></button>
-          <button type="button" data-timeout="A" data-kind="medical">🩺 A <b id="refMedicalA">0/1</b></button>
-          <button type="button" data-timeout="B" data-kind="medical">🩺 B <b id="refMedicalB">0/1</b></button>
+          <button type="button" data-timeout="A" data-kind="standard">Hội ý A <b id="refTimeoutA">0/2</b></button>
+          <button type="button" data-timeout="B" data-kind="standard">Hội ý B <b id="refTimeoutB">0/2</b></button>
+          <button type="button" data-timeout="A" data-kind="medical">Y tế A <b id="refMedicalA">0/1</b></button>
+          <button type="button" data-timeout="B" data-kind="medical">Y tế B <b id="refMedicalB">0/1</b></button>
         </div>
       </section>
+      </div>
 
       <div class="ref-bottom-actions">
-        <button id="undoBtn" class="ref-btn secondary" type="button">↶ Undo</button>
+        <button id="undoBtn" class="ref-btn secondary" type="button" aria-label="Hoàn tác thao tác vừa thực hiện">↶ Undo</button>
         <button id="finishSetBtn" class="ref-btn dark" type="button">Chốt set</button>
         <button id="finishMatchBtn" class="ref-btn primary" type="button">Kết thúc trận</button>
       </div>
@@ -105,10 +111,11 @@
   </main>
 
   <div id="refToast" class="ref-toast" hidden></div>
+  <div id="refAnnouncement" class="ref-announcement" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="assets/api.js?v=52"></script>
   <script src="assets/match-format.js?v=5"></script>
-  <script src="assets/referee-courtside.js?v=5"></script>
+  <script src="assets/referee-courtside.js?v=6"></script>
   <script src="/assets/pwa.js"></script>
 </body>
 </html>
