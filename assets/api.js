@@ -231,6 +231,7 @@
     quickScore:(id,payload)=>request(`/api/matches/${id}/quick-score`,{method:"POST",body:JSON.stringify(payload)}),
     specialResult:(id,payload)=>request(`/api/matches/${id}/special-result`,{method:"POST",body:JSON.stringify(payload)}),
     undo:(id,payload={})=>request(`/api/matches/${id}/undo`,{method:"POST",body:JSON.stringify(payload)}),
+    resetMatch:(id,payload={})=>request(`/api/matches/${id}/reset`,{method:"POST",body:JSON.stringify(payload)}),
     users:()=>request("/api/users"),
     createUser:payload=>request("/api/users",{method:"POST",body:JSON.stringify(payload)}),
     updateUser:(id,payload)=>request(`/api/users/${id}`,{method:"PATCH",body:JSON.stringify(payload)}),
