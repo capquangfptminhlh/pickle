@@ -1489,7 +1489,7 @@ function openRefereeModal(tournamentId){
     <label class="field full">Giải được giao<select id="rTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===tournamentId?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu tạm (12–64 ký tự)<input id="rPassword" type="password" required minlength="12" maxlength="64" autocomplete="new-password"></label>
     <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
-    <div class="field full security-note" id="refereeError" role="alert" hidden></div>
+    <div class="security-note" style="grid-column:1/-1" id="refereeError" role="alert" hidden></div>
     <div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div>
   </div>`;
   const dlg=$("#genericDialog");if(!dlg.open)dlg.showModal();

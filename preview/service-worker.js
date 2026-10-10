@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v32-operator-entry-20261010";
+const VERSION="pickleup-preview-v33-operator-forms-20261010";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,7 +34,7 @@ const CORE=[
   "../assets/tournament.js?v=53",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=61",
+  "../assets/admin-app.js?v=62",
   "../assets/match-format.js?v=5",
   "../assets/theme.js",
   "../assets/theme.css",

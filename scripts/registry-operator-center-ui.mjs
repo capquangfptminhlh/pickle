@@ -82,6 +82,7 @@ try{
       await check('referee-create',async()=>{
         await center();await page.locator('[data-center-referees]').click();
         await page.locator('#rName').waitFor();
+        assert.equal(await page.locator('#refereeError').isVisible(),false,'the form must not show an empty error panel');
         assert.equal(await page.locator('#rTournament').inputValue(),'own','center creation must retain this tournament even for super admin');
         await page.locator('#genericDialog [value="cancel"]').click();
         assert.equal(await page.locator('#genericDialog').evaluate(el=>el.open),false,'empty required fields must not block closing');
