@@ -7,7 +7,12 @@
   async function request(url, options={}){
     const headers=authHeaders({"Content-Type":"application/json",...(options.headers||{})});
     const res=await fetch(apiUrl(url),{credentials:API_BASE?"omit":"include",...options,headers});
-    const data=await res.json().catch(()=>({}));
+    const data=await res.json().catch(error=>{
+      // Navigation can abort a successful response while its body is being read.
+      // Propagate cancellation instead of replacing a complete admin state with {}.
+      if(error?.name==="AbortError")throw error;
+      return {};
+    });
     if(res.status===401){
       localStorage.removeItem(TOKEN_KEY);
       if(location.pathname!="/login"&&!location.pathname.endsWith("login.html")){

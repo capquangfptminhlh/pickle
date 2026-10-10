@@ -1,4 +1,4 @@
-const VERSION="pickleup-v53-operator-forms-20261010";
+const VERSION="pickleup-v54-api-cancellation-20261010";
 const STATIC=[
   "/assets/referee-arena.css?v=1",
   "/assets/referee-arena.css",

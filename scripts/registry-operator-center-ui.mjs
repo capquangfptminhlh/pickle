@@ -28,7 +28,7 @@ try{
     f.db.exec("INSERT INTO divisions(id,tournament_id,name,event_type) VALUES('division','own','MLP 3 nữ','team')");
     for(let i=0;i<16;i++)f.db.prepare('INSERT INTO teams(id,division_id,name) VALUES(?,?,?)').run('team-'+i,'division','Đội '+(i+1));
     const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
-    page.setDefaultTimeout(4000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+    page.setDefaultTimeout(4000);page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('dialog',d=>d.accept());
     await page.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens[actor]);
     let failCreation=false,creationRequests=0;
     await page.route('**/api/**',async route=>{
@@ -75,6 +75,8 @@ try{
         assert.equal(await toast.evaluate(el=>getComputedStyle(el).pointerEvents),'none','feedback must not block the draw button');
         await page.locator('[data-flex-run]').click();
         await page.waitForFunction(()=>document.querySelector('[data-center-draw]')&&!document.querySelector('.draw-setup-overlay'),null,{timeout:12000});
+        // Closing the spinner precedes the final refresh. Wait for the center's persisted result.
+        await page.locator('#genericBody .tournament-insight-grid strong').filter({hasText:/^0\/24$/}).waitFor();
         assert.equal(f.db.prepare("SELECT COUNT(*) n FROM matches WHERE division_id='division'").get().n,24);
         assert.equal(f.db.prepare("SELECT COUNT(DISTINCT group_code) n FROM teams WHERE division_id='division'").get().n,4);
         assert.ok(broadcasts.some(x=>x.event==='draw:complete'));

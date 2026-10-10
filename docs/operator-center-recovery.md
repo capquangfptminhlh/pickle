@@ -26,6 +26,14 @@ Shared notifications use a manual popover inside the active dialog's non-inert
 subtree. Their pointer events are disabled so feedback cannot cover controls.
 The fallback retains notifications inside an open dialog.
 
+An interrupted successful API response previously swallowed `AbortError` from
+JSON reading and returned `{}`. A navigation during the final draw refresh could
+therefore replace state with an empty object and trigger observer errors in the
+departing document. JSON cancellation now rejects without assigning empty state.
+The operator test waits for the refreshed center's 0/24 count before navigating.
+Four API-client tests cover aborted success/error bodies and retained handling
+for non-JSON server failures and empty no-content responses.
+
 Validation:
 
 - `scripts/registry-operator-center-ui.mjs`: real Worker and migrated SQLite,
