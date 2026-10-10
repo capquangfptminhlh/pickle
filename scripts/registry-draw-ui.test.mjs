@@ -7,6 +7,23 @@ import vm from "node:vm";
 
 const source=await readFile(new URL("../assets/draw-flex.js",import.meta.url),"utf8");
 
+test("center draw chooses among populated divisions in the current tournament",async()=>{
+  const require=createRequire(import.meta.url),{chromium}=require("playwright"),browser=await chromium.launch();
+  try{
+    const page=await browser.newPage();page.setDefaultTimeout(3000);
+    await page.setContent('<dialog id="genericDialog"><h2 id="genericTitle"></h2><div id="genericBody"><button data-center-draw="tour">Draw</button><button data-auto-draw="empty">Empty</button></div></dialog>');
+    await page.evaluate(()=>{
+      window.state={divisions:[{id:'empty',tournamentId:'tour',name:'Empty'},...['a','b'].map(id=>({id,tournamentId:'tour',name:'Nội dung '+id})),{id:'foreign',tournamentId:'other',name:'Foreign'}],teams:['a','b','foreign'].flatMap(divisionId=>[0,1,2,3].map(i=>({id:divisionId+i,divisionId,name:divisionId+i}))),courts:[{id:'court',tournamentId:'tour',name:'Sân 1'}],matches:[]};
+      window.toast=()=>{};window.loaded=[];window.API={drawConfig:async id=>{loaded.push(id);return {}}};document.querySelector('#genericDialog').showModal();
+    });
+    await page.addScriptTag({content:source});await page.locator('[data-center-draw]').click();
+    assert.deepEqual(await page.locator('#drawDivisionChoice option').evaluateAll(options=>options.map(x=>x.value)),['a','b']);
+    await page.locator('#drawDivisionChoice').selectOption('b');await page.locator('#openDivisionDraw').click();
+    await page.locator('[data-flex-run]').waitFor();assert.deepEqual(await page.evaluate(()=>loaded),['b']);
+    assert.match(await page.locator('.draw-setup-overlay').getAttribute('aria-label'),/Nội dung b/);
+  }finally{await browser.close()}
+});
+
 for(const action of ["save","run"])test(`invalid ${action} draw counts show an actionable operator message`,async()=>{
   const require=createRequire(import.meta.url),{chromium}=require("playwright"),browser=await chromium.launch({headless:true});
   try{
@@ -37,7 +54,7 @@ test("draw button polish stops mutating after labels are current",()=>{
   const buttons={"[data-auto-draw]":[draw],"[data-top2-bracket]":[bracket],"[data-center-draw]":[center]};
   const state={divisions:[{id:"division",advanceCount:3}]};
   vm.runInNewContext(source,{
-    state,
+    state,window:{},
     document:{querySelectorAll:selector=>buttons[selector]||[],addEventListener(){},documentElement:{}},
     MutationObserver:class {constructor(fn){callback=fn}observe(){}},
     addEventListener(){}

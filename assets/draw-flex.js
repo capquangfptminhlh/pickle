@@ -9,6 +9,20 @@
     return [...modal.querySelectorAll("[data-flex-court]:checked")].map(x=>x.value);
   }
 
+  function openTournamentDraw(tournamentId){
+    const available=state.divisions.filter(d=>d.tournamentId===tournamentId&&d.active!==false)
+      .map(d=>({division:d,count:state.teams.filter(t=>t.divisionId===d.id&&t.status!=="withdrawn").length}))
+      .filter(x=>x.count>=4);
+    if(!available.length)return toast("Cần ít nhất 4 cặp/đội trong một nội dung để chia bảng.");
+    if(available.length===1)return openFlexibleDraw({dataset:{autoDraw:available[0].division.id}});
+    const dialog=document.querySelector("#genericDialog");
+    document.querySelector("#genericTitle").textContent="Chọn nội dung chia bảng";
+    document.querySelector("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung thi đấu<select id="drawDivisionChoice">${available.map(x=>`<option value="${esc(x.division.id)}">${esc(x.division.name)} • ${x.count} cặp/đội</option>`).join("")}</select></label><div class="field full"><button type="button" class="btn primary" id="openDivisionDraw">Thiết lập & bốc thăm</button></div></div>`;
+    document.querySelector("#openDivisionDraw").onclick=()=>openFlexibleDraw({dataset:{autoDraw:document.querySelector("#drawDivisionChoice").value}});
+    if(!dialog.open)dialog.showModal();
+  }
+  window.PickleTournamentDraw=openTournamentDraw;
+
   async function openFlexibleDraw(btn){
     const divisionId=btn.dataset.autoDraw;
     const division=state.divisions.find(x=>x.id===divisionId);
@@ -260,10 +274,10 @@
     const center=e.target.closest?.("[data-center-draw]");
     if(center){
       const drawBtn=document.querySelector("[data-auto-draw]");
-      if(drawBtn){
-        e.preventDefault();e.stopImmediatePropagation();
-        openFlexibleDraw(drawBtn);
-      }
+      const tournamentId=center.dataset.centerDraw||state.divisions.find(d=>d.id===drawBtn?.dataset.autoDraw)?.tournamentId;
+      e.preventDefault();e.stopImmediatePropagation();
+      if(tournamentId)openTournamentDraw(tournamentId);
+      else toast("Giải chưa có nội dung thi đấu. Hãy thêm nội dung trước.");
       return;
     }
     const bracket=e.target.closest?.("[data-top2-bracket]");

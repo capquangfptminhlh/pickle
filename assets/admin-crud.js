@@ -265,5 +265,5 @@
     }
   }
 
-  window.AdminCrud={decorate};
+  window.AdminCrud={decorate,editDivision};
 })();

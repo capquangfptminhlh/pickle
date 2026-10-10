@@ -49,6 +49,9 @@ jobs:
           node scripts/registry-ui.mjs
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-operator-center-ui.mjs
+          node scripts/registry-lifecycle-ui.mjs
+          node scripts/registry-role-pages-ui.mjs
+          node --test scripts/registry-tournament-progress.test.mjs scripts/registry-tournament-recovery-ui.mjs
           node --test scripts/registry-api-client.test.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
