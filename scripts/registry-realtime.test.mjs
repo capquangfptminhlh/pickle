@@ -30,7 +30,8 @@ test("PWA updates wait for user acceptance and never cache authentication or sco
   const context={self:{location:{origin:"https://test.invalid"},addEventListener:(e,fn)=>handlers[e]=fn,skipWaiting:()=>calls.skip++,clients:{claim:async()=>{}}},caches:{open:async()=>({add:async url=>precache.push(url)}),keys:async()=>["other-app","pickleup-old"],delete:async k=>deleted.push(k)},URL,Promise};
   vm.runInNewContext(source("service-worker.js"),context);
   let wait;handlers.install({waitUntil:p=>wait=p});await wait;assert.equal(calls.skip,0);
-  for(const url of ["/assets/styles.css?v=3","/assets/admin-app.js?v=69","/assets/admin-crud.js?v=9","/assets/court-board.css?v=3","/assets/court-board.js?v=7"])assert.ok(precache.includes(url),`missing exact offline asset ${url}`);
+  for(const url of ["/assets/styles.css?v=4","/assets/admin-app.js?v=70","/assets/bracket-ui.js?v=36","/assets/admin-crud.js?v=9","/assets/court-board.css?v=3","/assets/court-board.js?v=7"])assert.ok(precache.includes(url),`missing exact offline asset ${url}`);
+  for(const url of ["/assets/referee-arena.css?v=2","/assets/referee-courtside.js?v=8"])assert.ok(precache.includes(url),`missing exact referee asset ${url}`);
   handlers.activate({waitUntil:p=>wait=p});await wait;assert.ok(!deleted.includes("other-app"));
   for(const url of ["/api/auth/session","/api/public/state","/socket.io/socket.io.js","/uploads/receipts/a.pdf"]){let cached=false;handlers.fetch({request:{method:"GET",url:"https://test.invalid"+url},respondWith:()=>cached=true});assert.equal(cached,false)}
   handlers.message({data:{type:"SKIP_WAITING"}});assert.equal(calls.skip,1);

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {scoringFixture} from "./helpers/scoring-fixture.mjs";
+import worker from "../src/index.js";
 
 test('completed matches reject every scoring action',async()=>{
   const f=await scoringFixture();f.db.exec("UPDATE matches SET status='completed',winner_team_id='a' WHERE id='match'");
@@ -15,9 +16,47 @@ test('explicit winner cannot finish a match without the required set wins',async
   const f=await scoringFixture();assert.equal((await f.api('finish',{winnerTeamId:'a'})).status,400);assert.equal(f.match().status,'scheduled');
 });
 test('every scoring route observes supplied stale versions',async()=>{
-  for(const [action,body] of [['point',{side:'A',delta:1}],['quick-score',{sets:[[11,3],[11,4]]}],['finish',{winnerTeamId:'a'}],['finish-set',{}],['special-result',{winnerTeamId:'a',reason:'walkover'}],['undo',{}]]){
+  for(const [action,body] of [['point',{side:'A',delta:1}],['quick-score',{sets:[[11,3],[11,4]]}],['finish',{winnerTeamId:'a'}],['finish-set',{}],['special-result',{winnerTeamId:'a',reason:'walkover'}],['undo',{}],['reset',{}]]){
     const f=await scoringFixture();assert.equal((await f.api(action,{...body,expectedVersion:0})).status,409,action);
   }
+});
+
+test('reset clears the whole scoreboard and safely rewinds bracket slots',async()=>{
+  const f=await scoringFixture();f.downstream();
+  assert.equal((await f.api('quick-score',{sets:[[11,3],[11,4]]})).status,200);
+  const reset=await f.api('reset',{expectedVersion:2});assert.equal(reset.status,200);
+  assert.equal(f.match().status,'scheduled');assert.equal(f.match().current_score_a,0);assert.equal(f.match().current_score_b,0);
+  assert.equal(f.match().winner_team_id,null);assert.deepEqual(f.sets(),[]);
+  for(const id of ['winner','loser'])assert.equal(f.db.prepare('SELECT team_a_id FROM matches WHERE id=?').get(id).team_a_id,null);
+  assert.equal(f.db.prepare("SELECT count(*) n FROM score_events WHERE event_type='MATCH_FINISH' AND undone_at IS NOT NULL").get().n,1);
+  assert.equal(f.db.prepare("SELECT count(*) n FROM score_events WHERE json_extract(payload,'$.reset')=1 AND undone_at IS NULL").get().n,1);
+});
+
+test('undo after reset restores the prior result and its complete undo history',async()=>{
+  const f=await scoringFixture();f.downstream();
+  await f.api('point',{side:'A',delta:1});await f.api('quick-score',{sets:[[11,3],[11,4]]});
+  assert.equal((await f.api('reset')).status,200);assert.equal((await f.api('undo')).status,200);
+  assert.equal(f.match().status,'completed');assert.equal(f.match().winner_team_id,'a');assert.equal(f.sets().length,2);
+  assert.equal(f.db.prepare("SELECT team_a_id FROM matches WHERE id='winner'").get().team_a_id,'a');
+  assert.equal(f.db.prepare("SELECT team_a_id FROM matches WHERE id='loser'").get().team_a_id,'b');
+  assert.equal((await f.api('undo')).status,200,'the result before reset must still be undoable');
+  assert.equal(f.match().status,'live');assert.equal(f.match().current_score_a,1);assert.deepEqual(f.sets(),[]);
+});
+
+test('reset refuses to erase a result after a downstream match has started',async()=>{
+  const f=await scoringFixture();f.downstream();await f.api('quick-score',{sets:[[11,3],[11,4]]});
+  f.db.exec("UPDATE matches SET started_at='2026-10-10T00:00:00.000Z' WHERE id='winner'");
+  const before=f.match(),sets=f.sets();const reset=await f.api('reset');assert.equal(reset.status,409);assert.equal(reset.data.error,'DOWNSTREAM_MATCH_LOCKED');
+  assert.deepEqual(f.match(),before);assert.deepEqual(f.sets(),sets);
+});
+
+test('score response does not wait for realtime delivery in a Worker execution context',async()=>{
+  const f=await scoringFixture(),deliveries=[];
+  f.env.ROOMS={idFromName:x=>x,get:()=>({fetch:()=>new Promise(resolve=>deliveries.push(resolve))})};
+  const waits=[],request=new Request('https://test.invalid/api/matches/match/point',{method:'POST',headers:{Authorization:'Bearer '+f.tokens.admin,'Content-Type':'application/json'},body:JSON.stringify({side:'A',delta:1,expectedVersion:1})});
+  const response=await Promise.race([worker.fetch(request,f.env,{waitUntil:p=>waits.push(p)}),new Promise((_,reject)=>setTimeout(()=>reject(new Error('score response waited for realtime')),250))]);
+  assert.equal(response.status,200);assert.equal((await response.json()).current[0],1);assert.equal(waits.length,1);assert.equal(deliveries.length,4);
+  deliveries.forEach(resolve=>resolve(new Response(null,{status:204})));await Promise.all(waits);
 });
 test('point rejects cancelled matches and absent participants',async()=>{
   for(const sql of ["status='cancelled'","team_a_id=NULL"]){const f=await scoringFixture();f.db.exec('UPDATE matches SET '+sql+" WHERE id='match'");assert.equal((await f.api('point',{side:'A',delta:1})).status,409)}

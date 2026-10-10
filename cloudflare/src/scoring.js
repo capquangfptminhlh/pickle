@@ -5,7 +5,7 @@ import {validateSet,validateSeries,timeoutsPerGame} from "../../shared/scoring-r
 
 const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
 const scoringFields=[...legacyScoringFields,"court_state","serving_side","server_number","timeout_a","timeout_b","medical_timeout_a","medical_timeout_b"];
-const actions=new Set(["point","rally","service","timeout","finish-set","quick-score","finish","special-result","undo"]);
+const actions=new Set(["point","rally","service","timeout","finish-set","quick-score","finish","special-result","undo","reset"]);
 const error=(code,status=400)=>Object.assign(new Error(code),{status});
 const one=(env,sql,...args)=>env.DB.prepare(sql).bind(...args).first();
 const rows=async(env,sql,...args)=>(await env.DB.prepare(sql).bind(...args).all()).results||[];
@@ -128,7 +128,35 @@ async function undoPlan(env,m,sets){
     if(Array.isArray(payload.downstream))bracket=await bracketChanges(env,m,m.winner_team_id,payload.downstream);
     else if(m.next_match_id||m.loser_next_match_id)throw error("UNDO_HISTORY_UNAVAILABLE",409);
   }
-  return {after,eventType:"UNDO",payload:{undoEventId:event.id},undoEvent:event,bracket};
+  const restoreEventIds=payload.reset===true&&Array.isArray(payload.resetEventIds)
+    ?payload.resetEventIds.map(Number).filter(Number.isSafeInteger)
+    :[];
+  return {after,eventType:"UNDO",payload:{undoEventId:event.id},undoEvent:event,restoreEventIds,bracket};
+}
+
+async function resetPlan(env,m,sets){
+  assertUndoable(m);
+  const events=await rows(env,"SELECT * FROM score_events WHERE match_id=? AND event_type<>'UNDO' AND undone_at IS NULL ORDER BY id",m.id);
+  if(!events.length)throw error("NOTHING_TO_RESET");
+  const first=events[0],firstPayload=safeJsonParse(first.payload,{});
+  const baseline=firstPayload.reset===true?firstPayload.after:firstPayload.before;
+  if(!baseline?.match||!Array.isArray(baseline.sets))throw error("RESET_HISTORY_UNAVAILABLE",409);
+  for(const field of scoringFields)if(!(field in baseline.match))throw error("RESET_HISTORY_UNAVAILABLE",409);
+  const alreadyReset=events.length===1&&firstPayload.reset===true&&
+    scoringFields.every(field=>(m[field]??null)===(baseline.match[field]??null))&&
+    JSON.stringify(pairs(sets))===JSON.stringify(pairs(baseline.sets));
+  if(alreadyReset)throw error("NOTHING_TO_RESET");
+  const after=snapshot(m,baseline.sets);
+  for(const field of scoringFields)after.match[field]=baseline.match[field];
+  // Keep durable participation history even when the visible board returns to its initial state.
+  after.match.started_at=m.started_at||baseline.match.started_at||null;
+  let bracket={changes:[],guards:[]};
+  if(m.winner_team_id){
+    const completion=[...events].reverse().map(event=>safeJsonParse(event.payload,{})).find(payload=>payload.after?.match?.winner_team_id===m.winner_team_id);
+    if(Array.isArray(completion?.downstream))bracket=await bracketChanges(env,m,m.winner_team_id,completion.downstream);
+    else if(m.next_match_id||m.loser_next_match_id)throw error("RESET_HISTORY_UNAVAILABLE",409);
+  }
+  return {after,eventType:"CORRECTION",payload:{reset:true,resetEventIds:events.map(event=>Number(event.id))},undoEvents:events,bracket};
 }
 
 async function mutationPlan(env,m,sets,action,body,at){
@@ -230,7 +258,9 @@ async function commit(env,user,m,sets,action,plan,at){
     statements.push(statement(env,`UPDATE matches SET ${column}=?,version=version+1 WHERE id=?`,slot.teamAfter||null,slot.id));
   }
   if(plan.undoEvent)statements.push(statement(env,"UPDATE score_events SET undone_at=? WHERE id=? AND undone_at IS NULL",at,plan.undoEvent.id));
-  statements.push(statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,?,?,?,?)",user.id,m.id,action.toUpperCase().replaceAll("-","_"),JSON.stringify(payload.before),JSON.stringify(plan.after),plan.undoEvent?"Undo event "+plan.undoEvent.id:null));
+  for(const event of plan.undoEvents||[])statements.push(statement(env,"UPDATE score_events SET undone_at=? WHERE id=? AND undone_at IS NULL",at,event.id));
+  for(const id of plan.restoreEventIds||[])statements.push(statement(env,"UPDATE score_events SET undone_at=NULL WHERE id=? AND undone_at IS NOT NULL",id));
+  statements.push(statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,?,?,?,?)",user.id,m.id,action.toUpperCase().replaceAll("-","_"),JSON.stringify(payload.before),JSON.stringify(plan.after),plan.undoEvent?"Undo event "+plan.undoEvent.id:action==="reset"?"Reset toàn bộ bảng điểm":null));
   try{await env.DB.batch(statements)}catch(e){
     if(String(e.message).includes("VERSION_CONFLICT"))throw error("VERSION_CONFLICT",409);
     if(String(e.message).includes("DOWNSTREAM_MATCH_LOCKED"))throw error("DOWNSTREAM_MATCH_LOCKED",409);
@@ -273,7 +303,7 @@ async function autoCallNextOnCourt(env,user,m,at){
   return null;
 }
 
-export async function handleScoring(request,env){
+export async function handleScoring(request,env,ctx){
   const match=/^\/api\/matches\/([^/]+)\/([^/]+)\/?$/.exec(new URL(request.url).pathname);
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
   const id=decodeURIComponent(match[1]),action=match[2];
@@ -284,17 +314,20 @@ export async function handleScoring(request,env){
   const body=await bodyJson(request);
   if(body.expectedVersion!==undefined&&(!Number.isSafeInteger(Number(body.expectedVersion))||Number(body.expectedVersion)!==Number(m.version)))throw error("VERSION_CONFLICT",409);
   const sets=await rows(env,"SELECT * FROM match_sets WHERE match_id=? ORDER BY set_no",id),at=nowIso();
-  const plan=action==="undo"?await undoPlan(env,m,sets):await mutationPlan(env,m,sets,action,body,at);
+  const plan=action==="undo"?await undoPlan(env,m,sets):action==="reset"?await resetPlan(env,m,sets):await mutationPlan(env,m,sets,action,body,at);
   await commit(env,user,m,sets,action,plan,at);
   if(plan.after.match.status==="completed"){
     try{await autoCallNextOnCourt(env,user,plan.after.match,at)}catch(e){console.error("auto_call_queue_failed",{matchId:id,error:String(e.message)})}
   }
-  // Delivery failure must never turn a committed score into a retryable failure.
-  try{
-    for(const room of ["public",m.tournament_id]){
-      await broadcast(env,"public:state",{tournamentId:m.tournament_id},room);
-      await broadcast(env,"match:update",{id,tournamentId:m.tournament_id,version:plan.after.match.version},room);
-    }
-  }catch(e){console.error("score_broadcast_failed",{matchId:id,error:String(e.message)})}
+  // A confirmed score should reach the referee immediately. Realtime fan-out runs
+  // after the response in Workers and in parallel in environments without waitUntil.
+  const delivery=Promise.allSettled(["public",m.tournament_id].flatMap(room=>[
+    broadcast(env,"public:state",{tournamentId:m.tournament_id},room),
+    broadcast(env,"match:update",{id,tournamentId:m.tournament_id,version:plan.after.match.version},room)
+  ])).then(results=>{
+    const failed=results.find(result=>result.status==="rejected");
+    if(failed)console.error("score_broadcast_failed",{matchId:id,error:String(failed.reason?.message||failed.reason)})
+  });
+  if(ctx?.waitUntil)ctx.waitUntil(delivery);else await delivery;
   return ok(view(plan.after.match,plan.after.sets),request,env);
 }

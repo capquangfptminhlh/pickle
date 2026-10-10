@@ -80,6 +80,25 @@ try{
         assert.equal(f.db.prepare("SELECT COUNT(*) n FROM matches WHERE division_id='division'").get().n,24);
         assert.equal(f.db.prepare("SELECT COUNT(DISTINCT group_code) n FROM teams WHERE division_id='division'").get().n,4);
         assert.ok(broadcasts.some(x=>x.event==='draw:complete'));
+        const bracketCard=page.locator('.tournament-bracket-card');
+        await bracketCard.waitFor();
+        const bracketLayout=await bracketCard.evaluate(card=>{
+          const grid=card.closest('.tournament-ops-grid'),preview=card.querySelector('.tournament-bracket-preview');
+          const cardRect=card.getBoundingClientRect(),gridRect=grid.getBoundingClientRect();
+          return {widthRatio:cardRect.width/gridRect.width,overflowY:getComputedStyle(preview).overflowY,clientHeight:preview.clientHeight,scrollHeight:preview.scrollHeight};
+        });
+        assert.ok(bracketLayout.widthRatio>.95,'bracket must span the operator center width');
+        assert.notEqual(bracketLayout.overflowY,'auto','bracket preview must not hide rounds in a nested vertical scroller');
+        assert.ok(bracketLayout.scrollHeight<=bracketLayout.clientHeight+2,'bracket preview must show its full vertical content');
+        await page.locator('[data-expand-bracket]').click();
+        const focus=page.locator('.bracket-focus-dialog');
+        await focus.waitFor();
+        assert.match(await focus.innerText(),/Tứ kết/);
+        assert.match(await focus.innerText(),/Bán kết/);
+        assert.match(await focus.innerText(),/Chung kết/);
+        await page.screenshot({path:resolve(root,`ui-artifacts/operator-center/${actor}-${width}-bracket-focus.png`)});
+        await focus.locator('[data-close-bracket-focus]').click();
+        await focus.waitFor({state:'detached'});
         assert.equal(await page.locator('[data-center-assign]').count(),24,'all matches must remain accessible from the center');
         const more=page.locator('[data-center-more-matches]');
         await more.locator('summary').click();

@@ -199,12 +199,12 @@ async function validateDivisionRoster(env,divisionId,playerIds,{currentTeamId=nu
   }
   return {division:d,players,ids};
 }
-async function handleApi(request,env){
+async function handleApi(request,env,ctx){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
 
   if(method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(request,env)});
   if(["POST","PUT","PATCH","DELETE"].includes(method)&&request.body!==null&&/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type")||""))await bodyJson(request.clone());
-  const score=await handleScoring(request,env);
+  const score=await handleScoring(request,env,ctx);
   if(score)return score;
   const extra=await handleOperations(request,env);
   if(extra)return extra;
@@ -1024,7 +1024,7 @@ async function handleApi(request,env){
 }
 
 export default {
-  async fetch(request,env){
+  async fetch(request,env,ctx){
     try{
       const url=new URL(request.url);
       const fromCloudflare=Boolean(request.headers.get("cf-ray")||request.headers.get("cf-visitor"));
@@ -1043,7 +1043,7 @@ export default {
         }
         return env.ASSETS.fetch(request);
       }
-      return await handleApi(request,env);
+      return await handleApi(request,env,ctx);
     }catch(e){
       const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
       if(dbMessage.includes("UNIQUE constraint failed: app_users.email"))return fail("EMAIL_EXISTS",request,env,409);

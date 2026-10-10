@@ -597,7 +597,27 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
 .tournament-ops-card{padding:13px;border:1px solid #e7ece9;border-radius:15px;background:#fbfdfc;min-width:0}
 .tournament-ops-card>b{display:block;font-size:12px}.tournament-ops-card>small{display:block;margin-top:4px;color:#728078;font-size:10px;line-height:1.45}
 .tournament-live-mini{display:grid;gap:6px;margin-top:9px}.tournament-live-mini .mini{text-align:left;justify-content:flex-start;white-space:normal}
-.tournament-bracket-preview{margin-top:10px;overflow:auto;max-height:300px}
+.tournament-ops-grid>.tournament-ops-card:first-child,.tournament-bracket-card{grid-column:1/-1}
+.tournament-bracket-card{padding:18px}
+.tournament-bracket-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.tournament-bracket-head>div{min-width:0}.tournament-bracket-head b{display:block;font-size:15px}.tournament-bracket-head small{display:block;margin-top:5px;color:#728078;font-size:11px;line-height:1.45}
+.tournament-bracket-head .mini{flex:0 0 auto;min-height:40px;padding:0 14px}
+.tournament-bracket-preview{margin-top:14px;max-height:none!important;overflow-x:auto!important;overflow-y:hidden!important;padding:2px 2px 10px;overscroll-behavior-x:contain;scrollbar-gutter:stable}
+.tournament-bracket-preview .bracket{max-width:none!important;min-width:max-content;align-items:stretch!important;overflow:visible!important;gap:44px;padding:14px 2px 20px}
+.tournament-bracket-preview .round{min-width:260px!important;flex-basis:260px!important;display:flex!important;flex-direction:column}
+.tournament-bracket-preview .round>h3{position:sticky;left:0;z-index:2;width:max-content;min-width:110px;padding:7px 10px!important;border:1px solid #dce6e0;border-radius:10px;background:#f5f8f6;color:#263a30!important}
+.tournament-bracket-preview .bracket-round-matches,.bracket-focus-canvas .bracket-round-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:12px}
+.tournament-bracket-preview .bracket-match-wrap,.bracket-focus-canvas .bracket-match-wrap{margin-bottom:0!important}
+.bracket-focus-dialog{width:min(1480px,calc(100vw - 24px));height:calc(100dvh - 24px);max-width:none;max-height:none;margin:auto;padding:0;border:1px solid #7c9b87;border-radius:22px;background:#f7f9f8;color:#102018;box-shadow:0 30px 90px rgba(0,0,0,.42);overflow:hidden}
+.bracket-focus-dialog::backdrop{background:rgba(2,7,5,.84);backdrop-filter:blur(6px)}
+.bracket-focus-shell{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr)}
+.bracket-focus-shell>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:18px 20px;border-bottom:1px solid #d7e1db;background:#10251a;color:#fff}
+.bracket-focus-shell>header span{color:#dfff69;font-size:10px;font-weight:900;letter-spacing:.12em}.bracket-focus-shell>header h2{margin:4px 0 0;font-size:24px;line-height:1.15}.bracket-focus-shell>header p{margin:6px 0 0;color:#bdd0c5;font-size:12px}
+.bracket-focus-shell .icon-btn{flex:0 0 auto;color:#102018;background:#dfff69;border-color:#dfff69}
+.bracket-focus-canvas{min-height:0;overflow:auto;padding:20px 22px 28px;background:#eef3f0!important;overscroll-behavior:contain}
+.bracket-focus-canvas .bracket{max-width:none!important;min-width:max-content;align-items:stretch!important;overflow:visible!important;gap:54px;padding:12px 4px 28px}
+.bracket-focus-canvas .round{min-width:280px!important;flex-basis:280px!important;display:flex!important;flex-direction:column}
+.bracket-focus-canvas .round>h3{position:sticky;top:0;z-index:4;padding:9px 12px!important;border:1px solid #d7e1db;border-radius:11px;background:#eef3f0;color:#263a30!important}
 .draw-wheel-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(4,14,10,.78);backdrop-filter:blur(8px);padding:20px}
 .draw-wheel-card{width:min(430px,94vw);padding:26px;border-radius:28px;background:#fff;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 .draw-wheel{width:230px;height:230px;margin:0 auto 18px;position:relative;border-radius:50%;background:conic-gradient(#dfff69,#22c55e,#0b8155,#dfff69);padding:10px;animation:drawWheelSpin 1.1s cubic-bezier(.2,.75,.25,1) infinite}
@@ -606,7 +626,7 @@ html.no-view-transition[data-nav-direction="back"] #content.page-swap{animation:
 .draw-wheel-ring{position:absolute;inset:0;z-index:4}.draw-wheel-ring span{position:absolute;left:50%;top:50%;width:86px;margin-left:-43px;margin-top:-9px;color:#fff;font-size:8px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-92px) rotate(calc(-360deg/var(--n)*var(--i)))}
 .draw-wheel-card h3{margin:0;font-size:22px}.draw-wheel-card p{margin:7px 0 0;color:#748078;font-size:12px}
 @keyframes drawWheelSpin{to{transform:rotate(360deg)}}
-@media(max-width:760px){.tournament-ops-grid{grid-template-columns:1fr}.tournament-control-actions .btn{flex:1 1 calc(50% - 8px);padding:0 10px;font-size:11px}.draw-wheel{width:200px;height:200px}.draw-wheel-ring span{transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-78px) rotate(calc(-360deg/var(--n)*var(--i)))}}
+@media(max-width:760px){.tournament-ops-grid{grid-template-columns:1fr}.tournament-control-actions .btn{flex:1 1 calc(50% - 8px);padding:0 10px;font-size:11px}.tournament-bracket-card{padding:13px}.tournament-bracket-head{align-items:stretch;flex-direction:column}.tournament-bracket-head .mini{width:100%}.tournament-bracket-preview .round{min-width:238px!important;flex-basis:238px!important}.bracket-focus-dialog{width:100vw;height:100dvh;border:0;border-radius:0}.bracket-focus-shell>header{padding:14px}.bracket-focus-shell>header h2{font-size:20px}.bracket-focus-canvas{padding:14px}.bracket-focus-canvas .round{min-width:250px!important;flex-basis:250px!important}.draw-wheel{width:200px;height:200px}.draw-wheel-ring span{transform:rotate(calc(360deg/var(--n)*var(--i))) translateY(-78px) rotate(calc(-360deg/var(--n)*var(--i)))}}
 
 .tournament-live-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.tournament-live-row .mini:first-child{min-width:0}.tournament-live-row .mini:last-child{white-space:nowrap}@media(max-width:760px){.tournament-live-row{grid-template-columns:1fr}.tournament-live-row .mini:last-child{justify-content:center}}
 

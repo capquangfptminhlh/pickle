@@ -462,7 +462,10 @@ async function openTournamentDetail(tournamentId){
       ${groupSummary}${topHtml}
       <div class="tournament-ops-grid">
         <div class="tournament-ops-card"><b>🔴 Live trận đấu</b><small>${liveMatches.length} trận đang live • ${divisionMatches.length} trận tổng</small><div class="tournament-live-mini">${divisionMatches.slice(0,6).map(matchRow).join("")||'<span class="muted">Chưa có trận.</span>'}${divisionMatches.length>6?`<details data-center-more-matches><summary>Xem thêm ${divisionMatches.length-6} trận</summary><div class="tournament-live-mini">${divisionMatches.slice(6).map(matchRow).join("")}</div></details>`:""}</div></div>
-        <div class="tournament-ops-card"><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":`Sau khi vòng bảng xong, bấm Tạo nhánh Top ${advanceCount} để sinh toàn bộ bracket.`}</small>${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}</div>
+        <div class="tournament-ops-card tournament-bracket-card">
+          <div class="tournament-bracket-head"><div><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":`Sau khi vòng bảng xong, bấm Tạo nhánh Top ${advanceCount} để sinh toàn bộ bracket.`}</small></div>${bracketPreview?`<button type="button" class="mini" data-expand-bracket="${escHtml(d.id)}">⛶ Xem toàn màn hình</button>`:""}</div>
+          ${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}
+        </div>
       </div>
     </section>`;
   }).join("");
@@ -475,6 +478,23 @@ async function openTournamentDetail(tournamentId){
     ${divisionHtml||'<div class="empty">Giải chưa có nội dung thi đấu.</div>'}
   </div>`;
   $("#genericDialog").showModal();
+
+  document.querySelectorAll("[data-expand-bracket]").forEach(button=>button.addEventListener("click",()=>{
+    const source=button.closest(".tournament-bracket-card")?.querySelector(".tournament-bracket-preview");
+    if(!source)return;
+    const divisionName=button.closest("section.panel")?.querySelector(".panel-head h2")?.textContent||"Sơ đồ thi đấu";
+    const modal=document.createElement("dialog");
+    modal.className="bracket-focus-dialog";
+    modal.setAttribute("aria-label",`Sơ đồ thi đấu ${divisionName}`);
+    modal.innerHTML=`<div class="bracket-focus-shell"><header><div><span>SƠ ĐỒ THI ĐẤU</span><h2>${escHtml(divisionName)}</h2><p>Kéo ngang để xem từng vòng • Tứ kết → Bán kết → Chung kết</p></div><button type="button" class="icon-btn" data-close-bracket-focus aria-label="Đóng sơ đồ toàn màn hình">✕</button></header><div class="bracket-focus-canvas">${source.innerHTML}</div></div>`;
+    document.body.appendChild(modal);
+    const close=()=>{if(modal.open)modal.close();modal.remove();button.focus()};
+    modal.querySelector("[data-close-bracket-focus]").onclick=close;
+    modal.addEventListener("cancel",event=>{event.preventDefault();close()});
+    modal.addEventListener("click",event=>{if(event.target===modal)close()});
+    modal.showModal();
+    modal.querySelector("[data-close-bracket-focus]").focus();
+  }));
 
   const openSkillTeamDraw=async btn=>{
     const did=btn.dataset.skillTeamDraw,d=state.divisions.find(x=>x.id===did);

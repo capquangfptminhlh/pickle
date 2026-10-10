@@ -106,6 +106,7 @@
     });
     setDisabled("[data-rally]",locked||setWon);
     document.querySelectorAll("[data-correct]").forEach(btn=>{const side=btn.dataset.correct,val=side==="A"?a:b;btn.disabled=locked||setWon||(Number(btn.dataset.delta)<0&&val<=0)});
+    $("#resetMatchBtn").disabled=m.status==="cancelled";
     $("#undoBtn").disabled=m.status==="cancelled";
     $("#finishSetBtn").disabled=locked||!setWon||matchWon;
     $("#finishMatchBtn").disabled=locked||!matchWon;
@@ -174,14 +175,29 @@
       if(version===refreshVersion&&e.message!=="AUTH_REQUIRED")toast("Không thể tải dữ liệu.");
     }
   }
-  function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh({quiet:true}),180)}
+  function scheduleRefresh(delay=180){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh({quiet:true}),delay)}
+
+  function applyMatchUpdate(updated){
+    const index=state.matches.findIndex(match=>match.id===updated?.id);
+    if(index<0)return false;
+    state.matches[index]={...state.matches[index],...updated};
+    renderSummary();renderPicker();
+    if(activeId===updated.id)renderScore();
+    return true;
+  }
 
   async function action(fn,success){
     if(busy)return;busy=true;
-    try{await fn();await refresh({quiet:true});if(success)toast(success)}
+    if(refreshTimer){clearTimeout(refreshTimer);refreshTimer=null}
+    refreshVersion++;
+    try{
+      const updated=await fn();
+      if(applyMatchUpdate(updated))scheduleRefresh(650);else await refresh({quiet:true});
+      if(success)toast(success);
+    }
     catch(e){
       if(e.message==="VERSION_CONFLICT"){await refresh({quiet:true});toast("Điểm đã đổi từ thiết bị khác. Đã đồng bộ lại.");}
-      else toast({SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",DOWNSTREAM_MATCH_LOCKED:"Nhánh sau đã bắt đầu, không thể Undo."}[e.message]||"Không thể thực hiện: "+e.message);
+      else toast({SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",NOTHING_TO_RESET:"Trận chưa có dữ liệu để đặt lại.",RESET_HISTORY_UNAVAILABLE:"Lịch sử trận không đủ để đặt lại an toàn.",DOWNSTREAM_MATCH_LOCKED:"Trận nhánh sau đã bắt đầu nên không thể đặt lại kết quả."}[e.message]||"Không thể thực hiện: "+e.message);
     }finally{busy=false}
   }
 
@@ -197,6 +213,10 @@
 
   $("#backToMatches").onclick=showPicker;
   $("#refreshBtn").onclick=()=>refresh();
+  $("#resetMatchBtn").onclick=()=>{
+    const m=activeMatch();
+    if(m&&confirm("Đặt lại toàn bộ điểm, set và kết quả của trận này? Bạn vẫn có thể bấm Undo ngay sau đó để khôi phục."))action(()=>API.resetMatch(m.id,{expectedVersion:m.version}),"Đã đặt lại trận về ban đầu.");
+  };
   $("#undoBtn").onclick=()=>{const m=activeMatch();if(m)action(()=>API.undo(m.id,{expectedVersion:m.version}),"Đã Undo.")};
   $("#finishSetBtn").onclick=()=>{const m=activeMatch();if(m)action(()=>API.finishSet(m.id,{expectedVersion:m.version}),"Đã chốt set.")};
   $("#finishMatchBtn").onclick=()=>{const m=activeMatch();if(m&&confirm("Kết thúc và chốt kết quả trận này?"))action(()=>API.finishMatch(m.id,{expectedVersion:m.version}),"Đã chốt trận.")};
