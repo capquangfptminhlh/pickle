@@ -47,6 +47,7 @@ jobs:
         run: |
           node scripts/registry-ui.mjs
           node scripts/registry-accounts-ui.mjs
+          node scripts/registry-operator-center-ui.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
           node scripts/registry-legacy-ui.mjs

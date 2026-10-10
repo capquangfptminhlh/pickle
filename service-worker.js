@@ -1,4 +1,4 @@
-const VERSION="pickleup-v50-referee-arena-20261010";
+const VERSION="pickleup-v51-operator-center-20261010";
 const STATIC=[
   "/assets/referee-arena.css?v=1",
   "/assets/referee-arena.css",
@@ -19,7 +19,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-700-latin.woff2",
   "/assets/fonts/barlow-condensed-800-vietnamese.woff2",
   "/assets/fonts/barlow-condensed-800-latin.woff2",
-  "/assets/draw-flex.js?v=3",
+  "/assets/draw-flex.js?v=4",
   "/assets/referee-courtside.js?v=6",
   "/assets/court-board.js?v=4",
   "/assets/match-live.js?v=3",
@@ -39,7 +39,7 @@ const STATIC=[
   "/assets/tournament.js?v=53",
   "/assets/admin-sport.css?v=5",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=59",
+  "/assets/admin-app.js?v=60",
   "/assets/match-format.js?v=5",
   "/assets/match-format.js",
   "/assets/theme.js",

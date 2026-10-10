@@ -116,7 +116,20 @@ function tournamentHistoryCard(t){
     <button type="button" class="mini" data-manage-tournament="${escHtml(t.id)}">Xem tổng kết giải →</button>
   </article>`;
 }
-const toast=msg=>{const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2400)};
+const toast=msg=>{
+  const el=document.createElement("div");el.className="toast";el.textContent=msg;el.setAttribute("role","alert");el.style.pointerEvents="none";
+  const dialogs=[...document.querySelectorAll("dialog[open]")];
+  const host=document.activeElement?.closest("dialog[open]")||dialogs.at(-1)||document.body;
+  // Keep feedback inside the active modal's non-inert subtree, then lift it above the backdrop.
+  if(typeof el.showPopover==="function"){
+    el.setAttribute("popover","manual");el.style.inset="auto";el.style.margin="0";
+    el.style.right="18px";el.style.bottom="18px";el.style.maxWidth="calc(100vw - 36px)";
+    host.appendChild(el);el.showPopover();
+  }else{
+    host.appendChild(el);
+  }
+  setTimeout(()=>el.remove(),6000);
+};
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canOperateMatch=()=>canManage()||user?.role==="referee";
 const canRoster=()=>["super_admin","organizer","referee","club_manager"].includes(user?.role);
@@ -547,7 +560,7 @@ async function openTournamentDetail(tournamentId){
   document.querySelector("[data-center-bracket]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("bracket")});
   document.querySelector("[data-center-live]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("scores")});
   document.querySelector("[data-center-courts]")?.addEventListener("click",e=>openCourtCountModal(e.currentTarget.dataset.centerCourts));
-  document.querySelector("[data-center-referees]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("referees")});
+  document.querySelector("[data-center-referees]")?.addEventListener("click",()=>openRefereeModal(tournamentId));
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
   document.querySelectorAll("[data-top2-bracket]").forEach(btn=>btn.onclick=async()=>{
@@ -1103,12 +1116,13 @@ async function syncTournamentCourtCount(tournamentId,count){
     for(const court of remove)await API.deleteCourt(court.id);
   }
 }
-function openCourtCountModal(tournamentId){
+function openCourtCountModal(tournamentId,{onSaved}={}){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
   const selected=tournamentId||state.tournaments[0].id;
   const current=id=>state.courts.filter(x=>x.tournamentId===id&&x.active!==false).length||6;
   $("#genericTitle").textContent="Cấu hình số sân";
   $("#genericBody").innerHTML=`<div class="form-grid">
+    ${onSaved?'<p class="security-note field full">Giải chưa có sân hoạt động. Chọn số sân và lưu để tiếp tục thiết lập chia bảng.</p>':""}
     <label class="field full">Giải<select id="courtCountTournament">${state.tournaments.map(t=>`<option value="${t.id}" ${t.id===selected?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full">Số sân hoạt động<input id="courtCountValue" type="number" min="1" max="20" step="1" value="${current(selected)}"></label>
     <div class="field full"><span style="font-size:11px;color:#73847b">Mặc định 6 sân. Có thể tăng/giảm từ 1–20 sân. Nếu giảm sân đã có lịch sử, sân sẽ được ẩn nhưng dữ liệu trận vẫn giữ nguyên.</span></div>
@@ -1118,6 +1132,7 @@ function openCourtCountModal(tournamentId){
   const select=$("#courtCountTournament"),input=$("#courtCountValue");
   select.onchange=()=>{input.value=current(select.value)};
   $("#saveCourtCount").onclick=async()=>{
+    const save=$("#saveCourtCount");if(save.disabled)return;save.disabled=true;
     const tid=select.value,count=Math.max(1,Math.min(20,Number(input.value)||6));
     try{
       await syncTournamentCourtCount(tid,count);
@@ -1127,8 +1142,10 @@ function openCourtCountModal(tournamentId){
         const started=state.matches.some(m=>m.divisionId===d.id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng ")&&(m.status==="live"||m.status==="done"||m.status==="completed"));
         if(pending&&!started)await API.autoScheduleCourts(d.id).catch(()=>{});
       }
-      dlg.close();await refresh();toast("Đã cấu hình "+count+" sân và tự xếp lại lịch chưa bắt đầu.");
-    }catch(e){toast("Không thể cập nhật số sân: "+e.message)}
+      dlg.close();await refresh();
+      if(onSaved)await onSaved(tid);
+      toast("Đã cấu hình "+count+" sân và tự xếp lại lịch chưa bắt đầu.");
+    }catch(e){toast("Không thể cập nhật số sân: "+e.message)}finally{save.disabled=false}
   };
 }
 function openTournamentModal(){
@@ -1458,23 +1475,39 @@ async function openEditRefereeModal(id){
     $("#genericDialog").close();await render();toast(password?"Đã cập nhật và reset mật khẩu.":"Đã cập nhật trọng tài.");
   }catch(e){toast("Không thể cập nhật: "+e.message)}};
 }
-function openRefereeModal(){
+function openRefereeModal(tournamentId){
   const tournaments=state.tournaments||[];
   if(user?.role==="organizer"&&!tournaments.length)return toast("Bạn chưa có giải để tạo trọng tài.");
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
   $("#genericBody").innerHTML=`<div class="form-grid">
-    <label class="field full">Tên<input id="rName"></label>
-    <label class="field full">Email<input id="rEmail" type="email" autocomplete="off"></label>
-    <label class="field full">Giải được giao<select id="rTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join("")}</select></label>
-    <label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="rPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <label class="field full">Tên<input id="rName" required maxlength="120" autocomplete="name"></label>
+    <label class="field full">Email<input id="rEmail" type="email" required autocomplete="off"></label>
+    <label class="field full">Giải được giao<select id="rTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===tournamentId?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
+    <label class="field full">Mật khẩu tạm (12–64 ký tự)<input id="rPassword" type="password" required minlength="12" maxlength="64" autocomplete="new-password"></label>
     <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
+    <div class="field full security-note" id="refereeError" role="alert" hidden></div>
     <div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div>
   </div>`;
-  $("#genericDialog").showModal();$("#saveReferee").onclick=async()=>{try{
-    const tournamentId=$("#rTournament").value||null;if(user?.role==="organizer"&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.createReferee({name:$("#rName").value,email:$("#rEmail").value,password:$("#rPassword").value,tournamentId});
-    $("#genericDialog").close();await render();toast("Đã tạo trọng tài.");
-  }catch(e){toast(["PASSWORD_TOO_SHORT","PASSWORD_POLICY"].includes(e.message)?"Mật khẩu phải từ 12–64 ký tự.":e.message==="INVALID_EMAIL"?"Email không hợp lệ.":"Không thể tạo: "+e.message)}};
+  const dlg=$("#genericDialog");if(!dlg.open)dlg.showModal();
+  const save=$("#saveReferee"),errorBox=$("#refereeError");
+  const showError=message=>{errorBox.textContent=message;errorBox.hidden=false;errorBox.scrollIntoView({block:"nearest"})};
+  save.onclick=async()=>{
+    if(save.disabled)return;
+    const name=$("#rName").value.trim(),email=$("#rEmail").value.trim(),password=$("#rPassword").value,scope=$("#rTournament").value||null;
+    if(!name)return showError("Nhập tên trọng tài.");
+    if(!email||!$("#rEmail").checkValidity())return showError("Email không hợp lệ.");
+    if(password.length<12||password.length>64)return showError("Mật khẩu phải từ 12–64 ký tự.");
+    if(user?.role==="organizer"&&!scope)return showError("Chọn giải cho trọng tài.");
+    save.disabled=true;errorBox.hidden=true;
+    try{
+      await API.createReferee({name,email,password,tournamentId:scope});
+      dlg.close();if(typeof tournamentId==="string")page="referees";await render();toast("Đã tạo trọng tài.");
+    }catch(e){showError(e instanceof TypeError?"Mất kết nối. Kiểm tra mạng rồi thử tạo trọng tài lại.":({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_EMAIL:"Email không hợp lệ.",EMAIL_EXISTS:"Email đã được sử dụng. Hãy nhập email khác.",FIELDS_REQUIRED:"Nhập đủ tên, email và mật khẩu.",TOURNAMENT_REQUIRED:"Chọn giải cho trọng tài.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền tạo trọng tài cho giải này.",INTERNAL_ERROR:"Máy chủ chưa thể tạo tài khoản. Hãy thử lại.",REQUEST_FAILED:"Không thể gửi yêu cầu tạo tài khoản. Hãy thử lại."}[e.message]||"Không thể tạo trọng tài: "+e.message))}finally{save.disabled=false}
+  };
+  for(const field of [$("#rName"),$("#rEmail"),$("#rPassword")])field.onkeydown=e=>{
+    if(e.key==="Enter"&&!e.isComposing){e.preventDefault();save.click()}
+  };
+  $("#rName").focus();
 }
 async function openUserModal(){
   const isOrganizer=user?.role==="organizer";

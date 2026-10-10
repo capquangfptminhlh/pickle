@@ -21,7 +21,11 @@
     const courts=state.courts
       .filter(x=>x.tournamentId===tournamentId&&x.active!==false)
       .sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)||String(a.name).localeCompare(String(b.name),"vi"));
-    if(!courts.length)return toast("Giải chưa có sân hoạt động. Hãy tạo sân trước.");
+    if(!courts.length)return openCourtCountModal(tournamentId,{onSaved:async tid=>{
+      await openTournamentDetail(tid);
+      // Continue only for the same tournament; changing the court form's scope must not draw elsewhere.
+      if(tid===tournamentId)await openFlexibleDraw(btn);
+    }});
 
     const saved=await API.drawConfig(divisionId).catch(()=>({}));
     const defaultPer=Math.max(2,Number(saved.teamsPerGroup||4));
