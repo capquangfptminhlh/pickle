@@ -36,16 +36,25 @@ function matchInsert(env,m){
     m.status||"scheduled",m.winner||null,m.completedAt||null,nowIso()
   );
 }
-async function persistBracket(env,created){
+async function persistBracket(env,created,expectedSignature){
   const byId=new Map(created.map(m=>[m.id,m]));
   for(const m of created.filter(x=>x.winner&&x.nextId)){
     byId.get(m.nextId)[m.nextSide.toLowerCase()]=m.winner;
   }
   try{
-    await env.DB.batch(created.map(m=>matchInsert(env,m)));
+    const divisionId=created[0].divisionId;
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO division_draw_reset_guards(division_id,expected_signature) VALUES(?,?)').bind(divisionId,expectedSignature),
+      ...created.map(m=>matchInsert(env,m)),
+      env.DB.prepare('DELETE FROM division_draw_reset_guards WHERE division_id=?').bind(divisionId)
+    ]);
   }catch(error){
     const message=String(error?.message||"")+" "+String(error?.cause?.message||"");
     if(message.includes("BRACKET_ALREADY_EXISTS"))throw Object.assign(new Error("BRACKET_ALREADY_EXISTS"),{status:409});
+    if(message.includes("DRAW_RESET_CONFLICT")){
+      const existing=await one(env,"SELECT id FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL LIMIT 1",created[0].divisionId);
+      throw Object.assign(new Error(existing?"BRACKET_ALREADY_EXISTS":"BRACKET_STATE_CHANGED"),{status:409});
+    }
     throw error;
   }
 }
@@ -76,7 +85,7 @@ function protectedPoolSlots(division,teams,size){
   return slots;
 }
 
-async function generateSingle(env,division,teams){
+async function generateSingle(env,division,teams,expectedSignature){
   if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_TEAMS"),{status:400});
   const size=nextPow2(teams.length),rounds=Math.log2(size);
   const ids=[];
@@ -112,11 +121,11 @@ async function generateSingle(env,division,teams){
     semis.forEach((m,i)=>{m.loserNextId=id;m.loserNextSide=i===0?"A":"B"});
     created.push({id,divisionId:division.id,a:null,b:null,stage:"Tranh hạng ba",roundNo:rounds,slot:"SE-3RD-M1"});
   }
-  await persistBracket(env,created);
+  await persistBracket(env,created,expectedSignature);
   return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal:Boolean(protectedSlots),thirdPlaceMatch:thirdPlace};
 }
 
-async function generateDouble(env,division,teams){
+async function generateDouble(env,division,teams,expectedSignature){
   if(teams.length<4||!isPow2(teams.length))throw Object.assign(new Error("DOUBLE_ELIMINATION_POWER_OF_TWO_REQUIRED"),{status:400});
   const n=teams.length,k=Math.log2(n);
   const w={},l={};
@@ -159,7 +168,7 @@ async function generateDouble(env,division,teams){
   }
   const final={id:gf,divisionId:division.id,a:null,b:null,stage:"Chung kết",roundNo:k+1,slot:"DE-GF-M1"};
   created.push(final);
-  await persistBracket(env,created);
+  await persistBracket(env,created,expectedSignature);
   return {format:"double_elimination",bracketSize:n,created:created.length,qualifiers:teams.length};
 }
 
@@ -167,6 +176,9 @@ export async function generateBracket(env,divisionId){
   const division=await one(env,"SELECT * FROM divisions WHERE id=?",divisionId);
   if(!division)throw Object.assign(new Error("NOT_FOUND"),{status:404});
   if(division.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
+
+  // A reset or a new result during qualification must invalidate this plan.
+  const expectedSignature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",divisionId))?.signature;
 
   const existing=await rows(env,"SELECT id,status,winner_team_id,started_at,current_score_a,current_score_b FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL",divisionId);
   if(existing.length){
@@ -191,8 +203,8 @@ export async function generateBracket(env,divisionId){
 
   const teams=await qualifiers(env,division);
   if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
-  if(division.format==="double_elimination")return generateDouble(env,division,teams);
-  return generateSingle(env,division,teams);
+  if(division.format==="double_elimination")return generateDouble(env,division,teams,expectedSignature);
+  return generateSingle(env,division,teams,expectedSignature);
 }
 
 export async function advanceBracket(env,matchId,winnerId){

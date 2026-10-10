@@ -1,5 +1,6 @@
-const VERSION="pickleup-v64-referee-bracket-20261011";
+const VERSION="pickleup-v65-group-reset-20261011";
 const STATIC=[
+  "/assets/api.js?v=55",
   "/assets/referee-arena.css?v=2",
   "/assets/referee-arena.css",
   "/assets/courtside.css?v=1",
@@ -19,7 +20,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-700-latin.woff2",
   "/assets/fonts/barlow-condensed-800-vietnamese.woff2",
   "/assets/fonts/barlow-condensed-800-latin.woff2",
-  "/assets/draw-flex.js?v=5",
+  "/assets/draw-flex.js?v=6",
   "/assets/referee-courtside.js?v=8",
   "/assets/court-board.js?v=7",
   "/assets/court-board.css?v=3",
@@ -38,9 +39,9 @@ const STATIC=[
   "/assets/ui-motion.js?v=34",
   "/assets/tournament-detail.css?v=1",
   "/assets/tournament.js?v=53",
-  "/assets/admin-sport.css?v=5",
+  "/assets/admin-sport.css?v=6",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=70",
+  "/assets/admin-app.js?v=71",
   "/assets/bracket-ui.js?v=36",
   "/assets/admin-crud.js?v=9",
   "/assets/match-format.js?v=5",
