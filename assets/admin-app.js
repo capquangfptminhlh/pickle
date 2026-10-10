@@ -1573,36 +1573,77 @@ async function openEditRefereeModal(id){
 function openRefereeModal(tournamentId){
   const tournaments=state.tournaments||[];
   if(user?.role==="organizer"&&!tournaments.length)return toast("Bạn chưa có giải để tạo trọng tài.");
+  const generateTemporaryPassword=(length=16)=>{
+    const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const limit=256-256%alphabet.length;
+    let value="";
+    while(value.length<length){
+      const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);
+      for(const byte of bytes)if(byte<limit&&value.length<length)value+=alphabet[byte%alphabet.length];
+    }
+    return value;
+  };
   $("#genericTitle").textContent="Tạo tài khoản trọng tài";
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Tên<input id="rName" required maxlength="120" autocomplete="name"></label>
     <label class="field full">Tên đăng nhập<input id="rEmail" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ví dụ: trongtai01"><small>3–32 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.</small></label>
     <label class="field full">Giải được giao<select id="rTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===tournamentId?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
-    <label class="field full">Mật khẩu tạm (12–64 ký tự)<input id="rPassword" type="password" required minlength="12" maxlength="64" autocomplete="new-password"></label>
-    <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
+    <label class="field full">Mật khẩu tạm (12–64 ký tự)<input id="rPassword" type="password" required minlength="12" maxlength="64" autocomplete="new-password" spellcheck="false"></label>
+    <div class="field full" id="refereePasswordTools">
+      <small id="refereePasswordHint" aria-live="polite"></small>
+      <div class="actions">
+        <button type="button" class="mini" id="toggleRefereePassword">Hiện mật khẩu</button>
+        <button type="button" class="mini" id="generateRefereePassword">Tạo mã khác</button>
+        <button type="button" class="mini" id="copyRefereePassword">Sao chép mật khẩu</button>
+      </div>
+    </div>
     <div class="security-note" style="grid-column:1/-1" id="refereeError" role="alert" hidden></div>
+    <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
     <div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div>
   </div>`;
   const dlg=$("#genericDialog");if(!dlg.open)dlg.showModal();
-  const save=$("#saveReferee"),errorBox=$("#refereeError");
-  const showError=message=>{errorBox.textContent=message;errorBox.hidden=false;errorBox.scrollIntoView({block:"nearest"})};
+  const save=$("#saveReferee"),errorBox=$("#refereeError"),nameInput=$("#rName"),usernameInput=$("#rEmail"),passwordInput=$("#rPassword"),passwordHint=$("#refereePasswordHint");
+  const fields=[nameInput,usernameInput,passwordInput];
+  const showError=(message,field)=>{
+    for(const item of fields)item.removeAttribute("aria-invalid");
+    if(field)field.setAttribute("aria-invalid","true");
+    errorBox.textContent=message;errorBox.hidden=false;errorBox.scrollIntoView({block:"nearest"});field?.focus({preventScroll:true});
+  };
+  const syncPasswordState=()=>{
+    const length=passwordInput.value.length,valid=length>=12&&length<=64;
+    passwordHint.textContent=valid?`${length} ký tự • Đã đạt yêu cầu`:`${length}/12 ký tự tối thiểu`;
+    passwordInput.setAttribute("aria-invalid",String(!valid));
+    if(!errorBox.hidden&&errorBox.textContent.startsWith("Mật khẩu"))errorBox.hidden=true;
+  };
+  passwordInput.value=generateTemporaryPassword();syncPasswordState();
+  passwordInput.oninput=syncPasswordState;
+  $("#toggleRefereePassword").onclick=e=>{
+    const visible=passwordInput.type==="text";passwordInput.type=visible?"password":"text";e.currentTarget.textContent=visible?"Hiện mật khẩu":"Ẩn mật khẩu";
+  };
+  $("#generateRefereePassword").onclick=()=>{passwordInput.value=generateTemporaryPassword();syncPasswordState();toast("Đã tạo mật khẩu tạm mới.")};
+  $("#copyRefereePassword").onclick=async()=>{
+    try{await navigator.clipboard.writeText(passwordInput.value)}catch{
+      const previousType=passwordInput.type;passwordInput.type="text";passwordInput.select();document.execCommand("copy");passwordInput.type=previousType;
+    }
+    toast("Đã sao chép mật khẩu tạm.");
+  };
   save.onclick=async()=>{
     if(save.disabled)return;
-    const name=$("#rName").value.trim(),email=$("#rEmail").value.trim(),password=$("#rPassword").value,scope=$("#rTournament").value||null;
-    if(!name)return showError("Nhập tên trọng tài.");
-    if(!/^[a-z0-9][a-z0-9._-]{2,31}$/i.test(email)&&!(email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return showError("Tên đăng nhập không hợp lệ.");
-    if(password.length<12||password.length>64)return showError("Mật khẩu phải từ 12–64 ký tự.");
-    if(user?.role==="organizer"&&!scope)return showError("Chọn giải cho trọng tài.");
+    const name=nameInput.value.trim(),email=usernameInput.value.trim(),password=passwordInput.value,scope=$("#rTournament").value||null;
+    if(!name)return showError("Nhập tên trọng tài.",nameInput);
+    if(!/^[a-z0-9][a-z0-9._-]{2,31}$/i.test(email)&&!(email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return showError("Tên đăng nhập không hợp lệ.",usernameInput);
+    if(password.length<12||password.length>64)return showError("Mật khẩu phải từ 12–64 ký tự.",passwordInput);
+    if(user?.role==="organizer"&&!scope)return showError("Chọn giải cho trọng tài.",$("#rTournament"));
     save.disabled=true;errorBox.hidden=true;
     try{
       await API.createReferee({name,username:email,password,tournamentId:scope});
       dlg.close();if(typeof tournamentId==="string")page="referees";await render();toast("Đã tạo trọng tài.");
     }catch(e){showError(e instanceof TypeError?"Mất kết nối. Kiểm tra mạng rồi thử tạo trọng tài lại.":({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",INVALID_EMAIL:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập đã được sử dụng. Hãy nhập tên khác.",FIELDS_REQUIRED:"Nhập đủ tên, tên đăng nhập và mật khẩu.",TOURNAMENT_REQUIRED:"Chọn giải cho trọng tài.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền tạo trọng tài cho giải này.",INTERNAL_ERROR:"Máy chủ chưa thể tạo tài khoản. Hãy thử lại.",REQUEST_FAILED:"Không thể gửi yêu cầu tạo tài khoản. Hãy thử lại."}[e.message]||"Không thể tạo trọng tài: "+e.message))}finally{save.disabled=false}
   };
-  for(const field of [$("#rName"),$("#rEmail"),$("#rPassword")])field.onkeydown=e=>{
+  for(const field of fields)field.onkeydown=e=>{
     if(e.key==="Enter"&&!e.isComposing){e.preventDefault();save.click()}
   };
-  $("#rName").focus();
+  nameInput.focus();
 }
 async function openUserModal(){
   const isOrganizer=user?.role==="organizer";

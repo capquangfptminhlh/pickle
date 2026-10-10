@@ -96,6 +96,13 @@ try{
         await page.locator('#rName').waitFor();
         assert.equal(await page.locator('#refereeError').isVisible(),false,'the form must not show an empty error panel');
         assert.equal(await page.locator('#rTournament').inputValue(),'own','center creation must retain this tournament even for super admin');
+        const generatedPassword=await page.locator('#rPassword').inputValue();
+        assert.ok(generatedPassword.length>=12&&generatedPassword.length<=64,'the form must start with a valid temporary password');
+        assert.match(await page.locator('#refereePasswordHint').innerText(),/Đã đạt yêu cầu/);
+        await page.locator('#generateRefereePassword').click();
+        const regeneratedPassword=await page.locator('#rPassword').inputValue();
+        assert.ok(regeneratedPassword.length>=12&&regeneratedPassword.length<=64,'regenerated passwords must remain valid');
+        assert.notEqual(regeneratedPassword,generatedPassword,'regenerating must replace the temporary password');
         await page.locator('#genericDialog [value="cancel"]').click();
         assert.equal(await page.locator('#genericDialog').evaluate(el=>el.open),false,'empty required fields must not block closing');
         await center();await page.locator('[data-center-referees]').click();
@@ -106,6 +113,9 @@ try{
         assert.match(await page.locator('#refereeError').innerText(),/Tên đăng nhập không hợp lệ/);
         await page.locator('#rEmail').fill('local@test.vn');await page.locator('#rPassword').fill('short');await page.locator('#saveReferee').click();
         assert.match(await page.locator('#refereeError').innerText(),/12–64/);
+        assert.match(await page.locator('#refereePasswordHint').innerText(),/5\/12/);
+        assert.equal(await page.locator('#rPassword').getAttribute('aria-invalid'),'true');
+        assert.equal(await page.locator('#refereeError').evaluate(el=>el.previousElementSibling?.id),'refereePasswordTools','password errors must remain next to the password controls');
         assert.equal(creationRequests,0,'invalid input must not submit');
         await page.locator('#rEmail').fill('local@test.vn');await page.locator('#rPassword').fill('LocalReferee123!');
         await page.locator('#rTournament').selectOption('own');await page.locator('#saveReferee').click();
