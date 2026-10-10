@@ -4,6 +4,7 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
+import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch} from "./draw-reset.js";
 import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../../shared/account-login.js";
@@ -673,6 +674,18 @@ async function handleApi(request,env,ctx){
       .bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()).run();
     return ok(config,request,env);
   }
+  p=route(path,"/api/divisions/:id/reset-draw");
+  if(p&&["GET","POST"].includes(method)){
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const tid=await assertDivision(env,user,p.id);
+    if(method==="GET"){
+      const {token,divisionName,summary}=await drawResetSnapshot(env,p.id);
+      return ok({divisionId:p.id,tournamentId:tid,token,divisionName,summary},request,env);
+    }
+    const result=await resetGroupDraw(env,user,p.id,await bodyJson(request));
+    await emitUpdate(env,tid);
+    return ok(result,request,env);
+  }
   p=route(path,"/api/divisions/:id/run-draw");
   if(p&&method==="POST"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
@@ -785,20 +798,24 @@ async function handleApi(request,env,ctx){
   p=route(path,"/api/divisions/:id/auto-seed-groups");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),count=Math.max(1,Math.min(26,Number(b.groupCount||2)));
+    const signature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",p.id)).signature;
     const teams=await rows(env,"SELECT id FROM teams WHERE division_id=? AND status='active' ORDER BY COALESCE(seed,9999),name",p.id);
-    for(let i=0;i<teams.length;i++)await env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(String.fromCharCode(65+(i%count)),nowIso(),teams[i].id).run();
+    const at=nowIso(),statements=teams.map((team,i)=>env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(String.fromCharCode(65+(i%count)),at,team.id));
+    await guardedDivisionBatch(env,p.id,signature,statements);
     await emitUpdate(env,tid);return ok({ok:true,groups:count},request,env);
   }
   p=route(path,"/api/divisions/:id/generate-round-robin");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id);
+    const signature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",p.id)).signature;
     const teams=await rows(env,"SELECT id,group_code FROM teams WHERE division_id=? AND status='active' ORDER BY group_code,COALESCE(seed,9999),name",p.id);
     const groups=new Map();for(const t of teams){const g=t.group_code||"A";if(!groups.has(g))groups.set(g,[]);groups.get(g).push(t)}
-    let created=0;
+    let created=0;const statements=[];
     for(const [g,list] of groups)for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
       const exists=await one(env,"SELECT id FROM matches WHERE division_id=? AND ((team_a_id=? AND team_b_id=?) OR (team_a_id=? AND team_b_id=?))",p.id,list[i].id,list[j].id,list[j].id,list[i].id);
-      if(!exists){await env.DB.prepare("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,'scheduled',1,?)").bind(uid(),p.id,list[i].id,list[j].id,"Bảng "+g,nowIso()).run();created++}
+      if(!exists){statements.push(env.DB.prepare("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,'scheduled',1,?)").bind(uid(),p.id,list[i].id,list[j].id,"Bảng "+g,nowIso()));created++}
     }
+    await guardedDivisionBatch(env,p.id,signature,statements);
     await emitUpdate(env,tid);return ok({ok:true,created},request,env);
   }
   p=route(path,"/api/divisions/:id/auto-schedule-courts");

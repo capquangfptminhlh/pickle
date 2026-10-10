@@ -149,7 +149,7 @@ export async function loadState(env,{publicOnly=false}={}){
   let audit=[];
   if(!publicOnly){
     audit=(await rows(env,
-      "SELECT a.*,u.display_name FROM audit_logs a LEFT JOIN app_users u ON u.id=a.actor_user_id ORDER BY a.id DESC LIMIT 100"
+      "SELECT a.created_at,a.action,a.reason,a.entity_type,u.display_name FROM audit_logs a LEFT JOIN app_users u ON u.id=a.actor_user_id ORDER BY a.id DESC LIMIT 100"
     )).map(a=>({time:fmtTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type}));
   }
 

@@ -9,6 +9,74 @@
     return [...modal.querySelectorAll("[data-flex-court]:checked")].map(x=>x.value);
   }
 
+  async function openDrawReset(divisionId){
+    if(!canManage())return toast("Chỉ BTC được đặt lại bảng đấu.");
+    const division=state.divisions.find(d=>d.id===divisionId);
+    if(!division)return toast("Không tìm thấy nội dung thi đấu.");
+    const modal=document.createElement("dialog");
+    modal.className="draw-setup-overlay draw-reset-dialog";
+    modal.setAttribute("aria-label","Xác nhận đặt lại bảng đấu");
+    modal.innerHTML=`<div class="draw-setup-card"><div class="draw-setup-head"><div><span>BỐC THĂM LẠI</span><h2>Đặt lại bảng đấu</h2></div><button type="button" class="icon-btn" data-reset-close aria-label="Đóng">✕</button></div><div data-reset-body aria-live="polite"></div></div>`;
+    document.body.appendChild(modal);
+    let busy=false;
+    const close=()=>{if(busy)return;modal.close();modal.remove()};
+    modal.querySelector("[data-reset-close]").onclick=close;
+    modal.onclick=e=>{if(e.target===modal)close()};
+    modal.addEventListener("cancel",e=>{e.preventDefault();close()});
+    const host=modal.querySelector("[data-reset-body]");
+    const errorMessage=e=>({
+      DRAW_RESET_CONFLICT:"Lịch hoặc điểm đã thay đổi sau khi mở xác nhận. Tải lại thông tin và kiểm tra trước khi đặt lại.",
+      DRAW_ALREADY_EMPTY:"Bảng đấu đã được đặt lại. Tải lại thông tin để kiểm tra.",
+      FORBIDDEN:"Chỉ BTC được đặt lại bảng đấu.",
+      TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền quản lý giải này."
+    }[e.message]||"Không thể đặt lại bảng. Kiểm tra kết nối và thử lại.");
+    async function load(){
+      busy=true;host.innerHTML='<p>Đang kiểm tra lịch và kết quả…</p>';
+      try{
+        const preview=await API.drawResetPreview(divisionId),s=preview.summary;
+        const empty=!s.matchCount&&!s.groupCount;
+        host.innerHTML=`<p><b>${esc(preview.divisionName)}</b></p>
+          <div class="draw-reset-warning"><b>${empty?"Chưa có bảng hoặc lịch để đặt lại.":"Lịch và kết quả của nội dung này sẽ bị xóa."}</b><p>${s.groupCount} bảng • ${s.poolMatchCount} trận vòng bảng • ${s.knockoutMatchCount} trận loại trực tiếp<br>${s.liveMatchCount} trận đang live • ${s.completedMatchCount} trận đã kết thúc • ${s.setCount} set đã lưu</p></div>
+          <p>Giữ ${s.teamCount} đội, VĐV, đăng ký, sân, tài khoản trọng tài và luật thi đấu. Lịch, điểm, kết quả và phân công trọng tài của các trận sẽ được xóa; dữ liệu cũ được lưu trong nhật ký BTC.</p>
+          ${empty?"":`<label class="field">Nhập <b>QUAY LAI</b> để xác nhận<input type="text" data-reset-confirmation autocomplete="off" spellcheck="false" autocapitalize="characters" aria-describedby="drawResetHint"></label><p id="drawResetHint">Sau khi đặt lại, bạn có thể thiết lập và quay chia bảng mới.</p>`}
+          <p data-reset-error role="alert" hidden></p>
+          <div class="draw-setup-actions"><button type="button" class="btn secondary" data-reset-cancel>Hủy</button><button type="button" class="btn secondary" data-reset-reload hidden>Tải lại thông tin</button>${empty?"":'<button type="button" class="btn danger" data-reset-submit disabled>Đặt lại bảng & quay lại</button>'}</div>`;
+        host.querySelector("[data-reset-cancel]").onclick=close;
+        host.querySelector("[data-reset-reload]").onclick=load;
+        const input=host.querySelector("[data-reset-confirmation]"),submit=host.querySelector("[data-reset-submit]");
+        let stale=false;
+        if(input){
+          input.oninput=()=>{submit.disabled=busy||stale||input.value.trim()!=="QUAY LAI"};
+          submit.onclick=async()=>{
+            if(busy||stale||input.value.trim()!=="QUAY LAI")return;
+            busy=true;submit.disabled=true;submit.textContent="Đang đặt lại…";
+            const error=host.querySelector("[data-reset-error]");error.hidden=true;
+            try{
+              await API.resetDraw(divisionId,{confirmation:"QUAY LAI",expectedToken:preview.token});
+            }catch(e){
+              stale=["DRAW_RESET_CONFLICT","DRAW_ALREADY_EMPTY"].includes(e.message);
+              error.textContent=errorMessage(e);error.hidden=false;
+              host.querySelector("[data-reset-reload]").hidden=!stale;
+              busy=false;submit.textContent="Đặt lại bảng & quay lại";input.oninput();return;
+            }
+            busy=false;close();
+            document.querySelectorAll(".draw-setup-overlay").forEach(d=>{d.close();d.remove()});
+            try{
+              await refresh();document.querySelector("#genericDialog")?.close();await openTournamentDetail(division.tournamentId);
+              if(state.teams.filter(t=>t.divisionId===divisionId&&t.status!=="withdrawn").length>=4)await openFlexibleDraw({dataset:{autoDraw:divisionId}});
+              toast("Đã đặt lại bảng. Đội/VĐV được giữ nguyên; bạn có thể bốc thăm lại.");
+            }catch{toast("Đã đặt lại bảng. Tải lại trang để tiếp tục bốc thăm.")}
+          };
+          input.focus();
+        }
+      }catch(e){
+        host.innerHTML=`<p role="alert">${esc(errorMessage(e))}</p><button type="button" class="btn secondary" data-reset-reload>Tải lại thông tin</button>`;
+        host.querySelector("[data-reset-reload]").onclick=load;
+      }finally{busy=false}
+    }
+    modal.showModal();await load();
+  }
+
   function openTournamentDraw(tournamentId){
     const available=state.divisions.filter(d=>d.tournamentId===tournamentId&&d.active!==false)
       .map(d=>({division:d,count:state.teams.filter(t=>t.divisionId===d.id&&t.status!=="withdrawn").length}))
@@ -53,6 +121,7 @@
         <div><span>THIẾT LẬP CHIA BẢNG</span><h2>${esc(division.name||"Nội dung thi đấu")}</h2><p>${n} cặp/đội • setup xong mới quay công khai realtime</p></div>
         <button type="button" class="icon-btn" data-flex-close aria-label="Đóng">✕</button>
       </div>
+      ${canManage()&&(state.matches.some(m=>m.divisionId===divisionId)||state.teams.some(t=>t.divisionId===divisionId&&t.group))?`<div class="draw-reset-entry"><div><b>Muốn chia bảng lại từ đầu?</b><p>Đặt lại lịch/kết quả của nội dung này, giữ đội và VĐV.</p></div><button type="button" class="btn danger" data-flex-reset>Đặt lại bảng & quay lại</button></div>`:""}
       <div class="draw-config-grid">
         <label class="field">Cách chia
           <select data-flex-mode>
@@ -166,6 +235,7 @@
       modal.remove();
     }
     modal.querySelector("[data-flex-close]").onclick=closeModal;
+    modal.querySelector("[data-flex-reset]")?.addEventListener("click",()=>openDrawReset(divisionId));
     modal.onclick=e=>{if(e.target===modal)closeModal()};
     modal.addEventListener("cancel",e=>{
       e.preventDefault();
@@ -184,7 +254,7 @@
       try{payload=makePayload()}catch(e){return toast(e.message)}
       const oldMatches=state.matches.filter(m=>m.divisionId===divisionId&&!m.bracketSlot&&((m.stage||"").startsWith("Bảng ")||m.stage==="Vòng bảng"));
       if(oldMatches.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||m.status==="walkover"||(m.sets||[]).length)){
-        return toast("Vòng bảng đã bắt đầu nên không thể bốc thăm lại.");
+        return toast("Vòng bảng đã bắt đầu. Dùng ‘Đặt lại bảng & quay lại’ nếu muốn bốc thăm lại từ đầu.");
       }
       if(!confirm(`Bắt đầu quay ${n} cặp/đội thành ${payload.groupCount} bảng và phát realtime cho người đang xem app?`))return;
 
@@ -204,7 +274,8 @@
         closeModal();
         const msg={
           INVALID_DRAW_OPTIONS:"Số bảng, số đội/bảng và số đội đi tiếp phải là số nguyên.",
-          GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã bắt đầu.",
+          GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã bắt đầu. Dùng ‘Đặt lại bảng & quay lại’ để bắt đầu lại.",
+          DRAW_VERSION_CONFLICT:"Bảng đấu vừa thay đổi. Mở lại thiết lập và kiểm tra.",
           GROUP_TOO_SMALL:"Mỗi bảng phải có ít nhất 2 đội.",
           GROUP_CAPACITY_EXCEEDED:"Số đội/bảng vượt cấu hình.",
           ADVANCE_COUNT_TOO_HIGH:"Số đội lấy vào vòng trong lớn hơn số đội của bảng.",
@@ -238,6 +309,7 @@
         GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",
         BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",
         BRACKET_ALREADY_STARTED:"Nhánh đã có trận bắt đầu/kết quả nên không thể bốc lại.",
+        BRACKET_STATE_CHANGED:"Bảng hoặc kết quả vừa thay đổi. Tải lại và kiểm tra trước khi tạo nhánh.",
         NOT_ENOUGH_QUALIFIERS:"Chưa đủ đội đi tiếp.",
         ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung này chỉ thi đấu vòng tròn."
       }[e.message]||e.message;
@@ -265,6 +337,10 @@
   }
 
   document.addEventListener("click",e=>{
+    const reset=e.target.closest?.("[data-reset-draw]");
+    if(reset){
+      e.preventDefault();e.stopImmediatePropagation();openDrawReset(reset.dataset.resetDraw);return;
+    }
     const draw=e.target.closest?.("[data-auto-draw]");
     if(draw){
       e.preventDefault();e.stopImmediatePropagation();

@@ -244,6 +244,20 @@ body.admin-sport .draw-group-row { min-width:0; }
 body.admin-sport .draw-group-row select { flex:1; width:0; }
 body.admin-sport .draw-manual-list select { min-width:100px; }
 body.admin-sport .draw-setup-summary { background:#183e2b; color:#a8ecc1; font-size:14px; }
+body.admin-sport .draw-reset-entry { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px; margin-bottom:18px; border:1px solid var(--line); border-radius:14px; }
+body.admin-sport .draw-reset-entry p { margin:4px 0 0; font-size:13px; color:var(--muted); }
+body.admin-sport .draw-reset-entry .btn { flex-shrink:0; }
+body.admin-sport .draw-reset-dialog .draw-setup-card { width:min(680px,100%); }
+body.admin-sport .draw-reset-dialog p { font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
+body.admin-sport .draw-reset-dialog .field { display:block; }
+body.admin-sport .draw-reset-dialog .field input { display:block; margin-top:8px; width:100%; }
+body.admin-sport .draw-reset-warning { padding:14px; border-left:4px solid #db7360; background:var(--surface-2); border-radius:8px; }
+body.admin-sport .draw-reset-warning p { margin:8px 0 0; }
+body.admin-sport .draw-reset-dialog [data-reset-error] { color:var(--text); padding:12px; border:1px solid #db7360; border-radius:8px; }
+@media(max-width:760px){
+  body.admin-sport .draw-reset-entry { align-items:stretch; flex-direction:column; gap:12px; }
+  body.admin-sport .draw-reset-entry .btn { width:100%; }
+}
 body.admin-sport .draw-live-stage { min-height:0; padding:24px 12px; }
 body.admin-sport .draw-result-icon { background:#183e2b; color:#83e1ac; }
 body.admin-sport [data-skill-pool]>label { background:var(--surface)!important; color:var(--text); border-color:var(--line)!important; min-height:60px; }

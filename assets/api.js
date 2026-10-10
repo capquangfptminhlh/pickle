@@ -219,6 +219,8 @@
     drawConfig:divisionId=>request(`/api/divisions/${divisionId}/draw-config`),
     saveDrawConfig:(divisionId,payload)=>request(`/api/divisions/${divisionId}/draw-config`,{method:"PUT",body:JSON.stringify(payload)}),
     runDraw:(divisionId,payload)=>request(`/api/divisions/${divisionId}/run-draw`,{method:"POST",body:JSON.stringify(payload)}),
+    drawResetPreview:divisionId=>request(`/api/divisions/${encodeURIComponent(divisionId)}/reset-draw`),
+    resetDraw:(divisionId,payload)=>request(`/api/divisions/${encodeURIComponent(divisionId)}/reset-draw`,{method:"POST",body:JSON.stringify(payload)}),
     generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
     setCourtState:(id,payload)=>request(`/api/matches/${id}/court-state`,{method:"PATCH",body:JSON.stringify(payload)}),
