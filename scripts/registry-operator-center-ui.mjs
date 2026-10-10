@@ -80,6 +80,16 @@ try{
         assert.equal(f.db.prepare("SELECT COUNT(*) n FROM matches WHERE division_id='division'").get().n,24);
         assert.equal(f.db.prepare("SELECT COUNT(DISTINCT group_code) n FROM teams WHERE division_id='division'").get().n,4);
         assert.ok(broadcasts.some(x=>x.event==='draw:complete'));
+        assert.equal(await page.locator('[data-center-assign]').count(),24,'all matches must remain accessible from the center');
+        const more=page.locator('[data-center-more-matches]');
+        await more.locator('summary').click();
+        const last=page.locator('[data-center-assign]').last();
+        const matchId=await last.getAttribute('data-center-assign');
+        await last.click();await page.locator('#detailRef').waitFor();
+        await page.locator('#detailRef').selectOption('local');
+        await page.locator('#saveAssignment').click();
+        await page.locator('#genericDialog').waitFor({state:'hidden'});
+        assert.equal(f.db.prepare('SELECT referee_user_id FROM matches WHERE id=?').get(matchId).referee_user_id,'local','the last match must persist its own assignment');
       });
       await check('referee-create',async()=>{
         await center();await page.locator('[data-center-referees]').click();

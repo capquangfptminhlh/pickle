@@ -396,6 +396,7 @@ async function openTournamentDetail(tournamentId){
     const groupMatches=divisionMatches.filter(m=>!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
     const knockoutMatches=divisionMatches.filter(m=>m.bracketSlot);
     const liveMatches=divisionMatches.filter(m=>m.status==="live");
+    const matchRow=m=>`<div class="tournament-live-row"><button type="button" class="mini" data-center-score="${m.id}">${m.status==="live"?"🔴 ":""}${escHtml(m.stage)} • ${escHtml(teamName(m.a))} vs ${escHtml(teamName(m.b))}${m.refereeId?" • TT: "+escHtml(refs.find(r=>r.id===m.refereeId)?.display_name||"Đã gán"):""}</button><button type="button" class="mini" data-center-assign="${m.id}">👨‍⚖️ Phân công</button></div>`;
     const bracketPreview=knockoutMatches.length
       ?(window.PickleBracket?.render(divisionMatches,teamName,{admin:true})||"")
       :(window.PickleBracket?.renderPlan(allTeams)||"");
@@ -423,7 +424,7 @@ async function openTournamentDetail(tournamentId){
       <div class="table-wrap"><table class="table"><thead><tr><th>Cặp / VĐV</th><th>CLB</th><th>Rating TB</th><th>Bảng</th><th>Đăng ký</th></tr></thead><tbody>${rosterRows||'<tr><td colspan="5">Chưa có VĐV/cặp đăng ký nội dung này.</td></tr>'}</tbody></table></div>
       ${groupSummary}${topHtml}
       <div class="tournament-ops-grid">
-        <div class="tournament-ops-card"><b>🔴 Live trận đấu</b><small>${liveMatches.length} trận đang live • ${divisionMatches.length} trận tổng</small><div class="tournament-live-mini">${divisionMatches.slice(0,6).map(m=>`<div class="tournament-live-row"><button type="button" class="mini" data-center-score="${m.id}">${m.status==="live"?"🔴 ":""}${escHtml(m.stage)} • ${escHtml(teamName(m.a))} vs ${escHtml(teamName(m.b))}${m.refereeId?" • TT: "+escHtml(refs.find(r=>r.id===m.refereeId)?.display_name||"Đã gán"):""}</button><button type="button" class="mini" data-center-assign="${m.id}">👨‍⚖️ Phân công</button></div>`).join("")||'<span class="muted">Chưa có trận.</span>'}</div></div>
+        <div class="tournament-ops-card"><b>🔴 Live trận đấu</b><small>${liveMatches.length} trận đang live • ${divisionMatches.length} trận tổng</small><div class="tournament-live-mini">${divisionMatches.slice(0,6).map(matchRow).join("")||'<span class="muted">Chưa có trận.</span>'}${divisionMatches.length>6?`<details data-center-more-matches><summary>Xem thêm ${divisionMatches.length-6} trận</summary><div class="tournament-live-mini">${divisionMatches.slice(6).map(matchRow).join("")}</div></details>`:""}</div></div>
         <div class="tournament-ops-card"><b>🧩 Sơ đồ thi đấu</b><small>${knockoutMatches.length?"Đã tạo nhánh từ vòng loại đến chung kết":`Sau khi vòng bảng xong, bấm Tạo nhánh Top ${advanceCount} để sinh toàn bộ bracket.`}</small>${bracketPreview?`<div class="tournament-bracket-preview">${bracketPreview}</div>`:""}</div>
       </div>
     </section>`;

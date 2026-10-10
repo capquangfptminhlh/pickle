@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v34-tournament-lifecycle-20261010";
+const VERSION="pickleup-preview-v35-center-all-matches-20261010";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,7 +34,7 @@ const CORE=[
   "../assets/tournament.js?v=53",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=63",
+  "../assets/admin-app.js?v=64",
   "../assets/match-format.js?v=5",
   "../assets/theme.js",
   "../assets/theme.css",

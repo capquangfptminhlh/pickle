@@ -9,6 +9,7 @@
 3. Double click hoặc thử lại khi tạo sân thất bại tạo thêm giải. Nay khóa thao tác đang lưu, giữ mã giải đã tạo và đối chiếu sân đã lưu trước khi thử lại, kể cả trường hợp phản hồi tạo sân bị mất sau khi server đã lưu.
 4. BTC không có đường sửa luật nội dung đã tạo từ trung tâm giải. Nay có nút **Luật thi đấu** dùng editor hiện có. Quyền và khóa đổi luật sau khi trận bắt đầu vẫn do backend kiểm tra.
 5. Kiểm tra WebSocket thật nhận heartbeat nhưng đóng kết nối bất thường `1006`. Bổ sung phản hồi đóng kết nối tường minh và không gửi các mã chẩn đoán dự trữ lên wire; phải kiểm tra lại đóng kết nối thật sau triển khai trước khi xác nhận đã khắc phục. Cách gọi này an toàn cả khi runtime tự phản hồi đóng kết nối, theo [tài liệu Cloudflare](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
+6. Trung tâm giải chỉ hiển thị 6 trận đầu và không có đường mở các trận còn lại. Nay có **Xem thêm … trận** để phân công và nhập điểm cho toàn bộ lịch. Regression 24 trận kiểm tra BTC/admin ở desktop/mobile mở trận cuối và lưu phân công đúng trận.
 
 ## Bằng chứng tại bản sửa
 
@@ -23,6 +24,8 @@
 | Bản build | Build assets và Wrangler deploy dry-run thành công | Dry-run không phải xác nhận đã triển khai |
 
 Realtime và service worker không chạy trong harness lifecycle/role-pages. Các bộ realtime/PWA riêng tiếp tục nằm trong CI. Hai pipeline chạy toàn bộ regression hiện có, PostgreSQL integration và Worker D1 smoke trước khi chốt triển khai.
+
+Ca mở rộng ngoài repository dùng 8 đội đôi chạm 15 trên mobile: 2 bảng × 4 đội, 12 trận vòng bảng và 3 trận knockout. Kết quả thắng được điều khiển theo thứ tự đội để kiểm tra độc lập rằng Top 2 mỗi bảng loại đúng 4 đội cuối; sau đó nhập điểm tới chung kết và đối chiếu nhà vô địch công khai. Log: `outputs/lifecycle-eight.log`. Tổng 5 giải mô phỏng, 35 trận; 4 ca ban đầu nằm trong CI, ca mở rộng này là kiểm tra bổ sung trong đợt audit.
 
 ## Chạy lại
 
