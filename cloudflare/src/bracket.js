@@ -1,6 +1,8 @@
 import {uid,nowIso} from "./util.js";
 import {loadState} from "./state.js";
 import {isGroupStageMatch,rankGroupStandings} from "../../shared/standings.js";
+import {divisionBracketRules} from "../../shared/bracket-rules.js";
+import {bracketSeedOrder as seedOrder,singleEliminationSlots} from "../../shared/bracket-seeding.js";
 
 async function rows(env,sql,...args){
   const r=await env.DB.prepare(sql).bind(...args).all();
@@ -8,7 +10,6 @@ async function rows(env,sql,...args){
 }
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
 
-function nextPow2(n){let p=1;while(p<n)p*=2;return p}
 function isPow2(n){return n>0&&(n&(n-1))===0}
 function stageName(round,total){
   const remaining=total-round;
@@ -17,21 +18,11 @@ function stageName(round,total){
   if(remaining===2)return "Tứ kết";
   return "Vòng "+round;
 }
-function seedOrder(size){
-  if(size===1)return [1];
-  let order=[1,2];
-  for(let n=4;n<=size;n*=2){
-    const next=[];
-    for(const seed of order)next.push(seed,n+1-seed);
-    order=next;
-  }
-  return order;
-}
 function matchInsert(env,m){
   return env.DB.prepare(
-    "INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,round_no,bracket_slot,next_match_id,next_match_side,loser_next_match_id,loser_next_match_side,status,winner_team_id,completed_at,version,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)"
+    "INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,round_no,bracket_slot,bracket_series,next_match_id,next_match_side,loser_next_match_id,loser_next_match_side,status,winner_team_id,completed_at,version,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)"
   ).bind(
-    m.id,m.divisionId,m.a||null,m.b||null,m.stage,m.roundNo,m.slot,
+    m.id,m.divisionId,m.a||null,m.b||null,m.stage,m.roundNo,m.slot,m.series||"A",
     m.nextId||null,m.nextSide||null,m.loserNextId||null,m.loserNextSide||null,
     m.status||"scheduled",m.winner||null,m.completedAt||null,nowIso()
   );
@@ -58,46 +49,34 @@ async function persistBracket(env,created,expectedSignature){
     throw error;
   }
 }
-async function qualifiers(env,division){
-  const state=await loadState(env);
+function qualifiers(state,division){
   const list=state.teams.filter(t=>t.divisionId===division.id&&t.status==="active");
-  if(division.format!=="pool_to_knockout")return [...list].sort((a,b)=>Number(a.seed||9999)-Number(b.seed||9999)||String(a.name).localeCompare(String(b.name),"vi"));
+  if(division.format!=="pool_to_knockout")return {a:[...list].sort((a,b)=>Number(a.seed||9999)-Number(b.seed||9999)||String(a.name).localeCompare(String(b.name),"vi")),b:[]};
   const groups=[...new Set(list.map(t=>t.group||"A"))].sort();
-  const selected=[];
+  const selected=[],seriesB=[];
   const count=Math.max(1,Number(division.advance_count||2));
   const divisionMatches=state.matches.filter(m=>m.divisionId===division.id);
   for(const group of groups){
     const ranked=rankGroupStandings(list.filter(t=>(t.group||"A")===group),divisionMatches);
     selected.push(...ranked.slice(0,count).map((team,index)=>({...team,groupRank:index+1})));
+    if(Number(division.series_b_enabled)===1){
+      if(!ranked[2])throw Object.assign(new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS"),{status:400});
+      seriesB.push({...ranked[2],groupRank:3});
+    }
   }
-  return selected;
+  if(Number(division.series_b_enabled)===1&&seriesB.length<2)throw Object.assign(new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS"),{status:400});
+  return {a:selected,b:seriesB};
 }
 
-function protectedPoolSlots(division,teams,size){
-  if(division.format!=="pool_to_knockout"||Number(division.advance_count||2)!==2||size!==teams.length||!isPow2(size))return null;
-  const groups=[...new Set(teams.map(t=>t.group||"A"))].sort();
-  if(groups.length<2||groups.length*2!==teams.length)return null;
-  const first=groups.map(g=>teams.find(t=>(t.group||"A")===g&&Number(t.groupRank||t.standingRank)===1));
-  const second=groups.map(g=>teams.find(t=>(t.group||"A")===g&&Number(t.groupRank||t.standingRank)===2));
-  if(first.some(x=>!x)||second.some(x=>!x))return null;
-  const slots=[];
-  for(let i=0;i<groups.length;i++)slots.push(first[i].id,second[groups.length-1-i].id);
-  return slots;
-}
-
-async function generateSingle(env,division,teams,expectedSignature){
+function buildSingle(division,teams,series="A"){
   if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_TEAMS"),{status:400});
-  const size=nextPow2(teams.length),rounds=Math.log2(size);
+  const {size,slots,protectedSameGroupUntilFinal}=singleEliminationSlots(division,teams),rounds=Math.log2(size);
   const ids=[];
   for(let r=1;r<=rounds;r++){
     ids[r]=[];
     const count=size/2**r;
     for(let i=0;i<count;i++)ids[r][i]=uid();
   }
-  const protectedSlots=protectedPoolSlots(division,teams,size);
-  const order=seedOrder(size);
-  const slots=protectedSlots||Array(size).fill(null);
-  if(!protectedSlots)teams.forEach((t,i)=>{const pos=order.indexOf(i+1);if(pos>=0)slots[pos]=t.id});
   const created=[];
   for(let r=1;r<=rounds;r++){
     const count=size/2**r;
@@ -109,7 +88,7 @@ async function generateSingle(env,division,teams,expectedSignature){
         a=slots[i*2]||null;b=slots[i*2+1]||null;
         if((a&&!b)||(!a&&b)){winner=a||b;status="completed";completedAt=nowIso()}
       }
-      const m={id:ids[r][i],divisionId:division.id,a,b,stage:stageName(r,rounds),roundNo:r,slot:`SE-R${r}-M${i+1}`,nextId,nextSide,status,winner,completedAt};
+      const m={id:ids[r][i],divisionId:division.id,a,b,stage:stageName(r,rounds),roundNo:r,series,slot:`${series==="B"?"B-":""}SE-R${r}-M${i+1}`,nextId,nextSide,status,winner,completedAt};
       created.push(m);
     }
   }
@@ -119,10 +98,9 @@ async function generateSingle(env,division,teams,expectedSignature){
   if(thirdPlace){
     const id=uid();
     semis.forEach((m,i)=>{m.loserNextId=id;m.loserNextSide=i===0?"A":"B"});
-    created.push({id,divisionId:division.id,a:null,b:null,stage:"Tranh hạng ba",roundNo:rounds,slot:"SE-3RD-M1"});
+    created.push({id,divisionId:division.id,a:null,b:null,stage:"Tranh hạng ba",roundNo:rounds,series,slot:`${series==="B"?"B-":""}SE-3RD-M1`});
   }
-  await persistBracket(env,created,expectedSignature);
-  return {format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal:Boolean(protectedSlots),thirdPlaceMatch:thirdPlace};
+  return {matches:created,summary:{format:"single_elimination",bracketSize:size,created:created.length,qualifiers:teams.length,protectedSameGroupUntilFinal,thirdPlaceMatch:thirdPlace}};
 }
 
 async function generateDouble(env,division,teams,expectedSignature){
@@ -173,12 +151,12 @@ async function generateDouble(env,division,teams,expectedSignature){
 }
 
 export async function generateBracket(env,divisionId){
+  // Capture the configuration and history revision before reading any rules.
+  const expectedSignature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",divisionId))?.signature;
   const division=await one(env,"SELECT * FROM divisions WHERE id=?",divisionId);
   if(!division)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+  const bracketRules=divisionBracketRules({},division);
   if(division.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
-
-  // A reset or a new result during qualification must invalidate this plan.
-  const expectedSignature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",divisionId))?.signature;
 
   const existing=await rows(env,"SELECT id,status,winner_team_id,started_at,current_score_a,current_score_b FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL",divisionId);
   if(existing.length){
@@ -186,8 +164,8 @@ export async function generateBracket(env,divisionId){
     throw Object.assign(new Error(started?"BRACKET_ALREADY_STARTED":"BRACKET_ALREADY_EXISTS"),{status:409});
   }
 
+  const state=await loadState(env);
   if(division.format==="pool_to_knockout"){
-    const state=await loadState(env);
     const active=state.teams.filter(t=>t.divisionId===divisionId&&t.status==="active");
     const groups=[...new Set(active.map(t=>t.group||"A"))];
     for(const group of groups){
@@ -201,10 +179,12 @@ export async function generateBracket(env,divisionId){
     }
   }
 
-  const teams=await qualifiers(env,division);
-  if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
-  if(division.format==="double_elimination")return generateDouble(env,division,teams,expectedSignature);
-  return generateSingle(env,division,teams,expectedSignature);
+  const teams=qualifiers(state,division);
+  if(teams.a.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
+  if(division.format==="double_elimination")return generateDouble(env,division,teams.a,expectedSignature);
+  const seriesA=buildSingle(division,teams.a),seriesB=bracketRules.seriesBEnabled?buildSingle({...division,format:"single_elimination",third_place_match:Number(bracketRules.seriesBThirdPlaceMatch)},teams.b,"B"):null;
+  await persistBracket(env,[...seriesA.matches,...(seriesB?.matches||[])],expectedSignature);
+  return {...seriesA.summary,created:seriesA.summary.created+(seriesB?.summary.created||0),qualifiers:teams.a.length+teams.b.length,seriesBEnabled:bracketRules.seriesBEnabled,seriesA:seriesA.summary,seriesB:seriesB?.summary||null};
 }
 
 export async function advanceBracket(env,matchId,winnerId){

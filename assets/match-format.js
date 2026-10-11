@@ -37,13 +37,15 @@
       <label class="field">Số người mỗi đội<select id="${prefix}TeamSize" ${dis||(seg?"":"disabled")}>${teamSizeOptions(size)}</select></label>
       <small class="field full field-hint" id="${prefix}RelayInfo">${esc(relayInfo(seg,size))}</small></div>
       <label class="field" style="align-content:end"><span><input id="${prefix}FinalServe" type="checkbox" ${d.finalPointOnServe?"checked":""} ${dis}> Điểm cuối phải ghi khi cầm giao</span></label>
-      <label class="field" style="align-content:end"><span><input id="${prefix}Third" type="checkbox" ${d.thirdPlaceMatch?"checked":""} ${dis}> Có trận tranh hạng ba</span></label>
+      <label class="field" style="align-content:end"><span><input id="${prefix}Third" type="checkbox" ${d.thirdPlaceMatch?"checked":""} ${dis}> Tranh hạng ba nhánh chính / Serie A</span></label>
+      <label class="field"><span><input id="${prefix}SeriesB" type="checkbox" ${d.seriesBEnabled?"checked":""} ${dis}> Bật Serie B: hạng 3 mỗi bảng</span><small class="field-hint">Chỉ dùng với vòng bảng + loại trực tiếp; Serie A lấy Top 1 hoặc Top 2. Mỗi bảng cần ít nhất 3 đội.</small></label>
+      <label class="field"><span><input id="${prefix}SeriesBThird" type="checkbox" ${d.seriesBThirdPlaceMatch?"checked":""} ${dis}> Tranh hạng ba Serie B</span><small class="field-hint">Hai đội thua bán kết Serie B đánh riêng.</small></label>
       ${disabled?"":`<div class="field full"><button type="button" class="btn secondary" ${preset}>Áp dụng luật MLP chạy điểm (mỗi lượt 9 điểm)</button><small class="field-hint">1 game rally, mỗi cặp đánh 9 điểm rồi đổi cặp; tổng điểm = 9 × số người (3 người: 27, 4 người: 36); điểm cuối phải ghi khi cầm giao. Đổi "Số người mỗi đội" bất cứ lúc nào, tổng điểm tự cập nhật.</small></div>`}`;
   }
   function readExtra(prefix){
     const el=id=>document.getElementById(prefix+id);
     const seg=Number(el("Relay")?.value||0);
-    return {relaySegmentPoints:seg,relayTeamSize:seg?Number(el("TeamSize")?.value||3):0,finalPointOnServe:Boolean(el("FinalServe")?.checked),thirdPlaceMatch:Boolean(el("Third")?.checked)};
+    return {relaySegmentPoints:seg,relayTeamSize:seg?Number(el("TeamSize")?.value||3):0,finalPointOnServe:Boolean(el("FinalServe")?.checked),thirdPlaceMatch:Boolean(el("Third")?.checked),seriesBEnabled:Boolean(el("SeriesB")?.checked),seriesBThirdPlaceMatch:Boolean(el("SeriesBThird")?.checked)};
   }
   document.addEventListener("click",e=>{
     const button=e.target.closest?.("[data-mlp-preset]");if(!button)return;
@@ -102,6 +104,7 @@
     if(!Number(d.relaySegmentPoints))parts.push(d.winByTwo?"Thắng cách 2":"Không cần cách 2");
     if(d.finalPointOnServe)parts.push(`Điểm ${d.pointsToWin} phải ghi khi cầm giao`);
     if(d.thirdPlaceMatch)parts.push("Có tranh hạng ba");
+    if(d.seriesBEnabled)parts.push(`Serie A: Top ${Number(d.advanceCount)||2} mỗi bảng`,`Serie B: hạng 3 mỗi bảng${d.seriesBThirdPlaceMatch?", có tranh hạng ba":""}`);
     return parts.join(" • ");
   }
   // Mirrors shared/scoring-rules.js validateSet: a game ends exactly at the
@@ -133,6 +136,7 @@
       :{label:"Cách tính",value:"Giao bóng",note:"chỉ bên giao được điểm"});
     if(d.finalPointOnServe)facts.push({label:"Điểm quyết định",value:`Điểm ${target}`,note:"phải ghi khi đang cầm giao"});
     if(d.format==="pool_to_knockout")facts.push({label:"Vào loại trực tiếp",value:`Top ${Math.max(1,Number(d.advanceCount||2))}`,note:"mỗi bảng"});
+    if(d.seriesBEnabled)facts.push({label:"Serie B",value:"Hạng 3",note:`mỗi bảng xuống nhánh B${d.seriesBThirdPlaceMatch?" • có tranh hạng ba":""}`});
     else if(d.format==="round_robin")facts.push({label:"Xếp hạng",value:"Vòng tròn",note:"không có loại trực tiếp"});
     if(d.format!=="round_robin")facts.push(d.thirdPlaceMatch
       ?{label:"Hạng ba",value:"Có trận",note:"2 đội thua bán kết đá tranh"}

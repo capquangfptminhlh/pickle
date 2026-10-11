@@ -12,7 +12,7 @@ concurrency:
 jobs:
   integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17-alpine
@@ -62,6 +62,8 @@ jobs:
           node --test scripts/registry-tournament-progress.test.mjs scripts/registry-tournament-recovery-ui.mjs
           node --test scripts/registry-api-client.test.mjs
           node --test scripts/registry-team-lineup.test.mjs
+          node --test scripts/registry-series-ui.test.mjs
+          node scripts/registry-series-browser.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
           node scripts/mlp-court-control-ui.mjs
@@ -159,6 +161,7 @@ jobs:
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-accounts-api.mjs
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-operations-api.mjs
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-public-api.mjs
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-series-api.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Start static preview server
         run: |

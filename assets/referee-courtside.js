@@ -16,6 +16,7 @@
 
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
+  const stage=m=>(m?.bracketSlot?"Serie "+(m.bracketSeries==="B"||String(m.bracketSlot).startsWith("B-")?"B":"A")+" · ":"")+(m?.stage||"Trận đấu");
   const division=m=>state.divisions.find(d=>d.id===m?.divisionId);
   const court=m=>state.courts.find(c=>c.id===m?.courtId)?.name||(m?.court&&m.court!=="—"?"Sân "+m.court:"Chưa gán sân");
   const queueMeta=s=>({scheduled:["CHỜ","scheduled"],called:["ĐANG GỌI","called"],on_deck:["ON DECK","on_deck"],warming_up:["KHỞI ĐỘNG","warming_up"],live:["ĐANG ĐẤU","live"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
@@ -40,7 +41,7 @@
     const d=division(m),sets=(m.sets||[]).map(s=>s.join("-")).join(" · ");
     const next={scheduled:["called","📣 Gọi VĐV"],called:["on_deck","⏭ On deck"],on_deck:["warming_up","🔥 Khởi động"]}[q];
     return '<article class="picker-card '+(m.status==="live"?"live":"")+'" data-open="'+esc(m.id)+'">'+
-      '<div class="picker-top"><span>'+esc(court(m))+' · '+esc(m.stage||d?.name||"Trận đấu")+'</span><b class="queue-badge '+meta[1]+'">'+meta[0]+'</b></div>'+
+      '<div class="picker-top"><span>'+esc(court(m))+' · '+esc(stage(m))+'</span><b class="queue-badge '+meta[1]+'">'+meta[0]+'</b></div>'+
       '<div class="picker-vs"><strong>'+esc(team(m.a))+'</strong><i>VS</i><strong>'+esc(team(m.b))+'</strong></div>'+
       '<div class="picker-actions">'+(sets?'<span>Kết quả: '+esc(sets)+'</span>':'<span>'+esc(m.time||"Chưa chốt giờ")+'</span>')+
       (next&&m.status==="wait"?'<button type="button" class="queue-advance" data-queue-match="'+esc(m.id)+'" data-queue-state="'+next[0]+'">'+next[1]+'</button>':'')+
@@ -66,7 +67,7 @@
     const q=m.status==="live"?"live":m.status==="done"?"done":m.courtState||"scheduled",qm=queueMeta(q);
 
     $("#courtLabel").textContent=court(m);
-    $("#stageLabel").textContent=m.stage||d?.name||"Trận đấu";
+    $("#stageLabel").textContent=stage(m);
     $("#queueLabel").textContent=qm[0];$("#queueLabel").className="queue-pill "+qm[1];
     const lineupA=window.PickleTeamLineup?.match(m.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(m.b,d,a,b,state);
     $("#refTeamA").textContent=lineupA?.label||team(m.a);$("#refTeamB").textContent=lineupB?.label||team(m.b);

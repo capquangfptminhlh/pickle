@@ -128,7 +128,7 @@ export async function loadState(env,{publicOnly=false}={}){
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,
     courtId:m.court_id||null,resultReason:m.result_reason||(m.status==="walkover"?"walkover":null),resultNote:m.result_note||null,
-    bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
+    bracketSlot:m.bracket_slot||null,bracketSeries:m.bracket_series||(m.bracket_slot?"A":null),scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:["completed","walkover"].includes(m.status)?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
     timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:new Date().toISOString()}:null,
@@ -165,7 +165,7 @@ export async function loadState(env,{publicOnly=false}={}){
       bestOf:Number(d.best_of||3),pointsToWin:Number(d.points_to_win||11),winByTwo:bool(d.win_by_two),
       advanceCount:Number(d.advance_count||2),tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",
       minimumRestMinutes:Number(d.minimum_rest_minutes??15),matchSlotMinutes:Number(d.match_slot_minutes??20),
-      relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),active:bool(d.active)
+      relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),seriesBEnabled:bool(d.series_b_enabled),seriesBThirdPlaceMatch:bool(d.series_b_third_place_match),active:bool(d.active)
     })),
     courts:courtsRaw.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:Number(c.sort_order||0),active:bool(c.active)})),
     teams,players,teamPlayers,teamLineupSources,matches,audit

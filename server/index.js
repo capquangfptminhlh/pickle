@@ -13,6 +13,9 @@ import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
+import {divisionBracketRules,bracketRulesChanged} from "../shared/bracket-rules.js";
+import {singleEliminationSlots} from "../shared/bracket-seeding.js";
+import {rankGroupStandings,isGroupStageMatch} from "../shared/standings.js";
 import {validateSet,validateSeries} from "../shared/scoring-rules.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../shared/account-login.js";
 
@@ -315,8 +318,8 @@ async function loadState({publicOnly=false}={}){
   for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push([s.score_a,s.score_b]);}
 
   const stats=new Map(teamRows.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
-  const isGroupMatch=m=>!m.bracket_slot&&(m.stage.startsWith("Bảng")||/bảng|group|vòng bảng/i.test(m.stage)||!/chung kết|bán kết|tứ kết/i.test(m.stage));
-  for(const m of matchRows.filter(x=>x.status==="completed"&&isGroupMatch(x)&&x.winner_team_id)){
+  const activeTeamIds=new Set(teamRows.filter(t=>t.status==="active").map(t=>t.id));
+  for(const m of matchRows.filter(x=>["completed","walkover"].includes(x.status)&&isGroupStageMatch(x)&&x.team_a_id!==x.team_b_id&&[x.team_a_id,x.team_b_id].includes(x.winner_team_id)&&activeTeamIds.has(x.team_a_id)&&activeTeamIds.has(x.team_b_id))){
     const ms=setMap.get(m.id)||[];let ap=0,bp=0,asw=0,bsw=0;
     for(const [a,b] of ms){ap+=a;bp+=b;if(a>b)asw++;else if(b>a)bsw++}
     const sa=stats.get(m.team_a_id),sb=stats.get(m.team_b_id);
@@ -337,11 +340,20 @@ async function loadState({publicOnly=false}={}){
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",time:nowTime(m.scheduled_at),
     a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",status:publicStatus(m.status),sets:setMap.get(m.id)||[],
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,courtId:m.court_id||null,
-    resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
+    resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,bracketSeries:m.bracket_series||(m.bracket_slot?"A":null),scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
     calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   }));
+  for(const division of divisions){
+    const groups=[...new Set(teams.filter(t=>t.divisionId===division.id&&t.status==="active").map(t=>t.group||"A"))];
+    for(const group of groups){
+      rankGroupStandings(
+        teams.filter(t=>t.divisionId===division.id&&t.status==="active"&&(t.group||"A")===group),
+        matches.filter(m=>m.divisionId===division.id)
+      ).forEach((team,index)=>{team.standingRank=index+1});
+    }
+  }
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
     order by a.created_at desc limit 100
@@ -349,7 +361,7 @@ async function loadState({publicOnly=false}={}){
     time:nowTime(a.created_at),user:a.display_name||"System",action:a.action,detail:a.reason||a.entity_type
   }));
   for(const t of tournaments)t.teams=teamRows.filter(x=>divisions.some(d=>d.id===x.division_id&&d.tournament_id===t.id)).length;
-  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:Boolean(d.final_point_on_serve),active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,players,teamPlayers,teamLineupSources,matches,audit};
+  return {tournaments,divisions:divisions.map(d=>({id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,bestOf:d.best_of,pointsToWin:d.points_to_win,winByTwo:d.win_by_two,advanceCount:d.advance_count,thirdPlaceMatch:Boolean(d.third_place_match),seriesBEnabled:Boolean(d.series_b_enabled),seriesBThirdPlaceMatch:Boolean(d.series_b_third_place_match),tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:Boolean(d.final_point_on_serve),active:d.active})),courts:courts.map(c=>({id:c.id,tournamentId:c.tournament_id,name:c.name,sortOrder:c.sort_order,active:c.active})),teams,players,teamPlayers,teamLineupSources,matches,audit};
 }
 
 async function loadAdminState(user){
@@ -1111,14 +1123,15 @@ app.post("/api/tournaments",authRequired,allow("super_admin","organizer"),wrap(a
 
 
 app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","organizer"),tournamentManageParam,wrap(async(req,res)=>{
-  const {name,eventType="doubles",format="pool_to_knockout",bestOf=3,pointsToWin=11,winByTwo=true,advanceCount=2}=req.body;
+  const {name,eventType="doubles",bestOf=3,pointsToWin=11,winByTwo=true}=req.body;
+  const {format,advanceCount,thirdPlaceMatch,seriesBEnabled,seriesBThirdPlaceMatch}=divisionBracketRules(req.body);
   if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
   if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return res.status(400).json({error:"INVALID_FORMAT"});
   const row=(await pool.query(`
-    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count)
-    values($1,$2,$3,$4,$5,$6,$7,$8) returning *
-  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount])).rows[0];
+    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,third_place_match,series_b_enabled,series_b_third_place_match)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *
+  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount,thirdPlaceMatch,seriesBEnabled,seriesBThirdPlaceMatch])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'division',$2,'CREATE_DIVISION',$3)",[req.user.sub,row.id,row]);
   await emitState();res.status(201).json(row);
 }));
@@ -1205,9 +1218,11 @@ for(const action of ["point","finish-set","quick-score","finish","special-result
 app.patch("/api/divisions/:id",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
-  const bestOf=req.body.bestOf??before.best_of,points=req.body.pointsToWin??before.points_to_win,winByTwo=req.body.winByTwo??before.win_by_two,advance=req.body.advanceCount??before.advance_count;
+  const bestOf=req.body.bestOf??before.best_of,points=req.body.pointsToWin??before.points_to_win,winByTwo=req.body.winByTwo??before.win_by_two;
+  const bracket=divisionBracketRules(req.body,before);
+  if(bracketRulesChanged(before,bracket)&&(await pool.query("select 1 from matches where division_id=$1 and bracket_slot is not null limit 1",[before.id])).rowCount)throw Object.assign(new Error("BRACKET_SETTINGS_LOCKED"),{status:409});
   if(![1,3,5].includes(Number(bestOf))||![11,15,21].includes(Number(points)))return res.status(400).json({error:"INVALID_RULES"});
-  const after=(await pool.query("update divisions set best_of=$1,points_to_win=$2,win_by_two=$3,advance_count=$4 where id=$5 returning *",[bestOf,points,Boolean(winByTwo),advance,req.params.id])).rows[0];
+  const after=(await pool.query("update divisions set best_of=$1,points_to_win=$2,win_by_two=$3,advance_count=$4,third_place_match=$5,series_b_enabled=$6,series_b_third_place_match=$7,format=$8 where id=$9 returning *",[bestOf,points,Boolean(winByTwo),bracket.advanceCount,bracket.thirdPlaceMatch,bracket.seriesBEnabled,bracket.seriesBThirdPlaceMatch,bracket.format,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_RULES',$3,$4)",[req.user.sub,after.id,before,after]);
   await emitState();res.json(after);
 }));
@@ -1358,17 +1373,17 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
 
     const courts=(await c.query("select id from courts where tournament_id=$1 and active=true order by sort_order",[d.tournament_id])).rows;
     if(!courts.length)throw Object.assign(new Error("NO_ACTIVE_COURTS"),{status:400});
-    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by seed nulls last,name",[d.id])).rows;
+    const teams=(await c.query("select id,group_code,seed,name from teams where division_id=$1 and status='active' order by seed nulls last,name for update",[d.id])).rows;
     if(teams.length<2)throw Object.assign(new Error("NOT_ENOUGH_TEAMS"),{status:400});
     const startAt=(await c.query("select coalesce(max(scheduled_at),$2::timestamptz,now()) + interval '45 minutes' t from matches where division_id=$1",[d.id,d.start_at])).rows[0].t;
 
     const addMinutes=(base,min)=>new Date(new Date(base).getTime()+min*60000);
     const courtFor=i=>courts[i%courts.length].id;
-    const create=async({a=null,b=null,stage,slot,minutes=0,index=0})=>{
+    const create=async({a=null,b=null,stage,slot,series="A",round=0,minutes=0,index=0})=>{
       return (await c.query(`
-        insert into matches(division_id,court_id,team_a_id,team_b_id,stage,bracket_slot,scheduled_at,status)
-        values($1,$2,$3,$4,$5,$6,$7,'scheduled') returning *
-      `,[d.id,courtFor(index),a,b,stage,slot,addMinutes(startAt,minutes)])).rows[0];
+        insert into matches(division_id,court_id,team_a_id,team_b_id,stage,bracket_slot,scheduled_at,status,bracket_series,round_no)
+        values($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9) returning *
+      `,[d.id,courtFor(index),a,b,stage,slot,addMinutes(startAt,minutes),series,round])).rows[0];
     };
     const linkWinner=async(from,to,side)=>c.query("update matches set next_match_id=$1,next_match_side=$2 where id=$3",[to,side,from]);
     const linkLoser=async(from,to,side)=>c.query("update matches set loser_next_match_id=$1,loser_next_match_side=$2 where id=$3",[to,side,from]);
@@ -1423,102 +1438,69 @@ app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin",
 
     if(d.format==="round_robin")throw Object.assign(new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT"),{status:400});
 
-    let qualifiers=[];
+    const rules=divisionBracketRules({},d);
+    let qualifiers=[],bQualifiers=[];
     if(d.format==="pool_to_knockout"){
-      const unfinished=Number((await c.query("select count(*)::int n from matches where division_id=$1 and stage like 'Bảng %' and status<>'completed'",[d.id])).rows[0].n);
-      if(unfinished>0)throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
-      const completed=(await c.query("select * from matches where division_id=$1 and stage like 'Bảng %' and status='completed'",[d.id])).rows;
-      const mids=completed.map(m=>m.id);
-      const sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
-      const setMap=new Map();for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push(s)}
-      const stats=new Map(teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
-      for(const m of completed){
-        let ap=0,bp=0,asw=0,bsw=0;
-        for(const s of setMap.get(m.id)||[]){
-          ap+=s.score_a;bp+=s.score_b;
-          if(s.score_a>s.score_b)asw++;else if(s.score_b>s.score_a)bsw++;
-        }
-        const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);
-        if(a){a.pf+=ap;a.pa+=bp;a.sw+=asw;a.sl+=bsw;m.winner_team_id===m.team_a_id?a.w++:a.l++}
-        if(b){b.pf+=bp;b.pa+=ap;b.sw+=bsw;b.sl+=asw;m.winner_team_id===m.team_b_id?b.w++:b.l++}
-      }
+      const poolMatches=(await c.query("select * from matches where division_id=$1 and bracket_slot is null for update",[d.id])).rows;
+      const groupMatches=poolMatches.filter(m=>m.stage.startsWith("Bảng "));
+      if(groupMatches.some(m=>!["completed","walkover"].includes(m.status)||!m.winner_team_id))throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
       const groups=[...new Set(teams.map(t=>t.group_code).filter(Boolean))].sort();
-      if(!groups.length)throw Object.assign(new Error("NO_GROUPS"),{status:400});
-      const rank=g=>teams.filter(t=>t.group_code===g).sort((x,y)=>{
-        const a=stats.get(x.id),b=stats.get(y.id);
-        if(b.w!==a.w)return b.w-a.w;
-        const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
-        if(sdB!==sdA)return sdB-sdA;
-        const h2h=completed.find(m=>((m.team_a_id===x.id&&m.team_b_id===y.id)||(m.team_a_id===y.id&&m.team_b_id===x.id))&&m.winner_team_id);
-        if(h2h){if(h2h.winner_team_id===x.id)return -1;if(h2h.winner_team_id===y.id)return 1;}
-        return ((b.pf-b.pa)-(a.pf-a.pa))||b.pf-a.pf||((x.seed||999)-(y.seed||999));
-      });
-      const advanceCount=Number(d.advance_count)||2;
-      if(advanceCount===2){
-        // Keep the top two from every group on opposite bracket halves.
-        // Qualifier order A1,A2,B1,B2,... maps through standard seeding so
-        // same-group teams can only meet again in the final.
-        for(const g of groups){
-          const ranked=rank(g);
-          if(ranked[0])qualifiers.push({...ranked[0],qualifierGroup:g,qualifierPlace:1});
-          if(ranked[1])qualifiers.push({...ranked[1],qualifierGroup:g,qualifierPlace:2});
-        }
-      }else{
-        for(let place=0;place<advanceCount;place++){
-          for(const g of groups){
-            const t=rank(g)[place];if(t)qualifiers.push({...t,qualifierGroup:g,qualifierPlace:place+1});
-          }
-        }
+      if(!groups.length||teams.some(t=>!t.group_code))throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+      const mids=groupMatches.map(m=>m.id),sets=mids.length?(await c.query("select * from match_sets where match_id=any($1::uuid[]) and completed=true",[mids])).rows:[];
+      const converted=groupMatches.map(m=>({...m,sets:sets.filter(set=>set.match_id===m.id).map(set=>[Number(set.score_a),Number(set.score_b)])}));
+      const stats=new Map(teams.map(t=>[t.id,{...t,w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
+      for(const m of converted){
+        const a=stats.get(m.team_a_id),b=stats.get(m.team_b_id);if(!a||!b)continue;
+        for(const [sa,sb] of m.sets){a.pf+=sa;a.pa+=sb;b.pf+=sb;b.pa+=sa;if(sa>sb){a.sw++;b.sl++}else if(sb>sa){b.sw++;a.sl++}}
+        if(m.winner_team_id===a.id){a.w++;b.l++}else if(m.winner_team_id===b.id){b.w++;a.l++}
       }
-    }else{
-      qualifiers=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi")).map(t=>({...t,qualifierGroup:t.group_code||null}));
-    }
+      for(const g of groups){
+        const members=teams.filter(t=>t.group_code===g);
+        for(let i=0;i<members.length;i++)for(let j=i+1;j<members.length;j++)if(!groupMatches.some(m=>[m.team_a_id,m.team_b_id].includes(members[i].id)&&[m.team_a_id,m.team_b_id].includes(members[j].id)))throw Object.assign(new Error("GROUP_STAGE_NOT_COMPLETE"),{status:409});
+        const ranked=rankGroupStandings(members.map(t=>stats.get(t.id)),converted);
+        qualifiers.push(...ranked.slice(0,rules.advanceCount).map((t,i)=>({...t,groupRank:i+1})));
+        if(rules.seriesBEnabled){if(!ranked[2])throw Object.assign(new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS"),{status:400});bQualifiers.push({...ranked[2],groupRank:3})}
+      }
+      if(rules.seriesBEnabled&&bQualifiers.length<2)throw Object.assign(new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS"),{status:400});
+    }else qualifiers=[...teams].sort((a,b)=>(a.seed||999)-(b.seed||999)||a.name.localeCompare(b.name,"vi"));
     if(qualifiers.length<2)throw Object.assign(new Error("NOT_ENOUGH_QUALIFIERS"),{status:400});
-
-    let bracketSize=2;while(bracketSize<qualifiers.length)bracketSize*=2;
-    let order=[1,2];for(let size=4;size<=bracketSize;size*=2){const next=[];for(const seed of order)next.push(seed,size+1-seed);order=next}
-    const slots=order.map(seed=>qualifiers[seed-1]||null);
-    for(let i=0;i<slots.length;i+=2){
-      if(slots[i]&&slots[i+1]&&slots[i].qualifierGroup&&slots[i].qualifierGroup===slots[i+1].qualifierGroup){
-        const j=slots.findIndex((x,idx)=>idx>i+1&&x&&x.qualifierGroup!==slots[i].qualifierGroup);
-        if(j>0)[slots[i+1],slots[j]]=[slots[j],slots[i+1]];
+    const build=async(list,series,third)=>{
+      const seeding=singleEliminationSlots(series==="B"?{format:"single_elimination"}:d,list);
+      const {size,slots,protectedSameGroupUntilFinal}=seeding,roundCount=Math.log2(size),rounds=[];
+      const prefix=series==="B"?"B-SE-":"SE-";
+      const stage=count=>count===1?"Chung kết":count===2?"Bán kết":count===4?"Tứ kết":"Vòng loại trực tiếp";
+      for(let r=0;r<roundCount;r++){
+        rounds[r]=[];const count=size/(2**(r+1));
+        for(let i=0;i<count;i++)rounds[r].push(await create({a:r===0?slots[i*2]:null,b:r===0?slots[i*2+1]:null,stage:stage(count),slot:prefix+"R"+(r+1)+"-M"+(i+1),series,round:r+1,minutes:r*55+Math.floor(i/courts.length)*30,index:i}));
       }
-    }
-
-    const roundCount=Math.log2(bracketSize);
-    const rounds=[];
-    const stageName=(r,i,count)=>{
-      if(count===1)return "Chung kết";
-      if(count===2)return `Bán kết ${i+1}`;
-      if(count===4)return `Tứ kết ${i+1}`;
-      if(count===8)return `Vòng 1/8 ${i+1}`;
-      return `Knockout R${r+1} - Trận ${i+1}`;
-    };
-    for(let r=0;r<roundCount;r++){
-      const count=bracketSize/(2**(r+1));rounds[r]=[];
-      for(let i=0;i<count;i++){
-        const a=r===0?slots[i*2]?.id||null:null,b=r===0?slots[i*2+1]?.id||null:null;
-        rounds[r].push(await create({a,b,stage:stageName(r,i,count),slot:`SE-R${r+1}-M${i+1}`,minutes:r*55+Math.floor(i/courts.length)*30,index:i}));
-      }
-    }
-    for(let r=0;r<rounds.length-1;r++){
-      for(let i=0;i<rounds[r].length;i++)await linkWinner(rounds[r][i].id,rounds[r+1][Math.floor(i/2)].id,i%2===0?"A":"B");
-    }
-    for(let i=0;i<rounds[0].length;i++){
-      const m=rounds[0][i];
-      const only=m.team_a_id&&!m.team_b_id?m.team_a_id:(!m.team_a_id&&m.team_b_id?m.team_b_id:null);
-      if(only){
+      for(let r=0;r<rounds.length-1;r++)for(let i=0;i<rounds[r].length;i++)await linkWinner(rounds[r][i].id,rounds[r+1][Math.floor(i/2)].id,i%2===0?"A":"B");
+      const semis=roundCount>=2?rounds[roundCount-2]:[];
+      const thirdPlaceMatch=Boolean(third&&semis.length===2&&!semis.some(m=>roundCount===2&&(!m.team_a_id||!m.team_b_id)));
+      let bronze=null;
+      if(thirdPlaceMatch){bronze=await create({stage:"Tranh hạng ba",slot:prefix+"3RD-M1",series,round:roundCount,minutes:roundCount*55,index:1});for(let i=0;i<semis.length;i++)await linkLoser(semis[i].id,bronze.id,i===0?"A":"B")}
+      for(let i=0;i<rounds[0].length;i++){
+        const m=rounds[0][i],only=m.team_a_id&&!m.team_b_id?m.team_a_id:(!m.team_a_id&&m.team_b_id?m.team_b_id:null);
+        if(!only)continue;
         const after=(await c.query("update matches set winner_team_id=$1,status='completed',completed_at=now(),result_reason='bye',version=version+1 where id=$2 returning *",[only,m.id])).rows[0];
-        if(rounds.length>1){
-          const target=rounds[1][Math.floor(i/2)],side=i%2===0?"A":"B",col=side==="A"?"team_a_id":"team_b_id";
-          await c.query(`update matches set ${col}=$1,version=version+1 where id=$2`,[only,target.id]);
-        }
+        if(rounds.length>1){const target=rounds[1][Math.floor(i/2)],col=i%2===0?"team_a_id":"team_b_id";await c.query("update matches set "+col+"=$1,version=version+1 where id=$2",[only,target.id])}
         await audit(c,req.user,"match",m.id,"AUTO_BYE",m,after,"Automatic bracket bye");
       }
+      return {format:"single_elimination",qualifiers:list.length,bracketSize:size,created:rounds.flat().length+(bronze?1:0),final:rounds.at(-1)[0].id,protectedSameGroupUntilFinal,thirdPlaceMatch};
+    };
+    const seriesA=await build(qualifiers,"A",rules.thirdPlaceMatch),seriesB=rules.seriesBEnabled?await build(bQualifiers,"B",rules.seriesBThirdPlaceMatch):null;
+    // Allocate all branches together, round by round. Every round waits for
+    // the previous wave, and each court gets one match in a 30-minute slot.
+    const createdMatches=(await c.query("select * from matches where division_id=$1 and bracket_slot is not null order by round_no,bracket_series,bracket_slot",[d.id])).rows;
+    let scheduleMinutes=0;
+    for(const round of [...new Set(createdMatches.map(m=>m.round_no))].sort((a,b)=>a-b)){
+      const playing=createdMatches.filter(m=>m.round_no===round&&m.status!=="completed");
+      for(let i=0;i<playing.length;i++)await c.query("update matches set court_id=$1,scheduled_at=$2 where id=$3",[courtFor(i),addMinutes(startAt,scheduleMinutes+Math.floor(i/courts.length)*30),playing[i].id]);
+      scheduleMinutes+=Math.ceil(playing.length/courts.length)*30+15;
     }
-    const final=rounds.at(-1)[0];
-    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,{format:d.format,qualifiers:qualifiers.length,bracketSize,final:final.id},"Generic elimination bracket");
-    return {format:d.format,qualifiers:qualifiers.length,bracketSize,created:rounds.flat().length,final:final.id};
+    for(const bye of createdMatches.filter(m=>m.status==="completed"))await c.query("update matches set court_id=null,scheduled_at=null where id=$1",[bye.id]);
+    const result={...seriesA,format:d.format,qualifiers:qualifiers.length+bQualifiers.length,created:seriesA.created+(seriesB?.created||0),seriesBEnabled:rules.seriesBEnabled,seriesA,seriesB};
+    await audit(c,req.user,"division",d.id,"GENERATE_BRACKET",null,result,"Independent elimination series");
+    return result;
   });
   await emitState();res.json(result);
 }));
@@ -1924,6 +1906,8 @@ app.delete("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),
 app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
   const before=(await pool.query("select * from divisions where id=$1",[req.params.id])).rows[0];
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
+  const bracket=divisionBracketRules(req.body,before);
+  if(bracketRulesChanged(before,bracket)&&(await pool.query("select 1 from matches where division_id=$1 and bracket_slot is not null limit 1",[before.id])).rowCount)throw Object.assign(new Error("BRACKET_SETTINGS_LOCKED"),{status:409});
   const next={
     name:req.body.name??before.name,
     eventType:req.body.eventType??before.event_type,
@@ -1939,9 +1923,9 @@ app.patch("/api/divisions/:id/full",authRequired,allow("super_admin","organizer"
   if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(next.format))return res.status(400).json({error:"INVALID_FORMAT"});
   if(![1,3,5].includes(next.bestOf)||![11,15,21].includes(next.pointsToWin)||next.advanceCount<1)return res.status(400).json({error:"INVALID_RULES"});
   const after=(await pool.query(`
-    update divisions set name=$1,event_type=$2,format=$3,best_of=$4,points_to_win=$5,win_by_two=$6,advance_count=$7,active=$8,updated_at=now()
-    where id=$9 returning *
-  `,[next.name.trim(),next.eventType,next.format,next.bestOf,next.pointsToWin,Boolean(next.winByTwo),next.advanceCount,Boolean(next.active),req.params.id])).rows[0];
+    update divisions set name=$1,event_type=$2,format=$3,best_of=$4,points_to_win=$5,win_by_two=$6,advance_count=$7,active=$8,third_place_match=$9,series_b_enabled=$10,series_b_third_place_match=$11,updated_at=now()
+    where id=$12 returning *
+  `,[next.name.trim(),next.eventType,next.format,next.bestOf,next.pointsToWin,Boolean(next.winByTwo),next.advanceCount,Boolean(next.active),bracket.thirdPlaceMatch,bracket.seriesBEnabled,bracket.seriesBThirdPlaceMatch,req.params.id])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'division',$2,'UPDATE_DIVISION',$3,$4)",[req.user.sub,after.id,before,after]);
   await emitState();res.json(after);
 }));
@@ -2319,7 +2303,7 @@ app.use((err,req,res,next)=>{
     const status=err.code==="LIMIT_FILE_SIZE"?413:400;
     return res.status(status).json({error:err.code==="LIMIT_FILE_SIZE"?"UPLOAD_TOO_LARGE":"INVALID_UPLOAD"});
   }
-  const status=Number(err.status)||500;
+  const status=err.message==="BRACKET_SETTINGS_LOCKED"?409:Number(err.status)||500;
   const error=status>=500?"SERVER_ERROR":(err.message||"REQUEST_FAILED");
   res.status(status).json({error,...(status<500&&err.currentVersion!==undefined?{currentVersion:err.currentVersion}:{}),...(status<500&&Array.isArray(err.issues)?{issues:err.issues}:{})});
 });

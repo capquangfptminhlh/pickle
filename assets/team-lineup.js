@@ -1,5 +1,5 @@
-// Three-player MLP roles follow the entered skill levels A/B/C (including +).
-// Other formats retain their registered player order.
+// Three-player MLP uses unique A/B/C skill groups when present, then confirmed
+// member order for same-grade teams. Relay positions never change skill grades.
 (()=>{
   const letters="ABCD";
   const team=(id,state)=>state?.teams?.find(item=>item.id===id)||null;
@@ -17,9 +17,10 @@
     const pairs=window.PickleMatchFormat?.relayPairs?.(size)||[];
     const code=pairs[index]||"";
     if(Number(size)===3){
-      const complete=info.players.length===3&&[..."ABC"].every(letter=>info.players.filter(player=>skillRole(player)===letter).length===1);
-      info={...info,gradeBased:true,ready:complete,players:complete?[..."ABC"].map(letter=>info.players.find(player=>skillRole(player)===letter)):info.players,
-        identityWarning:complete?"":info.players.length!==3?"MLP 3 người cần đúng 3 VĐV · Kiểm tra thành viên và cột Trình":"Chưa đủ trình A/B/C · Cập nhật cột Trình của VĐV"};
+      const gradeBased=info.players.length===3&&[..."ABC"].every(letter=>info.players.filter(player=>skillRole(player)===letter).length===1);
+      const ordered=info.players.length===3&&["assigned","inferred"].includes(info.source),ready=gradeBased||ordered;
+      info={...info,gradeBased,ready,players:gradeBased?[..."ABC"].map(letter=>info.players.find(player=>skillRole(player)===letter)):info.players,
+        identityWarning:ready?"":info.players.length!==3?"MLP 3 người cần đúng 3 VĐV · Kiểm tra thành viên":"Chưa xác định thứ tự A/B/C · Chọn thứ tự thành viên trong Sửa đội"};
     }
     if(!code||!info.ready||info.players.length<size)return {...info,ready:false,code,names:[],label:info.team?.name||"Chưa xác định",short:info.team?.name||"Chưa xác định"};
     const names=[...code].map(letter=>playerName(info.players[letters.indexOf(letter)])).filter(Boolean);
@@ -48,15 +49,16 @@
     const fragment=document.createDocumentFragment();
     if(!lineup.ready){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
     (lineup.ready?lineup.players.slice(0,lineup.leg.size):lineup.players).forEach((player,index)=>{
-      const letter=lineup.gradeBased?skillRole(player):letters[index],playing=lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
-      const row=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span");
+      const letter=letters[index],playing=lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
+      const row=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span"),grade=document.createElement("span");
       row.className="lineup-player";row.dataset.playerId=player.id;
       if(lineup.ready)row.dataset.playerSlot=letter;
       row.dataset.playing=String(playing);row.dataset.serving=String(serving);
-      slot.className="lineup-slot";slot.textContent=lineup.gradeBased?"Trình "+(skill(player)||"Chưa nhập"):"Vị trí "+letter;
+      slot.className="lineup-slot";slot.textContent=lineup.ready?"Vị trí "+letter:"Chưa xếp";
       name.className="lineup-name";name.textContent=playerName(player);
-      row.append(slot,name);
-      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${playing?"Đang đánh":"Chờ lượt"}${serving?" · Đang giao":""}`);
+      grade.className="lineup-grade";grade.textContent="Trình "+(skill(player)||"Chưa nhập");
+      row.append(slot,name,grade);
+      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${grade.textContent} · ${lineup.ready?(playing?"Đang đánh":"Chờ lượt"):"Chưa xác định vị trí"}${serving?" · Đang giao":""}`);
       if(serving){const badge=document.createElement("i");badge.className="lineup-serving";badge.textContent="GIAO";row.append(badge)}
       fragment.append(row);
     });
