@@ -624,7 +624,7 @@ async function openTournamentDetail(tournamentId){
       const r=await API.autoScheduleCourts(btn.dataset.autoCourts);
       await refresh();$("#genericDialog").close();await openTournamentDetail(tournamentId);
       toast(`Đã xếp lại ${r.updated||0} trận trên ${r.courts||0} sân, tránh trùng đội cùng giờ.`);
-    }catch(e){toast(e.message==="NO_UNSTARTED_MATCHES"?"Không còn trận vòng bảng chưa bắt đầu để xếp lại.":"Không thể xếp sân: "+e.message)}
+    }catch(e){toast(scheduleError(e))}
   });
   const centerDraw=document.querySelector("[data-center-draw]");
   if(centerDraw){
@@ -952,7 +952,10 @@ function syncScoreDialog(){
   if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?` • điểm ${d.pointsToWin} phải cầm giao`:"");
   const leg=$("#relayLeg");
   if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=!text;leg.textContent=text}
-  if($("#serveStatus"))$("#serveStatus").textContent=(serveSide==="A"?(lineupA?.label||teamName(activeMatch.a)):(lineupB?.label||teamName(activeMatch.b)))+(mode==="rally"?" • quyền giao":" • Server "+serverNo);
+  const servingLineup=serveSide==="A"?lineupA:lineupB,servingPlayer=servingLineup?.players?.[serverNo-1];
+  const servingName=servingLineup?.ready?(servingLineup.names?.[serverNo-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";
+  if($("#serveStatus"))$("#serveStatus").textContent=(servingLineup?.label||teamName(serveSide==="A"?activeMatch.a:activeMatch.b))+" • Người giao "+serverNo+(servingName?" · "+servingName:"");
+  window.PickleTimeoutClock?.attach($("#scoreTimeoutClock"),activeMatch);
   const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;
   if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/"+timeoutMax;
   if($("#timeoutB"))$("#timeoutB").textContent=Number(activeMatch.timeouts?.B||0)+"/"+timeoutMax;
@@ -960,8 +963,9 @@ function syncScoreDialog(){
   if($("#medicalB"))$("#medicalB").textContent=Number(activeMatch.medicalTimeouts?.B||0)+"/1";
   document.querySelectorAll("[data-service-side]").forEach(btn=>{
     const side=btn.dataset.serviceSide,no=Number(btn.dataset.serverNumber);
-    btn.classList.toggle("active",side===serveSide&&(mode==="rally"||no===serverNo));
-    btn.disabled=locked||(!isDoubles&&no===2)||(mode==="rally"&&no===2);
+    const selected=side===serveSide&&no===serverNo;
+    btn.classList.toggle("active",selected);btn.setAttribute("aria-pressed",String(selected));
+    btn.disabled=locked||(!isDoubles&&no===2);
   });
   document.querySelectorAll("[data-rally]").forEach(btn=>btn.disabled=locked);
   document.querySelectorAll("[data-timeout-side]").forEach(btn=>{
@@ -997,8 +1001,10 @@ function syncScoreDialog(){
     }
   }
 }
+$("#scoreDialog").addEventListener("close",()=>window.PickleTimeoutClock?.detach($("#scoreTimeoutClock")));
 function scoreError(e){
   return {VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
+    COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Kết thúc trận trên sân hoặc chọn sân khác.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Kiểm tra lại lịch trước khi bắt đầu.",
     DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
     UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",
     MATCH_NOT_FINISHED:"Chưa đủ số set thắng để kết thúc trận.",NOT_ENOUGH_SET_WINS:"Chưa đủ số set thắng để kết thúc trận.",
@@ -1100,7 +1106,27 @@ function selectDivisionDialog(title,buttonText,onSubmit){
   $("#genericBody").innerHTML=`<div class="form-grid"><label class="field full">Nội dung<select id="autoDivision">${state.divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label><div class="field full"><button type="button" class="btn primary" id="autoSubmit">${buttonText}</button></div></div>`;
   $("#genericDialog").showModal();$("#autoSubmit").onclick=()=>onSubmit($("#autoDivision").value);
 }
-function openAutoScheduleModal(){selectDivisionDialog("Xếp sân tự động","Xếp sân",async id=>{try{let r;const hasGroup=state.matches.some(m=>m.divisionId===id&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));r=hasGroup?await API.autoScheduleCourts(id):await API.generateRoundRobin(id);$("#genericDialog").close();await refresh();toast(hasGroup?`Đã xếp ${r.updated||0} trận trên ${r.courts||0} sân.`:`Đã tạo ${r.created||0} trận và xếp trên ${r.courts||0} sân.`)}catch(e){toast("Không thể xếp sân: "+e.message)}})}
+function scheduleError(e){
+  return {NO_UNSTARTED_MATCHES:"Không còn trận chưa bắt đầu để xếp lại.",NO_COURTS:"Chưa có sân hoạt động. Thêm sân trước khi xếp lịch.",COURT_SCHEDULE_CONFLICT:"Lịch, điểm hoặc sân vừa thay đổi. Tải lại và thử xếp sân lại.",DRAW_RESET_CONFLICT:"Bảng đấu vừa thay đổi. Tải lại và kiểm tra.",GROUP_DRAW_RESET_REQUIRED:"Đã có lịch thi đấu. Dùng ‘Đặt lại bảng & quay lại’ trước khi chia lại.",GROUP_STAGE_ALREADY_STARTED:"Vòng bảng đã có lịch sử thi đấu. Dùng ‘Đặt lại bảng & quay lại’ nếu muốn bắt đầu lại.",BRACKET_ALREADY_EXISTS:"Đã có nhánh đấu. Kiểm tra lịch hiện tại trước khi tạo thêm."}[e.message]||"Không thể xếp sân: "+e.message;
+}
+function openAutoScheduleModal(){
+  selectDivisionDialog("Xếp sân tự động","Xếp sân",async id=>{
+    const button=$("#autoSubmit");if(button.disabled)return;button.disabled=true;
+    try{
+      const hasMatches=state.matches.some(m=>m.divisionId===id);
+      if(!hasMatches){
+        const division=state.divisions.find(d=>d.id===id);
+        if(["single_elimination","double_elimination"].includes(division?.format))return toast("Tạo nhánh đấu trước khi xếp sân cho nội dung loại trực tiếp.");
+        if(!state.courts.some(c=>c.tournamentId===division?.tournamentId&&c.active!==false))return toast(scheduleError({message:"NO_COURTS"}));
+        await API.generateRoundRobin(id);
+      }
+      const result=await API.autoScheduleCourts(id);
+      $("#genericDialog").close();await refresh();
+      toast(`Đã xếp ${result.updated||0} trận trên ${result.courts||0} sân.`);
+    }catch(e){toast(scheduleError(e))}
+    finally{button.disabled=false}
+  });
+}
 function openAutoBracketModal(){selectDivisionDialog("Tạo bracket","Tạo từ BXH",async id=>{try{await API.generateBracket(id);$("#genericDialog").close();await refresh();toast("Đã tạo bán kết và chung kết.")}catch(e){const m={GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa kết thúc.",BRACKET_ALREADY_EXISTS:"Bracket đã tồn tại.",DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS:"Double elimination hiện hỗ trợ 4 hoặc 8 đội.",ROUND_ROBIN_HAS_NO_KNOCKOUT:"Nội dung Round Robin không cần bracket.",NOT_ENOUGH_QUALIFIERS:"Không đủ đội vào vòng loại trực tiếp.",NO_ACTIVE_COURTS:"Chưa có sân hoạt động."}[e.message]||e.message;toast(m)}})}
 async function openMatchModal(){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");
@@ -1442,14 +1468,14 @@ function openAutoSeedModal(){
   $("#genericBody").innerHTML=`<div class="form-grid">
     <label class="field full">Nội dung<select id="seedDivision">${state.divisions.filter(d=>d.active!==false).map(d=>`<option value="${d.id}">${d.name}</option>`).join("")}</select></label>
     <label class="field full">Số bảng<input id="seedGroups" type="number" min="2" max="26" value="2"></label>
-    <div class="field full"><p style="font-size:11px;color:#73847b;margin:0">Xếp theo rating trung bình của VĐV, phân phối kiểu snake và ưu tiên tránh cùng CLB chung bảng.</p></div>
+    <div class="field full"><p style="font-size:11px;color:#73847b;margin:0">Phân phối đội theo thứ tự hạt giống. Nếu đã có lịch thi đấu, hãy đặt lại bảng trước khi chia lại.</p></div>
     <div class="field full"><button type="button" class="btn primary" id="runAutoSeed">Chia bảng</button></div>
   </div>`;
   $("#genericDialog").showModal();
   $("#runAutoSeed").onclick=async()=>{try{
     const r=await API.autoSeedGroups($("#seedDivision").value,Number($("#seedGroups").value));
-    $("#genericDialog").close();await refresh();toast(`Đã chia ${r.groupCount} bảng theo rating.`);
-  }catch(e){const m={MORE_GROUPS_THAN_TEAMS:"Số bảng nhiều hơn số đội.",INVALID_GROUP_COUNT:"Số bảng không hợp lệ."}[e.message]||e.message;toast("Không thể chia bảng: "+m)}};
+    $("#genericDialog").close();await refresh();toast(`Đã chia ${r.groupCount??r.groups} bảng.`);
+  }catch(e){const m={MORE_GROUPS_THAN_TEAMS:"Số bảng nhiều hơn số đội.",INVALID_GROUP_COUNT:"Số bảng không hợp lệ.",INVALID_DRAW_OPTIONS:"Số bảng phải là số nguyên từ 1 đến 26.",GROUP_DRAW_RESET_REQUIRED:"Đã có lịch thi đấu. Dùng ‘Đặt lại bảng & quay lại’ trước khi chia lại.",DRAW_RESET_CONFLICT:"Bảng đấu vừa thay đổi. Tải lại và kiểm tra."}[e.message]||e.message;toast("Không thể chia bảng: "+m)}};
 }
 async function openTeamModal(presetDivisionId=null,autoRegister=false){
   if(!state.divisions.length)return toast("Cần tạo giải/nội dung trước.");

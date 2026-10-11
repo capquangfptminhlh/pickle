@@ -65,6 +65,8 @@ await action(reversible.id,"quick-score",{sets:[[3,11],[4,11]]});await action(re
 assert.deepEqual(afterQuick.sets,beforeQuick.sets);assert.deepEqual(afterQuick.current,beforeQuick.current);assert.equal(afterQuick.status,beforeQuick.status);assert.equal(afterQuick.winner,beforeQuick.winner);
 await point(reversible.id,"A",8);await action(reversible.id,"finish",{winnerTeamId:teams[0].id});assert.equal((await current(reversible.id)).sets.length,2);
 await action(reversible.id,"undo");assert.equal((await current(reversible.id)).sets.length,1);assert.deepEqual((await current(reversible.id)).current,[11,2]);
+// This Undo reopens play. Finish it before another scenario reuses its players.
+await action(reversible.id,"finish",{winnerTeamId:teams[0].id});
 
 const onePoint=await newMatch();await point(onePoint.id,"A",1);await action(onePoint.id,"undo");await action(onePoint.id,"undo",{},[400]);
 await api(`/api/matches/${onePoint.id}`,{teamBId:teams[2].id},{method:"PATCH",expected:[409]});
@@ -74,6 +76,7 @@ const tbd=await newMatch();await api(`/api/matches/${tbd.id}`,{teamBId:null},{me
 
 const concurrent=await newMatch();const version=(await current(concurrent.id)).version;
 const attempts=await Promise.all(["A","B"].map(side=>action(concurrent.id,"point",{side,delta:1,expectedVersion:version},[200,409])));assert.deepEqual(attempts.map(r=>r.status).sort(),[200,409]);
+await action(concurrent.id,"quick-score",{sets:[[11,3],[11,4]]});
 const done=await newMatch();await action(done.id,"quick-score",{sets:[[11,3],[11,4]]});
 for(const [name,body] of [["point",{side:"A",delta:1}],["finish-set",{}],["finish",{winnerTeamId:teams[0].id}],["quick-score",{sets:[[3,11],[4,11]]}],["special-result",{winnerTeamId:teams[1].id,reason:"walkover"}]])await action(done.id,name,body,[409]);
 await api(`/api/matches/${done.id}`,undefined,{method:"DELETE",expected:[409]});

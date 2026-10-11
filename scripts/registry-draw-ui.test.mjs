@@ -13,7 +13,7 @@ test("center draw chooses among populated divisions in the current tournament",a
     const page=await browser.newPage();page.setDefaultTimeout(3000);
     await page.setContent('<dialog id="genericDialog"><h2 id="genericTitle"></h2><div id="genericBody"><button data-center-draw="tour">Draw</button><button data-auto-draw="empty">Empty</button></div></dialog>');
     await page.evaluate(()=>{
-      window.state={divisions:[{id:'empty',tournamentId:'tour',name:'Empty'},...['a','b'].map(id=>({id,tournamentId:'tour',name:'Nội dung '+id})),{id:'foreign',tournamentId:'other',name:'Foreign'}],teams:['a','b','foreign'].flatMap(divisionId=>[0,1,2,3].map(i=>({id:divisionId+i,divisionId,name:divisionId+i}))),courts:[{id:'court',tournamentId:'tour',name:'Sân 1'}],matches:[]};
+      window.canManage=()=>true;window.state={divisions:[{id:'empty',tournamentId:'tour',name:'Empty'},...['a','b'].map(id=>({id,tournamentId:'tour',name:'Nội dung '+id})),{id:'foreign',tournamentId:'other',name:'Foreign'}],teams:['a','b','foreign'].flatMap(divisionId=>[0,1,2,3].map(i=>({id:divisionId+i,divisionId,name:divisionId+i}))),courts:[{id:'court',tournamentId:'tour',name:'Sân 1'}],matches:[]};
       window.toast=()=>{};window.loaded=[];window.API={drawConfig:async id=>{loaded.push(id);return {}}};document.querySelector('#genericDialog').showModal();
     });
     await page.addScriptTag({content:source});await page.locator('[data-center-draw]').click();
@@ -30,7 +30,7 @@ for(const action of ["save","run"])test(`invalid ${action} draw counts show an a
     const page=await browser.newPage();page.setDefaultTimeout(3000);page.on("dialog",dialog=>dialog.accept());
     await page.setContent('<button data-auto-draw="division">Draw</button>');
     await page.evaluate(()=>{
-      window.state={divisions:[{id:"division",tournamentId:"tour",advanceCount:2}],teams:["a","b","c","d"].map(id=>({id,divisionId:"division",name:id})),courts:[{id:"court",tournamentId:"tour",name:"Court"}],matches:[]};
+      window.canManage=()=>true;window.state={divisions:[{id:"division",tournamentId:"tour",advanceCount:2}],teams:["a","b","c","d"].map(id=>({id,divisionId:"division",name:id})),courts:[{id:"court",tournamentId:"tour",name:"Court"}],matches:[]};
       window.toasts=[];window.toast=message=>toasts.push(message);
       const reject=async()=>{throw new Error("INVALID_DRAW_OPTIONS")};
       window.API={drawConfig:async()=>({}),saveDrawConfig:reject,runDraw:reject};
@@ -81,7 +81,7 @@ test("draw setup opens above the operator dialog and restores it after close or 
     page.setDefaultTimeout(3000);
     await page.setContent('<dialog id="genericDialog"><button data-auto-draw="division">Draw</button></dialog>');
     await page.evaluate(()=>{
-      window.state={
+      window.canManage=()=>true;window.state={
         divisions:[{id:"division",tournamentId:"tour",name:"Đôi phong trào",advanceCount:2}],
         teams:["a","b","c","d"].map(id=>({id,divisionId:"division",name:id})),
         courts:[{id:"court",tournamentId:"tour",name:"Sân 01"}],matches:[]

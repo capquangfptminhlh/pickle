@@ -151,7 +151,7 @@
           PLAYER_NOT_FOUND:"Có hồ sơ VĐV không còn tồn tại. Hãy chọn lại từ hệ thống.",
           INVALID_PLAYER_COUNT:"Số lượng VĐV chưa đúng. "+(count===4?"Nội dung đồng đội cần 1–4 VĐV.":"Nội dung này cần "+count+" VĐV."),
           DUPLICATE_PLAYER_SELECTION:"Không thể chọn cùng một VĐV hai lần.",
-          TEAM_ROSTER_LOCKED:"Trận của đội đã bắt đầu hoặc có điểm / kết quả. Không thể đổi thành viên; khôi phục thành viên ban đầu để lưu thông tin đội.",
+          TEAM_ROSTER_LOCKED:"Đội đang khởi động hoặc trận đã bắt đầu / có điểm / kết quả. Không thể đổi thành viên; khôi phục thành viên ban đầu để lưu thông tin đội.",
           INVALID_CLUB:"CLB không hợp lệ hoặc đã khóa."
         }[e.message]||e.message;
         error.textContent="Không thể cập nhật: "+reason;error.hidden=false;ctx.toast(error.textContent);

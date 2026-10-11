@@ -5,6 +5,7 @@ import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
 import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch} from "./draw-reset.js";
+import {scheduleDivisionCourts} from "./court-scheduling.js";
 import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../../shared/account-login.js";
@@ -97,6 +98,7 @@ async function matchJson(env,id){
     resultReason:m.result_reason||null,resultNote:m.result_note||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:nowIso()}:null,
     calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   };
 }
@@ -546,7 +548,7 @@ async function handleApi(request,env,ctx){
       changed=!slotsAssigned||ids.length!==oldIds.length||ids.some((id,index)=>id!==oldIds[index]);
     }
     if(changed){
-      const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id)) LIMIT 1",p.id,p.id);
+      const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id) OR (status NOT IN ('completed','walkover','cancelled') AND court_state IN ('warming_up','live'))) LIMIT 1",p.id,p.id);
       if(locked)throw httpError("TEAM_ROSTER_LOCKED",409);
     }
     if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(env,before.division_id,ids,{currentTeamId:p.id});
@@ -797,10 +799,15 @@ async function handleApi(request,env,ctx){
   }
   p=route(path,"/api/divisions/:id/auto-seed-groups");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request),count=Math.max(1,Math.min(26,Number(b.groupCount||2)));
+    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    const input=b.groupCount===undefined?2:b.groupCount,count=Number(input);
+    if(!["number","string"].includes(typeof input)||!Number.isSafeInteger(count)||count<1||count>26)return fail("INVALID_DRAW_OPTIONS",request,env,400);
     const signature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",p.id)).signature;
+    if(await one(env,"SELECT id FROM matches WHERE division_id=? LIMIT 1",p.id))return fail("GROUP_DRAW_RESET_REQUIRED",request,env,409);
     const teams=await rows(env,"SELECT id FROM teams WHERE division_id=? AND status='active' ORDER BY COALESCE(seed,9999),name",p.id);
     const at=nowIso(),statements=teams.map((team,i)=>env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(String.fromCharCode(65+(i%count)),at,team.id));
+    statements.push(env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) VALUES(?,'division',?,'AUTO_SEED_GROUPS',?,?)")
+      .bind(user.id,p.id,JSON.stringify({groupCount:count,assignments:teams.map((team,i)=>({teamId:team.id,group:String.fromCharCode(65+(i%count))}))}),"Chia bảng theo hạt giống"));
     await guardedDivisionBatch(env,p.id,signature,statements);
     await emitUpdate(env,tid);return ok({ok:true,groups:count},request,env);
   }
@@ -808,47 +815,29 @@ async function handleApi(request,env,ctx){
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id);
     const signature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",p.id)).signature;
+    const matches=await rows(env,"SELECT * FROM matches WHERE division_id=?",p.id);
+    if(matches.some(m=>m.bracket_slot||(m.stage!=="Vòng bảng"&&!m.stage.startsWith("Bảng "))))return fail("BRACKET_ALREADY_EXISTS",request,env,409);
+    for(const match of matches)if(match.completed_at||await matchHasHistory(env,match))return fail("GROUP_STAGE_ALREADY_STARTED",request,env,409);
     const teams=await rows(env,"SELECT id,group_code FROM teams WHERE division_id=? AND status='active' ORDER BY group_code,COALESCE(seed,9999),name",p.id);
     const groups=new Map();for(const t of teams){const g=t.group_code||"A";if(!groups.has(g))groups.set(g,[]);groups.get(g).push(t)}
-    let created=0;const statements=[];
+    let created=0;const statements=[],createdMatches=[];
     for(const [g,list] of groups)for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
       const exists=await one(env,"SELECT id FROM matches WHERE division_id=? AND ((team_a_id=? AND team_b_id=?) OR (team_a_id=? AND team_b_id=?))",p.id,list[i].id,list[j].id,list[j].id,list[i].id);
-      if(!exists){statements.push(env.DB.prepare("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,'scheduled',1,?)").bind(uid(),p.id,list[i].id,list[j].id,"Bảng "+g,nowIso()));created++}
+      if(!exists){
+        const id=uid();statements.push(env.DB.prepare("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,status,version,created_at) VALUES(?,?,?,?,?,'scheduled',1,?)").bind(id,p.id,list[i].id,list[j].id,"Bảng "+g,nowIso()));
+        createdMatches.push({id,teamAId:list[i].id,teamBId:list[j].id,group:g});created++;
+      }
     }
+    statements.push(env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) VALUES(?,'division',?,'GENERATE_ROUND_ROBIN',?,?)")
+      .bind(user.id,p.id,JSON.stringify({created,matches:createdMatches}),"Tạo lịch vòng tròn theo bảng"));
     await guardedDivisionBatch(env,p.id,signature,statements);
     await emitUpdate(env,tid);return ok({ok:true,created},request,env);
   }
   p=route(path,"/api/divisions/:id/auto-schedule-courts");
   if(p&&method==="POST"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id);
-    const courts=await rows(env,"SELECT id FROM courts WHERE tournament_id=? AND active=1 ORDER BY sort_order,name",tid);
-    if(!courts.length)return fail("NO_COURTS",request,env,400);
-    const division=await one(env,"SELECT minimum_rest_minutes,match_slot_minutes FROM divisions WHERE id=?",p.id);
-    const tournament=await one(env,"SELECT start_at FROM tournaments WHERE id=?",tid);
-    const minRest=Math.max(0,Number(division?.minimum_rest_minutes??15));
-    const slotMinutes=Math.max(5,Number(division?.match_slot_minutes??20));
-    const parsedStart=Date.parse(tournament?.start_at||"");
-    const baseMs=Number.isFinite(parsedStart)?parsedStart:Date.now();
-    const pending=await rows(env,"SELECT id,team_a_id,team_b_id,created_at FROM matches WHERE division_id=? AND status IN ('scheduled','ready') AND team_a_id IS NOT NULL AND team_b_id IS NOT NULL ORDER BY created_at",p.id);
-    const courtFree=new Map(courts.map(c=>[c.id,baseMs])),teamFree=new Map();
-    const remaining=[...pending],plan=[];
-    while(remaining.length){
-      let best=null;
-      for(let mi=0;mi<remaining.length;mi++){
-        const m=remaining[mi];
-        const teamsReady=Math.max(teamFree.get(m.team_a_id)||baseMs,teamFree.get(m.team_b_id)||baseMs);
-        for(const court of courts){
-          const start=Math.max(baseMs,courtFree.get(court.id)||baseMs,teamsReady);
-          if(!best||start<best.start||(start===best.start&&mi<best.mi))best={mi,match:m,courtId:court.id,start};
-        }
-      }
-      const chosen=remaining.splice(best.mi,1)[0],end=best.start+slotMinutes*60000,restUntil=end+minRest*60000;
-      courtFree.set(best.courtId,end);teamFree.set(chosen.team_a_id,restUntil);teamFree.set(chosen.team_b_id,restUntil);
-      plan.push({id:chosen.id,courtId:best.courtId,scheduledAt:new Date(best.start).toISOString()});
-    }
-    for(const item of plan)await env.DB.prepare("UPDATE matches SET court_id=?,scheduled_at=?,version=version+1 WHERE id=?").bind(item.courtId,item.scheduledAt,item.id).run();
-    await createAudit(env,user,"division",p.id,"AUTO_SCHEDULE",null,{minRestMinutes:minRest,matchSlotMinutes:slotMinutes,courts:courts.length,matches:plan.length});
-    await emitUpdate(env,tid);return ok({ok:true,updated:plan.length,assigned:plan.length,courts:courts.length,minRestMinutes:minRest,matchSlotMinutes:slotMinutes},request,env);
+    const result=await scheduleDivisionCourts(env,user,p.id,tid);
+    await emitUpdate(env,tid);return ok(result,request,env);
   }
 
   if(path==="/api/users"&&method==="GET"){
@@ -1064,7 +1053,7 @@ export default {
     }catch(e){
       const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
       if(dbMessage.includes("UNIQUE constraint failed: app_users.email"))return fail("EMAIL_EXISTS",request,env,409);
-      const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT","VERSION_CONFLICT","DOWNSTREAM_MATCH_LOCKED"].find(code=>dbMessage.includes(code));
+      const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT","VERSION_CONFLICT","DOWNSTREAM_MATCH_LOCKED","COURT_BUSY","PLAYER_BUSY"].find(code=>dbMessage.includes(code));
       const status=Number(e?.status||(constraint?(constraint==='INVALID_PLAYER_COUNT'?400:409):500)),code=constraint||(status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED"));
       if(status===500)console.error(e);
       return fail(code,request,env,status);

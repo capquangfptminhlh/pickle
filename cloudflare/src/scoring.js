@@ -4,7 +4,8 @@ import {broadcast} from "./realtime.js";
 import {validateSet,validateSeries,timeoutsPerGame} from "../../shared/scoring-rules.js";
 
 const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
-const scoringFields=[...legacyScoringFields,"court_state","serving_side","server_number","timeout_a","timeout_b","medical_timeout_a","medical_timeout_b"];
+const timeoutClockFields=["timeout_side","timeout_started_at","timeout_ends_at"];
+const scoringFields=[...legacyScoringFields,"court_state","serving_side","server_number","timeout_a","timeout_b","medical_timeout_a","medical_timeout_b",...timeoutClockFields];
 const actions=new Set(["point","rally","service","timeout","finish-set","quick-score","finish","special-result","undo","reset"]);
 const error=(code,status=400)=>Object.assign(new Error(code),{status});
 const one=(env,sql,...args)=>env.DB.prepare(sql).bind(...args).first();
@@ -12,6 +13,7 @@ const rows=async(env,sql,...args)=>(await env.DB.prepare(sql).bind(...args).all(
 const statement=(env,sql,...args)=>env.DB.prepare(sql).bind(...args);
 const pairs=sets=>sets.map(s=>[s.score_a,s.score_b]);
 const snapshot=(match,sets)=>({match:{...match},sets:sets.map(s=>({...s}))});
+const clearTimeoutClock=match=>{for(const field of timeoutClockFields)match[field]=null};
 const series=(m,sets,requireComplete)=>validateSeries(pairs(sets),Number(m.best_of),Number(m.points_to_win),Boolean(m.win_by_two),{requireComplete});
 
 async function authorize(env,user,m){
@@ -45,7 +47,8 @@ function view(m,sets){
     status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,current:[m.current_score_a,m.current_score_b],sets:pairs(sets),winner:m.winner_team_id||null,
     version:m.version,bracketSlot:m.bracket_slot||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||initialServerNumber(m)),
-    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)}};
+    timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:nowIso()}:null};
 }
 
 async function bracketChanges(env,m,winner,restore=null){
@@ -79,6 +82,8 @@ async function bracketChanges(env,m,winner,restore=null){
 // Missing quick-score sets or ambiguous match-finish history cannot be invented.
 async function legacyBefore(env,m,sets,event,payload){
   const before=snapshot(m,sets),p=payload.before;
+  // Pre-clock events have no evidence of a prior timeout deadline.
+  clearTimeoutClock(before.match);
   const previous=await one(env,"SELECT * FROM score_events WHERE match_id=? AND id<? AND event_type<>'UNDO' AND undone_at IS NULL ORDER BY id DESC LIMIT 1",m.id,event.id);
   const previousPayload=safeJsonParse(previous?.payload,{});
   const wasLive=previous&&["POINT","SET_FINISH"].includes(previous.event_type);
@@ -118,7 +123,7 @@ async function undoPlan(env,m,sets){
   const payload=safeJsonParse(event.payload,{});
   const before=payload.before?.match&&Array.isArray(payload.before.sets)?payload.before:await legacyBefore(env,m,sets,event,payload);
   for(const field of legacyScoringFields)if(!(field in before.match))throw error("UNDO_HISTORY_UNAVAILABLE",409);
-  for(const field of scoringFields)if(!(field in before.match))before.match[field]=m[field]??null;
+  for(const field of scoringFields)if(!(field in before.match))before.match[field]=timeoutClockFields.includes(field)?null:(m[field]??null);
   const after=snapshot(m,before.sets);
   for(const field of scoringFields)after.match[field]=before.match[field];
   // Participation history remains durable even after reversing the first point.
@@ -141,6 +146,7 @@ async function resetPlan(env,m,sets){
   const first=events[0],firstPayload=safeJsonParse(first.payload,{});
   const baseline=firstPayload.reset===true?firstPayload.after:firstPayload.before;
   if(!baseline?.match||!Array.isArray(baseline.sets))throw error("RESET_HISTORY_UNAVAILABLE",409);
+  for(const field of timeoutClockFields)if(!(field in baseline.match))baseline.match[field]=null;
   for(const field of scoringFields)if(!(field in baseline.match))throw error("RESET_HISTORY_UNAVAILABLE",409);
   const alreadyReset=events.length===1&&firstPayload.reset===true&&
     scoringFields.every(field=>(m[field]??null)===(baseline.match[field]??null))&&
@@ -148,6 +154,7 @@ async function resetPlan(env,m,sets){
   if(alreadyReset)throw error("NOTHING_TO_RESET");
   const after=snapshot(m,baseline.sets);
   for(const field of scoringFields)after.match[field]=baseline.match[field];
+  clearTimeoutClock(after.match);
   // Keep durable participation history even when the visible board returns to its initial state.
   after.match.started_at=m.started_at||baseline.match.started_at||null;
   let bracket={changes:[],guards:[]};
@@ -190,7 +197,7 @@ async function mutationPlan(env,m,sets,action,body,at){
       if(Number(m.final_point_on_serve)===1&&side!==serveBefore&&validateSet(a,b,Number(m.points_to_win),Boolean(m.win_by_two))){
         next.serving_side=side;next.server_number=1;sideOut=true;
       }else{
-        next[column]+=1;next.serving_side=side;next.server_number=1;scored=true;
+        next[column]+=1;next.serving_side=side;next.server_number=side===serveBefore?serverBefore:1;scored=true;
       }
     }else if(side===next.serving_side){
       const column=side==="A"?"current_score_a":"current_score_b";
@@ -216,6 +223,9 @@ async function mutationPlan(env,m,sets,action,body,at){
     const limit=kind==="medical"?1:timeoutsPerGame(m.points_to_win),current=Number(next[column]||0);
     if(current>=limit)throw error(kind==="medical"?"MEDICAL_TIMEOUT_LIMIT":"TIMEOUT_LIMIT",409);
     next[column]=current+1;eventType="CORRECTION";payload={timeout:true,side,kind,count:next[column]};
+    if(kind==="standard"){
+      next.timeout_side=side;next.timeout_started_at=at;next.timeout_ends_at=new Date(Date.parse(at)+60000).toISOString();
+    }
   }else if(action==="quick-score"){
     if(!Array.isArray(body.sets)||!body.sets.length)throw error("NO_SETS_PROVIDED");
     const result=validateSeries(body.sets,Number(m.best_of),Number(m.points_to_win),Boolean(m.win_by_two));
@@ -240,7 +250,10 @@ async function mutationPlan(env,m,sets,action,body,at){
     if(![m.team_a_id,m.team_b_id].includes(body.winnerTeamId)||!["walkover","no_show","retired","injury","disqualified"].includes(body.reason))throw error("INVALID_SPECIAL_RESULT");
     complete(next,body.winnerTeamId,at);next.result_reason=body.reason;next.result_note=String(body.note||"");done=true;eventType="MATCH_FINISH";payload={special:true};
   }
-  if(["point","rally","finish-set","finish","quick-score","special-result"].includes(action))next.started_at=m.started_at||at;
+  if(["point","rally","finish-set","finish","quick-score","special-result"].includes(action)){
+    next.started_at=m.started_at||at;
+    clearTimeoutClock(next);
+  }
   const bracket=done?await bracketChanges(env,m,next.winner_team_id):{changes:[],guards:[]};
   return {after,eventType,payload,bracket};
 }
@@ -262,8 +275,9 @@ async function commit(env,user,m,sets,action,plan,at){
   for(const id of plan.restoreEventIds||[])statements.push(statement(env,"UPDATE score_events SET undone_at=NULL WHERE id=? AND undone_at IS NOT NULL",id));
   statements.push(statement(env,"INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'match',?,?,?,?,?)",user.id,m.id,action.toUpperCase().replaceAll("-","_"),JSON.stringify(payload.before),JSON.stringify(plan.after),plan.undoEvent?"Undo event "+plan.undoEvent.id:action==="reset"?"Reset toàn bộ bảng điểm":null));
   try{await env.DB.batch(statements)}catch(e){
-    if(String(e.message).includes("VERSION_CONFLICT"))throw error("VERSION_CONFLICT",409);
-    if(String(e.message).includes("DOWNSTREAM_MATCH_LOCKED"))throw error("DOWNSTREAM_MATCH_LOCKED",409);
+    const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
+    const constraint=["VERSION_CONFLICT","DOWNSTREAM_MATCH_LOCKED","COURT_BUSY","PLAYER_BUSY"].find(code=>dbMessage.includes(code));
+    if(constraint)throw error(constraint,409);
     throw e;
   }
 }

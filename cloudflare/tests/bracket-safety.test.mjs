@@ -187,7 +187,9 @@ test("new slot guard installs over historical duplicates without deleting or upd
     db.exec("INSERT INTO matches(id,division_id,bracket_slot) VALUES('historic1','division','SE-R1-M1'),('historic2','division','SE-R1-M1')");
     const before=db.prepare("SELECT * FROM matches ORDER BY id").all();
     for(const file of files.filter(name=>name>="0008"))db.exec(readFileSync(new URL(file,directory),"utf8"));
-    assert.deepEqual(db.prepare("SELECT * FROM matches ORDER BY id").all(),before);
+    const originalColumns=Object.keys(before[0]).map(name=>'"'+name+'"').join(',');
+    assert.deepEqual(db.prepare(`SELECT ${originalColumns} FROM matches ORDER BY id`).all(),before,'additive columns must not alter historical values');
+    assert.ok(db.prepare('SELECT timeout_side,timeout_started_at,timeout_ends_at FROM matches').all().every(row=>Object.values(row).every(value=>value===null)));
     assert.throws(()=>db.exec("INSERT INTO matches(id,division_id,bracket_slot) VALUES('newduplicate','division','SE-R1-M1')"),/BRACKET_ALREADY_EXISTS/);
   }finally{db.close()}
 });

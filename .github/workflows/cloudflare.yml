@@ -43,6 +43,7 @@ jobs:
         run: |
           node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
+          node --check assets/timeout-clock.js
           node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
@@ -89,6 +90,7 @@ jobs:
           node ../scripts/registry-legacy-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-bracket-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-draw-reset-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-court-safety-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 
   deploy:
     needs: validate

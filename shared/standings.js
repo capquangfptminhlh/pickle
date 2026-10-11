@@ -14,7 +14,7 @@ function miniStats(ids,matches){
   const stats=new Map([...ids].map(id=>[id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
   for(const m of matches){
     const a=teamA(m),b=teamB(m),win=winner(m);
-    if(!finished(m)||!isGroupStageMatch(m)||!stats.has(a)||!stats.has(b)||!win)continue;
+    if(!finished(m)||!isGroupStageMatch(m)||!stats.has(a)||!stats.has(b)||a===b||![a,b].includes(win))continue;
     let ap=0,bp=0,asw=0,bsw=0;
     for(const set of sets(m)){
       const sa=Number(set?.[0]||0),sb=Number(set?.[1]||0);
