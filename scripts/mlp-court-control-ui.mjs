@@ -122,6 +122,13 @@ try{
   referee.on('pageerror',error=>errors.push(error.message));
   await referee.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens.ref);await wireApi(referee,f);
   await referee.goto(base+'/referee.html?match=match');await referee.locator('#scoreSurface').waitFor();
+  assert.equal((await referee.locator('#refTeamA').innerText()).trim(),'Zelda / An / Mai','a completed match shows the full team');
+  assert.equal((await referee.locator('#refTeamB').innerText()).trim(),'Linh / Bảo / Chi');
+  assert.equal(await referee.locator('#legBanner').isVisible(),false,'a completed match has no active relay pair');
+  assert.equal(await referee.locator('[data-rally="A"]').isDisabled(),true,'completed matches cannot award rally points');
+  f.db.exec("UPDATE matches SET status='live',court_state='live',winner_team_id=NULL WHERE id='match'");
+  await referee.locator('#refreshBtn').click();
+  await referee.locator('#refTeamA').filter({hasText:'Cặp AB · Zelda + An'}).waitFor();
   assert.equal((await referee.locator('#refTeamA').innerText()).trim(),'Cặp AB · Zelda + An');
   assert.equal((await referee.locator('#refTeamB').innerText()).trim(),'Cặp AB · Linh + Bảo');
   assert.match(await referee.locator('#legBanner').innerText(),/Tiếp theo BC: An \+ Mai/);
