@@ -18,14 +18,16 @@
     $("#matchState").textContent=meta[0];$("#matchState").className="state-pill "+meta[1];
     $("#matchCourt").textContent=c?.name||(m.court&&m.court!=="—"?"Sân "+m.court:"Chưa gán sân");
     $("#matchTime").textContent=m.time||"Chưa chốt giờ";
-    $("#matchTeamA").textContent=team(m.a);$("#matchTeamB").textContent=team(m.b);
+    const locked=Boolean(m.winner)||["done","completed","walkover","cancelled"].includes(m.status);
+    const lineupA=window.PickleTeamLineup?.match(m.a,d,m.current?.[0],m.current?.[1],state,m),lineupB=window.PickleTeamLineup?.match(m.b,d,m.current?.[0],m.current?.[1],state,m);
+    $("#matchTeamA").textContent=locked?team(m.a):(lineupA?.label||team(m.a));$("#matchTeamB").textContent=locked?team(m.b):(lineupB?.label||team(m.b));
     const specialResult=Boolean(m.winner&&m.resultReason),finalScore=m.winner&&!specialResult&&m.sets?.length?m.sets[m.sets.length-1]:null;
     $("#matchScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:Number(m.current?.[0]||0);$("#matchScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:Number(m.current?.[1]||0);
     $("#setList").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';
     const serve=$("#serveInfo");
     if(m.winner){serve.hidden=false;serve.textContent=team(m.winner)+" · thắng trận"}
     else if(m.status==="live"&&m.servingSide){
-      serve.hidden=false;serve.textContent="🏓 Đang giao: "+(m.servingSide==="A"?team(m.a):team(m.b))+(d?.scoringMode==="side_out"?" · Server "+Number(m.serverNumber||2):"");
+      serve.hidden=false;serve.textContent="🏓 Đang giao: "+(m.servingSide==="A"?(lineupA?.label||team(m.a)):(lineupB?.label||team(m.b)))+(d?.scoringMode==="side_out"?" · Server "+Number(m.serverNumber||2):"");
     }else serve.hidden=true;
     $("#matchUpdated").textContent="Cập nhật "+new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
     $("#tournamentLink").href=t?"tournament.html?id="+encodeURIComponent(t.id):"/";

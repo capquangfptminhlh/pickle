@@ -224,6 +224,7 @@
     generateBracket:(divisionId)=>request(`/api/divisions/${divisionId}/generate-bracket`,{method:"POST",body:"{}"}),
     assignMatch:(id,payload)=>request(`/api/matches/${id}/assignment`,{method:"PATCH",body:JSON.stringify(payload)}),
     setCourtState:(id,payload)=>request(`/api/matches/${id}/court-state`,{method:"PATCH",body:JSON.stringify(payload)}),
+    relayDraw:(id,payload)=>request(`/api/matches/${id}/relay-draw`,{method:"POST",body:JSON.stringify(payload)}),
     point:(id,payload)=>request(`/api/matches/${id}/point`,{method:"POST",body:JSON.stringify(payload)}),
     rally:(id,payload)=>request(`/api/matches/${id}/rally`,{method:"POST",body:JSON.stringify(payload)}),
     service:(id,payload)=>request(`/api/matches/${id}/service`,{method:"POST",body:JSON.stringify(payload)}),

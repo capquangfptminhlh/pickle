@@ -405,7 +405,7 @@ async function openTournamentDetail(tournamentId){
   const isFinished=match=>["done","completed","walkover"].includes(match.status)||Boolean(match.winner);
   const courtMatchTeams=match=>{
     const division=divisionById.get(match.divisionId),scoreA=Number(match.current?.[0]||0),scoreB=Number(match.current?.[1]||0);
-    const a=window.PickleTeamLineup?.match(match.a,division,scoreA,scoreB,state),b=window.PickleTeamLineup?.match(match.b,division,scoreA,scoreB,state);
+    const a=window.PickleTeamLineup?.match(match.a,division,scoreA,scoreB,state,match),b=window.PickleTeamLineup?.match(match.b,division,scoreA,scoreB,state,match);
     return {a:a?.short||teamName(match.a),b:b?.short||teamName(match.b),rosterA:a?.relay&&a.text?a.text:"",rosterB:b?.relay&&b.text?b.text:""};
   };
   const courtGridHtml=activeCourts.length?`<section class="tournament-court-control" data-tournament-court-grid>
@@ -941,11 +941,13 @@ function openScore(id){
 function syncScoreDialog(){
   if(!activeMatch)return;
   const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  const awaitingDraw=window.PickleTeamLineup?.awaitingDraw(d,activeMatch);
   const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
+  window.PickleTeamLineup?.renderDrawPanel($("#relayDrawPanel"),$("#relayDrawButton"),activeMatch,d,state);
   const specialResult=Boolean(activeMatch.winner&&activeMatch.resultReason);
   const finalScore=activeMatch.winner&&!specialResult&&activeMatch.sets?.length?activeMatch.sets[activeMatch.sets.length-1]:null;
   $("#scoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#scoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
-  const lineupA=window.PickleTeamLineup?.match(activeMatch.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(activeMatch.b,d,a,b,state);
+  const lineupA=window.PickleTeamLineup?.match(activeMatch.a,d,a,b,state,activeMatch),lineupB=window.PickleTeamLineup?.match(activeMatch.b,d,a,b,state,activeMatch);
   $("#teamAName").textContent=locked?teamName(activeMatch.a):(lineupA?.label||teamName(activeMatch.a));$("#teamBName").textContent=locked?teamName(activeMatch.b):(lineupB?.label||teamName(activeMatch.b));
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
@@ -954,10 +956,10 @@ function syncScoreDialog(){
   window.PickleTeamLineup?.renderRoster($("#teamBRoster"),lineupB,!locked&&serveSide==="B"?serverNo:0,locked);
   if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?` • điểm ${d.pointsToWin} phải cầm giao`:"");
   const leg=$("#relayLeg");
-  if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=locked||!text;leg.textContent=text}
+  if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state,activeMatch)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=locked||!text;leg.textContent=text}
   const servingLineup=serveSide==="A"?lineupA:lineupB,servingPlayer=servingLineup?.players?.[serverNo-1];
-  const servingName=servingLineup?.ready?(servingLineup.names?.[serverNo-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";
-  if($("#serveStatus"))$("#serveStatus").textContent=activeMatch.winner?teamName(activeMatch.winner)+" • thắng trận":locked?"Trận đã kết thúc":(servingLineup?.label||teamName(serveSide==="A"?activeMatch.a:activeMatch.b))+" • Người giao "+serverNo+(servingName?" · "+servingName:"");
+  const servingName=servingLineup?.ready&&!awaitingDraw?(servingLineup.names?.[serverNo-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";
+  if($("#serveStatus"))$("#serveStatus").textContent=awaitingDraw?"Bốc thăm cặp trước khi bắt đầu":activeMatch.winner?teamName(activeMatch.winner)+" • thắng trận":locked?"Trận đã kết thúc":(servingLineup?.label||teamName(serveSide==="A"?activeMatch.a:activeMatch.b))+" • Người giao "+serverNo+(servingName?" · "+servingName:"");
   if($("#serveStatus")?.previousElementSibling)$("#serveStatus").previousElementSibling.textContent=locked?"KẾT QUẢ":"ĐANG GIAO";
   window.PickleTimeoutClock?.attach($("#scoreTimeoutClock"),activeMatch);
   const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;
@@ -969,13 +971,13 @@ function syncScoreDialog(){
     const side=btn.dataset.serviceSide,no=Number(btn.dataset.serverNumber);
     const selected=side===serveSide&&no===serverNo;
     btn.classList.toggle("active",selected);btn.setAttribute("aria-pressed",String(selected));
-    btn.disabled=locked||(!isDoubles&&no===2);
+    btn.disabled=locked||awaitingDraw||(!isDoubles&&no===2);
   });
-  document.querySelectorAll("[data-rally]").forEach(btn=>btn.disabled=locked);
+  document.querySelectorAll("[data-rally]").forEach(btn=>btn.disabled=locked||awaitingDraw);
   document.querySelectorAll("[data-timeout-side]").forEach(btn=>{
     const side=btn.dataset.timeoutSide,kind=btn.dataset.timeoutKind;
     const used=Number((kind==="medical"?activeMatch.medicalTimeouts:activeMatch.timeouts)?.[side]||0),limit=kind==="medical"?1:timeoutMax;
-    btn.disabled=locked||used>=limit;
+    btn.disabled=locked||awaitingDraw||used>=limit;
   });
   const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
   const setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
@@ -985,11 +987,11 @@ function syncScoreDialog(){
   const winsB=(activeMatch.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length;
   const decider=setWon&&(a>b?winsA+1:winsB+1)>=need;
   $("#finishMatch").disabled=locked||!(winsA>=need||winsB>=need||decider);
-  $("#saveQuickScore").disabled=locked;
-  document.querySelectorAll('#quickSetsList input').forEach(input=>input.disabled=locked);
+  $("#saveQuickScore").disabled=locked||awaitingDraw;
+  document.querySelectorAll('#quickSetsList input').forEach(input=>input.disabled=locked||awaitingDraw);
   $("#undoScore").disabled=activeMatch.status==="cancelled";
   document.querySelectorAll('[data-score]').forEach(btn=>{
-    btn.disabled=locked||setWon||(btn.dataset.delta==="-1"&&(btn.dataset.score==="a"?a:b)<=0);
+    btn.disabled=locked||awaitingDraw||setWon||(btn.dataset.delta==="-1"&&(btn.dataset.score==="a"?a:b)<=0);
   });
   const tip=$("#scoreStatusTip");
   if(tip){
@@ -1006,8 +1008,12 @@ function syncScoreDialog(){
   }
 }
 $("#scoreDialog").addEventListener("close",()=>window.PickleTimeoutClock?.detach($("#scoreTimeoutClock")));
+$("#relayDrawButton")?.addEventListener("click",async()=>{
+  if(busy||!activeMatch)return;busy=true;$("#relayDrawButton").disabled=true;
+  try{await API.relayDraw(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã bốc thăm độc lập cặp của hai đội.")}catch(e){await showScoreError(e)}finally{busy=false;syncScoreDialog()}
+});
 function scoreError(e){
-  return {VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
+  return {RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
     COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Kết thúc trận trên sân hoặc chọn sân khác.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Kiểm tra lại lịch trước khi bắt đầu.",
     DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
     UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",

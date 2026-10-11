@@ -13,7 +13,7 @@ async function fresh(){
   return f;
 }
 function ok(r,label){assert.ok(r.status>=200&&r.status<300,`${label}: ${r.status} ${JSON.stringify(r.data)}`);return r.data}
-const MATCH_SQL="SELECT m.*,d.points_to_win,d.win_by_two,d.best_of,d.scoring_mode,d.final_point_on_serve,d.relay_segment_points,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?";
+const MATCH_SQL="SELECT m.*,d.points_to_win,d.win_by_two,d.best_of,d.scoring_mode,d.final_point_on_serve,d.relay_segment_points,d.relay_team_size,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?";
 const row=(f,id)=>f.db.prepare(MATCH_SQL).get(id);
 const setsOf=(f,id)=>f.db.prepare("SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no").all(id).map(s=>[s.score_a,s.score_b]);
 
@@ -38,6 +38,17 @@ async function setupDivision(f,{name,eventType="team",rules,teams,perTeam,courts
 
 // Plays one match rally by rally and asserts the scoring rules on every rally.
 async function playMatch(f,id,strength,rand,stats){
+  const before=row(f,id);
+  if(before.relay_team_size===3&&before.relay_segment_points>0&&!before.started_at&&!before.relay_order_a){
+    const blocked=await f.api(`/api/matches/${id}/rally`,{side:"A",expectedVersion:before.version},"POST");
+    assert.equal(blocked.status,409);assert.equal(blocked.data.error,"RELAY_DRAW_REQUIRED");
+    assert.equal(row(f,id).version,before.version,"blocked scoring leaves the match unchanged");
+    ok(await f.api(`/api/matches/${id}/relay-draw`,{expectedVersion:before.version},"POST"),"pre-match independent pair draw");
+    const drawn=row(f,id);
+    for(const field of ["relay_order_a","relay_order_b"])assert.deepEqual(JSON.parse(drawn[field]).sort(),["AB","BC","CA"]);
+    assert.ok(drawn.relay_drawn_at);assert.equal(drawn.version,before.version+1);
+  }
+  const orders=[row(f,id).relay_order_a,row(f,id).relay_order_b,row(f,id).relay_drawn_at];
   for(let guard=0;guard<4000;guard++){
     const m=row(f,id);
     if(m.status==="completed")return m;
@@ -50,6 +61,7 @@ async function playMatch(f,id,strength,rand,stats){
     const side=rand()<pa/(pa+pb)?"A":"B",serve=m.serving_side||"A";
     ok(await f.api(`/api/matches/${id}/rally`,{side,expectedVersion:m.version},"POST"),"rally");
     const after=row(f,id);stats.rallies++;
+    assert.deepEqual([after.relay_order_a,after.relay_order_b,after.relay_drawn_at],orders,"scoring preserves both independent orders");
     assert.equal(after.version,m.version+1,"every rally is one versioned event");
     const na=a+(side==="A"?1:0),nb=b+(side==="B"?1:0);
     if(m.scoring_mode==="rally"){
@@ -413,9 +425,11 @@ test("quick-score typos that cannot happen on court are rejected",async()=>{
     ];
     let n=0;
     for(const [rules,sets,status] of cases){
-      const {division}=await setupDivision(f,{name:"Typo"+(++n),eventType:"doubles",rules:{format:"single_elimination",scoringMode:"rally",...rules},teams:2,perTeam:2,courts:1});
+      const relay=rules.relayTeamSize===3;
+      const {division}=await setupDivision(f,{name:"Typo"+(++n),eventType:relay?"team":"doubles",rules:{format:"single_elimination",scoringMode:"rally",...rules},teams:2,perTeam:relay?3:2,courts:1});
       ok(await f.api(`/api/divisions/${division.id}/generate-bracket`,{},"POST"),"bracket");
       const [id]=knockoutReady(f,division.id);
+      if(rules.relayTeamSize===3)ok(await f.api(`/api/matches/${id}/relay-draw`,{expectedVersion:row(f,id).version},"POST"),"draw before score validation");
       const r=await f.api(`/api/matches/${id}/quick-score`,{sets},"POST");
       assert.equal(r.status,status,`${JSON.stringify(rules)} ${JSON.stringify(sets)} -> ${r.status} ${r.data?.error||""}`);
     }

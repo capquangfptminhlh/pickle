@@ -24,7 +24,7 @@
 <link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/typography.css?v=1">
 <link rel="stylesheet" href="assets/timeout-clock.css?v=1">
-<link rel="stylesheet" href="assets/team-lineup.css?v=2">
+<link rel="stylesheet" href="assets/team-lineup.css?v=3">
 </head>
 <body class="admin-sport site-sport">
   <a class="admin-skip-link" href="#content">Bỏ qua menu, đến nội dung</a>
@@ -78,6 +78,7 @@
       </div>
 
       <div id="scoreSets" class="set-history"></div>
+      <section id="relayDrawPanel" class="relay-draw-panel" aria-label="Bốc thăm cặp thi đấu" hidden><b>CẶP THI ĐẤU TỪNG ĐỘI</b><div class="relay-draw-orders" aria-live="polite"></div><button id="relayDrawButton" type="button" class="btn primary" data-relay-draw>Bốc thăm cặp từng đội</button></section>
       <div id="relayLeg" class="relay-leg" role="status" hidden></div>
 
       <div class="score-board">
@@ -168,17 +169,17 @@
   </dialog>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="assets/api.js?v=55"></script>
+  <script src="assets/api.js?v=56"></script>
   <script src="assets/csv-import.js"></script>
   <script src="assets/admin-modules.js"></script>
   <script src="assets/bracket-ui.js?v=38"></script>
-  <script src="assets/match-format.js?v=6"></script>
-  <script src="assets/team-lineup.js?v=4"></script>
+  <script src="assets/match-format.js?v=7"></script>
+  <script src="assets/team-lineup.js?v=5"></script>
   <script src="assets/timeout-clock.js?v=1"></script>
-  <script src="assets/admin-crud.js?v=12"></script>
+  <script src="assets/admin-crud.js?v=13"></script>
   <script src="assets/player-picker.js?v=3"></script>
   <script src="assets/player-avatar-input.js?v=1"></script>
-  <script src="assets/admin-app.js?v=76"></script>
+  <script src="assets/admin-app.js?v=77"></script>
   <script src="assets/draw-flex.js?v=8"></script>
   <script src="assets/ui-motion.js?v=34"></script>
   <script src="/assets/pwa.js"></script>

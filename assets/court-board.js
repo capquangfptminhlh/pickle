@@ -10,8 +10,8 @@
   const division=m=>state.divisions.find(d=>d.id===m.divisionId);
   const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5;
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI VĐV","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
-  const matchLineup=(m,id)=>window.PickleTeamLineup?.match(id,division(m),Number(m.current?.[0]||0),Number(m.current?.[1]||0),state);
-  const matchTeam=(m,id)=>matchLineup(m,id)?.label||team(id);
+  const matchLineup=(m,id)=>window.PickleTeamLineup?.match(id,division(m),Number(m.current?.[0]||0),Number(m.current?.[1]||0),state,m);
+  const matchTeam=(m,id)=>m.winner||["done","completed","walkover","cancelled"].includes(m.status)?team(id):(matchLineup(m,id)?.label||team(id));
   const matchRoster=(m,id)=>{const lineup=matchLineup(m,id);return lineup?.relay&&lineup.text?'<small class="tv-team-roster">Đội: '+esc(lineup.text)+'</small>':''};
 
   function divisionIds(){return new Set(state.divisions.filter(d=>d.tournamentId===tournamentId).map(d=>d.id))}
@@ -135,7 +135,7 @@
     const m=state.matches.find(x=>x.id===matchId);if(!m)return;
     try{
       const data=await API.publicMatchQr(matchId);
-      $("#qrMatchTitle").textContent=team(m.a)+" vs "+team(m.b);
+      $("#qrMatchTitle").textContent=matchTeam(m,m.a)+" vs "+matchTeam(m,m.b);
       $("#qrImage").innerHTML=data.dataUrl?'<img src="'+data.dataUrl+'" alt="QR trận đấu">':'';
       $("#qrOpenLink").href=data.url||("match.html?id="+encodeURIComponent(matchId));
       $("#qrDialog").showModal();

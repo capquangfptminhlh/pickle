@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="assets/typography.css?v=1">
 <link rel="stylesheet" href="assets/referee-arena.css?v=2">
 <link rel="stylesheet" href="assets/timeout-clock.css?v=1">
-<link rel="stylesheet" href="assets/team-lineup.css?v=2">
+<link rel="stylesheet" href="assets/team-lineup.css?v=3">
 </head>
 <body class="courtside-body site-sport referee-arena">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
@@ -54,6 +54,7 @@
         <small id="legBanner" class="leg-banner" hidden></small>
       </div>
 
+      <section id="refRelayDrawPanel" class="relay-draw-panel" aria-label="Bốc thăm cặp thi đấu" hidden><b>CẶP THI ĐẤU TỪNG ĐỘI</b><div class="relay-draw-orders" aria-live="polite"></div><button id="refRelayDrawButton" type="button" class="btn primary" data-relay-draw>Bốc thăm cặp từng đội</button></section>
       <div id="refRules" class="ref-rules" aria-label="Luật thi đấu"></div>
       <div class="ref-game-line"><span id="refGameLabel">GAME 1</span><span id="refGameWins"></span></div>
 
@@ -121,11 +122,11 @@
   <div id="refToast" class="ref-toast" hidden></div>
   <div id="refAnnouncement" class="ref-announcement" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="assets/api.js?v=55"></script>
-  <script src="assets/match-format.js?v=6"></script>
-  <script src="assets/team-lineup.js?v=4"></script>
+  <script src="assets/api.js?v=56"></script>
+  <script src="assets/match-format.js?v=7"></script>
+  <script src="assets/team-lineup.js?v=5"></script>
   <script src="assets/timeout-clock.js?v=1"></script>
-  <script src="assets/referee-courtside.js?v=12"></script>
+  <script src="assets/referee-courtside.js?v=13"></script>
   <script src="/assets/pwa.js"></script>
 </body>
 </html>

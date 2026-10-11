@@ -7,12 +7,12 @@
   const FORMATS={round_robin:"Vòng tròn",pool_to_knockout:"Vòng bảng + loại trực tiếp",single_elimination:"Loại trực tiếp",double_elimination:"Loại kép"};
   const EVENTS={singles:"Đơn",doubles:"Đôi",mixed_doubles:"Đôi nam nữ",team:"Đồng đội"};
   const TEAM_SIZES=[3,4];
-  // The MLP "chạy điểm" poster rule: 3 players, AB to 9, BC to 18, CA to 27,
+  // MLP three-player relay uses independently drawn AB/BC/CA with thresholds 9/18/27,
   // rally, and the final point only counts for the serving side.
   const MLP_RELAY={bestOf:1,winByTwo:false,scoringMode:"rally",relaySegmentPoints:9,relayTeamSize:3,finalPointOnServe:true};
   // Pairs rotate cyclically so every player plays two legs (mirrors shared/scoring-rules.js).
   const relayPairs=n=>{const l="ABCD".slice(0,n);return [...l].map((x,i)=>x+l[(i+1)%n])};
-  const relayInfo=(seg,size)=>seg&&size?`Tổng ${seg*size} điểm: ${relayPairs(size).map((p,i)=>p+" đến "+seg*(i+1)).join(" → ")}`:"Mỗi game tính điểm riêng.";
+  const relayInfo=(seg,size)=>seg&&size?(Number(size)===3?`Tổng ${seg*size} điểm: đổi cặp tại ${seg} / ${seg*2}; mỗi đội bốc thăm độc lập AB, BC, CA trước trận`:`Tổng ${seg*size} điểm: ${relayPairs(size).map((p,i)=>p+" đến "+seg*(i+1)).join(" → ")}`):"Mỗi game tính điểm riêng.";
 
   const withCurrent=(list,current)=>[...new Set([...list,Number(current)].filter(v=>Number.isFinite(v)))].sort((a,b)=>a-b);
   function pointOptions(selected){
@@ -23,7 +23,7 @@
   }
   function teamSizeOptions(selected){
     const current=Number(selected)||3;
-    return TEAM_SIZES.map(v=>`<option value="${v}" ${current===v?"selected":""}>${v} người (${relayPairs(v).join(" → ")})</option>`).join("");
+    return TEAM_SIZES.map(v=>`<option value="${v}" ${current===v?"selected":""}>${v} người (${v===3?"bốc thăm AB, BC, CA":relayPairs(v).join(" → ")})</option>`).join("");
   }
   // Extra rule fields; ids are `${prefix}Relay`, `${prefix}TeamSize`, `${prefix}FinalServe`, `${prefix}Third`.
   // fields: CSS selectors of the form's own bestOf/points/scoring/winByTwo controls,
@@ -80,6 +80,7 @@
   }
   // "Cặp AB/BC/CA" (3 players) or "Cặp AB/BC/CD/DA" (4 players); "Lượt n" otherwise.
   function legName(index,size){
+    if(Number(size)===3)return "Lượt "+(index+1)+" (theo bốc thăm từng đội)";
     if(TEAM_SIZES.includes(size))return "Cặp "+relayPairs(size)[index];
     return "Lượt "+(index+1);
   }
@@ -98,7 +99,7 @@
     if(!d)return "";
     const parts=[];
     const size=Number(d.relayTeamSize||0)||Math.round(Number(d.pointsToWin)/Number(d.relaySegmentPoints||1));
-    if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm ${size} lượt × ${d.relaySegmentPoints} = ${d.pointsToWin} điểm`,`Đội ${size} người, thứ tự cặp ${relayPairs(size).join(" → ")}`);
+    if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm ${size} lượt × ${d.relaySegmentPoints} = ${d.pointsToWin} điểm`,size===3?"Đội 3 người, mỗi đội bốc thăm độc lập AB, BC, CA trước trận":`Đội ${size} người, thứ tự cặp ${relayPairs(size).join(" → ")}`);
     else parts.push(`${Number(d.bestOf)===1?"1 game":`${d.bestOf} game thắng ${Math.ceil(Number(d.bestOf)/2)}`} • ${d.pointsToWin} điểm`);
     parts.push(d.scoringMode==="rally"?"Rally (pha nào cũng tính điểm)":"Chỉ bên giao được điểm");
     if(!Number(d.relaySegmentPoints))parts.push(d.winByTwo?"Thắng cách 2":"Không cần cách 2");
@@ -124,8 +125,9 @@
     if(!d)return {kicker:"",facts:[],relay:null};
     const seg=Number(d.relaySegmentPoints||0),target=Number(d.pointsToWin||0);
     const size=Number(d.relayTeamSize||0)||(seg?Math.round(target/seg):0);
-    const relay=seg&&TEAM_SIZES.includes(size)?relayPairs(size).map((pair,i)=>({pair,from:i*seg,to:Math.min(target,(i+1)*seg)})):null;
+    const relay=seg&&TEAM_SIZES.includes(size)?relayPairs(size).map((pair,i)=>({pair:size===3?"Lượt "+(i+1):pair,from:i*seg,to:Math.min(target,(i+1)*seg)})):null;
     const bestOf=Number(d.bestOf||1),facts=[];
+    if(relay&&size===3)facts.push({label:"Cặp thi đấu",value:"AB / BC / CA",note:"Mỗi đội bốc thăm độc lập thứ tự trước trận"});
     if(relay)facts.push({label:"Điểm thắng",value:`${target} điểm`,note:`1 game chạy điểm, ${size} lượt × ${seg}`});
     else{
       facts.push({label:"Mỗi trận",value:bestOf===1?"1 game":`${bestOf} game`,note:bestOf===1?"thắng game là thắng trận":`thắng ${Math.ceil(bestOf/2)} game trước`});

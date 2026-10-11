@@ -75,7 +75,7 @@ function render(){
  $("#tourLiveCount").textContent=live.length?"● "+live.length+" trận đang live":"Chưa có trận live";$("#tourLiveCount").classList.toggle("is-realtime",realtimeConnected&&live.length>0);$("#tourLiveCount").classList.toggle("is-idle",!live.length);$("#tourTeamCount").textContent=teams.length+" đội";
  $("#tourDivisions").innerHTML=divs.map(d=>{
    const sheet=mf.ruleSheet?mf.ruleSheet(d):{kicker:mf.eventLabel(d.eventType),facts:[],relay:null};
-   const relay=sheet.relay?'<div class="rule-relay" role="img" aria-label="'+esc("Thứ tự cặp: "+sheet.relay.map(l=>l.pair+" đến "+l.to).join(", "))+'">'+sheet.relay.map(l=>'<div class="rule-relay-leg"><b>'+esc(l.pair)+'</b><span>'+l.from+' → '+l.to+'</span></div>').join("")+'</div>':"";
+   const relay=sheet.relay?'<div class="rule-relay" role="img" aria-label="'+esc("Các lượt chạy điểm: "+sheet.relay.map(l=>l.pair+" đến "+l.to).join(", "))+'">'+sheet.relay.map(l=>'<div class="rule-relay-leg"><b>'+esc(l.pair)+'</b><span>'+l.from+' → '+l.to+'</span></div>').join("")+'</div>':"";
    return '<article class="rule-sheet"><header class="rule-sheet-head"><span>'+esc(sheet.kicker)+'</span><h3>'+esc(d.name)+'</h3></header>'+relay+
      '<dl class="rule-facts">'+sheet.facts.map(f=>'<div><dt>'+esc(f.label)+'</dt><dd>'+esc(f.value)+'</dd><small>'+esc(f.note)+'</small></div>').join("")+'</dl></article>';
  }).join("")||empty("🏓","Chưa có nội dung thi đấu","BTC chưa tạo nội dung cho giải này.");
@@ -113,7 +113,7 @@ function render(){
  ])].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b,"vi"));
  const scoreOf=(m,side)=>m.status==="live"?(m.current?.[side]??0):(m.status==="done"||m.status==="completed"?(m.sets||[]).filter(s=>side===0?s[0]>s[1]:s[1]>s[0]).length:"—");
  const courtTeamRow=(m,side)=>{
-   const tid=side===0?m.a:m.b,av=teamAvatar(tid),name=team(tid),score=scoreOf(m,side);
+   const tid=side===0?m.a:m.b,av=teamAvatar(tid),name=m.winner||["done","completed","walkover","cancelled"].includes(m.status)?team(tid):(window.PickleTeamLineup?.match(tid,state.divisions.find(d=>d.id===m.divisionId),m.current?.[0],m.current?.[1],state,m)?.label||team(tid)),score=scoreOf(m,side);
    return '<div class="court-team-row">'+(av?'<img src="'+esc(av)+'" alt="" loading="lazy">':'<span class="court-team-avatar">'+esc(initials(name))+'</span>')+'<b>'+esc(name)+'</b><strong>'+esc(score)+'</strong></div>';
  };
  $("#tourMatches").innerHTML=courtKeys.length?'<div class="court-board-grid">'+courtKeys.map((court,ci)=>{

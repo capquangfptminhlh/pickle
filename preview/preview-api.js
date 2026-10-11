@@ -13,6 +13,12 @@
     if(ids.length<min||ids.length>max)throw new Error("INVALID_PLAYER_COUNT");
     return ids;
   };
+  const relayStarted=m=>Boolean(m.startedAt||m.started_at||m.hasHistory||["live","done","completed","walkover","cancelled"].includes(m.status)||m.winner||m.sets?.length||m.current?.some(Number));
+  const relaySupported=m=>{const d=state.divisions.find(x=>x.id===m.divisionId);return d?.eventType==="team"&&Number(d.relaySegmentPoints)>0&&Number(d.relayTeamSize||Math.ceil(Number(d.pointsToWin)/Number(d.relaySegmentPoints)))===3};
+  const validRelayOrder=order=>Array.isArray(order)&&order.length===3&&new Set(order).size===3&&order.every(c=>["AB","BC","CA"].includes(c));
+  const clearRelay=m=>{m.relayOrderA=null;m.relayOrderB=null;m.relayDrawnAt=null;m.version++};
+  const checkScore=(m,p={})=>{if(!m)throw new Error("NOT_FOUND");if(p.expectedVersion!==undefined&&Number(p.expectedVersion)!==m.version)throw new Error("VERSION_CONFLICT");if(relaySupported(m)&&!relayStarted(m)&&!(validRelayOrder(m.relayOrderA)&&validRelayOrder(m.relayOrderB)))throw new Error("RELAY_DRAW_REQUIRED")};
+  const shuffledRelay=()=>{const order=["AB","BC","CA"];for(let i=order.length-1;i>0;i--){const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[order[i],order[j]]=[order[j],order[i]]}return order};
   const svgAvatar=(name,bg="#0d2118",fg="#dfff69")=>{
     const ini=(name||"P").split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase();
     const svg='<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" rx="72" fill="'+bg+'"/><circle cx="196" cy="60" r="46" fill="#ffffff12"/><text x="128" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="82" fill="'+fg+'">'+ini+'</text></svg>';
@@ -407,7 +413,7 @@
         if(!club){club={id:uid(),name:String(p.club).normalize("NFC").trim(),active:true,city:""};state.clubs.push(club)}
       }
       const t={id,divisionId:did,name:p.name,club:club?.name||"Tự do",clubId:club?.id||null,group:p.group||"A",seed:p.seed||null,status:"active",w:0,l:0,pf:0,pa:0};
-      state.teams.push(t);state.teamPlayers[id]=[...playerIds];persist();return clone({...t,playerIds});
+      state.teams.push(t);state.teamPlayers[id]=[...playerIds];state.teamLineupSources||={};state.teamLineupSources[id]="assigned";persist();return clone({...t,playerIds});
     },
     updateTeam:async(id,p)=>{
       const t=state.teams.find(x=>x.id===id);if(!t)throw new Error("NOT_FOUND");
@@ -415,7 +421,7 @@
       if(!["active","withdrawn"].includes(status))throw new Error("INVALID_TEAM_STATUS");
       const ids=p.playerIds===undefined?oldIds:validatePreviewPlayerIds(division.eventType,p.playerIds);
       const changed=ids.length!==oldIds.length||ids.some((playerId,index)=>playerId!==oldIds[index]);
-      if(changed&&state.matches.some(m=>(m.a===id||m.b===id)&&(m.startedAt||m.started_at||["live","done","completed","walkover"].includes(m.status)||m.winner||(m.sets||[]).length||(m.current||[]).some(Number))))throw new Error("TEAM_ROSTER_LOCKED");
+      if(changed&&state.matches.some(m=>(m.a===id||m.b===id)&&relayStarted(m)))throw new Error("TEAM_ROSTER_LOCKED");
       if(changed||(t.status==='withdrawn'&&status==='active')){
         validatePreviewPlayerIds(division.eventType,ids);
         const selected=ids.map(playerId=>state.players.find(player=>player.id===playerId));
@@ -428,7 +434,7 @@
       if(p.clubId&&p.clubId!==t.clubId&&(!club||club.active===false||club.active===0))throw new Error("INVALID_CLUB");
       const before=clone({...t,playerIds:oldIds});
       Object.assign(t,{name:p.name??t.name,clubId:p.clubId===undefined?t.clubId:(p.clubId||null),club:p.clubId===undefined?t.club:(club?.name||(p.clubId===t.clubId?t.club:"Tự do")),group:p.group??t.group,seed:p.seed??t.seed,status});
-      if(changed)state.teamPlayers[id]=[...ids];
+      if(changed){state.teamPlayers[id]=[...ids];state.teamLineupSources||={};state.teamLineupSources[id]="assigned";state.matches.filter(m=>m.a===id||m.b===id).forEach(clearRelay)}
       state.audit.unshift({time:new Date().toLocaleTimeString("vi-VN"),user:"Preview Admin",action:"UPDATE_TEAM",detail:t.name,beforeData:before,afterData:clone({...t,playerIds:ids})});
       persist();return clone({...t,playerIds:ids});
     },
@@ -528,12 +534,18 @@
     },
 
     assignMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(p.courtId!==undefined){const ct=p.courtId?state.courts.find(x=>x.id===p.courtId):null;m.courtId=p.courtId||null;m.court=ct?.sortOrder||ct?.name||"—"}if(p.refereeUserId!==undefined)m.refereeId=p.refereeUserId||null;if(p.scheduledAt!==undefined)m.time=p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";m.version++;persist();return clone(m)},
-    updateMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);Object.assign(m,p);if(p.scheduledAt)m.time=new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});m.version++;persist();return clone(m)},
+    updateMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(p.expectedVersion!==undefined&&p.expectedVersion!==m.version)throw new Error("VERSION_CONFLICT");const a=p.teamAId??p.a??m.a,b=p.teamBId??p.b??m.b;if(a!==m.a||b!==m.b){if(relayStarted(m))throw new Error("MATCH_ROSTER_LOCKED");clearRelay(m)}Object.assign(m,p,{a,b});if(p.scheduledAt)m.time=new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});m.version++;persist();return clone(m)},
     deleteMatch:async id=>{const m=state.matches.find(x=>x.id===id);if(m.status==="done")throw Object.assign(new Error("COMPLETED_MATCH_LOCKED"),{status:409});if(m.status==="wait"&&!m.sets.length&&!(m.current?.[0]||m.current?.[1])){state.matches=state.matches.filter(x=>x.id!==id);persist();return {mode:"deleted"}}m.status="cancelled";persist();return {mode:"cancelled",entity:clone(m)}},
-    point:async(id,p)=>{const m=state.matches.find(x=>x.id===id),i=p.side==="A"?0:1;m.current[i]=Math.max(0,m.current[i]+Number(p.delta));m.startedAt||=new Date().toISOString();m.status="live";m.version++;persist();return clone(m)},
-    finishSet:async id=>{const m=state.matches.find(x=>x.id===id);m.sets.push([...m.current]);m.current=[0,0];m.version++;persist();return clone(m)},
-    finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
-    quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
+    relayDraw:async(id,p={})=>{const m=state.matches.find(x=>x.id===id);if(!m)throw new Error("NOT_FOUND");if(p.expectedVersion!==m.version)throw new Error("VERSION_CONFLICT");if(!relaySupported(m))throw new Error("RELAY_DRAW_UNSUPPORTED");if(relayStarted(m))throw new Error("RELAY_DRAW_LOCKED");if(!m.a||!m.b||m.a==="TBD"||m.b==="TBD")throw new Error("MATCH_TEAMS_REQUIRED");m.relayOrderA=shuffledRelay();m.relayOrderB=shuffledRelay();m.relayDrawnAt=new Date().toISOString();m.version++;state.audit.unshift({time:m.relayDrawnAt,user:"Preview Admin",action:"RELAY_DRAW",detail:m.id,afterData:clone(m)});persist();return clone(m)},
+    resetMatch:async(id,p={})=>{const m=state.matches.find(x=>x.id===id);if(p.expectedVersion!==undefined&&p.expectedVersion!==m.version)throw new Error("VERSION_CONFLICT");m.hasHistory=relayStarted(m);m.current=[0,0];m.sets=[];m.winner=null;m.resultReason=null;m.status="wait";m.version++;persist();return clone(m)},
+    point:async(id,p)=>{const m=state.matches.find(x=>x.id===id),i=p.side==="A"?0:1;checkScore(m,p);m.current[i]=Math.max(0,m.current[i]+Number(p.delta));m.startedAt||=new Date().toISOString();m.status="live";m.version++;persist();return clone(m)},
+    rally:async(id,p)=>{const m=state.matches.find(x=>x.id===id);checkScore(m,p);const d=state.divisions.find(x=>x.id===m.divisionId),side=p.side,index=side==="A"?0:1,serve=m.servingSide||"A";if(d?.scoringMode==="rally"||side===serve){if(!(d?.finalPointOnServe&&m.current[index]===Number(d.pointsToWin)-1&&side!==serve))m.current[index]++}else if(Number(m.serverNumber||2)===1)m.serverNumber=2;else{m.servingSide=side;m.serverNumber=1}if(d?.scoringMode==="rally"){m.servingSide=side;m.serverNumber=1}m.startedAt||=new Date().toISOString();m.status="live";m.version++;persist();return clone(m)},
+    service:async(id,p)=>{const m=state.matches.find(x=>x.id===id);checkScore(m,p);m.servingSide=p.side;m.serverNumber=Number(p.serverNumber);m.hasHistory=true;m.version++;persist();return clone(m)},
+    timeout:async(id,p)=>{const m=state.matches.find(x=>x.id===id);checkScore(m,p);const key=p.kind==="medical"?"medicalTimeouts":"timeouts";m[key]||={A:0,B:0};m[key][p.side]++;m.hasHistory=true;m.version++;persist();return clone(m)},
+    setCourtState:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(p.expectedVersion!==m.version)throw new Error("VERSION_CONFLICT");m.courtState=p.courtState;m.version++;persist();return clone(m)},
+    finishSet:async id=>{const m=state.matches.find(x=>x.id===id);checkScore(m);m.startedAt||=new Date().toISOString();m.sets.push([...m.current]);m.current=[0,0];m.version++;persist();return clone(m)},
+    finishMatch:async id=>{const m=state.matches.find(x=>x.id===id);checkScore(m);if(m.current?.some(Number)){m.sets.push([...m.current]);m.current=[0,0]}const aw=m.sets.filter(s=>s[0]>s[1]).length,bw=m.sets.filter(s=>s[1]>s[0]).length;m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
+    quickScore:async(id,p)=>{const m=state.matches.find(x=>x.id===id);checkScore(m,p);m.startedAt||=new Date().toISOString();const rawSets=Array.isArray(p.sets)?p.sets:[];m.sets=rawSets.map(s=>[Number(s[0]||0),Number(s[1]||0)]).filter(([a,b])=>a>0||b>0);m.current=[0,0];let aw=0,bw=0;m.sets.forEach(([a,b])=>{if(a>b)aw++;else if(b>a)bw++});m.winner=aw>=bw?m.a:m.b;m.status="done";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     specialResult:async(id,p)=>{const m=state.matches.find(x=>x.id===id);m.winner=p.winnerTeamId;m.status="done";m.resultReason=p.reason;m.resultNote=p.note||"";m.version++;progressSingleElim(m.divisionId);persist();return clone(m)},
     undo:async id=>{const m=state.matches.find(x=>x.id===id);if(m.current[0]||m.current[1]){if(m.current[0]>=m.current[1]&&m.current[0]>0)m.current[0]--;else if(m.current[1]>0)m.current[1]--}m.version++;persist();return clone(m)},
     referees:async()=>clone(state.referees),
@@ -589,12 +601,12 @@
       const team=state.teams.find(t=>t.id===teamId),player=state.players.find(p=>p.id===playerId);if(!team||!player)throw new Error("PLAYER_NOT_FOUND");
       if(player.active===false)throw new Error("PLAYER_INACTIVE");
       const arr=state.teamPlayers[teamId]||(state.teamPlayers[teamId]=[]);if(arr.includes(playerId))return {ok:true};
-      if(state.matches.some(m=>(m.a===teamId||m.b===teamId)&&(m.startedAt||m.started_at||["live","done","completed","walkover"].includes(m.status)||m.winner||(m.sets||[]).length||(m.current||[]).some(Number))))throw new Error("TEAM_ROSTER_LOCKED");
+      if(state.matches.some(m=>(m.a===teamId||m.b===teamId)&&relayStarted(m)))throw new Error("TEAM_ROSTER_LOCKED");
       const division=state.divisions.find(d=>d.id===team.divisionId);
       const used=state.teams.filter(t=>t.divisionId===team.divisionId&&t.id!==teamId&&t.status!=="withdrawn").some(t=>(state.teamPlayers[t.id]||[]).includes(playerId));
       if(used)throw new Error("PLAYER_ALREADY_IN_DIVISION");
       if(arr.length>=playerCountRange(division?.eventType).max)throw new Error("INVALID_PLAYER_COUNT");
-      arr.push(playerId);persist();return {ok:true};
+      arr.push(playerId);state.matches.filter(m=>m.a===teamId||m.b===teamId).forEach(clearRelay);persist();return {ok:true};
     }
   };
   window.PickleAPI=api;

@@ -85,10 +85,10 @@ try{
   await first.locator('[data-court-score="match"]').click();
   assert.equal((await admin.locator('#teamAName').innerText()).trim(),'Cặp AB · Zelda + An');
   assert.equal((await admin.locator('#teamBName').innerText()).trim(),'Cặp AB · Linh + Bảo');
-  assert.match(await admin.locator('#relayLeg').innerText(),/Tiếp theo BC: An \+ Mai/);
+  assert.match(await admin.locator('#relayLeg').innerText(),/Tiếp theo A: BC: An \+ Mai vs B: BC: Bảo \+ Chi/);
   f.db.exec("UPDATE matches SET current_score_a=9 WHERE id='match'");await admin.evaluate(()=>refresh({keepDialog:true}));
   assert.equal((await admin.locator('#teamAName').innerText()).trim(),'Cặp BC · An + Mai');
-  assert.match(await admin.locator('#relayLeg').innerText(),/Tiếp theo CA: Mai \+ Zelda/);
+  assert.match(await admin.locator('#relayLeg').innerText(),/Tiếp theo A: CA: Mai \+ Zelda vs B: CA: Chi \+ Linh/);
   f.db.exec("UPDATE matches SET current_score_a=18 WHERE id='match'");await admin.evaluate(()=>refresh({keepDialog:true}));
   assert.equal((await admin.locator('#teamAName').innerText()).trim(),'Cặp CA · Mai + Zelda');
   f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'");
@@ -131,7 +131,7 @@ try{
   await referee.locator('#refTeamA').filter({hasText:'Cặp AB · Zelda + An'}).waitFor();
   assert.equal((await referee.locator('#refTeamA').innerText()).trim(),'Cặp AB · Zelda + An');
   assert.equal((await referee.locator('#refTeamB').innerText()).trim(),'Cặp AB · Linh + Bảo');
-  assert.match(await referee.locator('#legBanner').innerText(),/Tiếp theo BC: An \+ Mai/);
+  assert.match(await referee.locator('#legBanner').innerText(),/Tiếp theo A: BC: An \+ Mai vs B: BC: Bảo \+ Chi/);
   f.db.exec("UPDATE matches SET current_score_b=9 WHERE id='match'");await referee.locator('#refreshBtn').click();
   await referee.locator('#refTeamA').filter({hasText:'Cặp BC · An + Mai'}).waitFor();
   f.db.exec("UPDATE matches SET current_score_b=18 WHERE id='match'");await referee.locator('#refreshBtn').click();
