@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="assets/theme.css?v=2">
 <link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/typography.css?v=1">
+<link rel="stylesheet" href="assets/timeout-clock.css?v=1">
 </head>
 <body class="admin-sport site-sport">
   <a class="admin-skip-link" href="#content">Bỏ qua menu, đến nội dung</a>
@@ -113,6 +114,11 @@
           <button type="button" class="mini" data-service-side="B" data-server-number="1">B • S1</button>
           <button type="button" class="mini" data-service-side="B" data-server-number="2">B • S2</button>
         </div>
+        <section id="scoreTimeoutClock" class="timeout-clock" aria-label="Đồng hồ timeout" hidden>
+          <span data-timeout-label></span><strong data-timeout-value role="timer" aria-live="off"></strong>
+          <span data-timeout-status role="status" aria-live="polite"></span>
+          <div class="timeout-clock-track" aria-hidden="true"><i data-timeout-progress></i></div>
+        </section>
         <div class="timeout-controls">
           <button type="button" class="mini" data-timeout-side="A" data-timeout-kind="standard">⏱ Timeout A <b id="timeoutA">0/2</b></button>
           <button type="button" class="mini" data-timeout-side="B" data-timeout-kind="standard">⏱ Timeout B <b id="timeoutB">0/2</b></button>
@@ -167,11 +173,12 @@
   <script src="assets/bracket-ui.js?v=36"></script>
   <script src="assets/match-format.js?v=5"></script>
   <script src="assets/team-lineup.js?v=1"></script>
-  <script src="assets/admin-crud.js?v=9"></script>
+  <script src="assets/timeout-clock.js?v=1"></script>
+  <script src="assets/admin-crud.js?v=10"></script>
   <script src="assets/player-picker.js?v=2"></script>
   <script src="assets/player-avatar-input.js?v=1"></script>
-  <script src="assets/admin-app.js?v=71"></script>
-  <script src="assets/draw-flex.js?v=6"></script>
+  <script src="assets/admin-app.js?v=72"></script>
+  <script src="assets/draw-flex.js?v=7"></script>
   <script src="assets/ui-motion.js?v=34"></script>
   <script src="/assets/pwa.js"></script>
 </body>

@@ -33,10 +33,11 @@ try{
     const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
     page.setDefaultTimeout(5000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
     await page.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens[actor]);
-    let writes=0;
+    let writes=0,previewGate=null,previewStarted=null;
     await page.route('**/api/**',async route=>{
       const r=route.request();if(r.method()==='POST'&&r.url().endsWith('/reset-draw'))writes++;
       const response=await worker.fetch(new Request(r.url(),{method:r.method(),headers:r.headers(),...(r.postData()?{body:r.postData()}:{})}),f.env);
+      if(r.method()==='GET'&&r.url().endsWith('/reset-draw')&&previewGate){previewStarted();await previewGate}
       await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
     });
     const count=()=>f.db.prepare("SELECT COUNT(*) n FROM matches WHERE division_id='division'").get().n;
@@ -44,6 +45,15 @@ try{
       await page.goto(base+'/admin.html');if(width<=760)await page.locator('#mobileMenu').click();
       await page.locator('[data-page="tournaments"]').click();await page.locator('.tour-card[data-open-tournament="own"]').click();
       await page.locator('[data-reset-draw="division"]').waitFor();
+      let releasePreview;
+      const started=new Promise(resolve=>{previewStarted=resolve});
+      previewGate=new Promise(resolve=>{releasePreview=resolve});
+      await page.locator('[data-reset-draw="division"]').click();await started;
+      try{
+        await page.locator('.draw-reset-dialog [data-reset-close]').click();
+        await page.locator('.draw-reset-dialog').waitFor({state:'detached',timeout:2000});
+        assert.equal(count(),2);assert.equal(writes,0,'cancel during a slow preview must never mutate data');
+      }finally{releasePreview();previewGate=null}
       await page.locator('[data-reset-draw="division"]').click();
       await page.locator('.draw-reset-dialog [data-reset-cancel]').click();
       assert.equal(count(),2);assert.equal(writes,0,'the direct division button must also support cancellation');
@@ -52,7 +62,7 @@ try{
       const resetButton=settings.locator('[data-flex-reset]');await resetButton.waitFor();
       assert.match(await resetButton.innerText(),/Đặt lại bảng.*quay lại/);
       await resetButton.click();
-      const confirm=page.locator('.draw-reset-dialog');await confirm.waitFor();
+      const confirm=page.locator('.draw-reset-dialog');await confirm.locator('[data-reset-confirmation]').waitFor();
       assert.match(await confirm.innerText(),/MLP 3 nữ/);assert.match(await confirm.innerText(),/1 trận đang live/);
       await confirm.locator('[data-reset-cancel]').click();assert.equal(count(),2);assert.equal(writes,0);
       await resetButton.click();await confirm.locator('[data-reset-confirmation]').fill('sai');

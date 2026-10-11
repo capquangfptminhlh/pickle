@@ -90,15 +90,19 @@
     $("#modeBanner").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?" · điểm "+target+" phải cầm giao":"");
     const leg=window.PickleTeamLineup?.legText(m.a,m.b,d,a,b,state)||window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
     $(".serve-banner>span").textContent=locked?"ĐÃ CHỐT":"ĐANG GIAO";
-    $("#serveBanner").textContent=m.winner?team(m.winner)+" · thắng trận":(serve==="A"?(lineupA?.label||team(m.a)):(lineupB?.label||team(m.b)))+(mode==="rally"?" · quyền giao":" · Người giao "+server);
+    const servingLineup=serve==="A"?lineupA:lineupB,servingPlayer=servingLineup?.players?.[server-1];
+    const servingName=servingLineup?.ready?(servingLineup.names?.[server-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";
+    $("#serveBanner").textContent=m.winner?team(m.winner)+" · thắng trận":(servingLineup?.label||team(serve==="A"?m.a:m.b))+" · Người giao "+server+(servingName?" · "+servingName:"");
+    window.PickleTimeoutClock?.attach($("#refTimeoutClock"),m);
     const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;$("#refTimeoutA").textContent=Number(m.timeouts?.A||0)+"/"+timeoutMax;$("#refTimeoutB").textContent=Number(m.timeouts?.B||0)+"/"+timeoutMax;
     $("#refMedicalA").textContent=Number(m.medicalTimeouts?.A||0)+"/1";$("#refMedicalB").textContent=Number(m.medicalTimeouts?.B||0)+"/1";
     $("#setHistory").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';
 
     document.querySelectorAll("[data-service]").forEach(btn=>{
       const side=btn.dataset.service,no=Number(btn.dataset.server);
-      btn.classList.toggle("active",side===serve&&(mode==="rally"||server===no));
-      btn.disabled=locked||(!isDoubles&&no===2)||(mode==="rally"&&no===2);
+      const selected=side===serve&&server===no;
+      btn.classList.toggle("active",selected);btn.setAttribute("aria-pressed",String(selected));
+      btn.disabled=locked||(!isDoubles&&no===2);
     });
     document.querySelectorAll("[data-timeout]").forEach(btn=>{
       const side=btn.dataset.timeout,kind=btn.dataset.kind,used=Number((kind==="medical"?m.medicalTimeouts:m.timeouts)?.[side]||0),limit=kind==="medical"?1:timeoutMax;
@@ -152,6 +156,7 @@
     motion($(".ref-score-grid"),[{opacity:0,transform:"translateY(12px)"},{opacity:1,transform:"translateY(0)"}],260);
   }
   function showPicker(){
+    window.PickleTimeoutClock?.detach($("#refTimeoutClock"));
     lastScore=null;
     activeId=null;
     const url=new URL(location.href);url.searchParams.delete("match");history.replaceState(null,"",url);
@@ -197,7 +202,7 @@
     }
     catch(e){
       if(e.message==="VERSION_CONFLICT"){await refresh({quiet:true});toast("Điểm đã đổi từ thiết bị khác. Đã đồng bộ lại.");}
-      else toast({SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",NOTHING_TO_RESET:"Trận chưa có dữ liệu để đặt lại.",RESET_HISTORY_UNAVAILABLE:"Lịch sử trận không đủ để đặt lại an toàn.",DOWNSTREAM_MATCH_LOCKED:"Trận nhánh sau đã bắt đầu nên không thể đặt lại kết quả."}[e.message]||"Không thể thực hiện: "+e.message);
+      else toast({COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Chờ sân trống hoặc báo BTC đổi sân.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Báo BTC kiểm tra lịch.",SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",NOTHING_TO_RESET:"Trận chưa có dữ liệu để đặt lại.",RESET_HISTORY_UNAVAILABLE:"Lịch sử trận không đủ để đặt lại an toàn.",DOWNSTREAM_MATCH_LOCKED:"Trận nhánh sau đã bắt đầu nên không thể đặt lại kết quả."}[e.message]||"Không thể thực hiện: "+e.message);
     }finally{busy=false}
   }
 

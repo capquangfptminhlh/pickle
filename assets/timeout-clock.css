@@ -1,0 +1,12 @@
+/* Courtside digits stay stable as seconds tick; colors follow each console. */
+.timeout-clock{--clock-paper:var(--surface-2,#11232e);--clock-ink:var(--text,#fff);--clock-line:var(--line,#bcc8ce);--clock-accent:var(--accent,#cefa56);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 16px;position:relative;overflow:hidden;margin:12px 0;padding:14px 16px 18px;border:1px solid var(--clock-line);border-radius:8px;background:var(--clock-paper);color:var(--clock-ink)}
+.timeout-clock[hidden]{display:none}
+.timeout-clock [data-timeout-label]{font-size:12px;font-weight:800;letter-spacing:.08em;overflow-wrap:anywhere}
+.timeout-clock [data-timeout-value]{grid-column:2;grid-row:1 / 3;font-family:"Barlow Condensed",ui-sans-serif,system-ui,sans-serif;font-size:48px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.03em;min-width:4ch;text-align:right}
+.timeout-clock [data-timeout-status]{font-size:14px;font-weight:600;color:var(--clock-ink)}
+.timeout-clock-track{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--clock-line)}
+.timeout-clock [data-timeout-progress]{display:block;height:100%;background:var(--clock-accent);transform-origin:left}
+.timeout-clock.is-expired [data-timeout-value]{opacity:.7}
+.referee-arena .timeout-clock{--clock-paper:var(--ref-board);--clock-ink:#fff;--clock-line:var(--ref-line);--clock-accent:var(--ref-a)}
+.referee-arena .timeout-clock[data-timeout-side="B"]{--clock-accent:var(--ref-b)}
+@media(max-width:360px){.timeout-clock{gap:4px 8px;padding:12px 12px 16px}.timeout-clock [data-timeout-value]{font-size:42px}}

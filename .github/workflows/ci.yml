@@ -55,6 +55,8 @@ jobs:
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-operator-center-ui.mjs
           node scripts/registry-draw-reset-ui.mjs
+          node scripts/registry-court-scheduling-ui.mjs
+          node scripts/registry-timeout-clock-ui.mjs
           node scripts/registry-lifecycle-ui.mjs
           node scripts/registry-role-pages-ui.mjs
           node --test scripts/registry-tournament-progress.test.mjs scripts/registry-tournament-recovery-ui.mjs
@@ -79,6 +81,7 @@ jobs:
           node --check assets/admin-app.js
           node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
+          node --check assets/timeout-clock.js
           node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js

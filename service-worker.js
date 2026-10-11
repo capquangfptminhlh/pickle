@@ -1,4 +1,4 @@
-const VERSION="pickleup-v65-group-reset-20261011";
+const VERSION="pickleup-v66-tournament-clock-20261011";
 const STATIC=[
   "/assets/api.js?v=55",
   "/assets/referee-arena.css?v=2",
@@ -20,8 +20,12 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-700-latin.woff2",
   "/assets/fonts/barlow-condensed-800-vietnamese.woff2",
   "/assets/fonts/barlow-condensed-800-latin.woff2",
-  "/assets/draw-flex.js?v=6",
-  "/assets/referee-courtside.js?v=8",
+  "/assets/draw-flex.js?v=7",
+  "/assets/referee-courtside.js?v=9",
+  "/assets/timeout-clock.js?v=1",
+  "/assets/timeout-clock.css?v=1",
+  "/assets/timeout-clock.js",
+  "/assets/timeout-clock.css",
   "/assets/court-board.js?v=7",
   "/assets/court-board.css?v=3",
   "/assets/match-live.js?v=3",
@@ -41,9 +45,9 @@ const STATIC=[
   "/assets/tournament.js?v=53",
   "/assets/admin-sport.css?v=6",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=71",
+  "/assets/admin-app.js?v=72",
   "/assets/bracket-ui.js?v=36",
-  "/assets/admin-crud.js?v=9",
+  "/assets/admin-crud.js?v=10",
   "/assets/match-format.js?v=5",
   "/assets/match-format.js",
   "/assets/team-lineup.js?v=1",

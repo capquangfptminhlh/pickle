@@ -1,5 +1,5 @@
 import {bool} from "./util.js";
-import {rankGroupStandings} from "../../shared/standings.js";
+import {isGroupStageMatch,rankGroupStandings} from "../../shared/standings.js";
 
 async function rows(env,sql,...args){
   const r=await env.DB.prepare(sql).bind(...args).all();
@@ -13,7 +13,7 @@ function fmtDate(value){
   if(!value)return "Chưa chốt";
   try{return new Date(value).toLocaleDateString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})}catch{return "Chưa chốt"}
 }
-function publicStatus(s){return ["scheduled","ready"].includes(s)?"wait":s==="completed"?"done":s}
+function publicStatus(s){return ["scheduled","ready"].includes(s)?"wait":["completed","walkover"].includes(s)?"done":s}
 function lineupNameKey(value){return String(value||"").normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi")}
 function orderedLineup(team,roster){
   const slotted=[...roster].sort((a,b)=>Number(a.slot_no)-Number(b.slot_no));
@@ -108,8 +108,7 @@ export async function loadState(env,{publicOnly=false}={}){
 
   const stats=new Map(teamsRaw.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
   const activeTeamIds=new Set(teamsRaw.filter(t=>t.status==="active").map(t=>t.id));
-  const groupMatch=m=>!m.bracket_slot&&(String(m.stage||"").startsWith("Bảng")||/bảng|group|vòng bảng/i.test(String(m.stage||""))||!/chung kết|bán kết|tứ kết/i.test(String(m.stage||"")));
-  for(const m of matchesRaw.filter(x=>x.status==="completed"&&groupMatch(x)&&x.winner_team_id&&activeTeamIds.has(x.team_a_id)&&activeTeamIds.has(x.team_b_id))){
+  for(const m of matchesRaw.filter(x=>["completed","walkover"].includes(x.status)&&isGroupStageMatch(x)&&x.team_a_id!==x.team_b_id&&[x.team_a_id,x.team_b_id].includes(x.winner_team_id)&&x.winner_team_id&&activeTeamIds.has(x.team_a_id)&&activeTeamIds.has(x.team_b_id))){
     const ms=setMap.get(m.id)||[];let ap=0,bp=0,asw=0,bsw=0;
     for(const [a,b] of ms){ap+=a;bp+=b;if(a>b)asw++;else if(b>a)bsw++}
     const sa=stats.get(m.team_a_id),sb=stats.get(m.team_b_id);
@@ -128,10 +127,11 @@ export async function loadState(env,{publicOnly=false}={}){
     status:publicStatus(m.status),sets:setMap.get(m.id)||[],
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,
-    courtId:m.court_id||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,
+    courtId:m.court_id||null,resultReason:m.result_reason||(m.status==="walkover"?"walkover":null),resultNote:m.result_note||null,
     bracketSlot:m.bracket_slot||null,scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
-    courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
+    courtState:["completed","walkover"].includes(m.status)?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
+    timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:new Date().toISOString()}:null,
     calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   }));
 
@@ -254,7 +254,8 @@ export async function loadPublicPlayer(env,id){
   let wins=0,losses=0,pointsFor=0,pointsAgainst=0;
   const matches=matchRows.map(m=>{
     const mine=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id,side=mine===m.team_a_id?"A":"B",sets=setMap.get(m.id)||[];
-    const won=m.status==="completed"&&m.winner_team_id===mine,lost=Boolean(m.status==="completed"&&m.winner_team_id&&m.winner_team_id!==mine);
+    const finished=["completed","walkover"].includes(m.status)&&m.team_a_id!==m.team_b_id&&Boolean(m.winner_team_id)&&[m.team_a_id,m.team_b_id].includes(m.winner_team_id);
+    const won=finished&&m.winner_team_id===mine,lost=finished&&m.winner_team_id!==mine;
     if(won)wins++;if(lost)losses++;
     const myPoints=sets.reduce((n,s)=>n+s[side==="A"?0:1],0),oppPoints=sets.reduce((n,s)=>n+s[side==="A"?1:0],0);
     pointsFor+=myPoints;pointsAgainst+=oppPoints;

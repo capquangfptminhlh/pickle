@@ -18,8 +18,8 @@
     modal.setAttribute("aria-label","Xác nhận đặt lại bảng đấu");
     modal.innerHTML=`<div class="draw-setup-card"><div class="draw-setup-head"><div><span>BỐC THĂM LẠI</span><h2>Đặt lại bảng đấu</h2></div><button type="button" class="icon-btn" data-reset-close aria-label="Đóng">✕</button></div><div data-reset-body aria-live="polite"></div></div>`;
     document.body.appendChild(modal);
-    let busy=false;
-    const close=()=>{if(busy)return;modal.close();modal.remove()};
+    let busy=false,closed=false;
+    const close=()=>{if(busy)return;closed=true;modal.close();modal.remove()};
     modal.querySelector("[data-reset-close]").onclick=close;
     modal.onclick=e=>{if(e.target===modal)close()};
     modal.addEventListener("cancel",e=>{e.preventDefault();close()});
@@ -31,9 +31,10 @@
       TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền quản lý giải này."
     }[e.message]||"Không thể đặt lại bảng. Kiểm tra kết nối và thử lại.");
     async function load(){
-      busy=true;host.innerHTML='<p>Đang kiểm tra lịch và kết quả…</p>';
+      host.innerHTML='<p>Đang kiểm tra lịch và kết quả…</p>';
       try{
         const preview=await API.drawResetPreview(divisionId),s=preview.summary;
+        if(closed)return;
         const empty=!s.matchCount&&!s.groupCount;
         host.innerHTML=`<p><b>${esc(preview.divisionName)}</b></p>
           <div class="draw-reset-warning"><b>${empty?"Chưa có bảng hoặc lịch để đặt lại.":"Lịch và kết quả của nội dung này sẽ bị xóa."}</b><p>${s.groupCount} bảng • ${s.poolMatchCount} trận vòng bảng • ${s.knockoutMatchCount} trận loại trực tiếp<br>${s.liveMatchCount} trận đang live • ${s.completedMatchCount} trận đã kết thúc • ${s.setCount} set đã lưu</p></div>
@@ -70,6 +71,7 @@
           input.focus();
         }
       }catch(e){
+        if(closed)return;
         host.innerHTML=`<p role="alert">${esc(errorMessage(e))}</p><button type="button" class="btn secondary" data-reset-reload>Tải lại thông tin</button>`;
         host.querySelector("[data-reset-reload]").onclick=load;
       }finally{busy=false}
