@@ -7,11 +7,12 @@
     const action=admin&&m.status!=="done"&&ready?'<button class="mini" data-score-match="'+esc(m.id)+'">Nhập điểm</button>':"";
     const statusLabel=m.status==="live"?"LIVE":(m.status==="done"||m.status==="completed"?"KẾT THÚC":"SẮP ĐẤU");
     const statusClass=m.status==="live"?"is-live":(m.status==="done"||m.status==="completed"?"is-done":"is-wait");
+    const setScores=!m.resultReason&&["done","completed"].includes(m.status)&&(m.sets||[]).length?'<div class="bracket-set-scores muted">'+m.sets.map((s,i)=>'<small>Set '+(i+1)+': '+esc(s[0])+'–'+esc(s[1])+'</small>').join(' · ')+'</div>':"";
     return '<div class="bracket-match bracket-match-pro '+statusClass+'" data-bracket-match="'+esc(m.id)+'">'+
       '<div class="bracket-match-meta"><span>'+esc(m.time||"")+' • Sân '+esc(m.court||"—")+'</span><b>'+statusLabel+'</b></div>'+
       '<div class="bracket-team '+(m.winner===m.a?"win":"")+'"><span>'+esc(team(m.a))+'</span><b>'+(m.status==="done"?setWins(m,"A"):"")+'</b></div>'+
       '<div class="bracket-team '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.status==="done"?setWins(m,"B"):"")+'</b></div>'+
-      special+action+'</div>';
+      setScores+special+action+'</div>';
   };
   const round=(title,matches,team,opts,idx=0)=>{
     const isFinal=/chung kết|grand final/i.test(title||"");

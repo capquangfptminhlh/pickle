@@ -13,15 +13,18 @@
     const d=state.divisions.find(x=>x.id===m.divisionId),t=state.tournaments.find(x=>x.id===d?.tournamentId),c=state.courts.find(x=>x.id===m.courtId);
     const q=m.status==="live"?"live":m.status==="done"?"done":m.courtState||"scheduled",meta=qMeta(q);
     $("#matchTournament").textContent=t?.name||"Giải đấu";
-    $("#matchStage").textContent=m.stage||d?.name||"Trận đấu";
+    const series=m.bracketSeries==="B"||String(m.bracketSlot||"").startsWith("B-SE-")?"B":"A";
+    $("#matchStage").textContent=(m.bracketSlot?"Serie "+series+" · ":"")+(m.stage||d?.name||"Trận đấu");
     $("#matchState").textContent=meta[0];$("#matchState").className="state-pill "+meta[1];
     $("#matchCourt").textContent=c?.name||(m.court&&m.court!=="—"?"Sân "+m.court:"Chưa gán sân");
     $("#matchTime").textContent=m.time||"Chưa chốt giờ";
     $("#matchTeamA").textContent=team(m.a);$("#matchTeamB").textContent=team(m.b);
-    $("#matchScoreA").textContent=Number(m.current?.[0]||0);$("#matchScoreB").textContent=Number(m.current?.[1]||0);
+    const specialResult=Boolean(m.winner&&m.resultReason),finalScore=m.winner&&!specialResult&&m.sets?.length?m.sets[m.sets.length-1]:null;
+    $("#matchScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:Number(m.current?.[0]||0);$("#matchScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:Number(m.current?.[1]||0);
     $("#setList").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';
     const serve=$("#serveInfo");
-    if(m.status==="live"&&m.servingSide){
+    if(m.winner){serve.hidden=false;serve.textContent=team(m.winner)+" · thắng trận"}
+    else if(m.status==="live"&&m.servingSide){
       serve.hidden=false;serve.textContent="🏓 Đang giao: "+(m.servingSide==="A"?team(m.a):team(m.b))+(d?.scoringMode==="side_out"?" · Server "+Number(m.serverNumber||2):"");
     }else serve.hidden=true;
     $("#matchUpdated").textContent="Cập nhật "+new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});

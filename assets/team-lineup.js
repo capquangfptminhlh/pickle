@@ -42,14 +42,14 @@
     const warning=!a.ready||!b.ready?" • "+(a.identityWarning||b.identityWarning||"Chưa gán đủ vị trí A/B/C"):"";
     return `Đang đánh ${current} • đến ${until} điểm${next}${warning}`;
   }
-  function renderRoster(element,lineup,servingServer=0){
+  function renderRoster(element,lineup,servingServer=0,finished=false){
     if(!element)return;
     element.replaceChildren();
     if(!lineup?.relay)return;
     const fragment=document.createDocumentFragment();
     if(!lineup.ready){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
     (lineup.ready?lineup.players.slice(0,lineup.leg.size):lineup.players).forEach((player,index)=>{
-      const letter=letters[index],playing=lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
+      const letter=letters[index],playing=!finished&&lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
       const row=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span"),grade=document.createElement("span");
       row.className="lineup-player";row.dataset.playerId=player.id;
       if(lineup.ready)row.dataset.playerSlot=letter;
@@ -58,7 +58,7 @@
       name.className="lineup-name";name.textContent=playerName(player);
       grade.className="lineup-grade";grade.textContent="Trình "+(skill(player)||"Chưa nhập");
       row.append(slot,name,grade);
-      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${grade.textContent} · ${lineup.ready?(playing?"Đang đánh":"Chờ lượt"):"Chưa xác định vị trí"}${serving?" · Đang giao":""}`);
+      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${grade.textContent} · ${finished?"Trận đã kết thúc":lineup.ready?(playing?"Đang đánh":"Chờ lượt"):"Chưa xác định vị trí"}${serving?" · Đang giao":""}`);
       if(serving){const badge=document.createElement("i");badge.className="lineup-serving";badge.textContent="GIAO";row.append(badge)}
       fragment.append(row);
     });

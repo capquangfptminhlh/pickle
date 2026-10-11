@@ -30,6 +30,13 @@ test('division forms save separate Serie B qualification and bronze settings',()
 });
 function renderer(){const c={window:{}};vm.runInNewContext(source('assets/bracket-ui.js'),c);return c.window.PickleBracket}
 const match=(id,series,slot,a,b,winner=null)=>({id,divisionId:'d',bracketSeries:series,bracketSlot:slot,a,b,winner,status:winner?'done':'wait',sets:winner?[[11,4]]:[],stage:'Chung kết'});
+test('completed bracket cards show actual set points as well as game wins',()=>{
+  const m=match('final','A','SE-R1-M1','a','b','a');m.sets=[[27,24]];
+  assert.match(renderer().render([m],id=>id),/Set 1: 27–24/);
+  m.sets=[[11,7],[8,11],[11,9]];
+  const html=renderer().render([m],id=>id);
+  for(const score of ['Set 1: 11–7','Set 2: 8–11','Set 3: 11–9'])assert.ok(html.includes(score));
+});
 test('two series render independent rounds, bronze matches and champions',()=>{
   const api=renderer(),matches=[match('a-final','A','SE-R3-M1','a1','a2','a1'),match('a-bronze','A','SE-3RD-M1','a3','a4','a4'),match('b-s1','B','B-SE-R1-M1','b1','b4','b1'),match('b-s2','B','B-SE-R1-M2','b2','b3','b2'),match('b-final','B','B-SE-R2-M1','b1','b2','b2'),match('b-bronze','B','B-SE-3RD-M1','b3','b4','b3')];
   const html=api.render(matches,id=>id,{admin:false,seriesBEnabled:true});

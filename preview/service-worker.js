@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v41-series-b-ordered-roles-20261011";
+const VERSION="pickleup-preview-v42-final-score-labels-20261011";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,13 +34,13 @@ const CORE=[
   "../assets/tournament.js?v=54",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=75",
+  "../assets/admin-app.js?v=76",
   "../assets/draw-flex.js?v=8",
-  "../assets/bracket-ui.js?v=37",
+  "../assets/bracket-ui.js?v=38",
   "../assets/admin-crud.js?v=12",
   "../assets/player-picker.js?v=3",
   "../assets/match-format.js?v=6",
-  "../assets/team-lineup.js?v=3",
+  "../assets/team-lineup.js?v=4",
   "../assets/team-lineup.css?v=2",
   "../assets/team-lineup.css",
   "../assets/theme.js",
