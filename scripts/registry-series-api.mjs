@@ -41,6 +41,8 @@ for(const [group,ids] of groups)for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids
 await api(`/api/divisions/${did}/generate-bracket`,{},{expected:[409]});
 assert.equal((await state()).matches.filter(m=>m.divisionId===did&&m.bracketSlot).length,0,"Incomplete pools cannot create either branch");
 for(const id of groupMatches)await score(id);
+const poolState=await state();
+for(const ids of groups.values())assert.deepEqual(ids.map(id=>poolState.teams.find(t=>t.id===id).standingRank),[1,2,3],'Operator and public rankings must match bracket qualification');
 const attempts=await Promise.all([api(`/api/divisions/${did}/generate-bracket`,{},{expected:[200,409]}),api(`/api/divisions/${did}/generate-bracket`,{},{expected:[200,409]})]);
 assert.deepEqual(attempts.map(r=>r.status).sort(),[200,409]);
 const generated=attempts.find(r=>r.status===200).data;

@@ -15,7 +15,7 @@ import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} fro
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
 import {divisionBracketRules,bracketRulesChanged} from "../shared/bracket-rules.js";
 import {singleEliminationSlots} from "../shared/bracket-seeding.js";
-import {rankGroupStandings} from "../shared/standings.js";
+import {rankGroupStandings,isGroupStageMatch} from "../shared/standings.js";
 import {validateSet,validateSeries} from "../shared/scoring-rules.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../shared/account-login.js";
 
@@ -318,8 +318,8 @@ async function loadState({publicOnly=false}={}){
   for(const s of sets){if(!setMap.has(s.match_id))setMap.set(s.match_id,[]);setMap.get(s.match_id).push([s.score_a,s.score_b]);}
 
   const stats=new Map(teamRows.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
-  const isGroupMatch=m=>!m.bracket_slot&&(m.stage.startsWith("Bảng")||/bảng|group|vòng bảng/i.test(m.stage)||!/chung kết|bán kết|tứ kết/i.test(m.stage));
-  for(const m of matchRows.filter(x=>x.status==="completed"&&isGroupMatch(x)&&x.winner_team_id)){
+  const activeTeamIds=new Set(teamRows.filter(t=>t.status==="active").map(t=>t.id));
+  for(const m of matchRows.filter(x=>["completed","walkover"].includes(x.status)&&isGroupStageMatch(x)&&x.team_a_id!==x.team_b_id&&[x.team_a_id,x.team_b_id].includes(x.winner_team_id)&&activeTeamIds.has(x.team_a_id)&&activeTeamIds.has(x.team_b_id))){
     const ms=setMap.get(m.id)||[];let ap=0,bp=0,asw=0,bsw=0;
     for(const [a,b] of ms){ap+=a;bp+=b;if(a>b)asw++;else if(b>a)bsw++}
     const sa=stats.get(m.team_a_id),sb=stats.get(m.team_b_id);
@@ -345,6 +345,15 @@ async function loadState({publicOnly=false}={}){
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
     calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
   }));
+  for(const division of divisions){
+    const groups=[...new Set(teams.filter(t=>t.divisionId===division.id&&t.status==="active").map(t=>t.group||"A"))];
+    for(const group of groups){
+      rankGroupStandings(
+        teams.filter(t=>t.divisionId===division.id&&t.status==="active"&&(t.group||"A")===group),
+        matches.filter(m=>m.divisionId===division.id)
+      ).forEach((team,index)=>{team.standingRank=index+1});
+    }
+  }
   const audit=publicOnly?[]:(await pool.query(`
     select a.*,u.display_name from audit_logs a left join app_users u on u.id=a.actor_user_id
     order by a.created_at desc limit 100

@@ -5,6 +5,14 @@ import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 
 const source=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
+test('homepage qualification uses official standings for two- and three-way ties',()=>{
+  const fn=source('assets/public.js').match(/function sortGroupTeams\(arr,matches\)\{[^\r\n]+/)[0];
+  for(const count of [2,3]){
+    const teams=Array.from({length:count},(_,i)=>({id:'t'+i,w:2,sw:count-i,sl:0,pf:30-i,pa:10,seed:i+1,standingRank:count-i}));
+    const c={teams};vm.runInNewContext(fn+';result=sortGroupTeams(teams,[]);',c);
+    assert.deepEqual(Array.from(c.result,t=>t.id),teams.slice().reverse().map(t=>t.id));
+  }
+});
 test('Top 1 operator qualification lists first and third place without admitting runners-up',()=>{
   const code=source('assets/admin-app.js').match(/const qualifiers=groups\.flatMap[^\r\n]+/)[0];
   const c={d:{id:'d',seriesBEnabled:true},advanceCount:1,groups:['A','B'],rankTournamentGroup:(_id,g)=>[1,2,3].map(rank=>({id:g+rank}))};
