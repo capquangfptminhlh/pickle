@@ -5,7 +5,7 @@ import {loadAdminState} from "./state.js";
 import {generateBracket} from "./bracket.js";
 import {broadcast} from "./realtime.js";
 import {validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
-import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
+import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
 
 async function rows(env,sql,...args){const r=await env.DB.prepare(sql).bind(...args).all();return r.results||[]}
 async function one(env,sql,...args){return env.DB.prepare(sql).bind(...args).first()}
@@ -96,7 +96,7 @@ async function validateTournamentBanner(file){
 async function matchView(env,id){
   const m=await one(env,"SELECT * FROM matches WHERE id=?",id);if(!m)return null;
   const ss=await rows(env,"SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no",id);
-  return {id:m.id,divisionId:m.division_id,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",stage:m.stage,status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],sets:ss.map(x=>[Number(x.score_a),Number(x.score_b)]),winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,courtId:m.court_id||null,bracketSlot:m.bracket_slot||null};
+  return {id:m.id,divisionId:m.division_id,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",stage:m.stage,status:m.status==="scheduled"?"wait":m.status==="completed"?"done":m.status,current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],sets:ss.map(x=>[Number(x.score_a),Number(x.score_b)]),winner:m.winner_team_id||null,version:Number(m.version||1),refereeId:m.referee_user_id||null,courtId:m.court_id||null,bracketSlot:m.bracket_slot||null,bracketSeries:m.bracket_series||(m.bracket_slot?"A":null)};
 }
 
 function legacyTournamentStatus(v){
@@ -666,11 +666,12 @@ export async function handleOperations(request,env){
   p=route(path,"/api/divisions/:id/full");
   if(p&&method==="PATCH"){
     const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),before=await one(env,"SELECT * FROM divisions WHERE id=?",p.id),b=await bodyJson(request);
-    const rules=divisionMatchRules(b,before);
+    const rules=divisionMatchRules(b,before),bracket=divisionBracketRules(b,before);
     const scoringMode=["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out";
     await assertScoringRulesEditable(env,p.id,before,{...rules,scoringMode});
-    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,relay_segment_points=?,relay_team_size=?,final_point_on_serve=?,third_place_match=?,active=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),b.eventType??before.event_type,b.format??before.format,rules.bestOf,rules.pointsToWin,rules.winByTwo,Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,b.active===undefined?before.active:(b.active?1:0),nowIso(),p.id).run();
+    await assertBracketRulesEditable(env,p.id,before,bracket);
+    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,relay_segment_points=?,relay_team_size=?,final_point_on_serve=?,third_place_match=?,series_b_enabled=?,series_b_third_place_match=?,active=?,updated_at=? WHERE id=?")
+      .bind(String(b.name??before.name),b.eventType??before.event_type,b.format??before.format,rules.bestOf,rules.pointsToWin,rules.winByTwo,bracket.advanceCount,"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),b.active===undefined?before.active:(b.active?1:0),nowIso(),p.id).run();
     await emit(env,"public:state",{tournamentId:tid});return ok(await one(env,"SELECT * FROM divisions WHERE id=?",p.id),request,env);
   }
 

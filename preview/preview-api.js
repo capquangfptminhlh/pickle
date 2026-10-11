@@ -81,6 +81,8 @@
     if(changed)localStorage.setItem(KEY,JSON.stringify(state));
   };
   normalizeLegacySmallGroups();
+  const validateSeriesRules=d=>{if(d.seriesBEnabled){if((d.format||"pool_to_knockout")!=="pool_to_knockout")throw new Error("SERIES_B_REQUIRES_POOL_FORMAT");if(!Number.isInteger(Number(d.advanceCount??2))||Number(d.advanceCount??2)<1||Number(d.advanceCount??2)>=3)throw new Error("SERIES_B_ADVANCE_COUNT_OVERLAP")}};
+  const checkBracketSettings=(d,p)=>{const keys=["format","advanceCount","thirdPlaceMatch","seriesBEnabled","seriesBThirdPlaceMatch"];if(state.matches.some(m=>m.divisionId===d.id&&m.bracketSlot)&&keys.some(key=>p[key]!==undefined&&(key.endsWith("Match")||key==="seriesBEnabled"?Boolean(p[key])!==Boolean(d[key]):p[key]!==d[key])))throw new Error("BRACKET_SETTINGS_LOCKED")};
   const recomputeStats=()=>{
     const stats=new Map(state.teams.map(t=>[t.id,{w:0,l:0,sw:0,sl:0,pf:0,pa:0}]));
     const isGroupMatch=m=>!m.bracketSlot&&((m.stage&&m.stage.startsWith("Bảng"))||/bảng|group|vòng bảng/i.test(m.stage||"")||!/chung kết|bán kết|tứ kết/i.test(m.stage||""));
@@ -103,51 +105,53 @@
   const rankGroupFor=(did,g)=>{
     const gm=groupMatchesFor(did,g).filter(m=>(m.status==="done"||m.status==="completed")&&m.winner);
     const teams=state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn");
-    return [...teams].sort((a,b)=>{
-      if((b.w||0)!==(a.w||0))return (b.w||0)-(a.w||0);
-      const sdA=(a.sw||0)-(a.sl||0),sdB=(b.sw||0)-(b.sl||0);
-      if(sdB!==sdA)return sdB-sdA;
-      const h2h=gm.find(m=>((m.a===a.id&&m.b===b.id)||(m.a===b.id&&m.b===a.id))&&m.winner);
-      if(h2h){if(h2h.winner===a.id)return -1;if(h2h.winner===b.id)return 1}
-      const pdA=(a.pf||0)-(a.pa||0),pdB=(b.pf||0)-(b.pa||0);
-      return pdB-pdA||(b.pf||0)-(a.pf||0)||(a.seed||999)-(b.seed||999);
-    });
+    // Match shared/standings.js: tied wins use only the tied teams' mini-table first.
+    const buckets=new Map();for(const t of teams){const wins=Number(t.w||0);if(!buckets.has(wins))buckets.set(wins,[]);buckets.get(wins).push(t)}
+    const result=[];
+    for(const wins of [...buckets.keys()].sort((a,b)=>b-a)){
+      const bucket=buckets.get(wins),mini=new Map(bucket.map(t=>[t.id,{w:0,sw:0,sl:0,pf:0,pa:0}]));
+      for(const m of gm){if(!mini.has(m.a)||!mini.has(m.b))continue;const a=mini.get(m.a),b=mini.get(m.b);if(m.winner===m.a)a.w++;else if(m.winner===m.b)b.w++;for(const [x,y] of m.sets||[]){a.pf+=x;a.pa+=y;b.pf+=y;b.pa+=x;if(x>y){a.sw++;b.sl++}else if(y>x){b.sw++;a.sl++}}}
+      bucket.sort((a,b)=>{const x=mini.get(a.id),y=mini.get(b.id);return y.w-x.w||(y.sw-y.sl)-(x.sw-x.sl)||(y.pf-y.pa)-(x.pf-x.pa)||((b.sw||0)-(b.sl||0))-((a.sw||0)-(a.sl||0))||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.seed||9999)-(b.seed||9999)||String(a.name||'').localeCompare(String(b.name||''),'vi')});result.push(...bucket);
+    }
+    return result;
   };
-  const knockoutTeamsFor=did=>{
+  const knockoutTeamsFor=(did,series="A")=>{
     recomputeStats();
     const active=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");
     const groups=[...new Set(active.map(t=>t.group).filter(Boolean))].sort();
     const gm=state.matches.filter(m=>m.divisionId===did&&!m.bracketSlot&&(m.stage||"").startsWith("Bảng "));
-    if(groups.length&&gm.length){
-      if(gm.some(m=>!(m.status==="done"||m.status==="completed")||!m.winner))throw new Error("GROUP_STAGE_NOT_COMPLETE");
+    const division=state.divisions.find(d=>d.id===did);
+    if(division?.format==="pool_to_knockout"){
+      if(!groups.length||!gm.length||active.some(t=>!t.group)||gm.some(m=>!["done","completed","walkover"].includes(m.status)||!m.winner))throw new Error("GROUP_STAGE_NOT_COMPLETE");
       const q=[];
       for(const g of groups){
         const r=rankGroupFor(did,g);
-        if(r[0])q.push({...r[0],qualifierGroup:g,qualifierPlace:1});
-        if(r[1])q.push({...r[1],qualifierGroup:g,qualifierPlace:2});
+        const played=groupMatchesFor(did,g);for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++)if(!played.some(m=>(m.a===r[i].id&&m.b===r[j].id)||(m.b===r[i].id&&m.a===r[j].id)))throw new Error("GROUP_STAGE_NOT_COMPLETE");
+        if(series==="B"){if(!r[2])throw new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS");q.push({...r[2],qualifierGroup:g,qualifierPlace:3})}
+        else for(let i=0;i<Math.max(1,Number(division.advanceCount||2))&&i<r.length;i++)q.push({...r[i],qualifierGroup:g,qualifierPlace:i+1});
       }
-      if(q.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
+      if(q.length<2)throw new Error(series==="B"?"NOT_ENOUGH_SERIES_B_QUALIFIERS":"NOT_ENOUGH_QUALIFIERS");
       return q;
     }
     return [...active].sort((a,b)=>(a.seed||999)-(b.seed||999));
   };
   const progressSingleElim=did=>{
-    const ms=state.matches.filter(m=>m.divisionId===did&&(m.bracketSlot||"").startsWith("SE-"));
+    const ms=state.matches.filter(m=>m.divisionId===did&&/^(?:B-)?SE-/.test(m.bracketSlot||""));
     if(!ms.length)return;
     let changed=true,guard=0;
     while(changed&&guard++<32){
       changed=false;
       for(const m of ms){
-        const x=(m.bracketSlot||"").match(/^SE-R(\d+)-M(\d+)$/);
+        const x=(m.bracketSlot||"").match(/^(B-)?SE-R(\d+)-M(\d+)$/);
         if(!x||!(m.status==="done"||m.status==="completed")||!m.winner)continue;
-        const round=Number(x[1]),num=Number(x[2]);
-        const target=ms.find(n=>n.bracketSlot===`SE-R${round+1}-M${Math.ceil(num/2)}`);
+        const prefix=x[1]||"",round=Number(x[2]),num=Number(x[3]);
+        const target=ms.find(n=>n.bracketSlot===`${prefix}SE-R${round+1}-M${Math.ceil(num/2)}`);
         if(!target)continue;
         const side=num%2===1?"a":"b";
         if(target[side]!==m.winner){target[side]=m.winner;target.status="wait";target.version=(target.version||0)+1;changed=true}
         // Semifinal losers drop into the third-place playoff when it exists.
-        const third=ms.find(n=>n.bracketSlot==="SE-3RD-M1");
-        const isSemi=!ms.some(n=>n.bracketSlot===`SE-R${round+2}-M1`);
+        const third=ms.find(n=>n.bracketSlot===`${prefix}SE-3RD-M1`);
+        const isSemi=!ms.some(n=>n.bracketSlot===`${prefix}SE-R${round+2}-M1`);
         if(third&&isSemi&&m.resultReason!=="bye"){
           const loser=m.winner===m.a?m.b:m.a;
           if(loser&&loser!=="TBD"&&third[side]!==loser){third[side]=loser;third.status="wait";third.version=(third.version||0)+1;changed=true}
@@ -382,8 +386,8 @@
     createTournament:async p=>{const t={id:uid(),name:p.name,date:p.startAt?new Date(p.startAt).toLocaleDateString("vi-VN"):"Chưa chốt",startAt:p.startAt||null,endAt:null,venue:p.venue||"Chưa chốt",format:"Tournament",status:"open",publicVisible:true,teams:0};state.tournaments.push(t);const d={id:uid(),tournamentId:t.id,name:"Open",eventType:p.eventType||"doubles",format:"pool_to_knockout",bestOf:3,pointsToWin:11,winByTwo:true,advanceCount:2,active:true};state.divisions.push(d);persist();return {tournament:t,division:d}},
     updateTournament:async(id,p)=>{const x=state.tournaments.find(v=>v.id===id);Object.assign(x,{name:p.name??x.name,venue:p.venue??x.venue,startAt:p.startAt??x.startAt,endAt:p.endAt??x.endAt,status:p.status==="registration"?"open":(p.status??x.status),publicVisible:p.publicVisible??x.publicVisible});if(p.startAt)x.date=new Date(p.startAt).toLocaleDateString("vi-VN");persist();return clone(x)},
     deleteTournament:async id=>{const x=state.tournaments.find(v=>v.id===id);const dids=state.divisions.filter(d=>d.tournamentId===id).map(d=>d.id);const hasHistory=state.matches.some(m=>dids.includes(m.divisionId))||state.registrations.some(r=>dids.some(did=>state.divisions.find(d=>d.id===did)?.name===r.division_name));if(hasHistory){x.status="cancelled";x.publicVisible=false;persist();return {mode:"archived",entity:clone(x)}}state.tournaments=state.tournaments.filter(v=>v.id!==id);state.divisions=state.divisions.filter(d=>d.tournamentId!==id);persist();return {mode:"deleted"}},
-    createDivision:async(tid,p)=>{const d={id:uid(),tournamentId:tid,name:p.name,eventType:p.eventType,format:p.format,bestOf:p.bestOf,pointsToWin:p.pointsToWin,winByTwo:p.winByTwo,advanceCount:p.advanceCount,scoringMode:p.scoringMode||"side_out",minimumRestMinutes:p.minimumRestMinutes??15,matchSlotMinutes:p.matchSlotMinutes??20,relaySegmentPoints:Number(p.relaySegmentPoints||0),relayTeamSize:Number(p.relaySegmentPoints?(p.relayTeamSize||3):0),finalPointOnServe:Boolean(p.finalPointOnServe),thirdPlaceMatch:Boolean(p.thirdPlaceMatch),active:true};state.divisions.push(d);persist();return clone(d)},
-    updateDivisionFull:async(id,p)=>{const d=state.divisions.find(x=>x.id===id);Object.assign(d,p);if(Number(d.relaySegmentPoints)>0){d.relayTeamSize=Number(d.relayTeamSize)||3;d.pointsToWin=d.relaySegmentPoints*d.relayTeamSize;d.bestOf=1}persist();return clone(d)},
+    createDivision:async(tid,p)=>{validateSeriesRules(p);const d={id:uid(),tournamentId:tid,name:p.name,eventType:p.eventType,format:p.format,bestOf:p.bestOf,pointsToWin:p.pointsToWin,winByTwo:p.winByTwo,advanceCount:p.advanceCount,scoringMode:p.scoringMode||"side_out",minimumRestMinutes:p.minimumRestMinutes??15,matchSlotMinutes:p.matchSlotMinutes??20,relaySegmentPoints:Number(p.relaySegmentPoints||0),relayTeamSize:Number(p.relaySegmentPoints?(p.relayTeamSize||3):0),finalPointOnServe:Boolean(p.finalPointOnServe),thirdPlaceMatch:Boolean(p.thirdPlaceMatch),seriesBEnabled:Boolean(p.seriesBEnabled),seriesBThirdPlaceMatch:Boolean(p.seriesBThirdPlaceMatch),active:true};state.divisions.push(d);persist();return clone(d)},
+    updateDivisionFull:async(id,p)=>{const d=state.divisions.find(x=>x.id===id);checkBracketSettings(d,p);validateSeriesRules({...d,...p});Object.assign(d,p);if(Number(d.relaySegmentPoints)>0){d.relayTeamSize=Number(d.relayTeamSize)||3;d.pointsToWin=d.relaySegmentPoints*d.relayTeamSize;d.bestOf=1}persist();return clone(d)},
     deleteDivision:async id=>{const d=state.divisions.find(x=>x.id===id);const used=state.matches.some(m=>m.divisionId===id)||state.teams.some(t=>t.divisionId===id);if(used){d.active=false;persist();return {mode:"archived",entity:clone(d)}}state.divisions=state.divisions.filter(x=>x.id!==id);persist();return {mode:"deleted"}},
     createCourt:async(tid,p)=>{const x={id:uid(),tournamentId:tid,name:p.name,sortOrder:state.courts.filter(c=>c.tournamentId===tid).length+1,active:true};state.courts.push(x);persist();return clone(x)},
     updateCourt:async(id,p)=>{Object.assign(state.courts.find(x=>x.id===id),p);persist();return {}},
@@ -429,7 +433,22 @@
       persist();return clone({...t,playerIds:ids});
     },
     deleteTeam:async id=>{const t=state.teams.find(x=>x.id===id);const used=state.matches.some(m=>m.a===id||m.b===id)||state.registrations.some(r=>r.team_name===t?.name);if(used){t.status="withdrawn";persist();return {mode:"withdrawn",entity:clone(t)}}state.teams=state.teams.filter(x=>x.id!==id);delete state.teamPlayers[id];persist();return {mode:"deleted"}},
-    updateDivision:async(id,p)=>{Object.assign(state.divisions.find(x=>x.id===id),p);persist();return {}},
+    updateDivision:async(id,p)=>{const d=state.divisions.find(x=>x.id===id);checkBracketSettings(d,p);validateSeriesRules({...d,...p});Object.assign(d,p);persist();return {}},
+    drawConfig:async id=>{const d=state.divisions.find(x=>x.id===id);if(!d)throw new Error("NOT_FOUND");return clone({...d.drawConfig,advanceCount:d.advanceCount||2,seriesBEnabled:Boolean(d.seriesBEnabled),seriesBThirdPlaceMatch:Boolean(d.seriesBThirdPlaceMatch)})},
+    saveDrawConfig:async(id,p)=>{const d=state.divisions.find(x=>x.id===id);if(!d)throw new Error("NOT_FOUND");checkBracketSettings(d,p);validateSeriesRules({...d,...p});if(!Number.isInteger(p.groupCount)||p.groupCount<1||p.groupCount>26||!Number.isInteger(p.teamsPerGroup)||p.teamsPerGroup<2||!Number.isInteger(p.advanceCount)||p.advanceCount<1)throw new Error("INVALID_DRAW_OPTIONS");if(!p.courtIds?.length)throw new Error("NO_COURTS");d.advanceCount=p.advanceCount;d.seriesBEnabled=Boolean(p.seriesBEnabled??d.seriesBEnabled);d.seriesBThirdPlaceMatch=Boolean(p.seriesBThirdPlaceMatch??d.seriesBThirdPlaceMatch);d.drawConfig=clone(p);persist();return clone(p)},
+    runDraw:async(id,p)=>{
+      const d=state.divisions.find(x=>x.id===id);if(!d)throw new Error("NOT_FOUND");
+      if(state.matches.some(m=>m.divisionId===id&&(m.bracketSlot||["live","done","completed","walkover"].includes(m.status)||(m.sets||[]).length)))throw new Error("GROUP_STAGE_ALREADY_STARTED");
+      validateSeriesRules({...d,...p});
+      const teams=state.teams.filter(t=>t.divisionId===id&&t.status!=="withdrawn");
+      const groups=Array.from({length:p.groupCount},(_,i)=>({group:String.fromCharCode(65+i),teams:[]}));
+      const order=[...teams];if(p.mode==="seeded")order.sort((a,b)=>(a.seed||9999)-(b.seed||9999));else if(p.mode!=="manual")for(let i=order.length-1;i>0;i--){const n=new Uint32Array(1);crypto.getRandomValues(n);const j=n[0]%(i+1);[order[i],order[j]]=[order[j],order[i]]}
+      for(let i=0;i<order.length;i++){const group=p.mode==="manual"?groups.find(g=>g.group===p.manualAssignments?.[order[i].id]):groups[i%groups.length];if(!group)throw new Error("MANUAL_GROUP_ASSIGNMENT_REQUIRED");group.teams.push(order[i])}
+      if(groups.some(g=>g.teams.length<2))throw new Error("GROUP_TOO_SMALL");if(groups.some(g=>g.teams.length>p.teamsPerGroup))throw new Error("GROUP_CAPACITY_EXCEEDED");if(groups.some(g=>g.teams.length<p.advanceCount))throw new Error("ADVANCE_COUNT_TOO_HIGH");if((p.seriesBEnabled??d.seriesBEnabled)&&groups.some(g=>g.teams.length<3))throw new Error("NOT_ENOUGH_SERIES_B_QUALIFIERS");
+      await window.PickleAPI.saveDrawConfig(id,p);state.matches=state.matches.filter(m=>m.divisionId!==id);let created=0;
+      for(const g of groups){for(const t of g.teams)t.group=g.group;for(let i=0;i<g.teams.length;i++)for(let j=i+1;j<g.teams.length;j++){const allowed=p.groupCourts?.[g.group]?.length?p.groupCourts[g.group]:p.courtIds,court=state.courts.find(c=>c.id===allowed[created%allowed.length]);state.matches.push({id:uid(),divisionId:id,stage:"Bảng "+g.group,a:g.teams[i].id,b:g.teams[j].id,courtId:court?.id||null,court:court?.sortOrder||1,time:"--:--",status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null,bracketSeries:null});created++}}
+      persist();return {groupCount:groups.length,created,advanceCount:d.advanceCount,seriesBEnabled:Boolean(d.seriesBEnabled),seriesBThirdPlaceMatch:Boolean(d.seriesBThirdPlaceMatch),groups:groups.map(g=>({group:g.group,count:g.teams.length}))};
+    },
     createMatch:async(did,p)=>{const court=state.courts.find(c=>c.id===p.courtId);const m={id:uid(),divisionId:did,stage:p.stage||"Vòng bảng",court:court?.sortOrder||court?.name||"—",courtId:p.courtId||null,time:p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—",a:p.teamAId,b:p.teamBId,status:"wait",sets:[],current:[0,0],winner:null,version:1,refereeId:p.refereeUserId||null};state.matches.push(m);persist();return clone(m)},
     autoSeedGroups:async(did,groupCount)=>{
       groupCount=Math.max(1,Math.min(26,Number(groupCount)||1));
@@ -467,13 +486,15 @@
     generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
     generateBracket:async did=>{
       const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
-      const existingBracket=state.matches.filter(m=>m.divisionId===did&&m.bracketSlot);if(existingBracket.some(m=>m.status==="live"||m.status==="done"||m.status==="completed"||(m.sets||[]).length))throw new Error("BRACKET_ALREADY_STARTED");if(existingBracket.length)state.matches=state.matches.filter(m=>!(m.divisionId===did&&m.bracketSlot));
+      validateSeriesRules(d);
+      const existingBracket=state.matches.filter(m=>m.divisionId===did&&m.bracketSlot);if(existingBracket.length)throw new Error("BRACKET_ALREADY_EXISTS");
       const teams=knockoutTeamsFor(did);
+      const bTeams=d.seriesBEnabled?knockoutTeamsFor(did,"B"):[];
       if(teams.length<2)throw new Error("NOT_ENOUGH_QUALIFIERS");
       if(d.format==="round_robin")throw new Error("ROUND_ROBIN_HAS_NO_KNOCKOUT");
       if(d.format==="double_elimination"&&![4,8].includes(teams.length))throw new Error("DOUBLE_ELIM_SUPPORTS_4_OR_8_TEAMS");
       const add=(stage,slot,a=null,b=null)=>{
-        const m={id:uid(),divisionId:did,stage,bracketSlot:slot,court:1,courtId:state.courts[0]?.id||null,time:"--:--",a:a?.id||a||"TBD",b:b?.id||b||"TBD",status:"wait",sets:[],current:[0,0],winner:null,version:1};
+        const m={id:uid(),divisionId:did,stage,bracketSlot:slot,bracketSeries:slot.startsWith("B-")?"B":"A",court:1,courtId:state.courts[0]?.id||null,time:"--:--",a:a?.id||a||"TBD",b:b?.id||b||"TBD",status:"wait",sets:[],current:[0,0],winner:null,version:1};
         state.matches.push(m);return m;
       };
       if(d.format==="double_elimination"){
@@ -484,6 +505,7 @@
         for(let i=0;i<4;i++)add("Nhánh thắng - Tứ kết","DE-W-QF-M"+(i+1),order[i*2],order[i*2+1]);
         add("Nhánh thắng - Bán kết 1","DE-W-SF-M1");add("Nhánh thắng - Bán kết 2","DE-W-SF-M2");add("Nhánh thắng - Chung kết","DE-W-F");add("Nhánh thua - Vòng 1","DE-L-R1-M1");add("Nhánh thua - Vòng 1","DE-L-R1-M2");add("Nhánh thua - Vòng 2","DE-L-R2-M1");add("Nhánh thua - Vòng 2","DE-L-R2-M2");add("Nhánh thua - Bán kết","DE-L-SF");add("Nhánh thua - Chung kết","DE-L-F");add("Chung kết tổng","DE-GF");persist();return {format:"double_elimination",created:14,qualifiers:clone(teams)}
       }
+      const makeBranch=(teams,prefix,withThird)=>{
       let size=2;while(size<teams.length)size*=2;
       let order=[1,2];for(let n=4;n<=size;n*=2){const next=[];for(const seed of order)next.push(seed,n+1-seed);order=next}
       const slots=order.map(n=>teams[n-1]||null),rounds=Math.log2(size);let created=0;
@@ -491,15 +513,18 @@
         const count=size/(2**(r+1));
         for(let i=0;i<count;i++){
           const a=r===0?slots[i*2]:null,b=r===0?slots[i*2+1]:null;
-          const m=add(count===1?"Chung kết":count===2?"Bán kết "+(i+1):count===4?"Tứ kết "+(i+1):"Knockout R"+(r+1)+" - Trận "+(i+1),"SE-R"+(r+1)+"-M"+(i+1),a,b);
+          const m=add(count===1?"Chung kết":count===2?"Bán kết "+(i+1):count===4?"Tứ kết "+(i+1):"Knockout R"+(r+1)+" - Trận "+(i+1),prefix+"SE-R"+(r+1)+"-M"+(i+1),a,b);
           if(r===0&&((a&&!b)||(!a&&b))){m.status="done";m.winner=(a||b).id;m.resultReason="bye"}
           created++;
         }
       }
-      const semis=rounds>=2?state.matches.filter(m=>m.divisionId===did&&m.bracketSlot&&m.bracketSlot.startsWith(`SE-R${rounds-1}-`)):[];
-      const thirdPlace=Boolean(d.thirdPlaceMatch)&&semis.length===2&&!semis.some(m=>m.resultReason==="bye");
-      if(thirdPlace){add("Tranh hạng ba","SE-3RD-M1");created++}
-      progressSingleElim(did);persist();return {format:d.format,bracketSize:size,created,qualifiers:clone(teams),thirdPlaceMatch:thirdPlace}
+      const semis=rounds>=2?state.matches.filter(m=>m.divisionId===did&&m.bracketSlot&&m.bracketSlot.startsWith(`${prefix}SE-R${rounds-1}-`)):[];
+      const thirdPlace=Boolean(withThird)&&semis.length===2&&!semis.some(m=>m.resultReason==="bye");
+      if(thirdPlace){add("Tranh hạng ba",prefix+"SE-3RD-M1");created++}
+      return {bracketSize:size,created,qualifiers:clone(teams),thirdPlaceMatch:thirdPlace};
+      };
+      const seriesA=makeBranch(teams,"",d.thirdPlaceMatch),seriesB=d.seriesBEnabled?makeBranch(bTeams,"B-",d.seriesBThirdPlaceMatch):null;
+      progressSingleElim(did);persist();return {format:d.format,...seriesA,created:seriesA.created+(seriesB?.created||0),qualifiers:clone([...teams,...bTeams]),seriesBEnabled:Boolean(d.seriesBEnabled),seriesA,seriesB}
     },
 
     assignMatch:async(id,p)=>{const m=state.matches.find(x=>x.id===id);if(p.courtId!==undefined){const ct=p.courtId?state.courts.find(x=>x.id===p.courtId):null;m.courtId=p.courtId||null;m.court=ct?.sortOrder||ct?.name||"—"}if(p.refereeUserId!==undefined)m.refereeId=p.refereeUserId||null;if(p.scheduledAt!==undefined)m.time=p.scheduledAt?new Date(p.scheduledAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"—";m.version++;persist();return clone(m)},

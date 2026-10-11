@@ -1,4 +1,6 @@
 import {validateMatchFormat} from "../../shared/scoring-rules.js";
+import {divisionBracketRules,bracketRulesChanged} from "../../shared/bracket-rules.js";
+export {divisionBracketRules};
 
 const flag=(value,fallback)=>value===undefined||value===null?fallback:(value===true||value===1||value==="1"||value==="true"||value==="on")?1:0;
 
@@ -38,4 +40,10 @@ export async function assertScoringRulesEditable(env,divisionId,before,next){
   if(!changed)return;
   const started=await env.DB.prepare("SELECT 1 AS x FROM matches WHERE division_id=? AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a>0 OR current_score_b>0) LIMIT 1").bind(divisionId).first();
   if(started)throw Object.assign(new Error("RULES_LOCKED_AFTER_START"),{status:409});
+}
+
+export async function assertBracketRulesEditable(env,divisionId,before,next){
+  if(!bracketRulesChanged(before,next))return;
+  const bracket=await env.DB.prepare("SELECT 1 AS x FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL LIMIT 1").bind(divisionId).first();
+  if(bracket)throw Object.assign(new Error("BRACKET_SETTINGS_LOCKED"),{status:409});
 }

@@ -353,7 +353,7 @@ scenario("170 archiving a published post removes it from public feed",()=>withFi
 // 171-185 Draw configuration, redraw and scheduling
 scenario("171 draw configuration round-trips",()=>withFixture(async f=>{
   addDivision(f);const payload={mode:"seeded",groupCount:4,teamsPerGroup:4,advanceCount:2,courtIds:["x"],groupCourts:{A:["x"]},manualAssignments:{}};
-  assert.equal((await f.api("/api/divisions/d/draw-config",payload,"PUT")).status,200);assert.deepEqual((await f.api("/api/divisions/d/draw-config",undefined,"GET")).data,payload);
+  assert.equal((await f.api("/api/divisions/d/draw-config",payload,"PUT")).status,200);assert.deepEqual((await f.api("/api/divisions/d/draw-config",undefined,"GET")).data,{...payload,seriesBEnabled:false,seriesBThirdPlaceMatch:false});
 }));
 scenario("172 invalid draw mode normalizes to random",()=>withFixture(async f=>{
   addDivision(f);const x=await f.api("/api/divisions/d/draw-config",{mode:"roulette"},"PUT");assert.equal(x.status,200);assert.equal(x.data.mode,"random");

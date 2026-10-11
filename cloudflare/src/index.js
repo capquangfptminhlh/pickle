@@ -6,7 +6,7 @@ import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
 import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch} from "./draw-reset.js";
 import {scheduleDivisionCourts} from "./court-scheduling.js";
-import {divisionMatchRules,assertScoringRulesEditable} from "./division-rules.js";
+import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../../shared/account-login.js";
 
@@ -427,9 +427,9 @@ async function handleApi(request,env,ctx){
     const eventType=String(b.eventType||"doubles"),format=String(b.format||"pool_to_knockout");
     if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
-    const rules=divisionMatchRules(b),id=uid();
-    await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,relay_segment_points,relay_team_size,final_point_on_serve,third_place_match,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(id,p.id,name,eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,Number(b.advanceCount||2),"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,nowIso()).run();
+    const rules=divisionMatchRules(b),bracket=divisionBracketRules(b),id=uid();
+    await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,relay_segment_points,relay_team_size,final_point_on_serve,third_place_match,series_b_enabled,series_b_third_place_match,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
+      .bind(id,p.id,name,eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,bracket.advanceCount,"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),nowIso()).run();
     const row=await one(env,"SELECT * FROM divisions WHERE id=?",id);await createAudit(env,user,"division",id,"CREATE",null,row);await emitUpdate(env,p.id);
     return ok(row,request,env,201);
   }
@@ -439,11 +439,12 @@ async function handleApi(request,env,ctx){
     const eventType=String(b.eventType??before.event_type),format=String(b.format??before.format);
     if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
-    const rules=divisionMatchRules(b,before);
+    const rules=divisionMatchRules(b,before),bracket=divisionBracketRules(b,before);
     const scoringMode=["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out";
     await assertScoringRulesEditable(env,p.id,before,{...rules,scoringMode});
-    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,relay_segment_points=?,relay_team_size=?,final_point_on_serve=?,third_place_match=?,active=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,Number(b.advanceCount??before.advance_count),"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
+    await assertBracketRulesEditable(env,p.id,before,bracket);
+    await env.DB.prepare("UPDATE divisions SET name=?,event_type=?,format=?,best_of=?,points_to_win=?,win_by_two=?,advance_count=?,tie_break_mode=?,scoring_mode=?,minimum_rest_minutes=?,match_slot_minutes=?,relay_segment_points=?,relay_team_size=?,final_point_on_serve=?,third_place_match=?,series_b_enabled=?,series_b_third_place_match=?,active=?,updated_at=? WHERE id=?")
+      .bind(String(b.name??before.name),eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,bracket.advanceCount,"head_to_head",["side_out","rally"].includes(String(b.scoringMode??before.scoring_mode))?String(b.scoringMode??before.scoring_mode):"side_out",Math.max(0,Number(b.minimumRestMinutes??before.minimum_rest_minutes??15)),Math.max(5,Number(b.matchSlotMinutes??before.match_slot_minutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),b.active===undefined?before.active:(asBool(b.active)?1:0),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);await createAudit(env,user,"division",p.id,"UPDATE",before,after);await emitUpdate(env,tid);return ok(after,request,env);
   }
   if(p&&method==="DELETE"){
@@ -661,7 +662,8 @@ async function handleApi(request,env,ctx){
   if(p&&method==="GET"){
     const user=await userRequired(request,env);await assertDivision(env,user,p.id);
     const row=await one(env,"SELECT value FROM app_settings WHERE key=?",`draw_config:${p.id}`);
-    return ok(safeJsonParse(row?.value,{}),request,env);
+    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id),bracket=divisionBracketRules({},division);
+    return ok({...safeJsonParse(row?.value,{}),seriesBEnabled:bracket.seriesBEnabled,seriesBThirdPlaceMatch:bracket.seriesBThirdPlaceMatch},request,env);
   }
   if(p&&method==="PUT"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
@@ -671,9 +673,14 @@ async function handleApi(request,env,ctx){
     const groupCount=Math.max(1,Math.min(26,Number(b.groupCount||2)));
     const teamsPerGroup=Math.max(2,Math.min(32,Number(b.teamsPerGroup||4)));
     const advanceCount=Math.max(1,Math.min(16,Number(b.advanceCount||2)));
-    const config={mode,groupCount,teamsPerGroup,advanceCount,courtIds:Array.isArray(b.courtIds)?b.courtIds.filter(Boolean):[],groupCourts:b.groupCourts&&typeof b.groupCourts==="object"?b.groupCourts:{},manualAssignments:b.manualAssignments&&typeof b.manualAssignments==="object"?b.manualAssignments:{}};
-    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at")
-      .bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()).run();
+    const signature=(await one(env,"SELECT signature FROM division_draw_reset_state WHERE division_id=?",p.id))?.signature;
+    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id),bracket=divisionBracketRules({...b,advanceCount},division);
+    await assertBracketRulesEditable(env,p.id,division,bracket);
+    const config={mode,groupCount,teamsPerGroup,advanceCount,seriesBEnabled:bracket.seriesBEnabled,seriesBThirdPlaceMatch:bracket.seriesBThirdPlaceMatch,courtIds:Array.isArray(b.courtIds)?b.courtIds.filter(Boolean):[],groupCourts:b.groupCourts&&typeof b.groupCourts==="object"?b.groupCourts:{},manualAssignments:b.manualAssignments&&typeof b.manualAssignments==="object"?b.manualAssignments:{}};
+    await guardedDivisionBatch(env,p.id,signature,[
+      env.DB.prepare("UPDATE divisions SET advance_count=?,series_b_enabled=?,series_b_third_place_match=?,updated_at=? WHERE id=?").bind(advanceCount,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),nowIso(),p.id),
+      env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso())
+    ]);
     return ok(config,request,env);
   }
   p=route(path,"/api/divisions/:id/reset-draw");
@@ -743,6 +750,9 @@ async function handleApi(request,env,ctx){
     if(mode!=="manual"&&Math.max(...sizes)>teamsPerGroup)return fail("GROUP_CAPACITY_EXCEEDED",request,env,400);
     const advanceCount=Math.max(1,Math.min(16,Number(b.advanceCount||division.advance_count||2)));
     if(advanceCount>Math.min(...sizes))return fail("ADVANCE_COUNT_TOO_HIGH",request,env,400);
+    const bracket=divisionBracketRules({...b,advanceCount},division);
+    await assertBracketRulesEditable(env,p.id,division,bracket);
+    if(bracket.seriesBEnabled&&(groupCount<2||Math.min(...sizes)<3))return fail("NOT_ENOUGH_SERIES_B_QUALIFIERS",request,env,400);
 
     const activeCourts=await rows(env,"SELECT id,name,sort_order FROM courts WHERE tournament_id=? AND active=1 ORDER BY sort_order,name",tid);
     if(!activeCourts.length)return fail("NO_COURTS",request,env,400);
@@ -760,7 +770,7 @@ async function handleApi(request,env,ctx){
     const at=nowIso(),statements=[
       env.DB.prepare("INSERT INTO division_draw_revisions(division_id,revision,expected_revision) VALUES(?,1,?) ON CONFLICT(division_id) DO UPDATE SET revision=division_draw_revisions.revision+1,expected_revision=excluded.expected_revision").bind(p.id,revision),
       env.DB.prepare("DELETE FROM matches WHERE division_id=? AND bracket_slot IS NULL AND (stage LIKE 'Bảng %' OR stage='Vòng bảng')").bind(p.id),
-      env.DB.prepare("UPDATE divisions SET advance_count=?,updated_at=? WHERE id=?").bind(advanceCount,at,p.id)
+      env.DB.prepare("UPDATE divisions SET advance_count=?,series_b_enabled=?,series_b_third_place_match=?,updated_at=? WHERE id=?").bind(advanceCount,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),at,p.id)
     ];
     for(const team of teams)statements.push(env.DB.prepare("UPDATE teams SET group_code=?,updated_at=? WHERE id=?").bind(assignments[team.id],at,team.id));
 
@@ -776,7 +786,7 @@ async function handleApi(request,env,ctx){
       }
       groupSummary.push({group:g,count:list.length,courtIds:courtPool});
     }
-    const config={mode,groupCount,teamsPerGroup,advanceCount,courtIds,groupCourts,manualAssignments:mode==="manual"?assignments:{}};
+    const config={mode,groupCount,teamsPerGroup,advanceCount,seriesBEnabled:bracket.seriesBEnabled,seriesBThirdPlaceMatch:bracket.seriesBThirdPlaceMatch,courtIds,groupCourts,manualAssignments:mode==="manual"?assignments:{}};
     statements.push(
       env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso()),
       env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,reason) VALUES(?,'division',?,'RUN_GROUP_DRAW',?,?)").bind(user.id,p.id,JSON.stringify({config,groupSummary,created}),"Bốc thăm chia bảng và xếp sân")
@@ -1053,7 +1063,7 @@ export default {
     }catch(e){
       const dbMessage=String(e?.message||"")+" "+String(e?.cause?.message||"");
       if(dbMessage.includes("UNIQUE constraint failed: app_users.email"))return fail("EMAIL_EXISTS",request,env,409);
-      const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT","VERSION_CONFLICT","DOWNSTREAM_MATCH_LOCKED","COURT_BUSY","PLAYER_BUSY"].find(code=>dbMessage.includes(code));
+      const constraint=["PLAYER_ALREADY_IN_DIVISION","TEAM_ROSTER_LOCKED","INVALID_PLAYER_COUNT","VERSION_CONFLICT","DOWNSTREAM_MATCH_LOCKED","COURT_BUSY","PLAYER_BUSY","BRACKET_SETTINGS_LOCKED"].find(code=>dbMessage.includes(code));
       const status=Number(e?.status||(constraint?(constraint==='INVALID_PLAYER_COUNT'?400:409):500)),code=constraint||(status===500?"INTERNAL_ERROR":String(e?.message||"REQUEST_FAILED"));
       if(status===500)console.error(e);
       return fail(code,request,env,status);

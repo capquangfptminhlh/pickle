@@ -363,3 +363,23 @@ create index if not exists idx_app_users_tournament_scope on app_users(tournamen
 
 alter table players add column if not exists skill_level text not null default 'B' check (skill_level in ('A+','A','B+','B','C+','C'));
 create index if not exists idx_players_skill_level on players(skill_level,full_name);
+
+-- Optional consolation branch for the third-place team in every pool.
+alter table divisions add column if not exists third_place_match boolean not null default false;
+alter table divisions add column if not exists series_b_enabled boolean not null default false;
+alter table divisions add column if not exists series_b_third_place_match boolean not null default false;
+alter table matches add column if not exists bracket_series text check (bracket_series in ('A','B'));
+update matches set bracket_series='A' where bracket_slot is not null and bracket_series is null;
+
+create or replace function protect_division_bracket_settings() returns trigger language plpgsql as $$
+begin
+  if (new.format,new.advance_count,new.third_place_match,new.series_b_enabled,new.series_b_third_place_match)
+     is distinct from (old.format,old.advance_count,old.third_place_match,old.series_b_enabled,old.series_b_third_place_match)
+     and exists(select 1 from matches where division_id=old.id and bracket_slot is not null) then
+    raise exception 'BRACKET_SETTINGS_LOCKED';
+  end if;
+  return new;
+end $$;
+drop trigger if exists division_bracket_settings_lock on divisions;
+create trigger division_bracket_settings_lock before update on divisions
+  for each row execute function protect_division_bracket_settings();

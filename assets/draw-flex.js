@@ -134,7 +134,9 @@
         </label>
         <label class="field">Số bảng<input type="number" min="1" max="26" value="${defaultGroups}" data-flex-groups></label>
         <label class="field">Tối đa đội / bảng<input type="number" min="2" max="32" value="${defaultPer}" data-flex-per-group></label>
-        <label class="field">Lấy vào vòng trong / bảng<input type="number" min="1" max="16" value="${Math.max(1,Number(saved.advanceCount||division.advanceCount||2))}" data-flex-advance></label>
+        <label class="field">Serie A: lấy Top / bảng<input type="number" min="1" max="16" value="${Math.max(1,Number(saved.advanceCount||division.advanceCount||2))}" data-flex-advance></label>
+        <label class="field"><span><input type="checkbox" data-flex-series-b ${(saved.seriesBEnabled??division.seriesBEnabled)?"checked":""}> Bật Serie B: hạng 3 mỗi bảng</span></label>
+        <label class="field"><span><input type="checkbox" data-flex-series-b-third ${(saved.seriesBThirdPlaceMatch??division.seriesBThirdPlaceMatch)?"checked":""}> Tranh hạng ba Serie B</span><small class="field-hint">4 bảng → 2 bán kết, chung kết và tranh hạng ba nếu bật.</small></label>
       </div>
       <div class="draw-setup-section">
         <div class="draw-section-title"><b>🏟 Sân được phép dùng</b><small>Chọn một hoặc nhiều sân</small></div>
@@ -194,7 +196,7 @@
       if(Number(advanceEl.value)>maxGroupSize)advanceEl.value=Math.max(1,Math.min(2,maxGroupSize));
       const modeName=modeEl.options[modeEl.selectedIndex]?.text||"";
       modal.querySelector("[data-flex-summary]").innerHTML=
-        `<b>Dự kiến:</b> ${gs.length} bảng • khoảng ${Math.floor(n/gs.length)}–${Math.ceil(n/gs.length)} đội/bảng • lấy Top ${advanceEl.value} • ${chosen.length} sân • ${esc(modeName)}`;
+        `<b>Dự kiến:</b> ${gs.length} bảng • khoảng ${Math.floor(n/gs.length)}–${Math.ceil(n/gs.length)} đội/bảng • Serie A: Top ${advanceEl.value}${modal.querySelector("[data-flex-series-b]")?.checked?" • Serie B: hạng 3 mỗi bảng":""} • ${chosen.length} sân • ${esc(modeName)}`;
     }
 
     function makePayload(){
@@ -212,6 +214,8 @@
         groupCount:Number(groupsEl.value),
         teamsPerGroup:Number(perEl.value),
         advanceCount:Number(advanceEl.value),
+        seriesBEnabled:Boolean(modal.querySelector("[data-flex-series-b]")?.checked),
+        seriesBThirdPlaceMatch:Boolean(modal.querySelector("[data-flex-series-b-third]")?.checked),
         courtIds,
         groupCourts,
         manualAssignments
@@ -296,7 +300,7 @@
     const divisionId=btn.dataset.top2Bracket;
     const division=state.divisions.find(x=>x.id===divisionId);
     const advance=Math.max(1,Number(division?.advanceCount||2));
-    if(!confirm(`Tạo nhánh đấu tự động từ Top ${advance} mỗi bảng?`))return;
+    if(!confirm(`Tạo Serie A từ Top ${advance} mỗi bảng${division?.seriesBEnabled?" và Serie B từ hạng 3 mỗi bảng":""}?`))return;
     try{
       const result=await API.generateBracket(divisionId);
       await refresh();
@@ -305,10 +309,14 @@
         document.querySelector("#genericDialog")?.close();
         await openTournamentDetail(tournamentId);
       }
-      toast(`Đã tạo nhánh loại trực tiếp ${result.created||0} trận từ Top ${advance} mỗi bảng.`);
+      toast(`Đã tạo ${result.created||0} trận${result.seriesBEnabled?" cho Serie A và Serie B":" loại trực tiếp"}.`);
     }catch(e){
       const msg={
         GROUP_STAGE_NOT_COMPLETE:"Vòng bảng chưa thi đấu xong.",
+        SERIES_B_REQUIRES_POOL_FORMAT:"Serie B cần thể thức vòng bảng + loại trực tiếp.",
+        SERIES_B_ADVANCE_COUNT_OVERLAP:"Serie A chỉ lấy Top 1 hoặc Top 2 khi bật Serie B.",
+        NOT_ENOUGH_SERIES_B_QUALIFIERS:"Serie B cần ít nhất 2 bảng và mỗi bảng có ít nhất 3 đội.",
+        BRACKET_SETTINGS_LOCKED:"Đã tạo nhánh đấu. Đặt lại bảng trước khi đổi cấu hình Serie.",
         BRACKET_ALREADY_EXISTS:"Nhánh đấu đã được tạo.",
         BRACKET_ALREADY_STARTED:"Nhánh đã có trận bắt đầu/kết quả nên không thể bốc lại.",
         BRACKET_STATE_CHANGED:"Bảng hoặc kết quả vừa thay đổi. Tải lại và kiểm tra trước khi tạo nhánh.",
@@ -329,7 +337,7 @@
     document.querySelectorAll("[data-top2-bracket]").forEach(btn=>{
       const d=state.divisions.find(x=>x.id===btn.dataset.top2Bracket);
       const advance=Math.max(1,Number(d?.advanceCount||2));
-      const label=`🏆 Tạo nhánh Top ${advance}`;
+      const label=d?.seriesBEnabled?"🏆 Tạo Serie A + B":`🏆 Tạo nhánh Top ${advance}`;
       if(btn.textContent!==label)btn.textContent=label;
     });
     document.querySelectorAll("[data-center-draw]").forEach(btn=>{

@@ -122,7 +122,7 @@ function render(){
    const cards=rows.map((m,mi)=>{
      const statusClass=m.status==="live"?"is-live":(m.status==="done"||m.status==="completed"?"is-done":"is-wait");
      const queueText=m.status==="live"?'<span class="live-dot"></span> Đang diễn ra':m.status==="done"||m.status==="completed"?'✓ Đã kết thúc':m.courtState==="warming_up"?'🔥 Đang khởi động':m.courtState==="on_deck"?'⏭ On deck':m.courtState==="called"?'📣 Đang gọi VĐV':'◷ Sắp diễn ra';
-     return '<article class="court-match-card '+statusClass+'" style="--match-delay:'+((ci*90)+(mi*45))+'ms"><div class="court-match-meta"><span><b>'+esc(m.time||"--:--")+'</b> • '+esc(m.stage||"Trận đấu")+'</span>'+badge(m.status)+'</div>'+courtTeamRow(m,0)+courtTeamRow(m,1)+'<footer>'+queueText+'</footer></article>';
+     return '<article class="court-match-card '+statusClass+'" style="--match-delay:'+((ci*90)+(mi*45))+'ms"><div class="court-match-meta"><span><b>'+esc(m.time||"--:--")+'</b> • '+esc(window.PickleBracket?.stageLabel(m)||m.stage||"Trận đấu")+'</span>'+badge(m.status)+'</div>'+courtTeamRow(m,0)+courtTeamRow(m,1)+'<footer>'+queueText+'</footer></article>';
    }).join("");
    const empty='<div class="court-empty-slot"><span>🏟</span><b>Sân đang trống</b><small>Chưa có trận được xếp</small></div>';
    return '<section class="court-board court-tone-'+((ci%4)+1)+'" style="--court-delay:'+(ci*70)+'ms"><header class="court-board-head"><div><span>SÂN</span><h3>Sân '+esc(court)+'</h3></div><b>'+(liveCount?'● '+liveCount+' LIVE':rows.length+' trận')+'</b></header><div class="court-match-stack">'+(cards||empty)+'</div></section>';
@@ -133,7 +133,7 @@ function render(){
   const existingGroups=[...new Set(teams.map(x=>x.group).filter(Boolean))].sort();
   const isDrawn=existingGroups.length>1||(existingGroups.length===1&&hasGroupMatches);
   const groupEntries=isDrawn?divs.flatMap(d=>[...new Set(teams.filter(x=>x.divisionId===d.id).map(x=>x.group).filter(Boolean))].sort().map(g=>({d,g}))):[];
-  $("#tourStandings").innerHTML=groupEntries.map(({d,g})=>{const advance=Math.max(1,Number(d.advanceCount||2)),rows=sortGroupTeams(teams.filter(x=>x.divisionId===d.id&&x.group===g),matches.filter(m=>m.divisionId===d.id));return '<div class="public-standings"><div class="panel-head"><div><span class="eyebrow">'+esc(d.name)+' • BẢNG '+esc(g)+'</span><h2>Xếp hạng Bảng '+esc(g)+'</h2></div><span class="badge blue">TOP '+advance+' ĐI TIẾP</span></div><div class="standing-table-wrap"><div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>'+rows.map((r,i)=>{const qualified=i<advance,rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span>':'<span class="rank-badge rank-other">Hạng '+(i+1)+'</span>';const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';const diff=r.pf-r.pa;return '<div class="standing-row '+qCls+'"><b>'+(i+1)+'</b><span><b>'+esc(r.name)+'</b><small class="muted-block">'+esc(r.club||"")+'</small></span><span>'+r.w+'-'+r.l+'</span><span>'+(r.sw||0)+'-'+(r.sl||0)+'</span><span>'+r.pf+'-'+r.pa+'</span><b>'+(diff>0?'+':'')+diff+'</b><div>'+rankTag+(qualified?'<small class="qualify-status">Vào vòng trong</small>':'')+'</div></div>';}).join("")+'</div></div>'}).join("")||empty("📊","Chưa có bảng xếp hạng","Kết quả vòng bảng sẽ tự cập nhật.");
+  $("#tourStandings").innerHTML=groupEntries.map(({d,g})=>{const advance=Math.max(1,Number(d.advanceCount||2)),rows=sortGroupTeams(teams.filter(x=>x.divisionId===d.id&&x.group===g),matches.filter(m=>m.divisionId===d.id));return '<div class="public-standings"><div class="panel-head"><div><span class="eyebrow">'+esc(d.name)+' • BẢNG '+esc(g)+'</span><h2>Xếp hạng Bảng '+esc(g)+'</h2></div><span class="badge blue">TOP '+advance+' ĐI TIẾP</span></div><div class="standing-table-wrap"><div class="standing-row head"><span>#</span><span>Đội / VĐV</span><span>Trận</span><span>Set</span><span>Điểm</span><span>+/-</span><span>Xếp hạng</span></div>'+rows.map((r,i)=>{const qualified=i<advance,rankTag=i===0?'<span class="rank-badge rank-1">🥇 Nhất bảng</span>':i===1?'<span class="rank-badge rank-2">🥈 Nhì bảng</span>':'<span class="rank-badge rank-other">Hạng '+(i+1)+'</span>';const qCls=i===0?'qualify-rank-1':i===1?'qualify-rank-2':'';const diff=r.pf-r.pa;return '<div class="standing-row '+qCls+'"><b>'+(i+1)+'</b><span><b>'+esc(r.name)+'</b><small class="muted-block">'+esc(r.club||"")+'</small></span><span>'+r.w+'-'+r.l+'</span><span>'+(r.sw||0)+'-'+(r.sl||0)+'</span><span>'+r.pf+'-'+r.pa+'</span><b>'+(diff>0?'+':'')+diff+'</b><div>'+rankTag+(qualified?'<small class="qualify-status">Serie A • tạm thời</small>':d.seriesBEnabled&&i===2?'<small class="qualify-status">Serie B • hạng 3 tạm thời</small>':'')+'</div></div>';}).join("")+'</div></div>'}).join("")||empty("📊","Chưa có bảng xếp hạng","Kết quả vòng bảng sẽ tự cập nhật.");
  const hasKnockout=matches.some(m=>m.bracketSlot)||matches.some(m=>/bán kết|chung kết|tứ kết/i.test(m.stage||""));
  const roundRobinOnly=divs.length>0&&divs.every(d=>d.format==="round_robin");
  const knockoutDiv=divs.find(d=>d.format!=="round_robin")||divs[0];
@@ -142,14 +142,14 @@ function render(){
  if(help)help.textContent=roundRobinOnly
    ?"Thể thức vòng tròn: thứ hạng chung cuộc lấy theo bảng xếp hạng, không có vòng loại trực tiếp."
    :knockoutDiv?.format==="pool_to_knockout"
-     ?`Top ${advance} mỗi bảng vào vòng loại trực tiếp${knockoutDiv?.thirdPlaceMatch?", có trận tranh hạng ba":""}.`
+     ?`Serie A: Top ${advance} mỗi bảng${knockoutDiv?.seriesBEnabled?". Serie B: hạng 3 mỗi bảng":""}${knockoutDiv?.thirdPlaceMatch?", có tranh hạng ba Serie A":""}.`
      :`Loại trực tiếp đến Chung kết${knockoutDiv?.thirdPlaceMatch?", có trận tranh hạng ba":""}.`;
  const bracketHtml=hasKnockout
-   ?(window.PickleBracket?.render(matches,team,{admin:false})||"")
+   ?(window.PickleBracket?.render(matches,team,{admin:false,showChampions:true,divisionNames:Object.fromEntries(state.divisions.map(d=>[d.id,d.name]))})||"")
    :roundRobinOnly
      ?empty("📊","Không có vòng loại trực tiếp","Xem thứ hạng ở mục Bảng xếp hạng.")
-     :(window.PickleBracket?.renderPlan(teams,{advance,thirdPlace:Boolean(knockoutDiv?.thirdPlaceMatch)})||empty("🏆","Chưa có sơ đồ","BTC chưa chia bảng."));
- const champ=window.PickleBracket?.champion(matches,team);
+     :(divs.filter(d=>d.format!=="round_robin").map(d=>`<section class="bracket-division"><h2>${esc(d.name)}</h2>${window.PickleBracket?.renderPlan(teams.filter(t=>t.divisionId===d.id),{advance:Number(d.advanceCount)||2,thirdPlace:Boolean(d.thirdPlaceMatch),seriesBEnabled:Boolean(d.seriesBEnabled),seriesBThirdPlaceMatch:Boolean(d.seriesBThirdPlaceMatch)})||""}</section>`).join("")||empty("🏆","Chưa có sơ đồ","BTC chưa chia bảng."));
+ const champ=null;
  $("#tourBracket").innerHTML=bracketHtml+(champ&&champ!=="Chưa xác định"?'<div class="public-champion"><span>VÔ ĐỊCH</span><strong>'+esc(champ)+'</strong></div>':"");
  requestAnimationFrame(()=>{requestAnimationFrame(drawBracketConnectors)});
  const relevant=sponsors.filter(s=>!s.tournament_id||s.tournament_id===t.id);

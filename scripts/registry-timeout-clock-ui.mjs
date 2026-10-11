@@ -108,7 +108,8 @@ async function scoringSurface(kind,width){
         assert.equal(await roster.locator('[data-player-slot]').count(),3,'all three player identities must be explicit');
         for(const [index,letter] of [...'ABC'].entries()){
           const row=roster.locator(`[data-player-slot="${letter}"]`);
-          assert.equal(await row.locator('.lineup-slot').innerText(),'Trình '+levels[index]);assert.ok((await row.innerText()).includes(names[index]),'player roles follow entered levels, even when roster order differs');
+          assert.equal(await row.locator('.lineup-slot').innerText(),'Vị trí '+letter);
+          assert.equal(await row.locator('.lineup-grade').innerText(),'Trình '+levels[index]);assert.ok((await row.innerText()).includes(names[index]),'player roles follow entered levels, even when roster order differs');
           assert.equal(await row.getAttribute('data-playing'),String(code.includes(letter)),'active pair follows the relay');
         }
         assert.equal(await roster.locator('[data-serving="true"]').count(),side==='B'?1:0);
@@ -117,13 +118,39 @@ async function scoringSurface(kind,width){
       await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)});
       await page.waitForTimeout(500);await page.screenshot({path:resolve(out,`${kind}-${width}-lineup-${code}.png`),fullPage:true});
     }
-    f.db.exec("UPDATE players SET skill_level='B' WHERE id='b3'");await refresh();
+    f.db.exec("UPDATE players SET skill_level='B' WHERE id IN ('a1','a2','a3','b1','b2','b3')");
+    for(const [score,code] of [[0,'AB'],[9,'BC'],[18,'CA']]){
+      f.db.prepare("UPDATE matches SET current_score_a=? WHERE id='match'").run(score);await refresh();
+      for(const side of ['A','B']){
+        const roster=page.locator(admin?`#team${side}Roster`:`#refRoster${side}`);
+        const names=side==='A'?['Nguyễn Minh','Trần Thuỳ Anh','Vũ An']:['Hoàng Nam','Lê Thanh Hà','Đặng Mai'];
+        assert.equal(await roster.locator('[data-player-slot]').count(),3,'same-grade teams have three confirmed relay positions');
+        assert.equal(await roster.locator('.lineup-warning').count(),0,'valid B/B/B rosters do not need grade changes');
+        for(const [index,letter] of [...'ABC'].entries()){
+          const row=roster.locator(`[data-player-slot="${letter}"]`);
+          assert.equal(await row.locator('.lineup-slot').innerText(),'Vị trí '+letter);
+          assert.equal(await row.locator('.lineup-grade').innerText(),'Trình B','actual grade remains distinct from relay position');
+          assert.equal(await row.locator('.lineup-name').innerText(),names[index],'same-grade roles follow the saved member order');
+          assert.equal(await row.getAttribute('data-playing'),String(code.includes(letter)));
+        }
+        assert.equal(await roster.locator('[data-serving="true"]').count(),side==='B'?1:0);
+        if(side==='B')assert.equal(await roster.locator('[data-serving="true"]').getAttribute('data-player-slot'),code[1]);
+      }
+      await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)});await page.waitForTimeout(500);
+      await page.screenshot({path:resolve(out,`${kind}-${width}-ordered-lineup-${code}.png`),fullPage:true});
+    }
     const incomplete=page.locator(admin?'#teamBRoster':'#refRosterB');
-    assert.equal(await incomplete.locator('[data-player-slot]').count(),0,'duplicate levels cannot invent A/B/C identities');
-    assert.match(await incomplete.innerText(),/Chưa đủ trình A\/B\/C/);
-    assert.equal(await incomplete.locator('[data-player-id="b3"] .lineup-slot').innerText(),'Trình B','ambiguous lineup still displays actual entered levels');
+    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; UPDATE team_players SET slot_no=NULL WHERE team_id='b'; UPDATE teams SET name='Đặng Mai / Hoàng Nam / Lê Thanh Hà' WHERE id='b'; UPDATE matches SET current_score_a=18 WHERE id='match'");await refresh();
+    assert.equal(await incomplete.locator('[data-player-slot="A"] .lineup-name').innerText(),'Đặng Mai','legacy name-list order remains a confirmed fallback');
+    assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),/Người giao 2 · Đặng Mai/,'serving name follows the current CA pair in inferred member order');
+    f.db.exec("UPDATE teams SET name='Đội chưa xếp thứ tự' WHERE id='b'");await refresh();
+    assert.equal(await incomplete.locator('[data-player-slot]').count(),0,'unassigned same-grade rosters cannot invent relay positions');
+    assert.match(await incomplete.innerText(),/Chưa xác định thứ tự/);
+    assert.equal(await incomplete.locator('[data-player-id="b3"] .lineup-grade').innerText(),'Trình B','unassigned roster still displays actual entered levels');
+    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; UPDATE team_players SET slot_no=CASE player_id WHEN 'b1' THEN 1 WHEN 'b2' THEN 2 WHEN 'b3' THEN 3 END WHERE team_id='b'; UPDATE teams SET name='Hoàng Nam / Lê Thanh Hà / Đặng Mai' WHERE id='b'; UPDATE matches SET current_score_a=18 WHERE id='match'");
     f.db.exec("UPDATE players SET skill_level='C' WHERE id='b3'");await refresh();
-    assert.equal(await incomplete.locator('[data-player-slot="C"] .lineup-name').innerText(),'Đặng Mai','updated skill level is recognized without rebuilding groups or matches');
+    assert.equal(await incomplete.locator('[data-player-slot="C"] .lineup-name').innerText(),'Đặng Mai');
+    assert.equal(await incomplete.locator('[data-player-id="b3"] .lineup-grade').innerText(),'Trình C','updated skill level is recognized without rebuilding groups or matches');
     f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; INSERT INTO players(id,full_name,skill_level) VALUES ('b4','Thành viên dư','B'); INSERT INTO team_players(team_id,player_id,slot_no) VALUES ('b','b4',4)");await refresh();
     assert.equal(await incomplete.locator('[data-player-id]').count(),4,'invalid roster still shows every actual member for correction');
     assert.match(await incomplete.innerText(),/đúng 3 VĐV/);assert.equal(await incomplete.locator('[data-player-slot]').count(),0);

@@ -89,6 +89,7 @@ jobs:
           node ../scripts/registry-public-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-legacy-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-bracket-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-series-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-draw-reset-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-court-safety-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 

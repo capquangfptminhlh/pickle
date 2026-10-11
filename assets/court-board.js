@@ -6,6 +6,7 @@
 
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
+  const stage=m=>(m?.bracketSlot?"Serie "+(m.bracketSeries==="B"||String(m.bracketSlot).startsWith("B-")?"B":"A")+" · ":"")+(m?.stage||"Trận đấu");
   const division=m=>state.divisions.find(d=>d.id===m.divisionId);
   const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5;
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI VĐV","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
@@ -65,7 +66,7 @@
     return '<article class="tv-court '+(isLive?"live":"")+'">'+
       '<header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><div class="tv-head-actions"><b class="tv-state '+meta[1]+'">'+meta[0]+'</b>'+qr+'</div></header>'+
       '<div class="tv-match"><div class="tv-team"><small>ĐỘI A</small><strong>'+esc(matchTeam(m,m.a))+'</strong>'+matchRoster(m,m.a)+'</div>'+score+'<div class="tv-team right"><small>ĐỘI B</small><strong>'+esc(matchTeam(m,m.b))+'</strong>'+matchRoster(m,m.b)+'</div></div>'+
-      '<footer class="tv-court-foot"><span>'+esc(m.stage||d?.name||"Trận đấu")+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(matchTeam(next,next.a))+" vs "+esc(matchTeam(next,next.b)):"")+'</span></footer></article>';
+      '<footer class="tv-court-foot"><span>'+esc(stage(m))+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(matchTeam(next,next.a))+" vs "+esc(matchTeam(next,next.b)):"")+'</span></footer></article>';
   }
 
   function calledMatches(){return matches().filter(m=>m.courtState==="called"&&m.status!=="live").sort((a,b)=>String(a.calledAt||"").localeCompare(String(b.calledAt||"")))}
