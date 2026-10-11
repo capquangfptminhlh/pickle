@@ -30,7 +30,7 @@ test("PWA updates wait for user acceptance and never cache authentication or sco
   const context={self:{location:{origin:"https://test.invalid"},addEventListener:(e,fn)=>handlers[e]=fn,skipWaiting:()=>calls.skip++,clients:{claim:async()=>{}}},caches:{open:async()=>({add:async url=>precache.push(url)}),keys:async()=>["other-app","pickleup-old"],delete:async k=>deleted.push(k)},URL,Promise};
   vm.runInNewContext(source("service-worker.js"),context);
   let wait;handlers.install({waitUntil:p=>wait=p});await wait;assert.equal(calls.skip,0);
-  for(const [page,names] of [["admin.html",["styles.css","admin-app.js","bracket-ui.js","admin-crud.js","timeout-clock.js","timeout-clock.css"]],["court-board.html",["court-board.css","court-board.js"]],["referee.html",["referee-arena.css","referee-courtside.js","timeout-clock.js","timeout-clock.css"]]]){
+  for(const [page,names] of [["admin.html",["styles.css","admin-app.js","bracket-ui.js","admin-crud.js","timeout-clock.js","timeout-clock.css","team-lineup.js","team-lineup.css"]],["court-board.html",["court-board.css","court-board.js","team-lineup.js"]],["referee.html",["referee-arena.css","referee-courtside.js","timeout-clock.js","timeout-clock.css","team-lineup.js","team-lineup.css"]]]){
     const urls=[...source(page).matchAll(/(?:src|href)="([^"]+)"/g)].map(match=>match[1].replace(/^\//,''));
     for(const name of names){
       const url=urls.find(value=>value.startsWith('assets/'+name+'?'));

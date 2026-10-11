@@ -1,0 +1,18 @@
+/* Entered player levels stay distinct from match sides. */
+html:root body.site-sport :is(.ref-team-roster,.score-roster) {
+  display:grid;gap:4px;margin-top:9px;text-align:left;color:var(--muted,#51636f);font-size:12px;line-height:1.35;
+}
+html:root body.site-sport .lineup-player {
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 6px;align-items:baseline;padding:4px 0;
+}
+html:root body.site-sport .lineup-slot {font-size:11px;font-weight:700;white-space:nowrap;}
+html:root body.site-sport .lineup-name {font-size:12px;font-weight:600;overflow-wrap:anywhere;}
+html:root body.site-sport .lineup-serving {grid-column:2;font-size:10px;font-weight:800;font-style:normal;letter-spacing:.06em;}
+html:root body.site-sport .lineup-warning {font-size:12px;font-weight:700;overflow-wrap:anywhere;}
+html:root body.site-sport .lineup-player[data-playing="true"] {color:var(--text,#10202a);}
+html:root body.site-sport.courtside-body.referee-arena .ref-team-roster {color:#bdccd5;}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-playing="true"] {color:#fff;}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-serving="true"] .lineup-slot,
+html:root body.site-sport.courtside-body.referee-arena .lineup-serving {color:var(--ref-a);}
+html:root body.site-sport.courtside-body.referee-arena .team-b .lineup-player[data-serving="true"] .lineup-slot,
+html:root body.site-sport.courtside-body.referee-arena .team-b .lineup-serving {color:var(--ref-b);}

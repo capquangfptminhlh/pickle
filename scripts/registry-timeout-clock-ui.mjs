@@ -55,8 +55,14 @@ async function scoringSurface(kind,width){
   const timeout=(side,medical=false)=>page.locator(admin?`[data-timeout-side="${side}"][data-timeout-kind="${medical?'medical':'standard'}"]`:`[data-timeout="${side}"][data-kind="${medical?'medical':'standard'}"]`);
   const refresh=async()=>{
     if(admin)return page.evaluate(()=>refresh({keepDialog:true}));
-    await page.evaluate(()=>document.querySelector('#connectionState').textContent='Đang cập nhật');
-    await page.locator('#refreshBtn').click();await page.waitForFunction(()=>document.querySelector('#connectionState').textContent==='Đã cập nhật');
+    // Realtime can replace the connection label independently of score refresh.
+    await page.evaluate(()=>{
+      window.__refScoreRendered=false;
+      const observer=new MutationObserver(()=>{window.__refScoreRendered=true;observer.disconnect()});
+      observer.observe(document.querySelector('#refTeamA'),{childList:true});
+    });
+    const response=page.waitForResponse(r=>r.url().endsWith('/api/admin/state')&&r.status()===200);
+    await page.locator('#refreshBtn').click();await response;await page.waitForFunction(()=>window.__refScoreRendered);
   };
   const undo=()=>page.locator(admin?'#undoScore':'#undoBtn').click();
   let failTimeout=false;
@@ -91,8 +97,37 @@ async function scoringSurface(kind,width){
         assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),side==='A'?/Trần Thuỳ Anh/:/Lê Thanh Hà/,'selected player name comes from persisted roster order');
       }
     }
-    f.db.exec("UPDATE divisions SET points_to_win=27,relay_segment_points=9,relay_team_size=3 WHERE id='division'; UPDATE matches SET current_score_a=9 WHERE id='match'");await refresh();
+    f.db.exec("UPDATE players SET skill_level=CASE id WHEN 'a1' THEN 'C' WHEN 'a2' THEN 'A' WHEN 'a3' THEN 'B+' WHEN 'b1' THEN 'A+' WHEN 'b2' THEN 'B' WHEN 'b3' THEN 'C' END; UPDATE divisions SET points_to_win=27,relay_segment_points=9,relay_team_size=3 WHERE id='division'; UPDATE matches SET current_score_a=9 WHERE id='match'");await refresh();
     assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),/Người giao 2 · Đặng Mai/,'relay server is indexed in the current BC pair');
+    for(const [score,code] of [[0,'AB'],[9,'BC'],[18,'CA']]){
+      f.db.prepare("UPDATE matches SET current_score_a=? WHERE id='match'").run(score);await refresh();
+      for(const side of ['A','B']){
+        const roster=page.locator(admin?`#team${side}Roster`:`#refRoster${side}`);
+        const names=side==='A'?['Trần Thuỳ Anh','Vũ An','Nguyễn Minh']:['Hoàng Nam','Lê Thanh Hà','Đặng Mai'];
+        const levels=side==='A'?['A','B+','C']:['A+','B','C'];
+        assert.equal(await roster.locator('[data-player-slot]').count(),3,'all three player identities must be explicit');
+        for(const [index,letter] of [...'ABC'].entries()){
+          const row=roster.locator(`[data-player-slot="${letter}"]`);
+          assert.equal(await row.locator('.lineup-slot').innerText(),'Trình '+levels[index]);assert.ok((await row.innerText()).includes(names[index]),'player roles follow entered levels, even when roster order differs');
+          assert.equal(await row.getAttribute('data-playing'),String(code.includes(letter)),'active pair follows the relay');
+        }
+        assert.equal(await roster.locator('[data-serving="true"]').count(),side==='B'?1:0);
+        if(side==='B')assert.equal(await roster.locator('[data-serving="true"]').getAttribute('data-player-slot'),code[1],'S2 refers to the second player in the current pair');
+      }
+      await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)});
+      await page.waitForTimeout(500);await page.screenshot({path:resolve(out,`${kind}-${width}-lineup-${code}.png`),fullPage:true});
+    }
+    f.db.exec("UPDATE players SET skill_level='B' WHERE id='b3'");await refresh();
+    const incomplete=page.locator(admin?'#teamBRoster':'#refRosterB');
+    assert.equal(await incomplete.locator('[data-player-slot]').count(),0,'duplicate levels cannot invent A/B/C identities');
+    assert.match(await incomplete.innerText(),/Chưa đủ trình A\/B\/C/);
+    assert.equal(await incomplete.locator('[data-player-id="b3"] .lineup-slot').innerText(),'Trình B','ambiguous lineup still displays actual entered levels');
+    f.db.exec("UPDATE players SET skill_level='C' WHERE id='b3'");await refresh();
+    assert.equal(await incomplete.locator('[data-player-slot="C"] .lineup-name').innerText(),'Đặng Mai','updated skill level is recognized without rebuilding groups or matches');
+    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; INSERT INTO players(id,full_name,skill_level) VALUES ('b4','Thành viên dư','B'); INSERT INTO team_players(team_id,player_id,slot_no) VALUES ('b','b4',4)");await refresh();
+    assert.equal(await incomplete.locator('[data-player-id]').count(),4,'invalid roster still shows every actual member for correction');
+    assert.match(await incomplete.innerText(),/đúng 3 VĐV/);assert.equal(await incomplete.locator('[data-player-slot]').count(),0);
+    f.db.exec("DELETE FROM team_players WHERE team_id='b' AND player_id='b4'");
     f.db.exec("UPDATE divisions SET points_to_win=11,relay_segment_points=0,relay_team_size=0 WHERE id='division'; UPDATE matches SET current_score_a=0 WHERE id='match'");
     f.db.exec("UPDATE divisions SET event_type='singles' WHERE id='division'");await refresh();assert.equal(await service('A',2).isDisabled(),true);assert.equal(await service('B',2).isDisabled(),true);
     f.db.exec("UPDATE divisions SET event_type='team' WHERE id='division'");await refresh();

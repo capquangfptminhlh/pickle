@@ -61,6 +61,7 @@ jobs:
           node scripts/registry-role-pages-ui.mjs
           node --test scripts/registry-tournament-progress.test.mjs scripts/registry-tournament-recovery-ui.mjs
           node --test scripts/registry-api-client.test.mjs
+          node --test scripts/registry-team-lineup.test.mjs
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
           node scripts/mlp-court-control-ui.mjs

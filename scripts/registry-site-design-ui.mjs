@@ -15,7 +15,8 @@ const root=fileURLToPath(new URL("../",import.meta.url)),artifacts=resolve(root,
 await mkdir(artifacts,{recursive:true});
 const server=createServer(async(req,res)=>{
   try{
-    const path=new URL(req.url,"http://localhost").pathname;
+    const requestedPath=new URL(req.url,"http://localhost").pathname;
+    const path=requestedPath==="/login"?"/login.html":requestedPath;
     if(["/socket.io/socket.io.js","/assets/pwa.js","/preview/preview-pwa.js"].includes(path)){res.end("");return}
     const full=resolve(root,"."+path);
     if(!full.startsWith(root)){res.writeHead(403).end();return}
@@ -50,8 +51,11 @@ const previews=["index","ranking","player","tournament","about","login","submit-
   `preview/${name}.html${name==="player"?"?id=p1":name==="tournament"?"?id=tour":""}`,
   name==="login"?"#loginForm":name==="admin"?"#content .club-home-hero":name==="ranking"?"#rankingRows a":name==="player"?"#playerName":name==="tournament"?"#tourName":"main"
 ]);
+const defaultViewports=[{width:1440,height:1000},{width:375,height:812},{width:844,height:390}];
+const viewports=process.env.SITE_WIDTH?[defaultViewports.find(v=>String(v.width)===process.env.SITE_WIDTH)||{width:Number(process.env.SITE_WIDTH),height:812}]:defaultViewports;
+const selectedPages=process.env.SITE_PAGES?.split(",");
 try{
-  for(const viewport of [{width:1440,height:1000},{width:375,height:812},{width:844,height:390}].filter(v=>!process.env.SITE_WIDTH||String(v.width)===process.env.SITE_WIDTH)){
+  for(const viewport of viewports){
     const f=await scoringFixture();
     f.db.exec(`UPDATE tournaments SET name='Giải kiểm thử Lime',venue_name='Cụm sân kiểm thử',public_visible=1,status='live',start_at='2026-10-10T08:00:00Z',poster_url='/assets/tournaments/pickleup-tour-binh-loi-20261015-original.jpg' WHERE id='tour';
       INSERT INTO courts(id,tournament_id,name) VALUES('court','tour','Sân 01');
@@ -62,7 +66,7 @@ try{
       INSERT INTO registrations(id,division_id,team_id,status,checkin_token) VALUES('registration','division','a','approved','site-fixture');
       UPDATE matches SET status='live',court_id='court',stage='Bảng A' WHERE id='match';`);
     const previewState={bookings:[],clubEvents:[],clubAttendance:{},clubTransactions:[],ratingHistory:{},ratingProcessedKeys:[],...(await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json())};
-    for(const [path,ready,actor] of [...production,...previews].filter(s=>!process.env.SITE_PAGE||s[0].startsWith(process.env.SITE_PAGE))){
+    for(const [path,ready,actor] of [...production,...previews].filter(s=>(!process.env.SITE_PAGE||s[0].startsWith(process.env.SITE_PAGE))&&(!selectedPages||selectedPages.some(name=>s[0].split("?")[0]===name)))){
       const context=await browser.newContext({viewport,reducedMotion:process.env.SITE_MOTION||"reduce"}),page=await context.newPage(),errors=[];
       await page.addInitScript(theme=>localStorage.setItem("pickleup-theme-v2",theme),theme);
       page.setDefaultTimeout(7000);page.on("pageerror",e=>errors.push(e.message));
@@ -81,6 +85,17 @@ try{
         if(path==="court-board.html")await page.locator('#boardTournament').evaluate(el=>{el.textContent='Giải Đồng Đội Pickleup Mở Rộng 2026 — Chung kết toàn quốc'});
         await page.waitForTimeout(180);
         assert.ok(await page.locator("#themeToggle").isVisible(),"theme choice available on every page");
+        const publicHeader=page.locator(".public-header .public-nav"),login=publicHeader.getByRole("link",{name:"Đăng nhập",exact:true});
+        if(await publicHeader.count()){
+          assert.equal(await login.count(),1,"public header must offer a visible login entry");
+          assert.ok(await login.isVisible(),"login entry stays visible on mobile");
+          const loginBox=await login.boundingBox(),brandBox=await publicHeader.locator(".public-brand").boundingBox(),themeBox=await publicHeader.locator("#themeToggle").boundingBox();
+          assert.ok(loginBox.height>=44&&loginBox.width>=44,"login touch target is at least 44px");
+          assert.ok(loginBox.x>=0&&loginBox.x+loginBox.width<=viewport.width&&loginBox.y>=0&&loginBox.y+loginBox.height<=viewport.height,"login fits the initial viewport");
+          for(const box of [brandBox,themeBox])assert.ok(loginBox.x+loginBox.width<=box.x+.1||box.x+box.width<=loginBox.x+.1||loginBox.y+loginBox.height<=box.y+.1||box.y+box.height<=loginBox.y+.1,"login does not overlap branding or theme control");
+          const loginStyle=await login.evaluate(el=>{const s=getComputedStyle(el);return {fg:s.color,bg:s.backgroundColor}});
+          assert.ok(contrast(loginStyle.fg,loginStyle.bg)>=4.5,"login text contrast in selected theme");
+        }
         const style=await page.locator("body").evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,scheme:s.colorScheme,theme:el.classList.contains("site-sport")}});
         checks(label+" "+theme+" theme",()=>{assert.ok(style.theme,"site theme missing");assert.ok(theme==="light"?luminance(style.bg)>.8:luminance(style.bg)<.03,"selected canvas brightness");assert.ok(style.scheme.includes(theme));assert.ok(contrast(style.fg,style.bg)>=7,"body text contrast")});
         const samples=await page.locator('.bracket-plan-note,.bracket-plan-empty,.bracket-plan-match .bracket-team,.division-rule-pills b,.public-section>.public-container,.panel,.tour-body,.top-player-card,.news-card,.community-post-card,.connect-player-card,.ranking-tabs,.ranking-list-card,.ranking-search-panel,.podium-player,.tournament-event-summary,.tournament-event-facts article,.tournament-prize-card,.tournament-contact-card,.player-stat,.player-match,.login-card,.checkin-card,.ref-team-card,.ref-control-card,.live-match-card,.card,.package-card').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el);let p=el;while(p.parentElement&&getComputedStyle(p).backgroundColor==="rgba(0, 0, 0, 0)")p=p.parentElement;return {cls:el.className,bg:getComputedStyle(p).backgroundColor,fg:s.color}}));
@@ -170,6 +185,11 @@ try{
         const suffix=path.includes("=missing")?"-missing":path.includes("site-fixture")?"-valid":"";
         if(path==="index.html")await page.screenshot({path:resolve(artifacts,`${theme}-${viewport.width}-home-viewport.png`)});
         await page.screenshot({path:resolve(artifacts,`${process.env.SITE_BASELINE?"baseline-":""}${theme}-${viewport.width}-${path.split("?")[0].replace(/[/.]/g,"-")}${suffix}.png`),fullPage:!path.startsWith("referee")});
+        if(await publicHeader.count()){
+          await Promise.all([page.waitForURL(/\/(?:preview\/)?login(?:\.html)?$/),login.click()]);
+          await page.locator("#loginForm").waitFor({state:"visible"});
+          assert.ok(await page.locator("#email").isVisible()&&await page.locator("#password").isVisible(),"header login opens the real login form");
+        }
         console.log(failures.length===previousFailures?"PASS site UI":"CHECKED site UI",label);
       }catch(e){failures.push(label+": "+e.message);console.error("FAIL",failures.at(-1));console.error("DIAGNOSTIC",JSON.stringify(await page.evaluate(()=>({url:location.href,main:[...document.querySelectorAll("main")].map(el=>({cls:el.className,display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility,rect:el.getBoundingClientRect().toJSON()}))}))))}
       finally{await context.close()}

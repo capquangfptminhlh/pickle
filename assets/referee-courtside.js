@@ -70,8 +70,8 @@
     $("#queueLabel").textContent=qm[0];$("#queueLabel").className="queue-pill "+qm[1];
     const lineupA=window.PickleTeamLineup?.match(m.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(m.b,d,a,b,state);
     $("#refTeamA").textContent=lineupA?.label||team(m.a);$("#refTeamB").textContent=lineupB?.label||team(m.b);
-    if($("#refRosterA"))$("#refRosterA").textContent=lineupA?.relay?`Đội: ${team(m.a)}`:"";
-    if($("#refRosterB"))$("#refRosterB").textContent=lineupB?.relay?`Đội: ${team(m.b)}`:"";
+    window.PickleTeamLineup?.renderRoster($("#refRosterA"),lineupA,!locked&&serve==="A"?server:0);
+    window.PickleTeamLineup?.renderRoster($("#refRosterB"),lineupB,!locked&&serve==="B"?server:0);
     const specialResult=Boolean(m.winner&&m.resultReason);
     const finalScore=m.winner&&!specialResult&&(m.sets||[]).length?m.sets[m.sets.length-1]:null;
     $("#refScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#refScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;

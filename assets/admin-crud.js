@@ -103,9 +103,10 @@
     const initialIds=[...(ctx.state.teamPlayers?.[t.id]||[])];
     const division=ctx.state.divisions.find(d=>d.id===t.divisionId);
     const count=division?.eventType==="singles"?1:division?.eventType==="team"?(Number(division.relayTeamSize)||4):2;
-    const slotLabels=division?.eventType==="team"?Array.from({length:count},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
+    const gradeBased=division?.eventType==="team"&&Number(division.relayTeamSize)===3&&Number(division.relaySegmentPoints)>0;
+    const slotLabels=division?.eventType==="team"&&!gradeBased?Array.from({length:count},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
     const lineupSource=ctx.state.teamLineupSources?.[t.id]||"assigned";
-    const lineupUnassigned=division?.eventType==="team"&&lineupSource==="unassigned";
+    const lineupUnassigned=division?.eventType==="team"&&!gradeBased&&lineupSource==="unassigned";
     const excludedIds=ctx.state.teams.filter(team=>team.id!==t.id&&team.divisionId===t.divisionId&&team.status!=="withdrawn").flatMap(team=>ctx.state.teamPlayers?.[team.id]||[]);
     const locked=(ctx.state.matches||[]).some(match=>[match.a,match.b,match.team_a_id,match.team_b_id].includes(t.id)&&(
       match.startedAt||match.started_at||match.winner||match.winner_team_id||
@@ -113,7 +114,7 @@
       (match.current||[]).some(score=>Number(score)!==0)||Number(match.current_score_a||0)!==0||Number(match.current_score_b||0)!==0
     ));
     modal("Sửa đội / cặp",'<div class="form-grid">'+
-      '<div class="field full security-note" id="crudTeamRosterNote"><span>'+(locked?'Trận của đội đã bắt đầu hoặc có điểm / kết quả. Thành viên đã khóa; bạn vẫn có thể sửa thông tin đội.':lineupUnassigned?'Đội cũ chưa có thứ tự A/B/C rõ ràng. Hãy chọn lại từng vị trí rồi lưu trước khi nhập điểm.':'Chọn thành viên theo đúng vị trí thi đấu. '+(division?.eventType==='team'?'Thứ tự A/B/C quyết định cặp AB → BC → CA.':'Nội dung này cần '+count+' VĐV.'))+'</span></div>'+
+      '<div class="field full security-note" id="crudTeamRosterNote"><span>'+(locked?'Trận của đội đã bắt đầu hoặc có điểm / kết quả. Thành viên đã khóa; bạn vẫn có thể sửa thông tin đội.':lineupUnassigned?'Đội cũ chưa có thứ tự A/B/C rõ ràng. Hãy chọn lại từng vị trí rồi lưu trước khi nhập điểm.':gradeBased?'Cột Trình của từng VĐV quyết định cặp AB → BC → CA. Cần một VĐV thuộc mỗi nhóm A, B, C (chấp nhận trình có dấu +). Sửa trình tại Bảng VĐV / Rating.':'Chọn thành viên theo đúng vị trí thi đấu. '+(division?.eventType==='team'?'Thứ tự thành viên quyết định các cặp thi đấu.':'Nội dung này cần '+count+' VĐV.'))+'</span></div>'+
       '<div class="field full" id="crudTeamPlayerPicker"></div>'+
       '<div id="crudTeamResetWrap" style="grid-column:1/-1" hidden><button id="crudTeamResetMembers" type="button" class="mini">Khôi phục thành viên ban đầu</button></div>'+
       '<label class="field full">Tên đội / cặp<input id="crudTeamName" value="'+esc(t.name)+'"></label>'+

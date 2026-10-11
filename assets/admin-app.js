@@ -944,11 +944,11 @@ function syncScoreDialog(){
   $("#scoreA").textContent=a;$("#scoreB").textContent=b;
   const lineupA=window.PickleTeamLineup?.match(activeMatch.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(activeMatch.b,d,a,b,state);
   $("#teamAName").textContent=lineupA?.label||teamName(activeMatch.a);$("#teamBName").textContent=lineupB?.label||teamName(activeMatch.b);
-  if($("#teamARoster"))$("#teamARoster").textContent=lineupA?.relay?`Đội: ${teamName(activeMatch.a)}`:"";
-  if($("#teamBRoster"))$("#teamBRoster").textContent=lineupB?.relay?`Đội: ${teamName(activeMatch.b)}`:"";
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
   const serveSide=activeMatch.servingSide||"A",serverNo=Number(activeMatch.serverNumber||(isDoubles?2:1));
+  window.PickleTeamLineup?.renderRoster($("#teamARoster"),lineupA,!locked&&serveSide==="A"?serverNo:0);
+  window.PickleTeamLineup?.renderRoster($("#teamBRoster"),lineupB,!locked&&serveSide==="B"?serverNo:0);
   if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?` • điểm ${d.pointsToWin} phải cầm giao`:"");
   const leg=$("#relayLeg");
   if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=!text;leg.textContent=text}
@@ -1492,7 +1492,7 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
   </div>`;
   $("#genericDialog").showModal();
   const slotCount=division=>division?.eventType==="singles"?1:(division?.eventType==="team"?(Number(division.relayTeamSize)||4):2);
-  const slotLabels=division=>division?.eventType==="team"?Array.from({length:slotCount(division)},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
+  const slotLabels=division=>division?.eventType==="team"&&!(Number(division.relayTeamSize)===3&&Number(division.relaySegmentPoints)>0)?Array.from({length:slotCount(division)},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
   const excludedFor=divisionId=>new Set(state.teams.filter(team=>team.divisionId===divisionId&&team.status!=="withdrawn").flatMap(team=>state.teamPlayers?.[team.id]||[]));
   let picker,nameEdited=false,clubEdited=false;
   const syncName=ids=>{

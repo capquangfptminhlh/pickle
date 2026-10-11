@@ -35,6 +35,9 @@ function seedMlpDay(f){
     INSERT INTO players(id,full_name) VALUES
       ('za','Zelda'),('an','An'),('mai','Mai'),('linh','Linh'),('bao','Bảo'),('chi','Chi'),
       ('uyen','Uyên'),('van','Vân'),('xuan','Xuân');
+    UPDATE players SET skill_level='A' WHERE id IN ('za','linh','uyen');
+    UPDATE players SET skill_level='B+' WHERE id IN ('an','bao','van');
+    UPDATE players SET skill_level='C' WHERE id IN ('mai','chi','xuan');
     INSERT INTO teams(id,division_id,name,group_code) VALUES('legacy-free','division','Uyên / Vân / Xuân','B');
     INSERT INTO team_players(team_id,player_id) VALUES
       ('a','mai'),('a','za'),('a','an'),('b','chi'),('b','linh'),('b','bao'),
