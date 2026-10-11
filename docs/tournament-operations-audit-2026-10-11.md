@@ -25,6 +25,14 @@ This release targets the production Cloudflare Worker and the organizer/referee 
 - Independent spec and code reviews are required before merge; confirmed findings receive reproducing regression tests before fixes.
 - CI runs the new browser checks and D1 HTTP checks. Deployment applies additive migrations `0015`, `0016` and `0017` before publishing the Worker. Cache version `pickleup-v66-tournament-clock-20261011` includes the exact new console/clock assets.
 
+## Released application
+
+- [PR #28](https://github.com/capquangfptminhlh/pickle/pull/28) merged as application commit `5c0a565beeb1088fa88d14522b4774fbabb30683` at 04:04 UTC.
+- [Full PR integration CI](https://github.com/capquangfptminhlh/pickle/actions/runs/38109633410) passed in 13m45s, including browser, PostgreSQL, API and preview smoke checks.
+- [Production Worker pipeline](https://github.com/capquangfptminhlh/pickle/actions/runs/38110418115) validated and deployed that exact application commit. Remote migrations 0015–0017 succeeded. Final Worker version: `63cfb4e9-3ac5-474e-b362-71fa01a69b81`.
+- Production checks at 04:06–04:07 UTC matched nine deployed HTML/JS/CSS/service-worker assets against the local build (normalizing line endings). Health returned 200; all 24 public matches exposed the new timeout schema; three unauthenticated management/scoring requests returned 401.
+- Public pages and both tournament pages passed a fresh 1440px/375px browser review: no observed JavaScript errors, failed same-origin HTTP responses or horizontal overflow; all five tournament anchors were exercised.
+
 ## Limits
 
 The authenticated write flows above ran against isolated SQLite/D1, not the user's live tournament. No real accounts, groups or scores were changed for testing. Production public pages were checked at 1440px and 375px. This evidence does not establish that every application flow or every network/device combination is error-free.

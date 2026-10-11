@@ -53,8 +53,8 @@
 
 - [x] Run the full Worker suite, all registry browser scripts and client/network/realtime tests. Cover singles 11, doubles 15, relay 27, 16 teams/4 courts, draw/reset, account assignment and completion through finals.
 - [x] Build assets and run Worker dry-run with `cd cloudflare; npm run check`.
-- [ ] Obtain independent spec and code reviews, fix findings, then attach and merge the PR.
-- [ ] Deploy the verified commit; check production health, anonymous permissions and exact deployed assets, without changing real tournament data.
+- [x] Obtain independent spec and code reviews, fix findings, then attach and merge the PR.
+- [x] Deploy the verified commit; check production health, anonymous permissions and exact deployed assets, without changing real tournament data.
 - [x] Record concrete findings, test evidence and remaining limits in the audit report.
 
 ### Task 6: Referee service selection and one-minute timeout (user steering)
