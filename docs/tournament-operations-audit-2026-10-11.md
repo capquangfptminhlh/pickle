@@ -19,7 +19,8 @@ This release targets the production Cloudflare Worker and the organizer/referee 
 
 - Full Worker regression suite: **1,355 passing**, including 36 scheduling, 71 group-operation, 23 live-occupancy and 23 timeout cases. Client/network/realtime/PWA suites: **93 passing**. Account/operator/role/scoring/referee/legacy/avatar flows and light/dark/reduced-motion browser checks also passed.
 - The complete lifecycle suite covers singles 11, doubles 15, MLP 27 (AB → BC → CA), and Best of 3, including referee creation/login, assignment, pools, qualification, finals and public champion.
-- Local Wrangler/D1 HTTP checks cover cross-division scheduling, simultaneous starts, timeout persistence and Undo, warmup roster rejection, bracket generation and reset/archive/redraw.
+- All ten local Wrangler/D1 HTTP suites passed: smoke, permissions, registry, accounts, operations, public privacy, legacy import, bracket, reset and court safety. They cover cross-division scheduling, simultaneous starts, timeout persistence and Undo, warmup roster rejection, bracket generation and reset/archive/redraw.
+- CI exposed two test-harness assumptions: an Undo-restored live match was left open before reusing its players, and successive timeout errors left two valid alerts visible. Scenarios now finish prior play and wait for the actual rejected request and counter updates; application safety guards remain enabled.
 - Both dependency audits report zero vulnerabilities. Static assets build and Wrangler deployment dry-run succeed.
 - Independent spec and code reviews are required before merge; confirmed findings receive reproducing regression tests before fixes.
 - CI runs the new browser checks and D1 HTTP checks. Deployment applies additive migrations `0015`, `0016` and `0017` before publishing the Worker. Cache version `pickleup-v66-tournament-clock-20261011` includes the exact new console/clock assets.

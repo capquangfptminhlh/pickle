@@ -60,6 +60,14 @@ async function scoringSurface(kind,width){
   };
   const undo=()=>page.locator(admin?'#undoScore':'#undoBtn').click();
   let failTimeout=false;
+  const rejectedTimeout=async()=>{
+    failTimeout=true;
+    const response=page.waitForResponse(r=>r.url().endsWith('/timeout')&&r.request().method()==='POST'&&r.status()===503);
+    await timeout('B').click();await response;
+    // Consecutive errors may legitimately leave two admin alerts visible.
+    await page.locator(admin?'.toast':'#refToast').filter({hasText:/TEST_UNAVAILABLE/}).last().waitFor();
+    failTimeout=false;
+  };
   page.setDefaultTimeout(6000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(token=>{localStorage.setItem('pickle-api-token-v1',token);localStorage.setItem('pickleup-theme-v2','light')},f.tokens[admin?'admin':'ref']);
   await page.route('**/api/**',async route=>{
@@ -104,11 +112,13 @@ async function scoringSurface(kind,width){
     if(admin)await openAdmin();else await page.locator('[data-open="match"]').click();await clock.waitFor();
     assert.equal(f.match().timeout_ends_at,deadline,'reopening preserves the same timeout');
     assert.notEqual(await clock.locator('[data-timeout-value]').innerText(),closedValue,'reopening catches up elapsed time');
-    failTimeout=true;await timeout('B').click();await page.locator(admin?'.toast':'#refToast').filter({hasText:/Không thể/}).waitFor();
-    assert.equal(f.match().timeout_ends_at,deadline,'failed timeout leaves the existing deadline intact');assert.equal(await clock.isVisible(),true);assert.equal(await clock.getAttribute('data-timeout-side'),'A');failTimeout=false;
+    await rejectedTimeout();
+    assert.equal(f.match().timeout_ends_at,deadline,'failed timeout leaves the existing deadline intact');assert.equal(await clock.isVisible(),true);assert.equal(await clock.getAttribute('data-timeout-side'),'A');
     await undo();await clock.waitFor({state:'hidden'});assert.equal(f.match().timeout_side,null);
-    await timeout('A',true).click();assert.equal(await clock.isHidden(),true,'medical timeout never invents a one-minute clock');await undo();
-    failTimeout=true;await timeout('B').click();await page.locator(admin?'.toast':'#refToast').filter({hasText:/Không thể/}).waitFor();assert.equal(await clock.isHidden(),true);assert.equal(f.match().timeout_side,null);failTimeout=false;
+    const medicalCounter=page.locator(admin?'#medicalA':'#refMedicalA');
+    await timeout('A',true).click();await medicalCounter.filter({hasText:'1/1'}).waitFor();
+    assert.equal(await clock.isHidden(),true,'medical timeout never invents a one-minute clock');await undo();await medicalCounter.filter({hasText:'0/1'}).waitFor();
+    await rejectedTimeout();assert.equal(await clock.isHidden(),true);assert.equal(f.match().timeout_side,null);
     await timeout('B').click();await clock.waitFor();
     const ended=new Date(Date.now()-1000).toISOString();f.db.prepare("UPDATE matches SET timeout_ends_at=? WHERE id='match'").run(ended);await refresh();
     await clock.locator('[data-timeout-status]').filter({hasText:'Hết timeout'}).waitFor();assert.equal(await clock.locator('[data-timeout-value]').innerText(),'00:00');
