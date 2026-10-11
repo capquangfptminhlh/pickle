@@ -16,7 +16,7 @@ const admin=await login(process.env.ADMIN_EMAIL||"admin@pickle.test",process.env
 const state=async(actor=admin)=>(await api("/api/admin/state",undefined,{actor})).data;
 const match=async id=>(await state()).matches.find(m=>m.id===id);
 const stamp=Date.now(),password="relay-account-password-123";
-const tournament=(await api("/api/tournaments",{name:`Local relay draw ${stamp}`,eventType:"team"})).data;
+const tournament=(await api("/api/tournaments",{name:`Local relay draw ${stamp}`,eventType:"team",publicVisible:true})).data;
 const tid=tournament.tournament?.id||tournament.id;
 const other=(await api("/api/tournaments",{name:`Other relay scope ${stamp}`})).data;
 const otherTid=other.tournament?.id||other.id;
