@@ -95,6 +95,13 @@ if(process.env.DATABASE_URL){
   const url=new URL(process.env.DATABASE_URL);if(!["127.0.0.1","localhost","[::1]"].includes(url.hostname))throw new Error("Direct relay DB checks require local PostgreSQL");
   const {default:pg}=await import("pg"),db=new pg.Pool({connectionString:url.href});
   try{
+    const unresolvedIds=[];for(let slot=0;slot<3;slot++)unresolvedIds.push((await api('/api/players',{fullName:`Unresolved ${stamp} ${slot}`})).data.id);
+    const unresolvedTeam=(await api(`/api/divisions/${did}/teams`,{name:'Unconfirmed positions',playerIds:unresolvedIds})).data;
+    await db.query('update team_players set slot_no=null where team_id=$1',[unresolvedTeam.id]);
+    const unresolvedMatch=await makeMatch({teamAId:unresolvedTeam.id,teamBId:teams[2]});
+    assert.equal((await draw(unresolvedMatch,{expected:[409]})).data.error,'RELAY_LINEUP_REQUIRED');
+    for(const [index,grade] of ['C','A','B'].entries())await db.query('update players set skill_level=$1 where id=$2',[grade,unresolvedIds[index]]);
+    await draw(unresolvedMatch);
     for(const [index,grade] of ['C','A','B'].entries())await db.query('update players set skill_level=$1 where id=$2',[grade,rosters[0][index]]);
     const gradeState=await state();
     for(const [index,grade] of ['C','A','B'].entries())assert.equal(gradeState.players.find(p=>p.id===rosters[0][index]).skillLevel,grade,'PostgreSQL preserves actual entered grades independently of roster slots');

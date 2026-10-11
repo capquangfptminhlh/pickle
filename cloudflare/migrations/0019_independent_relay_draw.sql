@@ -4,11 +4,16 @@ ALTER TABLE matches ADD COLUMN relay_drawn_at TEXT;
 
 CREATE TABLE relay_draw_guards (
   match_id TEXT PRIMARY KEY REFERENCES matches(id) ON DELETE CASCADE,
-  expected_version INTEGER NOT NULL
+  expected_version INTEGER NOT NULL,
+  expected_lineup TEXT NOT NULL
 );
 CREATE TRIGGER relay_draw_guard_version BEFORE INSERT ON relay_draw_guards
 BEGIN
   SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM matches WHERE id=NEW.match_id AND version=NEW.expected_version)
+    THEN RAISE(ABORT,'VERSION_CONFLICT') END;
+  SELECT CASE WHEN NEW.expected_lineup IS NOT (SELECT json_group_array(json_array(team_id,player_id,slot_no,full_name,skill_level,active,team_name)) FROM
+    (SELECT tp.team_id,tp.player_id,tp.slot_no,p.full_name,p.skill_level,p.active,t.name AS team_name FROM team_players tp JOIN players p ON p.id=tp.player_id JOIN teams t ON t.id=tp.team_id
+     WHERE tp.team_id IN (SELECT team_a_id FROM matches WHERE id=NEW.match_id UNION SELECT team_b_id FROM matches WHERE id=NEW.match_id) ORDER BY tp.team_id,tp.player_id))
     THEN RAISE(ABORT,'VERSION_CONFLICT') END;
   SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=NEW.match_id AND d.relay_team_size=3 AND d.relay_segment_points>0)
     THEN RAISE(ABORT,'RELAY_DRAW_UNSUPPORTED') END;

@@ -17,7 +17,7 @@ import {divisionBracketRules,bracketRulesChanged} from "../shared/bracket-rules.
 import {singleEliminationSlots} from "../shared/bracket-seeding.js";
 import {rankGroupStandings,isGroupStageMatch} from "../shared/standings.js";
 import {validateSet,validateSeries,validateMatchFormat} from "../shared/scoring-rules.js";
-import {parseRelayOrder,drawRelayOrders,relayDrawRequired,relayHasStarted} from "../shared/relay-draw.js";
+import {parseRelayOrder,drawRelayOrders,relayDrawRequired,relayHasStarted,relayRosterReady} from "../shared/relay-draw.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../shared/account-login.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
@@ -1230,6 +1230,8 @@ app.post("/api/matches/:id/relay-draw",authRequired,wrap(async(req,res)=>{
     assertScoreSource(m);
     const rosters=(await c.query("select t.id,count(tp.player_id)::int size,count(p.id) filter(where p.active)::int active_size from teams t left join team_players tp on tp.team_id=t.id left join players p on p.id=tp.player_id where t.id=any($1::uuid[]) and t.division_id=$2 and t.status='active' group by t.id",[[m.team_a_id,m.team_b_id],m.division_id])).rows;
     if(rosters.length!==2||rosters.some(t=>t.size!==3||t.active_size!==3))throw scoreError("RELAY_PARTICIPANTS_REQUIRED",409);
+    const lineupRows=(await c.query('select tp.team_id,tp.slot_no,p.full_name,p.skill_level,t.name as team_name from team_players tp join players p on p.id=tp.player_id join teams t on t.id=tp.team_id where tp.team_id=any($1::uuid[])',[[m.team_a_id,m.team_b_id]])).rows;
+    if([m.team_a_id,m.team_b_id].some(team=>!relayRosterReady(lineupRows.filter(p=>p.team_id===team),lineupRows.find(p=>p.team_id===team)?.team_name)))throw scoreError('RELAY_LINEUP_REQUIRED',409);
     const {A,B}=drawRelayOrders();
     const after=(await c.query("update matches set relay_order_a=$1,relay_order_b=$2,relay_drawn_at=now(),version=version+1 where id=$3 returning *",[JSON.stringify(A),JSON.stringify(B),m.id])).rows[0];
     await audit(c,req.user,"match",m.id,"RELAY_DRAW",m,after,"Independent AB/BC/CA pair order for each side");return after;

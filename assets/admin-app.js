@@ -1013,7 +1013,7 @@ $("#relayDrawButton")?.addEventListener("click",async()=>{
   try{await API.relayDraw(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã bốc thăm độc lập cặp của hai đội.")}catch(e){await showScoreError(e)}finally{busy=false;syncScoreDialog()}
 });
 function scoreError(e){
-  return {RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
+  return {RELAY_LINEUP_REQUIRED:"Chưa xác định vị trí A/B/C. BTC cần xác nhận thứ tự thành viên hoặc nhập đúng Trình trước khi bốc thăm.",RELAY_PARTICIPANTS_REQUIRED:"Mỗi đội cần đúng 3 VĐV đang hoạt động trước khi bốc thăm.",RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
     COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Kết thúc trận trên sân hoặc chọn sân khác.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Kiểm tra lại lịch trước khi bắt đầu.",
     DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
     UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",

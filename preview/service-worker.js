@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v43-independent-relay-draw-20261011";
+const VERSION="pickleup-preview-v44-independent-relay-draw-20261011";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,7 +34,7 @@ const CORE=[
   "../assets/tournament.js?v=55",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=77",
+  "../assets/admin-app.js?v=78",
   "../assets/draw-flex.js?v=8",
   "../assets/bracket-ui.js?v=38",
   "../assets/admin-crud.js?v=13",

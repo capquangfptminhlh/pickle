@@ -1,4 +1,13 @@
 const PAIRS=['AB','BC','CA'];
+export function relayRosterReady(roster,teamName=''){
+  if(roster.length!==3)return false;
+  const grades=roster.map(p=>/^([ABC])\+?$/.exec(String(p.skill_level??p.skillLevel??'').trim().toUpperCase())?.[1]);
+  if(grades.every(Boolean)&&new Set(grades).size===3)return true;
+  if([...roster].sort((a,b)=>Number(a.slot_no)-Number(b.slot_no)).every((p,i)=>Number(p.slot_no)===i+1))return true;
+  const key=v=>String(v||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi');
+  const names=String(teamName).split('/').map(key).filter(Boolean),actual=roster.map(p=>key(p.full_name));
+  return names.length===3&&new Set(names).size===3&&new Set(actual).size===3&&names.every(n=>actual.includes(n));
+}
 export function parseRelayOrder(value){
   let order=value;
   if(typeof order==='string'){try{order=JSON.parse(order)}catch{return null}}

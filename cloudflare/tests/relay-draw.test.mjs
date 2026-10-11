@@ -19,6 +19,14 @@ test('draw rejects incomplete or inactive rosters without mutation',async()=>{
   assert.equal((await f.api('relay-draw',{expectedVersion:1})).data.error,'RELAY_PARTICIPANTS_REQUIRED');
  }finally{f.db.close()}
 });
+test('repeated grades require confirmed positions before drawing; unique grades need no slots',async()=>{
+ const f=await fixture();try{
+  f.db.exec("UPDATE team_players SET slot_no=NULL; UPDATE players SET skill_level='B'");
+  assert.equal((await f.api('relay-draw',{expectedVersion:1})).data.error,'RELAY_LINEUP_REQUIRED');assert.equal((await f.api('point',{side:'A',delta:1})).data.error,'RELAY_DRAW_REQUIRED');
+  for(const side of ['a','b'])for(const [i,grade] of ['C','A','B'].entries())f.db.prepare('UPDATE players SET skill_level=? WHERE id=?').run(grade,side+(i+1));
+  assert.equal((await f.api('relay-draw',{expectedVersion:1})).status,200);
+ }finally{f.db.close()}
+});
 test('audit failure rolls back draw and guard; roster replacement invalidates pending orders',async()=>{
  const f=await fixture();try{
   f.db.exec("CREATE TRIGGER fail_draw_audit BEFORE INSERT ON audit_logs WHEN NEW.action='RELAY_DRAW' BEGIN SELECT RAISE(ABORT,'AUDIT_FAILURE'); END;");
@@ -77,7 +85,7 @@ test('stale concurrent draw cannot persist an audit or replace the winning draw'
 test('first draw rechecks actual roster atomically after concurrent deletion',async()=>{
  const f=await fixture();try{
   f.controls.beforeBatch=async()=>f.db.exec("DELETE FROM team_players WHERE player_id='a3'");
-  const draw=await f.api('relay-draw',{expectedVersion:1});assert.equal(draw.data.error,'RELAY_PARTICIPANTS_REQUIRED');assert.equal(f.match().relay_order_a,null);assert.equal(f.db.prepare("SELECT count(*) n FROM audit_logs WHERE action='RELAY_DRAW'").get().n,0);
+  const draw=await f.api('relay-draw',{expectedVersion:1});assert.equal(draw.data.error,'VERSION_CONFLICT');assert.equal(f.match().relay_order_a,null);assert.equal(f.db.prepare("SELECT count(*) n FROM audit_logs WHERE action='RELAY_DRAW'").get().n,0);
  }finally{f.db.close()}
 });
 test('score reset and completion preserve both drawn permutations',async()=>{
