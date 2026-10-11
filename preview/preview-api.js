@@ -113,13 +113,13 @@
   const rankGroupFor=(did,g)=>{
     const gm=groupMatchesFor(did,g).filter(m=>(m.status==="done"||m.status==="completed")&&m.winner);
     const teams=state.teams.filter(t=>t.divisionId===did&&t.group===g&&t.status!=="withdrawn");
-    // Two tied teams use head-to-head; larger tied buckets use only tied-team point differential.
+    // Two tied teams use head-to-head; larger tied buckets use overall point differential.
     const buckets=new Map();for(const t of teams){const wins=Number(t.w||0);if(!buckets.has(wins))buckets.set(wins,[]);buckets.get(wins).push(t)}
     const result=[];
     for(const wins of [...buckets.keys()].sort((a,b)=>b-a)){
       const bucket=buckets.get(wins),mini=new Map(bucket.map(t=>[t.id,{w:0,sw:0,sl:0,pf:0,pa:0}]));
       for(const m of gm){if(!mini.has(m.a)||!mini.has(m.b))continue;const a=mini.get(m.a),b=mini.get(m.b);if(m.winner===m.a)a.w++;else if(m.winner===m.b)b.w++;for(const [x,y] of m.sets||[]){a.pf+=x;a.pa+=y;b.pf+=y;b.pa+=x;if(x>y){a.sw++;b.sl++}else if(y>x){b.sw++;a.sl++}}}
-      bucket.sort((a,b)=>{const x=mini.get(a.id),y=mini.get(b.id);if(bucket.length>=3)return (y.pf-y.pa)-(x.pf-x.pa)||(y.sw-y.sl)-(x.sw-x.sl)||((b.sw||0)-(b.sl||0))-((a.sw||0)-(a.sl||0))||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.seed||9999)-(b.seed||9999)||String(a.name||" ").localeCompare(String(b.name||" "),"vi");return y.w-x.w||(y.sw-y.sl)-(x.sw-x.sl)||(y.pf-y.pa)-(x.pf-x.pa)||((b.sw||0)-(b.sl||0))-((a.sw||0)-(a.sl||0))||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.seed||9999)-(b.seed||9999)||String(a.name||'').localeCompare(String(b.name||''),'vi')});result.push(...bucket);
+      bucket.sort((a,b)=>{const x=mini.get(a.id),y=mini.get(b.id);if(bucket.length>=3)return ((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||((b.sw||0)-(b.sl||0))-((a.sw||0)-(a.sl||0))||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.seed||9999)-(b.seed||9999)||String(a.name||" ").localeCompare(String(b.name||" "),"vi");return y.w-x.w||(y.sw-y.sl)-(x.sw-x.sl)||(y.pf-y.pa)-(x.pf-x.pa)||((b.sw||0)-(b.sl||0))-((a.sw||0)-(a.sl||0))||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.seed||9999)-(b.seed||9999)||String(a.name||'').localeCompare(String(b.name||''),'vi')});result.push(...bucket);
     }
     return result;
   };
