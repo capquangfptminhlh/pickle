@@ -130,6 +130,20 @@ try{
       assert.equal(f.db.prepare('SELECT referee_user_id FROM matches WHERE id=?').get(match.id).referee_user_id,refId);
       await ref.goto(base+'/referee.html?match='+match.id);await ref.locator('#scoreSurface').waitFor();
       assert.match(await ref.locator('#refRules').innerText(),new RegExp('Chạm '+cfg.target));
+      let relayOrders;
+      if(cfg.mlp){
+        assert.equal(await ref.locator('[data-rally="A"]').isDisabled(),true,'MLP scoring waits for the pair draw');
+        const previous=f.db.prepare('SELECT version FROM matches WHERE id=?').get(match.id).version;
+        const response=ref.waitForResponse(r=>r.url().endsWith('/relay-draw')&&r.request().method()==='POST');
+        await ref.locator('#refRelayDrawButton').click();assert.equal((await response).status(),200);
+        await ref.waitForFunction(()=>!document.querySelector('[data-rally="A"]').disabled);
+        const drawn=f.db.prepare('SELECT * FROM matches WHERE id=?').get(match.id);
+        assert.equal(drawn.version,previous+1);assert.ok(drawn.relay_drawn_at);
+        relayOrders=[drawn.relay_order_a,drawn.relay_order_b,drawn.relay_drawn_at];
+        for(const order of relayOrders.slice(0,2))assert.deepEqual(JSON.parse(order).sort(),['AB','BC','CA']);
+        await ref.reload();await ref.locator('#scoreSurface').waitFor();
+        for(const side of ['A','B'])assert.match(await ref.locator('#refTeam'+side).innerText(),new RegExp('Cặp '+JSON.parse(relayOrders[side==='A'?0:1])[0]));
+      }
       const firstMatch=scoredMatches++===0;
       const point=async side=>{
         const field=side==='A'?'current_score_a':'current_score_b',selector='#refScore'+side;
@@ -142,13 +156,14 @@ try{
         if(deuce)for(let i=0;i<cfg.target-1;i++)await point('B');
         for(let i=0;i<cfg.target;i++){
           await point('A');
-          if(cfg.mlp&&[9,18].includes(i+1))assert.match(await ref.locator('#legBanner').innerText(),new RegExp(i+1===9?'BC':'CA'));
+          if(cfg.mlp&&[9,18].includes(i+1))for(const side of ['A','B'])assert.match(await ref.locator('#refTeam'+side).innerText(),new RegExp('Cặp '+JSON.parse(relayOrders[side==='A'?0:1])[(i+1)/9]));
         }
         if(deuce){assert.equal(await ref.locator('#finishMatchBtn').isDisabled(),true,'one-point margin must not finish a win-by-two game');await point('A')}
         if(game<Math.ceil(cfg.best/2)-1){await ref.locator('#finishSetBtn').click();await ref.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='0')}
       }
       await ref.locator('#finishMatchBtn').click();await ref.locator('#scoreHint').filter({hasText:'Thắng trận'}).waitFor();
       const saved=f.db.prepare('SELECT * FROM matches WHERE id=?').get(match.id);assert.equal(saved.status,'completed');assert.equal(saved.winner_team_id,match.team_a_id);
+      if(cfg.mlp)assert.deepEqual([saved.relay_order_a,saved.relay_order_b,saved.relay_drawn_at],relayOrders,'relay order survives completion');
     };
     for(const m of f.db.prepare('SELECT * FROM matches WHERE division_id=? ORDER BY id').all(did))await scoreMatch(m);
     note('referee-assignment-deuce-or-relay-and-complete-pools');

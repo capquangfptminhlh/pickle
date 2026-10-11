@@ -371,6 +371,16 @@ alter table divisions add column if not exists series_b_third_place_match boolea
 alter table matches add column if not exists bracket_series text check (bracket_series in ('A','B'));
 update matches set bracket_series='A' where bracket_slot is not null and bracket_series is null;
 
+-- Match-owned independent pair orders. Existing started relays keep null orders
+-- and their historical fixed AB/BC/CA sequence; no scores are changed.
+alter table divisions add column if not exists scoring_mode text not null default 'side_out';
+alter table divisions add column if not exists relay_segment_points smallint not null default 0;
+alter table divisions add column if not exists relay_team_size smallint not null default 0;
+alter table divisions add column if not exists final_point_on_serve boolean not null default false;
+alter table matches add column if not exists relay_order_a text;
+alter table matches add column if not exists relay_order_b text;
+alter table matches add column if not exists relay_drawn_at timestamptz;
+
 create or replace function protect_division_bracket_settings() returns trigger language plpgsql as $$
 begin
   if (new.format,new.advance_count,new.third_place_match,new.series_b_enabled,new.series_b_third_place_match)

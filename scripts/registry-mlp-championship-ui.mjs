@@ -26,9 +26,12 @@ async function api(path,body,actor='ref',expected=200){
   const data=await response.json();assert.equal(response.status,expected,`${path}: ${JSON.stringify(data)}`);return data;
 }
 async function score(id){
+  await api(`/api/matches/${id}/relay-draw`,{expectedVersion:row(id).version});
+  const orders=[row(id).relay_order_a,row(id).relay_order_b,row(id).relay_drawn_at];
   for(let i=0;i<27;i++)await api(`/api/matches/${id}/rally`,{side:'A',expectedVersion:row(id).version});
   await api(`/api/matches/${id}/finish`,{expectedVersion:row(id).version});
   assert.equal(row(id).winner_team_id,row(id).team_a_id);
+  assert.deepEqual([row(id).relay_order_a,row(id).relay_order_b,row(id).relay_drawn_at],orders);
 }
 const page=await browser.newPage({viewport:{width:375,height:900},serviceWorkers:'block'});
 page.setDefaultTimeout(7000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
@@ -41,22 +44,35 @@ async function click(selector,action){
   const response=page.waitForResponse(r=>r.url().endsWith('/'+action)&&r.request().method()==='POST');
   await page.locator(selector).click();assert.equal((await response).status(),200);
 }
-async function verifyPair(id,code,points){
-  const m=row(id),labels={A:'An',B:'Bình',C:'Chi'};
+async function verifyPair(id,points){
+  const m=row(id);
+  const leg=Math.min(2,Math.floor(points/9)),codes={};
   for(const [side,teamId] of [['A',m.team_a_id],['B',m.team_b_id]]){
+    const code=JSON.parse(m['relay_order_'+side.toLowerCase()])[leg];codes[side]=code;
     const text=await page.locator('#refTeam'+side).innerText();
-    for(const role of code)assert.ok(text.includes(teamId+' '+labels[role]),`${code}: ${text}`);
+    const entered=f.db.prepare('SELECT p.skill_level,p.full_name FROM team_players tp JOIN players p ON p.id=tp.player_id WHERE tp.team_id=? ORDER BY tp.slot_no').all(teamId);
+    const roles=new Set(entered.map(p=>p.skill_level)).size===3?Object.fromEntries(entered.map(p=>[p.skill_level,p.full_name])):Object.fromEntries(entered.map((p,i)=>[['A','B','C'][i],p.full_name]));
+    for(const role of code)assert.ok(text.includes(roles[role]),`${side} ${code}: ${text}`);
+    assert.ok(text.includes('Cặp '+code),`${side} uses its own drawn code`);
     assert.equal(await page.locator('#refRoster'+side+' [data-player-slot]').count(),3);
   }
   assert.equal(await page.locator('#refScoreA').innerText(),String(points));
-  evidence.relayBoundaries.push({id,points,code});
+  evidence.relayBoundaries.push({id,points,codes});
 }
 async function playUI(id){
   await page.goto(base+'/referee.html?match='+id);await page.locator('#scoreSurface').waitFor();
-  await verifyPair(id,'AB',0);
+  assert.equal(await page.locator('[data-rally="A"]').isDisabled(),true,'new MLP must draw before scoring');
+  const version=row(id).version;await click('#refRelayDrawButton','relay-draw');
+  await page.waitForFunction(()=>!document.querySelector('[data-rally="A"]').disabled);
+  assert.equal(row(id).version,version+1);
+  const orders=[row(id).relay_order_a,row(id).relay_order_b,row(id).relay_drawn_at];
+  for(const order of orders.slice(0,2))assert.deepEqual(JSON.parse(order).sort(),['AB','BC','CA']);
+  assert.ok(orders[2]);
+  await verifyPair(id,0);
+  await page.reload();await page.locator('#scoreSurface').waitFor();await verifyPair(id,0);
   for(let i=1;i<=26;i++){
     await click('[data-rally="A"]','rally');await page.waitForFunction(n=>document.querySelector('#refScoreA')?.textContent===String(n),i);
-    if(i===9||i===18)await verifyPair(id,i===9?'BC':'CA',i);
+    if(i===9||i===18)await verifyPair(id,i);
   }
   await click('[data-service="B"][data-server="2"]','service');
   await page.waitForFunction(()=>document.querySelector('[data-service="B"][data-server="2"]')?.getAttribute('aria-pressed')==='true');
@@ -70,6 +86,7 @@ async function playUI(id){
   assert.equal(await page.locator('[data-playing="true"]').count(),0,'Completed roster cannot mark players as currently playing');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#refGameLabel')?.textContent==='KẾT QUẢ TRẬN');
   assert.equal(await page.locator('#refScoreA').innerText(),'27');
+  assert.deepEqual([row(id).relay_order_a,row(id).relay_order_b,row(id).relay_drawn_at],orders);
 }
 try{
   f.db.exec("DELETE FROM matches;DELETE FROM teams;UPDATE tournaments SET public_visible=1 WHERE id='tour';UPDATE divisions SET event_type='team',format='pool_to_knockout',best_of=1,points_to_win=27,win_by_two=0,scoring_mode='rally',relay_segment_points=9,relay_team_size=3,final_point_on_serve=1,advance_count=2,third_place_match=1,series_b_enabled=1,series_b_third_place_match=1 WHERE id='division'");
@@ -117,7 +134,7 @@ try{
     assert.equal(await page.locator('#matchTeamA').innerText(),evidence.champions.B.name);assert.match(await page.locator('#matchStage').innerText(),/Serie B/);
     assert.match(await page.locator('#serveInfo').innerText(),/thắng trận/);
     await page.evaluate(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens.admin);
-    await page.goto(base+'/admin.html');await page.evaluate(()=>{page='scores';return refresh()});
+    await page.goto(base+'/admin.html');await page.waitForFunction(()=>typeof refresh==='function'&&state.matches?.length===36);await page.evaluate(()=>{page='scores';return refresh()});
     const champ=evidence.champions.B;await page.locator(`[data-score-match="${champ.match}"]`).click();await page.locator('#scoreDialog').waitFor();
     assert.equal(await page.locator('#teamAName').innerText(),name(row(champ.match).team_a_id));
     assert.equal(await page.locator('#scoreA').innerText(),'27');assert.equal(await page.locator('#scoreB').innerText(),'0');assert.equal(await page.locator('#relayLeg').isHidden(),true);

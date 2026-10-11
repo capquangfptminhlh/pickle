@@ -90,6 +90,7 @@ jobs:
           node ../scripts/registry-legacy-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-bracket-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-series-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
+          node ../scripts/registry-relay-draw-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-draw-reset-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
           node ../scripts/registry-court-safety-api.mjs || { cat /tmp/pickle-wrangler.log; exit 1; }
 

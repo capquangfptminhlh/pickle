@@ -1,4 +1,5 @@
 import {bool} from "./util.js";
+import {parseRelayOrder} from "../../shared/relay-draw.js";
 import {isGroupStageMatch,rankGroupStandings} from "../../shared/standings.js";
 
 async function rows(env,sql,...args){
@@ -96,7 +97,7 @@ export async function loadState(env,{publicOnly=false}={}){
   courtsRaw.forEach((c,i)=>courtIndex[c.id]=c.sort_order||i+1);
 
   const matchesRaw=(await rows(env,
-    "SELECT m.*,c.name AS court_name FROM matches m LEFT JOIN courts c ON c.id=m.court_id ORDER BY m.scheduled_at,m.created_at"
+    "SELECT m.*,(EXISTS(SELECT 1 FROM score_events e WHERE e.match_id=m.id)) AS has_history,c.name AS court_name FROM matches m LEFT JOIN courts c ON c.id=m.court_id ORDER BY m.scheduled_at,m.created_at"
   )).filter(m=>divisionIds.has(m.division_id)&&(publicOnly?m.status!=="cancelled":true));
   const matchIds=new Set(matchesRaw.map(m=>m.id));
   const setsRaw=(await rows(env,"SELECT * FROM match_sets ORDER BY match_id,set_no")).filter(s=>matchIds.has(s.match_id));
@@ -132,7 +133,8 @@ export async function loadState(env,{publicOnly=false}={}){
     courtState:["completed","walkover"].includes(m.status)?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
     timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:new Date().toISOString()}:null,
-    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null,
+    relayOrderA:parseRelayOrder(m.relay_order_a),relayOrderB:parseRelayOrder(m.relay_order_b),relayDrawnAt:m.relay_drawn_at||null,hasHistory:Boolean(m.has_history)
   }));
 
   for(const division of divisionsRaw){

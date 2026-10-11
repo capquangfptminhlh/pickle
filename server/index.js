@@ -16,7 +16,8 @@ import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team
 import {divisionBracketRules,bracketRulesChanged} from "../shared/bracket-rules.js";
 import {singleEliminationSlots} from "../shared/bracket-seeding.js";
 import {rankGroupStandings,isGroupStageMatch} from "../shared/standings.js";
-import {validateSet,validateSeries} from "../shared/scoring-rules.js";
+import {validateSet,validateSeries,validateMatchFormat} from "../shared/scoring-rules.js";
+import {parseRelayOrder,drawRelayOrders,relayDrawRequired,relayHasStarted,relayRosterReady} from "../shared/relay-draw.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../shared/account-login.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
@@ -283,7 +284,7 @@ async function loadState({publicOnly=false}={}){
   `,[divisionIds])).rows:[];
   const teamIds=teamRows.map(t=>t.id);
   const rosterRows=teamIds.length?(await pool.query(`
-    select tp.team_id,tp.slot_no,p.id,p.full_name,p.nickname,p.gender,p.rating,p.avatar_url,p.club_id,c.name club_name
+    select tp.team_id,tp.slot_no,p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.avatar_url,p.club_id,c.name club_name
     from team_players tp
     join players p on p.id=tp.player_id
     left join clubs c on c.id=p.club_id
@@ -296,7 +297,7 @@ async function loadState({publicOnly=false}={}){
     rosterByTeam.get(r.team_id).push(r);
     if(!playerMap.has(r.id))playerMap.set(r.id,{
       id:r.id,full_name:r.full_name,nickname:r.nickname||"",gender:r.gender||"other",
-      rating:Number(r.rating||0),avatar_url:r.avatar_url||"",club_id:r.club_id||null,club_name:r.club_name||""
+      rating:Number(r.rating||0),skill_level:r.skill_level||null,skillLevel:r.skill_level||null,avatar_url:r.avatar_url||"",club_id:r.club_id||null,club_name:r.club_name||""
     });
   }
   for(const team of teamRows){
@@ -306,7 +307,7 @@ async function loadState({publicOnly=false}={}){
   }
   const players=[...playerMap.values()];
   const matchRows=divisionIds.length?(await pool.query(`
-    select m.*, c.name court_name
+    select m.*, c.name court_name,exists(select 1 from score_events e where e.match_id=m.id) as has_history
     from matches m left join courts c on c.id=m.court_id
     where m.division_id=any($1::uuid[]) ${publicOnly?"and m.status<>'cancelled'":""}
     order by m.scheduled_at,m.created_at
@@ -343,7 +344,8 @@ async function loadState({publicOnly=false}={}){
     resultReason:m.result_reason||null,resultNote:m.result_note||null,bracketSlot:m.bracket_slot||null,bracketSeries:m.bracket_series||(m.bracket_slot?"A":null),scheduledAt:m.scheduled_at||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
-    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null,
+    relayOrderA:parseRelayOrder(m.relay_order_a),relayOrderB:parseRelayOrder(m.relay_order_b),relayDrawnAt:m.relay_drawn_at||null,hasHistory:Boolean(m.has_history)
   }));
   for(const division of divisions){
     const groups=[...new Set(teams.filter(t=>t.divisionId===division.id&&t.status==="active").map(t=>t.group||"A"))];
@@ -407,7 +409,8 @@ async function emitState(){
   io.emit("public:state",state);
 }
 async function getMatch(c,id,lock=false){
-  const q=`select m.*,d.best_of,d.points_to_win,d.win_by_two,d.tournament_id
+  const q=`select m.*,d.best_of,d.points_to_win,d.win_by_two,d.tournament_id,d.relay_segment_points,d.relay_team_size,
+    exists(select 1 from score_events e where e.match_id=m.id) as has_history
     from matches m join divisions d on d.id=m.division_id where m.id=$1 ${lock?"for update of m":""}`;
   return (await c.query(q,[id])).rows[0];
 }
@@ -432,8 +435,15 @@ async function validateDivisionRoster(c,divisionId,playerIds,{currentTeamId=null
 }
 async function assertRosterEditable(c,teamId){
   // Lock scheduled matches too, so scoring cannot race a membership replacement.
-  const matches=(await c.query("select m.*,exists(select 1 from match_sets s where s.match_id=m.id) as has_sets from matches m where team_a_id=$1 or team_b_id=$1 for update of m",[teamId])).rows;
-  if(matches.some(m=>m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||m.has_sets))throw Object.assign(new Error("TEAM_ROSTER_LOCKED"),{status:409});
+  const matches=(await c.query("select m.*,exists(select 1 from match_sets s where s.match_id=m.id) or exists(select 1 from score_events e where e.match_id=m.id) as has_history from matches m where team_a_id=$1 or team_b_id=$1 order by m.id for update of m",[teamId])).rows;
+  if(matches.some(m=>m.started_at||["live","completed","walkover"].includes(m.status)||m.winner_team_id||m.current_score_a||m.current_score_b||m.has_history))throw Object.assign(new Error("TEAM_ROSTER_LOCKED"),{status:409});
+  return matches;
+}
+
+async function invalidateRelayDraw(c,user,m){
+  if(!m.relay_order_a&&!m.relay_order_b&&!m.relay_drawn_at)return;
+  const updated=(await c.query("update matches set relay_order_a=null,relay_order_b=null,relay_drawn_at=null,version=version+1 where id=$1 returning *",[m.id])).rows[0];
+  await audit(c,user,"match",m.id,"INVALIDATE_RELAY_DRAW",m,updated,"Match participants changed before play");
 }
 async function authorizeMatch(c,user,m){
   if(user.role==="super_admin")return true;
@@ -587,7 +597,11 @@ async function applyScore(c,user,m,sets,action,plan){
   if(!updated)throw scoreError("VERSION_CONFLICT",409);
   await c.query("delete from match_sets where match_id=$1",[m.id]);
   for(const s of plan.after.sets)await c.query("insert into match_sets(id,match_id,set_no,score_a,score_b,completed) values($1,$2,$3,$4,$5,$6)",[s.id,m.id,s.set_no,s.score_a,s.score_b,s.completed]);
-  for(const slot of plan.downstream){const column=slot.side==="A"?"team_a_id":"team_b_id";await c.query(`update matches set ${column}=$1,version=version+1 where id=$2`,[slot.teamAfter||null,slot.id])}
+  for(const slot of plan.downstream){
+    const column=slot.side==="A"?"team_a_id":"team_b_id";
+    if((slot.teamAfter||null)!==(slot.teamBefore||null))await invalidateRelayDraw(c,user,(await c.query("select * from matches where id=$1",[slot.id])).rows[0]);
+    await c.query(`update matches set ${column}=$1,version=version+1 where id=$2`,[slot.teamAfter||null,slot.id]);
+  }
   if(plan.undoEvent){const consumed=await c.query("update score_events set undone_at=now() where id=$1 and undone_at is null",[plan.undoEvent.id]);if(!consumed.rowCount)throw scoreError("VERSION_CONFLICT",409)}
   plan.after.match={...next,...updated};
   const payload={...plan.payload,expectedVersion:m.version,before,after:plan.after,downstream:plan.downstream};
@@ -916,7 +930,7 @@ app.get("/api/players",authRequired,allow("super_admin","organizer","referee","c
     params=[req.user.sub,req.user.tournamentScope||null];
   }
   const {rows}=await pool.query(`
-    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
+    select p.id,p.full_name,p.nickname,p.gender,p.rating,p.skill_level,p.phone,p.active,p.avatar_url,p.bio,p.dominant_hand,p.birth_year,c.id club_id,c.name club_name
     from players p left join clubs c on c.id=p.club_id ${where} order by p.full_name
   `,params);res.json(req.user.role==="referee"?rows.map(p=>({...p,phone:""})):rows);
 }));
@@ -1128,10 +1142,15 @@ app.post("/api/tournaments/:id/divisions",authRequired,allow("super_admin","orga
   if(!name)return res.status(400).json({error:"NAME_REQUIRED"});
   if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return res.status(400).json({error:"INVALID_EVENT_TYPE"});
   if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return res.status(400).json({error:"INVALID_FORMAT"});
+  const relaySegmentPoints=Number(req.body.relaySegmentPoints??0),relayTeamSize=Number(req.body.relayTeamSize??0),scoringMode=req.body.scoringMode||"side_out";
+  const formatError=validateMatchFormat({bestOf:Number(bestOf),pointsToWin:Number(pointsToWin),relaySegmentPoints,relayTeamSize});
+  if(formatError)return res.status(400).json({error:formatError});
+  if(!["side_out","rally"].includes(scoringMode))return res.status(400).json({error:"INVALID_SCORING_MODE"});
+  if(relaySegmentPoints&&eventType!=="team")return res.status(400).json({error:"RELAY_REQUIRES_TEAM"});
   const row=(await pool.query(`
-    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,third_place_match,series_b_enabled,series_b_third_place_match)
-    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *
-  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount,thirdPlaceMatch,seriesBEnabled,seriesBThirdPlaceMatch])).rows[0];
+    insert into divisions(tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,third_place_match,series_b_enabled,series_b_third_place_match,relay_segment_points,relay_team_size,scoring_mode,final_point_on_serve)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *
+  `,[req.params.id,name,eventType,format,bestOf,pointsToWin,Boolean(winByTwo),advanceCount,thirdPlaceMatch,seriesBEnabled,seriesBThirdPlaceMatch,relaySegmentPoints,relayTeamSize,scoringMode,Boolean(req.body.finalPointOnServe)])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'division',$2,'CREATE_DIVISION',$3)",[req.user.sub,row.id,row]);
   await emitState();res.status(201).json(row);
 }));
@@ -1199,6 +1218,28 @@ app.patch("/api/matches/:id/assignment",authRequired,allow("super_admin","organi
   await emitState();res.json(after);
 }));
 
+app.post("/api/matches/:id/relay-draw",authRequired,wrap(async(req,res)=>{
+  const updated=await tx(async c=>{
+    const m=await getMatch(c,req.params.id,true);if(!m)throw scoreError("NOT_FOUND",404);
+    if(!(await authorizeMatch(c,req.user,m)))throw scoreError("FORBIDDEN",403);
+    const body=req.body||{};
+    if(!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion!==Number(m.version))throw scoreError("VERSION_CONFLICT",409);
+    if(Number(m.relay_team_size)!==3||Number(m.relay_segment_points)<=0)throw scoreError("RELAY_DRAW_UNSUPPORTED");
+    const history=(await c.query("select 1 from score_events where match_id=$1 union all select 1 from match_sets where match_id=$1 limit 1",[m.id])).rowCount;
+    if(relayHasStarted(m)||history)throw scoreError("RELAY_DRAW_LOCKED",409);
+    assertScoreSource(m);
+    const rosters=(await c.query("select t.id,count(tp.player_id)::int size,count(p.id) filter(where p.active)::int active_size from teams t left join team_players tp on tp.team_id=t.id left join players p on p.id=tp.player_id where t.id=any($1::uuid[]) and t.division_id=$2 and t.status='active' group by t.id",[[m.team_a_id,m.team_b_id],m.division_id])).rows;
+    if(rosters.length!==2||rosters.some(t=>t.size!==3||t.active_size!==3))throw scoreError("RELAY_PARTICIPANTS_REQUIRED",409);
+    const lineupRows=(await c.query('select tp.team_id,tp.slot_no,p.full_name,p.skill_level,t.name as team_name from team_players tp join players p on p.id=tp.player_id join teams t on t.id=tp.team_id where tp.team_id=any($1::uuid[])',[[m.team_a_id,m.team_b_id]])).rows;
+    if([m.team_a_id,m.team_b_id].some(team=>!relayRosterReady(lineupRows.filter(p=>p.team_id===team),lineupRows.find(p=>p.team_id===team)?.team_name)))throw scoreError('RELAY_LINEUP_REQUIRED',409);
+    const {A,B}=drawRelayOrders();
+    const after=(await c.query("update matches set relay_order_a=$1,relay_order_b=$2,relay_drawn_at=now(),version=version+1 where id=$3 returning *",[JSON.stringify(A),JSON.stringify(B),m.id])).rows[0];
+    await audit(c,req.user,"match",m.id,"RELAY_DRAW",m,after,"Independent AB/BC/CA pair order for each side");return after;
+  });
+  try{io.emit("match:update",{id:updated.id,version:updated.version});await emitState()}catch(e){console.error("relay_draw_broadcast_failed",{matchId:updated.id,error:String(e.message)})}
+  res.json({...updated,relayOrderA:parseRelayOrder(updated.relay_order_a),relayOrderB:parseRelayOrder(updated.relay_order_b),relayDrawnAt:updated.relay_drawn_at});
+}));
+
 for(const action of ["point","finish-set","quick-score","finish","special-result","undo"]){
   app.post("/api/matches/:id/"+action,authRequired,wrap(async(req,res)=>{
     const updated=await tx(async c=>{
@@ -1206,6 +1247,7 @@ for(const action of ["point","finish-set","quick-score","finish","special-result
       if(!(await authorizeMatch(c,req.user,m)))throw scoreError("FORBIDDEN",403);
       const body=req.body||{};assertScoreVersion(m,body);
       const sets=(await c.query("select * from match_sets where match_id=$1 order by set_no",[m.id])).rows;
+      if(["point","finish-set","quick-score","finish"].includes(action)&&relayDrawRequired({...m,sets}))throw scoreError("RELAY_DRAW_REQUIRED",409);
       const plan=action==="undo"?await scoreUndoPlan(c,m,sets):await scoreMutationPlan(c,m,sets,action,body,new Date().toISOString());
       return applyScore(c,req.user,m,sets,action,plan);
     });
@@ -2003,7 +2045,7 @@ app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamMan
     let ids=oldIds;
     if(req.body.playerIds!==undefined){try{ids=validatePlayerIds(d.event_type,req.body.playerIds)}catch(error){throw Object.assign(error,{status:400})}}
     const changed=req.body.playerIds!==undefined&&(!slotsAssigned||ids.length!==oldIds.length||ids.some((id,index)=>id!==oldIds[index]));
-    if(changed)await assertRosterEditable(c,before.id);
+    const affectedMatches=changed?await assertRosterEditable(c,before.id):[];
     if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(c,before.division_id,ids,{currentTeamId:before.id});
     let clubId=before.club_id;
     if(req.body.clubId!==undefined){clubId=req.body.clubId||null;if(clubId&&clubId!==before.club_id&&!(await c.query("select id from clubs where id=$1 and active=true",[clubId])).rowCount)throw Object.assign(new Error("INVALID_CLUB"),{status:400})}
@@ -2011,6 +2053,7 @@ app.patch("/api/teams/:id",authRequired,allow("super_admin","organizer"),teamMan
     if(changed)await c.query("delete from team_players where team_id=$1",[before.id]);
     const row=(await c.query("update teams set name=$1,club_id=$2,group_code=$3,seed=$4,status=$5,updated_at=now() where id=$6 returning *",[name,clubId,req.body.group??before.group_code,req.body.seed??before.seed,status,before.id])).rows[0];
     if(changed)for(const [index,id] of ids.entries())await c.query("insert into team_players(team_id,player_id,slot_no) values($1,$2,$3)",[before.id,id,index+1]);
+    for(const match of affectedMatches)await invalidateRelayDraw(c,req.user,match);
     const result={...row,playerIds:ids};await audit(c,req.user,"team",before.id,"UPDATE_TEAM",{...before,playerIds:oldIds},result,"Cập nhật đội / cặp");return result;
   });
   await emitState();res.json(after);
@@ -2034,6 +2077,7 @@ app.patch("/api/matches/:id",authRequired,allow("super_admin","organizer"),match
     const b=req.body||{};assertScoreVersion(before,b);
     if(b.status!==undefined&&b.status!==before.status)throw scoreError("USE_SCORE_ACTION");
     const pair=await validateMatchAssignment(c,req.user,before,b);
+    if(pair.a!==before.team_a_id||pair.b!==before.team_b_id)await invalidateRelayDraw(c,req.user,before);
     const updated=(await c.query("update matches set stage=$1,scheduled_at=$2,court_id=$3,referee_user_id=$4,team_a_id=$5,team_b_id=$6,version=version+1 where id=$7 returning *",
       [b.stage??before.stage,b.scheduledAt===undefined?before.scheduled_at:b.scheduledAt,b.courtId===undefined?before.court_id:b.courtId,b.refereeUserId===undefined?before.referee_user_id:b.refereeUserId,pair.a,pair.b,before.id])).rows[0];
     await audit(c,req.user,"match",before.id,"UPDATE_MATCH",before,updated);return updated;

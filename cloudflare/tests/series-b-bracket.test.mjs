@@ -3,9 +3,19 @@ import assert from 'node:assert/strict';
 import worker from '../src/index.js';
 import {scoringFixture} from './helpers/scoring-fixture.mjs';
 
+async function drawMatch(f,id){
+  const before=f.db.prepare('SELECT * FROM matches WHERE id=?').get(id);
+  const result=await f.api('relay-draw',{expectedVersion:before.version},'admin',id);
+  assert.equal(result.status,200,JSON.stringify(result.data));
+  const match=f.db.prepare('SELECT * FROM matches WHERE id=?').get(id);
+  for(const field of ['relay_order_a','relay_order_b'])assert.deepEqual(JSON.parse(match[field]).sort(),['AB','BC','CA']);
+  assert.ok(match.relay_drawn_at);assert.equal(match.version,before.version+1);
+  return match;
+}
+
 async function fixture({groups=4,members=4,enabled=true,bronze=true}={}){
   const f=await scoringFixture();
-  f.db.exec("DELETE FROM matches; DELETE FROM teams; UPDATE divisions SET format='pool_to_knockout',advance_count=2,best_of=1,points_to_win=27,win_by_two=0,scoring_mode='rally',relay_segment_points=9,relay_team_size=3,final_point_on_serve=1,third_place_match=1 WHERE id='division'");
+  f.db.exec("DELETE FROM matches; DELETE FROM teams; UPDATE divisions SET event_type='team',format='pool_to_knockout',advance_count=2,best_of=1,points_to_win=27,win_by_two=0,scoring_mode='rally',relay_segment_points=9,relay_team_size=3,final_point_on_serve=1,third_place_match=1 WHERE id='division'");
   const call=async(path,body,method='POST',actor='admin')=>{
     const response=await worker.fetch(new Request('https://test.invalid'+path,{method,headers:{Authorization:'Bearer '+f.tokens[actor],'Content-Type':'application/json'},...(method==='GET'?{}:{body:JSON.stringify(body??{})})}),f.env);
     return {status:response.status,data:await response.json()};
@@ -14,7 +24,15 @@ async function fixture({groups=4,members=4,enabled=true,bronze=true}={}){
   assert.equal(enabledResult.status,200,JSON.stringify(enabledResult.data));
   for(let gi=0;gi<groups;gi++){
     const group=String.fromCharCode(65+gi);
-    for(let rank=1;rank<=members;rank++)f.db.prepare("INSERT INTO teams(id,division_id,name,seed,group_code,status) VALUES(?,'division',?,?,?,'active')").run(group+rank,group+rank,rank,group);
+    for(let rank=1;rank<=members;rank++){
+      const id=group+rank;
+      f.db.prepare("INSERT INTO teams(id,division_id,name,seed,group_code,status) VALUES(?,'division',?,?,?,'active')").run(id,id,rank,group);
+      for(const [index,grade] of [...'ABC'].entries()){
+        const player=id+'-'+grade;
+        f.db.prepare('INSERT INTO players(id,full_name,skill_level,active) VALUES(?,?,?,1)').run(player,player,grade);
+        f.db.prepare('INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)').run(id,player,index+1);
+      }
+    }
     for(let a=1;a<=members;a++)for(let b=a+1;b<=members;b++){
       const id='pool-'+group+a+b;
       f.db.prepare("INSERT INTO matches(id,division_id,team_a_id,team_b_id,winner_team_id,stage,status,completed_at) VALUES(?,'division',?,?,?,?,'completed','2026-10-11T00:00:00Z')").run(id,group+a,group+b,group+a,'Bảng '+group);
@@ -120,11 +138,11 @@ test('B semifinal scoring routes winner and loser independently and keeps A unto
     assert.equal((await f.generate()).status,200);
     const aBefore=f.bracket().filter(m=>m.bracket_series==='A').map(m=>({...m}));
     const semis=f.bracket().filter(m=>m.bracket_series==='B'&&m.round_no===1),winners=[],losers=[];
-    for(const match of semis){const score=await f.api('quick-score',{sets:[[27,12]],expectedVersion:match.version},'admin',match.id);assert.equal(score.status,200,JSON.stringify(score.data));winners.push(match.team_a_id);losers.push(match.team_b_id)}
+    for(const match of semis){const drawn=await drawMatch(f,match.id);const score=await f.api('quick-score',{sets:[[27,12]],expectedVersion:drawn.version},'admin',match.id);assert.equal(score.status,200,JSON.stringify(score.data));winners.push(match.team_a_id);losers.push(match.team_b_id)}
     const final=f.db.prepare("SELECT * FROM matches WHERE bracket_slot='B-SE-R2-M1'").get(),bronze=f.db.prepare("SELECT * FROM matches WHERE bracket_slot='B-SE-3RD-M1'").get();
     assert.deepEqual([final.team_a_id,final.team_b_id],winners);assert.deepEqual([bronze.team_a_id,bronze.team_b_id],losers);
-    assert.equal((await f.api('quick-score',{sets:[[27,20]],expectedVersion:final.version},'admin',final.id)).status,200);
-    assert.equal((await f.api('quick-score',{sets:[[27,18]],expectedVersion:bronze.version},'admin',bronze.id)).status,200);
+    assert.equal((await f.api('quick-score',{sets:[[27,20]],expectedVersion:(await drawMatch(f,final.id)).version},'admin',final.id)).status,200);
+    assert.equal((await f.api('quick-score',{sets:[[27,18]],expectedVersion:(await drawMatch(f,bronze.id)).version},'admin',bronze.id)).status,200);
     assert.deepEqual(f.bracket().filter(m=>m.bracket_series==='A').map(m=>({...m})),aBefore);
     const row=f.db.prepare("SELECT winner_team_id FROM matches WHERE id=?").get(final.id);assert.equal(row.winner_team_id,winners[0]);
     const undo=await f.api('undo',{},'admin',semis[0].id);assert.equal(undo.status,409);assert.equal(undo.data.error,'DOWNSTREAM_MATCH_LOCKED');
@@ -148,6 +166,7 @@ test('Serie A and Serie B share the live-court guard without partial scoring',as
     f.db.exec("INSERT INTO courts(id,tournament_id,name) VALUES('court1','tour','Court 1'),('court2','tour','Court 2')");
     const a=f.bracket().find(m=>m.bracket_series==='A'&&m.round_no===1),b=f.bracket().find(m=>m.bracket_series==='B'&&m.round_no===1);
     f.db.prepare("UPDATE matches SET court_id='court1' WHERE id IN (?,?)").run(a.id,b.id);
+    await drawMatch(f,a.id);await drawMatch(f,b.id);
     assert.equal((await f.api('point',{side:'A',delta:1},'admin',a.id)).status,200);
     const before=f.snapshot(),blocked=await f.api('point',{side:'A',delta:1},'admin',b.id);
     assert.equal(blocked.status,409);assert.equal(blocked.data.error,'COURT_BUSY');assert.deepEqual(f.snapshot(),before);

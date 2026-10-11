@@ -12,10 +12,15 @@
     const rows=players(id,state);
     return {team:team(id,state),players:rows,source:source(id,state),ready:rows.length>0&&source(id,state)!=="unassigned",text:rows.map(playerName).join(" / ")};
   }
-  function pairAt(id,index,size,state){
+  const validOrder=order=>Array.isArray(order)&&order.length===3&&new Set(order).size===3&&order.every(code=>["AB","BC","CA"].includes(code));
+  const started=match=>Boolean(match&&(match.startedAt||match.started_at||match.hasHistory||match.scoreHistoryCount||match.history?.length||match.scoreEvents?.length||["live","done","completed","walkover","cancelled"].includes(match.status)||match.winner||(match.sets||[]).length||(match.current||[]).some(Number)));
+  const requiresDraw=(division,match)=>Boolean(match&&division?.eventType==="team"&&Number(division.relaySegmentPoints)>0&&Number(division.relayTeamSize||Math.ceil(Number(division.pointsToWin)/Number(division.relaySegmentPoints)))===3);
+  const drawn=match=>validOrder(match?.relayOrderA)&&validOrder(match?.relayOrderB);
+  const awaitingDraw=(division,match)=>requiresDraw(division,match)&&!drawn(match)&&!started(match);
+  function pairAt(id,index,size,state,order){
     let info=roster(id,state);
     const pairs=window.PickleMatchFormat?.relayPairs?.(size)||[];
-    const code=pairs[index]||"";
+    const code=(order||pairs)[index]||"";
     if(Number(size)===3){
       const gradeBased=info.players.length===3&&[..."ABC"].every(letter=>info.players.filter(player=>skillRole(player)===letter).length===1);
       const ordered=info.players.length===3&&["assigned","inferred"].includes(info.source),ready=gradeBased||ordered;
@@ -27,27 +32,44 @@
     if(names.length!==code.length)return {...info,ready:false,code,names:[],label:info.team?.name||"Chưa xác định",short:info.team?.name||"Chưa xác định"};
     return {...info,code,names,label:`Cặp ${code} · ${names.join(" + ")}`,short:`Cặp ${code}: ${names.join(" + ")}`};
   }
-  function match(id,division,scoreA,scoreB,state){
+  function match(id,division,scoreA,scoreB,state,metadata){
     const leg=window.PickleMatchFormat?.relayLeg?.(scoreA,scoreB,division);
     if(!leg)return {...roster(id,state),relay:false,label:team(id,state)?.name||"Chưa xác định",short:team(id,state)?.name||"Chưa xác định",next:null};
-    const current=pairAt(id,leg.index,leg.size,state);
-    const next=leg.index+1<leg.count?pairAt(id,leg.index+1,leg.size,state):null;
-    return {...current,relay:true,leg,next};
+    const pending=awaitingDraw(division,metadata),order=leg.size===3&&drawn(metadata)?(id===metadata.a?metadata.relayOrderA:metadata.relayOrderB):pending?[]:undefined;
+    const identity=pairAt(id,leg.index,leg.size,state,pending?undefined:order);
+    const current=pending?{...identity,code:"",names:[],label:identity.team?.name||"Chưa xác định",short:identity.team?.name||"Chưa xác định"}:identity;
+    const next=leg.index+1<leg.count?pairAt(id,leg.index+1,leg.size,state,order):null;
+    return {...current,relay:true,leg,next,awaitingDraw:pending,identityWarning:current.identityWarning||(pending?"Bốc thăm cặp trước khi nhập điểm":"")};
   }
-  function legText(teamAId,teamBId,division,scoreA,scoreB,state){
-    const a=match(teamAId,division,scoreA,scoreB,state),b=match(teamBId,division,scoreA,scoreB,state);
+  function legText(teamAId,teamBId,division,scoreA,scoreB,state,metadata){
+    const a=match(teamAId,division,scoreA,scoreB,state,metadata),b=match(teamBId,division,scoreA,scoreB,state,metadata);
     if(!a.relay)return "";
-    const until=a.leg.until,current=a.code?`Cặp ${a.code}`:`Lượt ${a.leg.index+1}`;
-    const next=a.next&&b.next?(a.next.ready&&b.next.ready?` • Tiếp theo ${a.next.code}: ${a.next.names.join(" + ")} vs ${b.next.names.join(" + ")}`:` • Tiếp theo cặp ${a.next.code}`):"";
+    if(a.awaitingDraw||b.awaitingDraw)return "Bốc thăm cặp cho từng đội trước khi nhập điểm";
+    const current=a.code&&b.code?`A: Cặp ${a.code} vs B: Cặp ${b.code}`:`Lượt ${a.leg.index+1}`;
+    const next=a.next&&b.next?` • Tiếp theo A: ${a.next.code}${a.next.ready?": "+a.next.names.join(" + "):""} vs B: ${b.next.code}${b.next.ready?": "+b.next.names.join(" + "):""}`:"";
     const warning=!a.ready||!b.ready?" • "+(a.identityWarning||b.identityWarning||"Chưa gán đủ vị trí A/B/C"):"";
-    return `Đang đánh ${current} • đến ${until} điểm${next}${warning}`;
+    return `Đang đánh ${current} • đến ${a.leg.until} điểm${next}${warning}`;
+  }
+  function renderDrawPanel(element,button,metadata,division,state){
+    if(!element)return;
+    element.hidden=!requiresDraw(division,metadata)||started(metadata);
+    if(element.hidden)return;
+    if(button){button.hidden=false;button.disabled=!metadata.a||!metadata.b||metadata.a==="TBD"||metadata.b==="TBD";button.textContent=drawn(metadata)?"Bốc thăm lại cặp từng đội":"Bốc thăm cặp từng đội"}
+    const list=element.querySelector(".relay-draw-orders");if(!list)return;
+    list.replaceChildren();
+    if(!drawn(metadata)){list.textContent="Mỗi đội bốc thăm độc lập AB, BC, CA. Bốc thăm xong mới nhập điểm.";return}
+    for(let index=0;index<3;index++){
+      const row=document.createElement("div");row.className="relay-draw-leg";
+      const a=pairAt(metadata.a,index,3,state,metadata.relayOrderA),b=pairAt(metadata.b,index,3,state,metadata.relayOrderB);
+      row.textContent=`Lượt ${index+1} · đến ${Number(division.relaySegmentPoints)*(index+1)} điểm · A: ${a.short} vs B: ${b.short}`;list.append(row);
+    }
   }
   function renderRoster(element,lineup,servingServer=0,finished=false){
     if(!element)return;
     element.replaceChildren();
     if(!lineup?.relay)return;
     const fragment=document.createDocumentFragment();
-    if(!lineup.ready){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
+    if(!lineup.ready&&!lineup.awaitingDraw){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
     (lineup.ready?lineup.players.slice(0,lineup.leg.size):lineup.players).forEach((player,index)=>{
       const letter=letters[index],playing=!finished&&lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
       const row=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span"),grade=document.createElement("span");
@@ -64,5 +86,5 @@
     });
     element.append(fragment);
   }
-  window.PickleTeamLineup={roster,pairAt,match,legText,renderRoster};
+  window.PickleTeamLineup={roster,pairAt,match,legText,renderRoster,renderDrawPanel,validOrder,started,requiresDraw,drawn,awaitingDraw};
 })();

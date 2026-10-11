@@ -17,3 +17,5 @@ html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-servi
 html:root body.site-sport.courtside-body.referee-arena .lineup-serving {color:var(--ref-a);}
 html:root body.site-sport.courtside-body.referee-arena .team-b .lineup-player[data-serving="true"] .lineup-slot,
 html:root body.site-sport.courtside-body.referee-arena .team-b .lineup-serving {color:var(--ref-b);}
+
+.relay-draw-panel{padding:14px;margin:12px 0;border:1px solid var(--border,#cbd5ce);border-radius:12px;background:var(--surface,#f3f8f5);font-size:14px;color:var(--text,#14291d)}.relay-draw-panel[hidden]{display:none}.relay-draw-orders{display:grid;gap:8px;margin:10px 0;line-height:1.5;overflow-wrap:anywhere}.relay-draw-panel button{min-height:44px;width:100%}.relay-draw-leg{padding:8px;border-radius:7px;background:var(--surface-2,#e6efe9)}

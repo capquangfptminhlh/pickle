@@ -2,6 +2,7 @@ import {authenticate,canManageTournament} from "./auth.js";
 import {bodyJson,ok,fail,nowIso,uid,safeJsonParse} from "./util.js";
 import {broadcast} from "./realtime.js";
 import {validateSet,validateSeries,timeoutsPerGame} from "../../shared/scoring-rules.js";
+import {parseRelayOrder,relayDrawRequired} from "../../shared/relay-draw.js";
 
 const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
 const timeoutClockFields=["timeout_side","timeout_started_at","timeout_ends_at"];
@@ -48,7 +49,8 @@ function view(m,sets){
     version:m.version,bracketSlot:m.bracket_slot||null,resultReason:m.result_reason||null,resultNote:m.result_note||null,startedAt:m.started_at||null,completedAt:m.completed_at||null,
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||initialServerNumber(m)),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
-    timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:nowIso()}:null};
+    timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:nowIso()}:null,
+    relayOrderA:parseRelayOrder(m.relay_order_a),relayOrderB:parseRelayOrder(m.relay_order_b),relayDrawnAt:m.relay_drawn_at||null,hasHistory:Boolean(m.has_history)};
 }
 
 async function bracketChanges(env,m,winner,restore=null){
@@ -168,6 +170,7 @@ async function resetPlan(env,m,sets){
 
 async function mutationPlan(env,m,sets,action,body,at){
   assertPlayable(m);
+  if(action!=='special-result'&&relayDrawRequired(m))throw error('RELAY_DRAW_REQUIRED',409);
   const after=snapshot(m,sets);let eventType="POINT",payload={},done=false;
   const next=after.match;
   if(action==="point"){
@@ -322,7 +325,7 @@ export async function handleScoring(request,env,ctx){
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
   const id=decodeURIComponent(match[1]),action=match[2];
   const user=await authenticate(request,env);if(!user)return fail("AUTH_REQUIRED",request,env,401);
-  const m=await one(env,"SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.final_point_on_serve,d.event_type FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
+  const m=await one(env,"SELECT m.*,(EXISTS(SELECT 1 FROM score_events e WHERE e.match_id=m.id)) AS has_history,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.final_point_on_serve,d.event_type,d.relay_team_size,d.relay_segment_points FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
   if(!m)return fail("NOT_FOUND",request,env,404);
   if(!(await authorize(env,user,m)))return fail("FORBIDDEN",request,env,403);
   const body=await bodyJson(request);
@@ -330,6 +333,7 @@ export async function handleScoring(request,env,ctx){
   const sets=await rows(env,"SELECT * FROM match_sets WHERE match_id=? ORDER BY set_no",id),at=nowIso();
   const plan=action==="undo"?await undoPlan(env,m,sets):action==="reset"?await resetPlan(env,m,sets):await mutationPlan(env,m,sets,action,body,at);
   await commit(env,user,m,sets,action,plan,at);
+  plan.after.match.has_history=true;
   if(plan.after.match.status==="completed"){
     try{await autoCallNextOnCourt(env,user,plan.after.match,at)}catch(e){console.error("auto_call_queue_failed",{matchId:id,error:String(e.message)})}
   }

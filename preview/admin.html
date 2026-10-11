@@ -18,7 +18,8 @@
 <link rel="stylesheet" href="../assets/theme.css?v=2">
 <link rel="preload" href="../assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/typography.css?v=1">
-<link rel="stylesheet" href="../assets/team-lineup.css?v=2">
+<link rel="stylesheet" href="../assets/team-lineup.css?v=3">
+<link rel="stylesheet" href="../assets/timeout-clock.css?v=1">
 </head>
 <body class="admin-sport site-sport"><script src="preview-guard.js"></script>
   <a class="admin-skip-link" href="#content">Bỏ qua menu, đến nội dung</a>
@@ -70,11 +71,12 @@
       </div>
 
       <div id="scoreSets" class="set-history"></div>
+      <section id="relayDrawPanel" class="relay-draw-panel" aria-label="Bốc thăm cặp thi đấu" hidden><b>CẶP THI ĐẤU TỪNG ĐỘI</b><div class="relay-draw-orders" aria-live="polite"></div><button id="relayDrawButton" type="button" class="btn primary" data-relay-draw>Bốc thăm cặp từng đội</button></section>
       <div id="relayLeg" class="relay-leg" role="status" hidden></div>
 
       <div class="score-board">
         <div class="team-row">
-          <div><small>ĐỘI A</small><strong id="teamAName"></strong></div>
+          <div><small>BÊN A</small><strong id="teamAName"></strong><span class="score-roster" id="teamARoster"></span></div>
           <div class="score-control">
             <button type="button" data-score="a" data-delta="-1" aria-label="Giảm điểm đội A">−</button>
             <span id="scoreA">0</span>
@@ -82,13 +84,43 @@
           </div>
         </div>
         <div class="team-row">
-          <div><small>ĐỘI B</small><strong id="teamBName"></strong></div>
+          <div><small>BÊN B</small><strong id="teamBName"></strong><span class="score-roster" id="teamBRoster"></span></div>
           <div class="score-control">
             <button type="button" data-score="b" data-delta="-1" aria-label="Giảm điểm đội B">−</button>
             <span id="scoreB">0</span>
             <button type="button" data-score="b" data-delta="1" aria-label="Tăng điểm đội B">＋</button>
           </div>
         </div>
+      </div>
+
+      <div class="referee-console" id="refereeConsole">
+        <div class="referee-console-head">
+          <div><small>CHẾ ĐỘ CHẤM</small><strong id="scoringModeLabel">Side-out</strong></div>
+          <div><small>ĐANG GIAO</small><strong id="serveStatus">Chưa chọn</strong></div>
+        </div>
+        <div class="rally-controls">
+          <button type="button" class="btn primary" data-rally="A">🏓 Rally đội A</button>
+          <button type="button" class="btn primary" data-rally="B">🏓 Rally đội B</button>
+        </div>
+        <div class="service-controls">
+          <span>Chỉnh người giao:</span>
+          <button type="button" class="mini" data-service-side="A" data-server-number="1">A • S1</button>
+          <button type="button" class="mini" data-service-side="A" data-server-number="2">A • S2</button>
+          <button type="button" class="mini" data-service-side="B" data-server-number="1">B • S1</button>
+          <button type="button" class="mini" data-service-side="B" data-server-number="2">B • S2</button>
+        </div>
+        <section id="scoreTimeoutClock" class="timeout-clock" aria-label="Đồng hồ timeout" hidden>
+          <span data-timeout-label></span><strong data-timeout-value role="timer" aria-live="off"></strong>
+          <span data-timeout-status role="status" aria-live="polite"></span>
+          <div class="timeout-clock-track" aria-hidden="true"><i data-timeout-progress></i></div>
+        </section>
+        <div class="timeout-controls">
+          <button type="button" class="mini" data-timeout-side="A" data-timeout-kind="standard">⏱ Timeout A <b id="timeoutA">0/2</b></button>
+          <button type="button" class="mini" data-timeout-side="B" data-timeout-kind="standard">⏱ Timeout B <b id="timeoutB">0/2</b></button>
+          <button type="button" class="mini" data-timeout-side="A" data-timeout-kind="medical">🩺 Medical A <b id="medicalA">0/1</b></button>
+          <button type="button" class="mini" data-timeout-side="B" data-timeout-kind="medical">🩺 Medical B <b id="medicalB">0/1</b></button>
+        </div>
+        <small class="referee-console-note">Nút Rally tự xử lý side-out/server. Nút +/− phía trên chỉ dùng để sửa điểm thủ công.</small>
       </div>
 
       <div class="score-options">
@@ -133,12 +165,13 @@
   <script src="../assets/csv-import.js"></script>
   <script src="../assets/admin-modules.js"></script>
   <script src="../assets/bracket-ui.js?v=38"></script>
-  <script src="../assets/match-format.js?v=6"></script>
-  <script src="../assets/team-lineup.js?v=4"></script>
-  <script src="../assets/admin-crud.js?v=12"></script>
+  <script src="../assets/match-format.js?v=7"></script>
+  <script src="../assets/team-lineup.js?v=5"></script>
+  <script src="../assets/timeout-clock.js?v=1"></script>
+  <script src="../assets/admin-crud.js?v=13"></script>
   <script src="../assets/player-picker.js?v=3"></script>
   <script src="../assets/player-avatar-input.js?v=1"></script>
-  <script src="../assets/admin-app.js?v=76"></script>
+  <script src="../assets/admin-app.js?v=78"></script>
   <script src="../assets/draw-flex.js?v=8"></script>
   <script src="../assets/ui-motion.js?v=34"></script>
   <script src="preview-pwa.js"></script>

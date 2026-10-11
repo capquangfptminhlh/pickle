@@ -4,6 +4,8 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
+import {handleRelayDraw} from "./relay-draw.js";
+import {parseRelayOrder} from "../../shared/relay-draw.js";
 import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch} from "./draw-reset.js";
 import {scheduleDivisionCourts} from "./court-scheduling.js";
 import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
@@ -99,7 +101,8 @@ async function matchJson(env,id){
     courtState:m.status==="completed"?"done":(m.court_state||"scheduled"),servingSide:m.serving_side||null,serverNumber:Number(m.server_number||2),
     timeouts:{A:Number(m.timeout_a||0),B:Number(m.timeout_b||0)},medicalTimeouts:{A:Number(m.medical_timeout_a||0),B:Number(m.medical_timeout_b||0)},
     timeoutClock:["A","B"].includes(m.timeout_side)&&m.timeout_started_at&&m.timeout_ends_at?{side:m.timeout_side,startedAt:m.timeout_started_at,endsAt:m.timeout_ends_at,serverNow:nowIso()}:null,
-    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null
+    calledAt:m.called_at||null,onDeckAt:m.on_deck_at||null,warmupAt:m.warmup_at||null,
+    relayOrderA:parseRelayOrder(m.relay_order_a),relayOrderB:parseRelayOrder(m.relay_order_b),relayDrawnAt:m.relay_drawn_at||null,hasHistory:await matchHasHistory(env,m)
   };
 }
 async function matchHasHistory(env,m){
@@ -207,6 +210,8 @@ async function handleApi(request,env,ctx){
 
   if(method==="OPTIONS")return new Response(null,{status:204,headers:corsHeaders(request,env)});
   if(["POST","PUT","PATCH","DELETE"].includes(method)&&request.body!==null&&/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type")||""))await bodyJson(request.clone());
+  const relayDraw=await handleRelayDraw(request,env,ctx);
+  if(relayDraw)return relayDraw;
   const score=await handleScoring(request,env,ctx);
   if(score)return score;
   const extra=await handleOperations(request,env);
@@ -549,7 +554,7 @@ async function handleApi(request,env,ctx){
       changed=!slotsAssigned||ids.length!==oldIds.length||ids.some((id,index)=>id!==oldIds[index]);
     }
     if(changed){
-      const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id) OR (status NOT IN ('completed','walkover','cancelled') AND court_state IN ('warming_up','live'))) LIMIT 1",p.id,p.id);
+      const locked=await one(env,"SELECT id FROM matches m WHERE (team_a_id=? OR team_b_id=?) AND (started_at IS NOT NULL OR status IN ('live','completed','walkover') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0 OR EXISTS (SELECT 1 FROM match_sets s WHERE s.match_id=m.id) OR EXISTS (SELECT 1 FROM score_events e WHERE e.match_id=m.id) OR (status NOT IN ('completed','walkover','cancelled') AND court_state IN ('warming_up','live'))) LIMIT 1",p.id,p.id);
       if(locked)throw httpError("TEAM_ROSTER_LOCKED",409);
     }
     if(changed||(before.status==='withdrawn'&&status==='active'))await validateDivisionRoster(env,before.division_id,ids,{currentTeamId:p.id});

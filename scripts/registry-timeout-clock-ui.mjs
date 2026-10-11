@@ -140,6 +140,9 @@ async function scoringSurface(kind,width){
       await page.screenshot({path:resolve(out,`${kind}-${width}-ordered-lineup-${code}.png`),fullPage:true});
     }
     const incomplete=page.locator(admin?'#teamBRoster':'#refRosterB');
+    // Begin a separate legacy roster-render fixture. Earlier service selection
+    // is already verified; real histories intentionally freeze membership.
+    f.db.exec("DELETE FROM score_events WHERE match_id='match'");
     f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; UPDATE team_players SET slot_no=NULL WHERE team_id='b'; UPDATE teams SET name='Đặng Mai / Hoàng Nam / Lê Thanh Hà' WHERE id='b'; UPDATE matches SET current_score_a=18 WHERE id='match'");await refresh();
     assert.equal(await incomplete.locator('[data-player-slot="A"] .lineup-name').innerText(),'Đặng Mai','legacy name-list order remains a confirmed fallback');
     assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),/Người giao 2 · Đặng Mai/,'serving name follows the current CA pair in inferred member order');
@@ -151,10 +154,10 @@ async function scoringSurface(kind,width){
     f.db.exec("UPDATE players SET skill_level='C' WHERE id='b3'");await refresh();
     assert.equal(await incomplete.locator('[data-player-slot="C"] .lineup-name').innerText(),'Đặng Mai');
     assert.equal(await incomplete.locator('[data-player-id="b3"] .lineup-grade').innerText(),'Trình C','updated skill level is recognized without rebuilding groups or matches');
-    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; INSERT INTO players(id,full_name,skill_level) VALUES ('b4','Thành viên dư','B'); INSERT INTO team_players(team_id,player_id,slot_no) VALUES ('b','b4',4)");await refresh();
+    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; INSERT INTO players(id,full_name,skill_level) VALUES ('b4','Thành viên dư','B'); INSERT INTO team_players(team_id,player_id,slot_no) VALUES ('b','b4',4); UPDATE matches SET current_score_a=18 WHERE id='match'");await refresh();
     assert.equal(await incomplete.locator('[data-player-id]').count(),4,'invalid roster still shows every actual member for correction');
     assert.match(await incomplete.innerText(),/đúng 3 VĐV/);assert.equal(await incomplete.locator('[data-player-slot]').count(),0);
-    f.db.exec("DELETE FROM team_players WHERE team_id='b' AND player_id='b4'");
+    f.db.exec("UPDATE matches SET current_score_a=0 WHERE id='match'; DELETE FROM team_players WHERE team_id='b' AND player_id='b4'");
     f.db.exec("UPDATE divisions SET points_to_win=11,relay_segment_points=0,relay_team_size=0 WHERE id='division'; UPDATE matches SET current_score_a=0 WHERE id='match'");
     f.db.exec("UPDATE divisions SET event_type='singles' WHERE id='division'");await refresh();assert.equal(await service('A',2).isDisabled(),true);assert.equal(await service('B',2).isDisabled(),true);
     f.db.exec("UPDATE divisions SET event_type='team' WHERE id='division'");await refresh();
