@@ -7,27 +7,29 @@ CREATE TABLE relay_draw_guards (
   expected_version INTEGER NOT NULL,
   expected_lineup TEXT NOT NULL
 );
+-- Keep each guard as one WHEN predicate and one RAISE statement, matching
+-- existing remote D1 migrations (no CASE/END statements inside the body).
+CREATE TRIGGER relay_draw_guard_format BEFORE INSERT ON relay_draw_guards
+WHEN NOT EXISTS (SELECT 1 FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=NEW.match_id AND d.relay_team_size=3 AND d.relay_segment_points>0)
+BEGIN SELECT RAISE(ABORT,'RELAY_DRAW_UNSUPPORTED'); END;
+CREATE TRIGGER relay_draw_guard_roster BEFORE INSERT ON relay_draw_guards
+WHEN (SELECT count(*) FROM teams t JOIN matches m ON t.id IN (m.team_a_id,m.team_b_id) AND t.division_id=m.division_id
+ WHERE m.id=NEW.match_id AND m.team_a_id<>m.team_b_id AND t.status='active'
+ AND (SELECT count(*) FROM team_players tp WHERE tp.team_id=t.id)=3
+ AND (SELECT count(*) FROM team_players tp JOIN players p ON p.id=tp.player_id WHERE tp.team_id=t.id AND p.active=1)=3)<>2
+BEGIN SELECT RAISE(ABORT,'RELAY_PARTICIPANTS_REQUIRED'); END;
+CREATE TRIGGER relay_draw_guard_history BEFORE INSERT ON relay_draw_guards
+WHEN EXISTS (SELECT 1 FROM matches WHERE id=NEW.match_id AND
+ (started_at IS NOT NULL OR status IN ('live','completed','walkover','cancelled') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0))
+ OR EXISTS (SELECT 1 FROM match_sets WHERE match_id=NEW.match_id)
+ OR EXISTS (SELECT 1 FROM score_events WHERE match_id=NEW.match_id)
+BEGIN SELECT RAISE(ABORT,'RELAY_DRAW_LOCKED'); END;
 CREATE TRIGGER relay_draw_guard_version BEFORE INSERT ON relay_draw_guards
-BEGIN
-  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM matches WHERE id=NEW.match_id AND version=NEW.expected_version)
-    THEN RAISE(ABORT,'VERSION_CONFLICT') END;
-  SELECT CASE WHEN NEW.expected_lineup IS NOT (SELECT json_group_array(json_array(team_id,player_id,slot_no,full_name,skill_level,active,team_name)) FROM
-    (SELECT tp.team_id,tp.player_id,tp.slot_no,p.full_name,p.skill_level,p.active,t.name AS team_name FROM team_players tp JOIN players p ON p.id=tp.player_id JOIN teams t ON t.id=tp.team_id
-     WHERE tp.team_id IN (SELECT team_a_id FROM matches WHERE id=NEW.match_id UNION SELECT team_b_id FROM matches WHERE id=NEW.match_id) ORDER BY tp.team_id,tp.player_id))
-    THEN RAISE(ABORT,'VERSION_CONFLICT') END;
-  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=NEW.match_id AND d.relay_team_size=3 AND d.relay_segment_points>0)
-    THEN RAISE(ABORT,'RELAY_DRAW_UNSUPPORTED') END;
-  SELECT CASE WHEN (SELECT count(*) FROM teams t JOIN matches m ON t.id IN (m.team_a_id,m.team_b_id) AND t.division_id=m.division_id
-    WHERE m.id=NEW.match_id AND m.team_a_id<>m.team_b_id AND t.status='active'
-    AND (SELECT count(*) FROM team_players tp WHERE tp.team_id=t.id)=3
-    AND (SELECT count(*) FROM team_players tp JOIN players p ON p.id=tp.player_id WHERE tp.team_id=t.id AND p.active=1)=3)<>2
-    THEN RAISE(ABORT,'RELAY_PARTICIPANTS_REQUIRED') END;
-  SELECT CASE WHEN EXISTS (SELECT 1 FROM matches WHERE id=NEW.match_id AND
-    (started_at IS NOT NULL OR status IN ('live','completed','walkover','cancelled') OR winner_team_id IS NOT NULL OR current_score_a<>0 OR current_score_b<>0))
-    OR EXISTS (SELECT 1 FROM match_sets WHERE match_id=NEW.match_id)
-    OR EXISTS (SELECT 1 FROM score_events WHERE match_id=NEW.match_id)
-    THEN RAISE(ABORT,'RELAY_DRAW_LOCKED') END;
-END;
+WHEN NOT EXISTS (SELECT 1 FROM matches WHERE id=NEW.match_id AND version=NEW.expected_version)
+ OR NEW.expected_lineup IS NOT (SELECT json_group_array(json_array(team_id,player_id,slot_no,full_name,skill_level,active,team_name)) FROM
+ (SELECT tp.team_id,tp.player_id,tp.slot_no,p.full_name,p.skill_level,p.active,t.name AS team_name FROM team_players tp JOIN players p ON p.id=tp.player_id JOIN teams t ON t.id=tp.team_id
+ WHERE tp.team_id IN (SELECT team_a_id FROM matches WHERE id=NEW.match_id UNION SELECT team_b_id FROM matches WHERE id=NEW.match_id) ORDER BY tp.team_id,tp.player_id))
+BEGIN SELECT RAISE(ABORT,'VERSION_CONFLICT'); END;
 
 CREATE TRIGGER relay_draw_participant_change AFTER UPDATE OF team_a_id,team_b_id ON matches
 WHEN NEW.team_a_id IS NOT OLD.team_a_id OR NEW.team_b_id IS NOT OLD.team_b_id
