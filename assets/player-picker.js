@@ -23,7 +23,7 @@
       }
       const copy=document.createElement("span"),name=document.createElement("strong"),meta=document.createElement("small");
       name.textContent=player.full_name||"VĐV";
-      meta.textContent=[player.nickname?`“${player.nickname}”`:"",player.club_name||"Tự do",`Rating ${formatRating(player.rating)}`,player.active===false||player.active===0?"Hồ sơ đã khóa":""].filter(Boolean).join(" • ");
+      meta.textContent=[player.nickname?`“${player.nickname}”`:"",player.club_name||"Tự do",`Trình ${player.skillLevel||player.skill_level||"chưa nhập"}`,`Rating ${formatRating(player.rating)}`,player.active===false||player.active===0?"Hồ sơ đã khóa":""].filter(Boolean).join(" • ");
       copy.append(name,meta);wrap.appendChild(copy);return wrap;
     }
 

@@ -1492,7 +1492,7 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
   </div>`;
   $("#genericDialog").showModal();
   const slotCount=division=>division?.eventType==="singles"?1:(division?.eventType==="team"?(Number(division.relayTeamSize)||4):2);
-  const slotLabels=division=>division?.eventType==="team"?Array.from({length:slotCount(division)},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
+  const slotLabels=division=>division?.eventType==="team"&&!(Number(division.relayTeamSize)===3&&Number(division.relaySegmentPoints)>0)?Array.from({length:slotCount(division)},(_,index)=>`Vị trí ${"ABCD"[index]} · VĐV ${index+1}`):[];
   const excludedFor=divisionId=>new Set(state.teams.filter(team=>team.divisionId===divisionId&&team.status!=="withdrawn").flatMap(team=>state.teamPlayers?.[team.id]||[]));
   let picker,nameEdited=false,clubEdited=false;
   const syncName=ids=>{

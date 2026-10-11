@@ -17,3 +17,7 @@
 Public headers now offer a visible `Đăng nhập` link on home, tournament, ranking, player, about and submission pages, with corresponding preview headers. Shared header layout keeps the link, logo and theme control separate. Login touches were tested in 140 browser cases: fourteen public/preview states, five widths (320/375/390/768/1440), light/dark themes, including actual navigation to the login form. Root additionally checked the changed mobile admin/referee/court-board/preview surfaces after asset-version changes.
 
 `npm run check` passed with the new static assets. No production player skills, team memberships, scores or tournament setup were changed by this work. Website OS bootstrap verification passed; this is not a full-scope compliance claim.
+
+## Profile input and team selection
+
+An additional browser check used the actual BTC player edit form and authenticated Worker PATCH against an isolated SQLite fixture at 375 and 1440 px. Correcting Trình was persisted, survived reload, and updated both admin and referee AB pair identities without rewriting team order. The team picker shows each profile's entered Trình; three-player relay choices use generic member labels and explain grade-based pairing. Four-player position labels remain ordered. The existing registry picker/roster browser regressions and the 19 recognition/realtime/preview tests were rerun after this copy correction; the Worker dry-run build passed again.
