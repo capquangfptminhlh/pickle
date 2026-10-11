@@ -1,4 +1,4 @@
-const VERSION="pickleup-v74-overall-standings-20261011";
+const VERSION="pickleup-v75-bracket-reset-20261011";
 const STATIC=[
   "/assets/api.js?v=56",
   "/assets/referee-arena.css?v=2",
@@ -45,7 +45,7 @@ const STATIC=[
   "/assets/tournament.js?v=55",
   "/assets/admin-sport.css?v=6",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=81",
+  "/assets/admin-app.js?v=82",
   "/assets/bracket-ui.js?v=38",
   "/assets/admin-crud.js?v=13",
   "/assets/player-picker.js?v=3",

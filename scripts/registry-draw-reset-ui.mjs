@@ -43,6 +43,12 @@ try{
     const count=()=>f.db.prepare("SELECT COUNT(*) n FROM matches WHERE division_id='division'").get().n;
     try{
       await page.goto(base+'/admin.html');if(width<=760)await page.locator('#mobileMenu').click();
+      await page.locator('[data-page="bracket"]').click();
+      await page.locator('[data-reset-draw="division"]').click();
+      await page.locator('.draw-reset-dialog [data-reset-confirmation]').waitFor();
+      await page.locator('.draw-reset-dialog [data-reset-cancel]').click();
+      assert.equal(count(),2);assert.equal(writes,0,'bracket reset entry preserves data until confirmed');
+      if(width<=760)await page.locator('#mobileMenu').click();
       await page.locator('[data-page="tournaments"]').click();await page.locator('.tour-card[data-open-tournament="own"]').click();
       await page.locator('[data-reset-draw="division"]').waitFor();
       let releasePreview;
