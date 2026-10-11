@@ -52,7 +52,7 @@ export function rankGroupStandings(teams,matches){
       if(bucket.length===2&&Number(ma.w||0)!==Number(mb.w||0))return Number(mb.w||0)-Number(ma.w||0);
       const miniSet=(Number(mb.sw||0)-Number(mb.sl||0))-(Number(ma.sw||0)-Number(ma.sl||0));
       const miniPts=(Number(mb.pf||0)-Number(mb.pa||0))-(Number(ma.pf||0)-Number(ma.pa||0));
-      return Number(mb.w||0)-Number(ma.w||0)||miniSet||miniPts||fallback(a,b);
+      return bucket.length>=3?miniPts||miniSet||fallback(a,b):Number(mb.w||0)-Number(ma.w||0)||miniSet||miniPts||fallback(a,b);
     });
     result.push(...bucket);
   }

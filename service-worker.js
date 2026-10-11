@@ -1,4 +1,4 @@
-const VERSION="pickleup-v72-shared-relay-draw-20261011";
+const VERSION="pickleup-v73-tied-standings-20261011";
 const STATIC=[
   "/assets/api.js?v=56",
   "/assets/referee-arena.css?v=2",
@@ -32,7 +32,7 @@ const STATIC=[
   "/assets/public-refresh.css?v=1",
   "/assets/public-refresh.css",
   "/assets/ranking.js?v=3",
-  "/assets/public.js?v=53",
+  "/assets/public.js?v=54",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",
@@ -45,7 +45,7 @@ const STATIC=[
   "/assets/tournament.js?v=55",
   "/assets/admin-sport.css?v=6",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=79",
+  "/assets/admin-app.js?v=80",
   "/assets/bracket-ui.js?v=38",
   "/assets/admin-crud.js?v=13",
   "/assets/player-picker.js?v=3",

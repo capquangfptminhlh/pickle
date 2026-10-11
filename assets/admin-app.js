@@ -695,7 +695,7 @@ function calcGroup(did,g){
   return rankTournamentGroup(did,g);
 }
 function standings(){
-  setHeader("Bảng xếp hạng","Tự động tính: trận thắng → 2 đội bằng nhau xét đối đầu; từ 3 đội xét mini-table (thắng, hiệu số set, hiệu số điểm) → chỉ số toàn bảng");
+  setHeader("Bảng xếp hạng","Xếp theo trận thắng: đúng 2 đội bằng điểm xét đối đầu; từ 3 đội bằng điểm xét hiệu số điểm chỉ trong các trận giữa những đội bằng điểm (điểm ghi − điểm thua).");
   const divisions=state.divisions.filter(d=>state.teams.some(t=>t.divisionId===d.id&&t.group));
   return divisions.map(d=>{
     const groups=[...new Set(state.teams.filter(t=>t.divisionId===d.id).map(t=>t.group).filter(Boolean))].sort();

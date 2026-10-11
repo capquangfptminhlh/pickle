@@ -58,3 +58,12 @@ test('Preview creates, renames and logs in a referee without email',async()=>{
  await f.api.updateReferee(created.id,{username:'TT_NEW'});
  const login=await f.api.login('TT_NEW',password);assert.equal(login.user.role,'referee');
 });
+
+test("Preview ranks a three-way tie using only mutual points and exposes ranks",async()=>{
+ const matches=[['A','B',27,26],['B','C',27,7],['C','A',27,20],['A','D',27,0],['B','D',27,26],['C','D',27,26]].map(([a,b,x,y],i)=>({id:'m'+i,divisionId:'division',stage:'Bảng A',a,b,winner:x>y?a:b,sets:[[x,y]],status:'completed'}));
+ const state={tournaments:[],divisions:[{id:'division',eventType:'doubles'}],teams:['A','B','C','D'].map(id=>({id,name:id,divisionId:'division',group:'A',status:'active'})),matches,players:[],teamPlayers:{},audit:[]};
+ let saved=JSON.stringify(state);const context={window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class{},crypto:webcrypto,localStorage:{getItem:()=>saved,setItem:(_,v)=>saved=v},console,Date,Set,Map};
+ vm.runInNewContext(readFileSync(new URL('../preview/preview-api.js',import.meta.url),'utf8'),context);
+ const result=await context.window.PickleAPI.publicState();
+ assert.deepEqual(Array.from(result.teams).sort((a,b)=>a.standingRank-b.standingRank).map(t=>t.id),['B','A','C','D']);
+});
