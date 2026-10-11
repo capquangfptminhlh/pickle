@@ -44,7 +44,7 @@
   function legText(teamAId,teamBId,division,scoreA,scoreB,state,metadata){
     const a=match(teamAId,division,scoreA,scoreB,state,metadata),b=match(teamBId,division,scoreA,scoreB,state,metadata);
     if(!a.relay)return "";
-    if(a.awaitingDraw||b.awaitingDraw)return "Bốc thăm cặp cho từng đội trước khi nhập điểm";
+    if(a.awaitingDraw||b.awaitingDraw)return "Bốc thăm thứ tự cặp chung cho hai đội trước khi nhập điểm";
     const current=a.code&&b.code?`A: Cặp ${a.code} vs B: Cặp ${b.code}`:`Lượt ${a.leg.index+1}`;
     const next=a.next&&b.next?` • Tiếp theo A: ${a.next.code}${a.next.ready?": "+a.next.names.join(" + "):""} vs B: ${b.next.code}${b.next.ready?": "+b.next.names.join(" + "):""}`:"";
     const warning=!a.ready||!b.ready?" • "+(a.identityWarning||b.identityWarning||"Chưa gán đủ vị trí A/B/C"):"";
@@ -54,10 +54,10 @@
     if(!element)return;
     element.hidden=!requiresDraw(division,metadata)||started(metadata);
     if(element.hidden)return;
-    if(button){button.hidden=false;button.disabled=!metadata.a||!metadata.b||metadata.a==="TBD"||metadata.b==="TBD";button.textContent=drawn(metadata)?"Bốc thăm lại cặp từng đội":"Bốc thăm cặp từng đội"}
+    if(button){button.hidden=false;button.disabled=!metadata.a||!metadata.b||metadata.a==="TBD"||metadata.b==="TBD";button.textContent=drawn(metadata)?"Bốc thăm lại thứ tự cặp":"Bốc thăm thứ tự cặp"}
     const list=element.querySelector(".relay-draw-orders");if(!list)return;
     list.replaceChildren();
-    if(!drawn(metadata)){list.textContent="Mỗi đội bốc thăm độc lập AB, BC, CA. Bốc thăm xong mới nhập điểm.";return}
+    if(!drawn(metadata)){list.textContent="Bốc thăm một lần thứ tự AB, BC, CA và áp dụng cho cả hai đội. Bốc thăm xong mới nhập điểm.";return}
     for(let index=0;index<3;index++){
       const row=document.createElement("div");row.className="relay-draw-leg";
       const a=pairAt(metadata.a,index,3,state,metadata.relayOrderA),b=pairAt(metadata.b,index,3,state,metadata.relayOrderB);

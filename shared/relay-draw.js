@@ -16,7 +16,7 @@ export function parseRelayOrder(value){
 export function drawRelayOrders(randomUint=()=>crypto.getRandomValues(new Uint32Array(1))[0]){
   const below=n=>{const limit=Math.floor(0x100000000/n)*n;let value;do{value=randomUint();if(!Number.isSafeInteger(value)||value<0||value>=0x100000000)throw new Error('INVALID_RANDOM_VALUE')}while(value>=limit);return value%n};
   const shuffle=()=>{const order=[...PAIRS];for(let i=order.length-1;i>0;i--){const j=below(i+1);[order[i],order[j]]=[order[j],order[i]]}return order};
-  return {A:shuffle(),B:shuffle()};
+  const order=shuffle();return {A:order,B:[...order]};
 }
 export function relayHasStarted(m){
   return Boolean(m.has_history||m.hasHistory||m.started_at||m.startedAt||['live','completed','done','walkover','cancelled'].includes(m.status)||m.winner_team_id||m.winner||Number(m.current_score_a||m.current?.[0]||0)||Number(m.current_score_b||m.current?.[1]||0)||m.sets?.length);

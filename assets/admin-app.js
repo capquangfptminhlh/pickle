@@ -1010,7 +1010,7 @@ function syncScoreDialog(){
 $("#scoreDialog").addEventListener("close",()=>window.PickleTimeoutClock?.detach($("#scoreTimeoutClock")));
 $("#relayDrawButton")?.addEventListener("click",async()=>{
   if(busy||!activeMatch)return;busy=true;$("#relayDrawButton").disabled=true;
-  try{await API.relayDraw(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã bốc thăm độc lập cặp của hai đội.")}catch(e){await showScoreError(e)}finally{busy=false;syncScoreDialog()}
+  try{await API.relayDraw(activeMatch.id,{expectedVersion:activeMatch.version});await refresh({keepDialog:true});toast("Đã bốc thăm và áp dụng cùng thứ tự cặp cho hai đội.")}catch(e){await showScoreError(e)}finally{busy=false;syncScoreDialog()}
 });
 function scoreError(e){
   return {RELAY_LINEUP_REQUIRED:"Chưa xác định vị trí A/B/C. BTC cần xác nhận thứ tự thành viên hoặc nhập đúng Trình trước khi bốc thăm.",RELAY_PARTICIPANTS_REQUIRED:"Mỗi đội cần đúng 3 VĐV đang hoạt động trước khi bốc thăm.",RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",

@@ -49,7 +49,7 @@ for(const [role,scope] of [["organizer",tid],["referee",tid],["finance",null],["
 }
 for(const actor of [actors.organizerOther,actors.finance,actors.referee])await draw(id,{actor,expected:[403]});
 await api(`/api/matches/${id}/assignment`,{refereeUserId:actors.refereeId,expectedVersion:current.version},{method:"PATCH"});
-const drawn=await draw(id,{actor:actors.referee});permutation(drawn.data.relayOrderA);permutation(drawn.data.relayOrderB);assert.ok(drawn.data.relayDrawnAt);
+const drawn=await draw(id,{actor:actors.referee});permutation(drawn.data.relayOrderA);permutation(drawn.data.relayOrderB);assert.ok(drawn.data.relayDrawnAt);assert.deepEqual(drawn.data.relayOrderA,drawn.data.relayOrderB);
 current=await match(id);permutation(current.relayOrderA);permutation(current.relayOrderB);assert.ok(current.relayDrawnAt);
 assert.equal((await match(independentId)).relayOrderA,null,"Draw belongs only to this match");
 const publicState=(await api("/api/public/state",undefined,{actor:{}})).data;

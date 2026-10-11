@@ -5,11 +5,11 @@ import {parseRelayOrder,drawRelayOrders,relayDrawRequired} from '../../shared/re
 
 const orders=o=>assert.deepEqual([...o].sort(),['AB','BC','CA']);
 async function fixture(){const f=await scoringFixture();f.db.exec("UPDATE tournaments SET public_visible=1 WHERE id='tour'; UPDATE divisions SET event_type='team',best_of=1,points_to_win=27,win_by_two=0,scoring_mode='rally',relay_segment_points=9,relay_team_size=3,final_point_on_serve=1 WHERE id='division'");for(const side of ['a','b','c'])for(let i=1;i<=3;i++){const id=side+i;f.db.prepare('INSERT INTO players(id,full_name) VALUES(?,?)').run(id,id);f.db.prepare('INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)').run(side,id,i)}return f}
-test('relay orders validate exact pair permutations and each side is drawn independently',()=>{
+test('relay orders validate exact pair permutations and one draw is copied to both sides',()=>{
  for(const order of [['AB','BC','CA'],['AB','CA','BC'],['BC','AB','CA'],['BC','CA','AB'],['CA','AB','BC'],['CA','BC','AB']])assert.deepEqual(parseRelayOrder(JSON.stringify(order)),order);
  for(const order of [null,'broken',[],['AB','AB','CA'],['AB','BC','CD'],['AB','BC','CA','AB']])assert.equal(parseRelayOrder(order),null);
- const random=[0,0,1,1];const drawn=drawRelayOrders(()=>random.shift());orders(drawn.A);orders(drawn.B);assert.notDeepEqual(drawn.A,drawn.B);assert.equal(random.length,0);
- const same=drawRelayOrders(()=>0);assert.deepEqual(same.A,same.B,'independent draws can coincide by chance');
+ const random=[0,0];const drawn=drawRelayOrders(()=>random.shift());orders(drawn.A);orders(drawn.B);assert.deepEqual(drawn.A,drawn.B);assert.notEqual(drawn.A,drawn.B,'separate arrays prevent accidental cross-mutation');assert.equal(random.length,0);
+ const same=drawRelayOrders(()=>0);assert.deepEqual(same.A,same.B,'both teams share the same draw');
 });
 test('draw rejects incomplete or inactive rosters without mutation',async()=>{
  const f=await fixture();try{
@@ -57,7 +57,7 @@ test('only new three-player relays require drawing; started legacy matches remai
 test('new MLP scoring requires persisted draw, then names/orders are available in every state',async()=>{
  const f=await fixture();try{
   for(const action of ['point','rally','service','timeout','quick-score']){const r=await f.api(action,{side:'A',delta:1,serverNumber:1,sets:[[27,0]]});assert.equal(r.status,409,action);assert.equal(r.data.error,'RELAY_DRAW_REQUIRED')}
-  const r=await f.api('relay-draw',{expectedVersion:1},'ref');assert.equal(r.status,200);orders(r.data.relayOrderA);orders(r.data.relayOrderB);assert.equal(r.data.version,2);assert.ok(r.data.relayDrawnAt);
+  const r=await f.api('relay-draw',{expectedVersion:1},'ref');assert.equal(r.status,200);orders(r.data.relayOrderA);orders(r.data.relayOrderB);assert.deepEqual(r.data.relayOrderA,r.data.relayOrderB);assert.equal(r.data.version,2);assert.ok(r.data.relayDrawnAt);
   assert.equal(f.db.prepare("SELECT count(*) n FROM score_events WHERE match_id='match'").get().n,0,'draw is not a score event');
   const stored=f.match();assert.deepEqual(JSON.parse(stored.relay_order_a),r.data.relayOrderA);
   const state=await (await import('../src/state.js')).loadState(f.env,{publicOnly:true});assert.deepEqual(state.matches[0].relayOrderB,r.data.relayOrderB);

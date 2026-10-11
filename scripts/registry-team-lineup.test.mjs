@@ -108,11 +108,11 @@ test('unstarted relay awaits draw without presenting AB as confirmed; started le
  assert.equal(lineup.match('team',division,0,0,state,{...m,startedAt:'2026-10-11'}).code,'AB');assert.equal(lineup.match('team',division,0,0,state,{...m,hasHistory:true}).code,'AB');
 });
 
-test('Preview requires independent draw, persists it across points/Undo/reset and refuses redraw',async()=>{
+test('Preview requires shared draw, persists it across points/Undo/reset and refuses redraw',async()=>{
  const {webcrypto}=await import('node:crypto');let saved=JSON.stringify({tournaments:[],divisions:[{id:'d',...division}],teams:[{id:'a'},{id:'b'}],teamPlayers:{a:['a1','a2','a3'],b:['b1','b2','b3']},players:[],matches:[{id:'m',divisionId:'d',a:'a',b:'b',version:1,status:'wait',sets:[],current:[0,0]}],audit:[]});
  const w={addEventListener(){},dispatchEvent(){}};runInNewContext(readFileSync(new URL('../preview/preview-api.js',import.meta.url),'utf8'),{window:w,CustomEvent:class{},crypto:webcrypto,localStorage:{getItem:()=>saved,setItem:(_,v)=>saved=v},console,Date,Set,Map});
  await assert.rejects(()=>w.PickleAPI.point('m',{side:'A',delta:1,expectedVersion:1}),{message:'RELAY_DRAW_REQUIRED'});
- const draw=await w.PickleAPI.relayDraw('m',{expectedVersion:1});assert.deepEqual([...draw.relayOrderA].sort(),['AB','BC','CA']);assert.deepEqual([...draw.relayOrderB].sort(),['AB','BC','CA']);assert.ok(draw.relayDrawnAt);
+ const draw=await w.PickleAPI.relayDraw('m',{expectedVersion:1});assert.deepEqual([...draw.relayOrderA].sort(),['AB','BC','CA']);assert.deepEqual([...draw.relayOrderB].sort(),['AB','BC','CA']);assert.ok(draw.relayDrawnAt);assert.deepEqual([...draw.relayOrderA],[...draw.relayOrderB]);
  await assert.rejects(()=>w.PickleAPI.relayDraw('m',{expectedVersion:1}),{message:'VERSION_CONFLICT'});
  await w.PickleAPI.point('m',{side:'A',delta:1,expectedVersion:2});await w.PickleAPI.undo('m');await w.PickleAPI.resetMatch('m');
  assert.deepEqual(JSON.parse(saved).matches[0].relayOrderA,[...draw.relayOrderA]);await assert.rejects(()=>w.PickleAPI.relayDraw('m',{expectedVersion:JSON.parse(saved).matches[0].version}),{message:'RELAY_DRAW_LOCKED'});

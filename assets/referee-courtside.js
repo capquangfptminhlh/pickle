@@ -219,7 +219,7 @@
     const timeout=e.target.closest("[data-timeout]");if(timeout){const m=activeMatch();if(m)return action(()=>API.timeout(m.id,{side:timeout.dataset.timeout,kind:timeout.dataset.kind,expectedVersion:m.version}),timeout.dataset.kind==="medical"?"Đã ghi medical timeout.":"Đã ghi timeout.");}
   });
 
-  $("#refRelayDrawButton").onclick=()=>{const m=activeMatch();if(m)action(()=>API.relayDraw(m.id,{expectedVersion:m.version}),"Đã bốc thăm độc lập cặp của hai đội.")};
+  $("#refRelayDrawButton").onclick=()=>{const m=activeMatch();if(m)action(()=>API.relayDraw(m.id,{expectedVersion:m.version}),"Đã bốc thăm và áp dụng cùng thứ tự cặp cho hai đội.")};
   $("#backToMatches").onclick=showPicker;
   $("#refreshBtn").onclick=()=>refresh();
   $("#resetMatchBtn").onclick=()=>{
