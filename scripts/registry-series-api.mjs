@@ -13,6 +13,8 @@ const state=async()=>(await api("/api/admin/state")).data;
 const stamp=Date.now();
 const tour=(await api("/api/tournaments",{name:`Serie regression ${stamp}`,eventType:"singles",format:"pool_to_knockout"})).data;
 const tid=tour.tournament?.id||tour.id;
+const configuredCourts=(await state()).courts.filter(c=>c.tournamentId===tid&&c.active!==false);
+for(let i=configuredCourts.length;i<4;i++)await api(`/api/tournaments/${tid}/courts`,{name:`Serie Court ${i+1}`,sortOrder:i+1});
 const division=(await api(`/api/tournaments/${tid}/divisions`,{name:"Four pools, two series",eventType:"singles",format:"pool_to_knockout",bestOf:1,pointsToWin:11,advanceCount:2,thirdPlaceMatch:true,seriesBEnabled:true,seriesBThirdPlaceMatch:true})).data;
 const did=division.id;
 let saved=(await state()).divisions.find(d=>d.id===did);
