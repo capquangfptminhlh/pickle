@@ -70,9 +70,9 @@
     $("#stageLabel").textContent=stage(m);
     $("#queueLabel").textContent=qm[0];$("#queueLabel").className="queue-pill "+qm[1];
     const lineupA=window.PickleTeamLineup?.match(m.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(m.b,d,a,b,state);
-    $("#refTeamA").textContent=lineupA?.label||team(m.a);$("#refTeamB").textContent=lineupB?.label||team(m.b);
-    window.PickleTeamLineup?.renderRoster($("#refRosterA"),lineupA,!locked&&serve==="A"?server:0);
-    window.PickleTeamLineup?.renderRoster($("#refRosterB"),lineupB,!locked&&serve==="B"?server:0);
+    $("#refTeamA").textContent=locked?team(m.a):(lineupA?.label||team(m.a));$("#refTeamB").textContent=locked?team(m.b):(lineupB?.label||team(m.b));
+    window.PickleTeamLineup?.renderRoster($("#refRosterA"),lineupA,!locked&&serve==="A"?server:0,locked);
+    window.PickleTeamLineup?.renderRoster($("#refRosterB"),lineupB,!locked&&serve==="B"?server:0,locked);
     const specialResult=Boolean(m.winner&&m.resultReason);
     const finalScore=m.winner&&!specialResult&&(m.sets||[]).length?m.sets[m.sets.length-1]:null;
     $("#refScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#refScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
@@ -89,7 +89,7 @@
       card.querySelector(".ref-serving").hidden=locked||side!==serve;
     });
     $("#modeBanner").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?" · điểm "+target+" phải cầm giao":"");
-    const leg=window.PickleTeamLineup?.legText(m.a,m.b,d,a,b,state)||window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=!leg;$("#legBanner").textContent=leg;
+    const leg=window.PickleTeamLineup?.legText(m.a,m.b,d,a,b,state)||window.PickleMatchFormat?.legText(a,b,d)||"";$("#legBanner").hidden=locked||!leg;$("#legBanner").textContent=leg;
     $(".serve-banner>span").textContent=locked?"ĐÃ CHỐT":"ĐANG GIAO";
     const servingLineup=serve==="A"?lineupA:lineupB,servingPlayer=servingLineup?.players?.[server-1];
     const servingName=servingLineup?.ready?(servingLineup.names?.[server-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";

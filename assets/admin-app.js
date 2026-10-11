@@ -942,20 +942,23 @@ function syncScoreDialog(){
   if(!activeMatch)return;
   const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
   const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
-  $("#scoreA").textContent=a;$("#scoreB").textContent=b;
+  const specialResult=Boolean(activeMatch.winner&&activeMatch.resultReason);
+  const finalScore=activeMatch.winner&&!specialResult&&activeMatch.sets?.length?activeMatch.sets[activeMatch.sets.length-1]:null;
+  $("#scoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#scoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
   const lineupA=window.PickleTeamLineup?.match(activeMatch.a,d,a,b,state),lineupB=window.PickleTeamLineup?.match(activeMatch.b,d,a,b,state);
-  $("#teamAName").textContent=lineupA?.label||teamName(activeMatch.a);$("#teamBName").textContent=lineupB?.label||teamName(activeMatch.b);
+  $("#teamAName").textContent=locked?teamName(activeMatch.a):(lineupA?.label||teamName(activeMatch.a));$("#teamBName").textContent=locked?teamName(activeMatch.b):(lineupB?.label||teamName(activeMatch.b));
   $("#scoreSets").innerHTML=activeMatch.sets?.length?activeMatch.sets.map((s,i)=>`<span class="set-chip">Set ${i+1}: ${s[0]}–${s[1]}</span>`).join(""):'<span style="font-size:12px;color:#73847b">Chưa có set hoàn tất</span>';
   const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out";
   const serveSide=activeMatch.servingSide||"A",serverNo=Number(activeMatch.serverNumber||(isDoubles?2:1));
-  window.PickleTeamLineup?.renderRoster($("#teamARoster"),lineupA,!locked&&serveSide==="A"?serverNo:0);
-  window.PickleTeamLineup?.renderRoster($("#teamBRoster"),lineupB,!locked&&serveSide==="B"?serverNo:0);
+  window.PickleTeamLineup?.renderRoster($("#teamARoster"),lineupA,!locked&&serveSide==="A"?serverNo:0,locked);
+  window.PickleTeamLineup?.renderRoster($("#teamBRoster"),lineupB,!locked&&serveSide==="B"?serverNo:0,locked);
   if($("#scoringModeLabel"))$("#scoringModeLabel").textContent=(mode==="rally"?"Rally":"Side-out")+(d?.finalPointOnServe?` • điểm ${d.pointsToWin} phải cầm giao`:"");
   const leg=$("#relayLeg");
-  if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=!text;leg.textContent=text}
+  if(leg){const text=window.PickleTeamLineup?.legText(activeMatch.a,activeMatch.b,d,a,b,state)||window.PickleMatchFormat.legText(a,b,d);leg.hidden=locked||!text;leg.textContent=text}
   const servingLineup=serveSide==="A"?lineupA:lineupB,servingPlayer=servingLineup?.players?.[serverNo-1];
   const servingName=servingLineup?.ready?(servingLineup.names?.[serverNo-1]||servingPlayer?.full_name||servingPlayer?.nickname||""):"";
-  if($("#serveStatus"))$("#serveStatus").textContent=(servingLineup?.label||teamName(serveSide==="A"?activeMatch.a:activeMatch.b))+" • Người giao "+serverNo+(servingName?" · "+servingName:"");
+  if($("#serveStatus"))$("#serveStatus").textContent=activeMatch.winner?teamName(activeMatch.winner)+" • thắng trận":locked?"Trận đã kết thúc":(servingLineup?.label||teamName(serveSide==="A"?activeMatch.a:activeMatch.b))+" • Người giao "+serverNo+(servingName?" · "+servingName:"");
+  if($("#serveStatus")?.previousElementSibling)$("#serveStatus").previousElementSibling.textContent=locked?"KẾT QUẢ":"ĐANG GIAO";
   window.PickleTimeoutClock?.attach($("#scoreTimeoutClock"),activeMatch);
   const timeoutMax=window.PickleMatchFormat?.timeoutLimit(d)||2;
   if($("#timeoutA"))$("#timeoutA").textContent=Number(activeMatch.timeouts?.A||0)+"/"+timeoutMax;
