@@ -18,6 +18,7 @@ const stamp=Date.now();
 const created=await api("/api/tournaments",{name:`Gallery public ${stamp}`,publicVisible:true},{status:201});
 const hidden=await api("/api/tournaments",{name:`Gallery private ${stamp}`,publicVisible:false},{status:201});
 const tid=created.tournament?.id||created.id,privateId=hidden.tournament?.id||hidden.id;
+await api(`/api/tournaments/${privateId}`,{publicVisible:false},{method:"PATCH"});
 const base=`/api/tournaments/${tid}/photos`,privateBase=`/api/tournaments/${privateId}/photos`;
 const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=","base64");
 const form=(bytes=png,mime="image/png",caption=" Memories ")=>{const body=new FormData();body.set("image",new Blob([bytes],{type:mime}),"memory.png");body.set("caption",caption);return body};
