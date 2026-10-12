@@ -44,10 +44,18 @@ try{
     try{
       await page.goto(base+'/admin.html');if(width<=760)await page.locator('#mobileMenu').click();
       await page.locator('[data-page="bracket"]').click();
-      await page.locator('[data-reset-draw="division"]').click();
+      await page.locator('[data-reset-knockout="division"]').click();
       await page.locator('.draw-reset-dialog [data-reset-confirmation]').waitFor();
       await page.locator('.draw-reset-dialog [data-reset-cancel]').click();
       assert.equal(count(),2);assert.equal(writes,0,'bracket reset entry preserves data until confirmed');
+      const poolBefore={...f.db.prepare("SELECT * FROM matches WHERE id='played'").get()};
+      await page.locator('[data-reset-knockout="division"]').click();
+      await page.locator('.draw-reset-dialog [data-reset-confirmation]').fill('DAT LAI');
+      await page.locator('.draw-reset-dialog [data-reset-submit]').click();
+      await page.waitForFunction(()=>!document.querySelector('.draw-reset-dialog'));
+      assert.equal(count(),1);assert.deepEqual({...f.db.prepare("SELECT * FROM matches WHERE id='played'").get()},poolBefore);
+      assert.equal(f.db.prepare("SELECT count(*) n FROM match_sets WHERE match_id='played'").get().n,1);
+      f.db.exec("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,bracket_slot) VALUES('final','division','t2','t3','Chung kết','F-1')");
       if(width<=760)await page.locator('#mobileMenu').click();
       await page.locator('[data-page="tournaments"]').click();await page.locator('.tour-card[data-open-tournament="own"]').click();
       await page.locator('[data-reset-draw="division"]').waitFor();

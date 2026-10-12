@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v48-bracket-reset-20261011";
+const VERSION="pickleup-preview-v49-knockout-reset-20261011";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -34,8 +34,8 @@ const CORE=[
   "../assets/tournament.js?v=55",
   "../assets/admin-sport.css?v=5",
   "../assets/player-avatar-input.js?v=1",
-  "../assets/admin-app.js?v=82",
-  "../assets/draw-flex.js?v=8",
+  "../assets/admin-app.js?v=83",
+  "../assets/draw-flex.js?v=9",
   "../assets/bracket-ui.js?v=38",
   "../assets/admin-crud.js?v=13",
   "../assets/player-picker.js?v=3",

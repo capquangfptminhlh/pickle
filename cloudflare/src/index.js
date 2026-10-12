@@ -6,7 +6,7 @@ import {handleOperations} from "./operations.js";
 import {handleScoring} from "./scoring.js";
 import {handleRelayDraw} from "./relay-draw.js";
 import {parseRelayOrder} from "../../shared/relay-draw.js";
-import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch} from "./draw-reset.js";
+import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch,knockoutResetSnapshot,resetKnockout} from "./draw-reset.js";
 import {scheduleDivisionCourts} from "./court-scheduling.js";
 import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
@@ -687,6 +687,13 @@ async function handleApi(request,env,ctx){
       env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(`draw_config:${p.id}`,JSON.stringify(config),user.id,nowIso())
     ]);
     return ok(config,request,env);
+  }
+  p=route(path,"/api/divisions/:id/reset-knockout");
+  if(p&&["GET","POST"].includes(method)){
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
+    const tid=await assertDivision(env,user,p.id);
+    if(method==="GET"){const {token,divisionName,summary}=await knockoutResetSnapshot(env,p.id);return ok({token,divisionName,summary},request,env)}
+    const result=await resetKnockout(env,user,p.id,await bodyJson(request));await emitUpdate(env,tid);return ok(result,request,env);
   }
   p=route(path,"/api/divisions/:id/reset-draw");
   if(p&&["GET","POST"].includes(method)){

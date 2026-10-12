@@ -67,3 +67,10 @@ test("Preview ranks a three-way tie using overall points including the unbeaten 
  const result=await context.window.PickleAPI.publicState();
  assert.deepEqual(Array.from(result.teams).sort((a,b)=>a.standingRank-b.standingRank).map(t=>t.id),['D','A','B','C']);
 });
+
+test('Preview knockout reset allows a first round BYE without roundNo and keeps pool',async()=>{
+ const state={tournaments:[],divisions:[{id:'d',eventType:'doubles'}],teams:[],matches:[{id:'pool',divisionId:'d',stage:'Bảng A',a:'a',b:'b',winner:'a',status:'done',sets:[[27,20]]},{id:'bye',divisionId:'d',bracketSlot:'SE-R1-M1',a:'a',b:null,winner:'a',status:'done',sets:[],current:[0,0]}],players:[],teamPlayers:{},audit:[]};
+ let saved=JSON.stringify(state);const context={window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class{},crypto:webcrypto,localStorage:{getItem:()=>saved,setItem:(_,v)=>saved=v},console,Date,Set,Map};
+ vm.runInNewContext(readFileSync(new URL('../preview/preview-api.js',import.meta.url),'utf8'),context);const api=context.window.PickleAPI;
+ const p=await api.knockoutResetPreview('d');assert.equal(p.summary.blocked,false);await api.resetKnockout('d',{confirmation:'DAT LAI',expectedToken:p.token});assert.deepEqual(JSON.parse(saved).matches,state.matches.slice(0,1));
+});

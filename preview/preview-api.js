@@ -15,6 +15,7 @@
   };
   const relayStarted=m=>Boolean(m.startedAt||m.started_at||m.hasHistory||["live","done","completed","walkover","cancelled"].includes(m.status)||m.winner||m.sets?.length||m.current?.some(Number));
   const relaySupported=m=>{const d=state.divisions.find(x=>x.id===m.divisionId);return d?.eventType==="team"&&Number(d.relaySegmentPoints)>0&&Number(d.relayTeamSize||Math.ceil(Number(d.pointsToWin)/Number(d.relaySegmentPoints)))===3};
+  const knockoutStarted=m=>{const bye=['done','completed'].includes(m.status)&&(Number(m.roundNo)===1||/^(?:B-)?SE-R1-M/.test(m.bracketSlot||''))&&Boolean(m.a&&m.a!=='TBD')!==Boolean(m.b&&m.b!=='TBD')&&m.winner===(m.a&&m.a!=='TBD'?m.a:m.b);return bye?Boolean(m.hasHistory||m.startedAt||m.current?.some(Number)||m.sets?.length):relayStarted(m)};
   const validRelayOrder=order=>Array.isArray(order)&&order.length===3&&new Set(order).size===3&&order.every(c=>["AB","BC","CA"].includes(c));
   const clearRelay=m=>{m.relayOrderA=null;m.relayOrderB=null;m.relayDrawnAt=null;m.version++};
   const checkScore=(m,p={})=>{if(!m)throw new Error("NOT_FOUND");if(p.expectedVersion!==undefined&&Number(p.expectedVersion)!==m.version)throw new Error("VERSION_CONFLICT");if(relaySupported(m)&&!relayStarted(m)&&!(validRelayOrder(m.relayOrderA)&&validRelayOrder(m.relayOrderB)))throw new Error("RELAY_DRAW_REQUIRED")};
@@ -492,6 +493,8 @@
       persist();return {groupCount,assignments:clone(groups)}
     },
     generateRoundRobin:async did=>{const teams=state.teams.filter(t=>t.divisionId===did&&t.status!=="withdrawn");const groups=[...new Set(teams.map(t=>t.group).filter(Boolean))];let created=0;for(const g of groups){const arr=teams.filter(t=>t.group===g);for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){if(state.matches.some(m=>m.divisionId===did&&((m.a===arr[i].id&&m.b===arr[j].id)||(m.a===arr[j].id&&m.b===arr[i].id))))continue;const court=state.courts[created%Math.max(1,state.courts.length)];state.matches.push({id:uid(),divisionId:did,stage:"Bảng "+g,court:court?.sortOrder||1,courtId:court?.id||null,time:"--:--",a:arr[i].id,b:arr[j].id,status:"wait",sets:[],current:[0,0],winner:null,version:1,bracketSlot:null});created++}}persist();return {created}},
+    knockoutResetPreview:async id=>{const matches=state.matches.filter(m=>m.divisionId===id&&m.bracketSlot);return {divisionName:state.divisions.find(d=>d.id===id)?.name,token:JSON.stringify(matches),summary:{matchCount:matches.length,blocked:matches.some(m=>knockoutStarted(m))}}},
+    resetKnockout:async(id,p)=>{const matches=state.matches.filter(m=>m.divisionId===id&&m.bracketSlot);if(p.confirmation!=='DAT LAI')throw new Error('DRAW_RESET_CONFIRMATION_REQUIRED');if(p.expectedToken!==JSON.stringify(matches))throw new Error('DRAW_RESET_CONFLICT');if(matches.some(m=>knockoutStarted(m)))throw new Error('BRACKET_ALREADY_STARTED');if(!matches.length)throw new Error('DRAW_ALREADY_EMPTY');state.matches=state.matches.filter(m=>m.divisionId!==id||!m.bracketSlot);state.audit.unshift({action:'RESET_KNOCKOUT',beforeData:clone(matches)});persist();return {ok:true,removedMatches:matches.length}},
     generateBracket:async did=>{
       const d=state.divisions.find(x=>x.id===did);if(!d)throw new Error("NOT_FOUND");
       validateSeriesRules(d);

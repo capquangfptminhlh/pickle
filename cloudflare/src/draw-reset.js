@@ -89,3 +89,24 @@ export async function resetGroupDraw(env,user,divisionId,body){
   }
   return {ok:true,...after};
 }
+
+export async function knockoutResetSnapshot(env,divisionId){
+  const full=await drawResetSnapshot(env,divisionId),matches=full.archive.matches.filter(m=>m.bracket_slot),ids=new Set(matches.map(m=>m.id));
+  const sets=full.archive.sets.filter(s=>ids.has(s.match_id)),scoreEvents=full.archive.scoreEvents.filter(e=>ids.has(e.match_id));
+  const started=matches.some(m=>{const bye=m.status==='completed'&&Number(m.round_no)===1&&Boolean(m.team_a_id)!==Boolean(m.team_b_id)&&m.winner_team_id===(m.team_a_id||m.team_b_id);return m.started_at||Number(m.current_score_a)||Number(m.current_score_b)||(!bye&&(m.winner_team_id||!['scheduled','ready'].includes(m.status)))})||sets.length>0||scoreEvents.length>0;
+  return {...full,summary:{matchCount:matches.length,blocked:Boolean(started)},archive:{matches,sets,scoreEvents,groups:[]}};
+}
+export async function resetKnockout(env,user,divisionId,body){
+  if(body.confirmation!=='DAT LAI')throw Object.assign(new Error('DRAW_RESET_CONFIRMATION_REQUIRED'),{status:400});
+  const s=await knockoutResetSnapshot(env,divisionId);
+  if(!body.expectedToken||body.expectedToken!==s.token)throw conflict();
+  if(s.summary.blocked)throw Object.assign(new Error('BRACKET_ALREADY_STARTED'),{status:409});
+  if(!s.summary.matchCount)throw Object.assign(new Error('DRAW_ALREADY_EMPTY'),{status:409});
+  const archive=await archiveChunks(env,user,divisionId,s.archive);
+  await guardedDivisionBatch(env,divisionId,s.signature,[
+    env.DB.prepare('DELETE FROM matches WHERE division_id=? AND bracket_slot IS NOT NULL').bind(divisionId),
+    ...archive.statements,
+    env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'division',?,'RESET_KNOCKOUT',?,?,?)").bind(user.id,divisionId,JSON.stringify(archive.manifest),JSON.stringify({removedMatches:s.summary.matchCount}),'Đặt lại riêng vòng loại trực tiếp; giữ vòng bảng')
+  ]);
+  return {ok:true,removedMatches:s.summary.matchCount};
+}

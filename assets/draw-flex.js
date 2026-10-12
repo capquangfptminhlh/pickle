@@ -9,7 +9,7 @@
     return [...modal.querySelectorAll("[data-flex-court]:checked")].map(x=>x.value);
   }
 
-  async function openDrawReset(divisionId){
+  async function openDrawReset(divisionId,knockout=false){
     if(!canManage())return toast("Chỉ BTC được đặt lại bảng đấu.");
     const division=state.divisions.find(d=>d.id===divisionId);
     if(!division)return toast("Không tìm thấy nội dung thi đấu.");
@@ -25,6 +25,7 @@
     modal.addEventListener("cancel",e=>{e.preventDefault();close()});
     const host=modal.querySelector("[data-reset-body]");
     const errorMessage=e=>({
+      BRACKET_ALREADY_STARTED:"Vòng loại trực tiếp đã bắt đầu, không thể đặt lại.",
       DRAW_RESET_CONFLICT:"Lịch hoặc điểm đã thay đổi sau khi mở xác nhận. Tải lại thông tin và kiểm tra trước khi đặt lại.",
       DRAW_ALREADY_EMPTY:"Bảng đấu đã được đặt lại. Tải lại thông tin để kiểm tra.",
       FORBIDDEN:"Chỉ BTC được đặt lại bảng đấu.",
@@ -33,7 +34,7 @@
     async function load(){
       host.innerHTML='<p>Đang kiểm tra lịch và kết quả…</p>';
       try{
-        const preview=await API.drawResetPreview(divisionId),s=preview.summary;
+        const preview=await (knockout?API.knockoutResetPreview(divisionId):API.drawResetPreview(divisionId)),s=preview.summary;
         if(closed)return;
         const empty=!s.matchCount&&!s.groupCount;
         host.innerHTML=`<p><b>${esc(preview.divisionName)}</b></p>
@@ -42,28 +43,34 @@
           ${empty?"":`<label class="field">Nhập <b>QUAY LAI</b> để xác nhận<input type="text" data-reset-confirmation autocomplete="off" spellcheck="false" autocapitalize="characters" aria-describedby="drawResetHint"></label><p id="drawResetHint">Sau khi đặt lại, bạn có thể thiết lập và quay chia bảng mới.</p>`}
           <p data-reset-error role="alert" hidden></p>
           <div class="draw-setup-actions"><button type="button" class="btn secondary" data-reset-cancel>Hủy</button><button type="button" class="btn secondary" data-reset-reload hidden>Tải lại thông tin</button>${empty?"":'<button type="button" class="btn danger" data-reset-submit disabled>Đặt lại bảng & quay lại</button>'}</div>`;
+        if(knockout){
+          modal.querySelector('h2').textContent='Đặt lại vòng loại trực tiếp';
+          host.innerHTML=`<p><b>${esc(preview.divisionName)}</b></p><p>Chỉ xóa ${s.matchCount} trận và sơ đồ vòng loại trực tiếp Serie A/B. Giữ nguyên bảng đấu, điểm số và kết quả vòng bảng.</p>${s.blocked?'<p role="alert">Vòng loại trực tiếp đã có trận bắt đầu hoặc lịch sử chấm điểm nên không thể đặt lại.</p>':empty?'':`<label>Nhập <b>DAT LAI</b> để xác nhận<input data-reset-confirmation autocomplete="off"></label>`}<p data-reset-error role="alert" hidden></p><div class="draw-setup-actions"><button class="btn secondary" data-reset-cancel>Hủy</button><button class="btn secondary" data-reset-reload hidden>Tải lại thông tin</button>${!s.blocked&&!empty?'<button class="btn danger" data-reset-submit disabled>Đặt lại vòng loại trực tiếp</button>':''}</div>`;
+        }
         host.querySelector("[data-reset-cancel]").onclick=close;
         host.querySelector("[data-reset-reload]").onclick=load;
         const input=host.querySelector("[data-reset-confirmation]"),submit=host.querySelector("[data-reset-submit]");
         let stale=false;
         if(input){
-          input.oninput=()=>{submit.disabled=busy||stale||input.value.trim()!=="QUAY LAI"};
+          input.oninput=()=>{submit.disabled=busy||stale||input.value.trim()!==(knockout?"DAT LAI":"QUAY LAI")};
           submit.onclick=async()=>{
-            if(busy||stale||input.value.trim()!=="QUAY LAI")return;
+            if(busy||stale||input.value.trim()!==(knockout?"DAT LAI":"QUAY LAI"))return;
             busy=true;submit.disabled=true;submit.textContent="Đang đặt lại…";
             const error=host.querySelector("[data-reset-error]");error.hidden=true;
             try{
-              await API.resetDraw(divisionId,{confirmation:"QUAY LAI",expectedToken:preview.token});
+              await (knockout?API.resetKnockout(divisionId,{confirmation:"DAT LAI",expectedToken:preview.token}):API.resetDraw(divisionId,{confirmation:"QUAY LAI",expectedToken:preview.token}));
             }catch(e){
               stale=["DRAW_RESET_CONFLICT","DRAW_ALREADY_EMPTY"].includes(e.message);
               error.textContent=errorMessage(e);error.hidden=false;
               host.querySelector("[data-reset-reload]").hidden=!stale;
-              busy=false;submit.textContent="Đặt lại bảng & quay lại";input.oninput();return;
+              busy=false;submit.textContent=knockout?"Đặt lại vòng loại trực tiếp":"Đặt lại bảng & quay lại";input.oninput();return;
             }
             busy=false;close();
             document.querySelectorAll(".draw-setup-overlay").forEach(d=>{d.close();d.remove()});
             try{
-              await refresh();document.querySelector("#genericDialog")?.close();await openTournamentDetail(division.tournamentId);
+              await refresh();document.querySelector("#genericDialog")?.close();
+              if(knockout){switchAdminPage("bracket");toast("Đã đặt lại vòng loại trực tiếp. Kết quả vòng bảng được giữ nguyên.");return}
+              await openTournamentDetail(division.tournamentId);
               if(state.teams.filter(t=>t.divisionId===divisionId&&t.status!=="withdrawn").length>=4)await openFlexibleDraw({dataset:{autoDraw:divisionId}});
               toast("Đã đặt lại bảng. Đội/VĐV được giữ nguyên; bạn có thể bốc thăm lại.");
             }catch{toast("Đã đặt lại bảng. Tải lại trang để tiếp tục bốc thăm.")}
@@ -347,6 +354,7 @@
   }
 
   document.addEventListener("click",e=>{
+    const ko=e.target.closest?.("[data-reset-knockout]");if(ko){e.preventDefault();e.stopImmediatePropagation();openDrawReset(ko.dataset.resetKnockout,true);return}
     const reset=e.target.closest?.("[data-reset-draw]");
     if(reset){
       e.preventDefault();e.stopImmediatePropagation();openDrawReset(reset.dataset.resetDraw);return;

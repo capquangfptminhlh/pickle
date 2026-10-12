@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import fs from "node:fs/promises";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHash} from "node:crypto";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -1398,6 +1398,31 @@ app.post("/api/divisions/:id/auto-schedule-courts",authRequired,allow("super_adm
     return {updated,courts:courts.length,slots:slots.length};
   });
   await emitState();res.json(result);
+}));
+
+async function knockoutSnapshot(c,id,lock=false){
+  const division=(await c.query('select * from divisions where id=$1'+(lock?' for update':''),[id])).rows[0];
+  if(!division)throw Object.assign(new Error('NOT_FOUND'),{status:404});
+  const matches=(await c.query('select * from matches where division_id=$1 and bracket_slot is not null order by id'+(lock?' for update':''),[id])).rows;
+  const ids=matches.map(m=>m.id),sets=ids.length?(await c.query('select * from match_sets where match_id=any($1::uuid[]) order by id',[ids])).rows:[],events=ids.length?(await c.query('select * from score_events where match_id=any($1::uuid[]) order by id',[ids])).rows:[];
+  const token=createHash('sha256').update(JSON.stringify({matches,sets,events})).digest('hex');
+  const blocked=matches.some(m=>{const bye=m.status==='completed'&&Number(m.round_no)===1&&Boolean(m.team_a_id)!==Boolean(m.team_b_id)&&m.winner_team_id===(m.team_a_id||m.team_b_id);return m.started_at||Number(m.current_score_a)||Number(m.current_score_b)||(!bye&&(m.winner_team_id||!['scheduled','ready'].includes(m.status)))})||sets.length>0||events.length>0;
+  return {token,divisionName:division.name,summary:{matchCount:matches.length,blocked:Boolean(blocked)},matches,sets,events};
+}
+app.get('/api/divisions/:id/reset-knockout',authRequired,allow('super_admin','organizer'),divisionManageParam,wrap(async(req,res)=>{
+ const {token,divisionName,summary}=await knockoutSnapshot(pool,req.params.id);res.json({token,divisionName,summary});
+}));
+app.post('/api/divisions/:id/reset-knockout',authRequired,allow('super_admin','organizer'),divisionManageParam,wrap(async(req,res)=>{
+ const result=await tx(async c=>{
+  if(req.body.confirmation!=='DAT LAI')throw Object.assign(new Error('DRAW_RESET_CONFIRMATION_REQUIRED'),{status:400});
+  const s=await knockoutSnapshot(c,req.params.id,true);
+  if(req.body.expectedToken!==s.token)throw Object.assign(new Error('DRAW_RESET_CONFLICT'),{status:409});
+  if(s.summary.blocked)throw Object.assign(new Error('BRACKET_ALREADY_STARTED'),{status:409});
+  if(!s.matches.length)throw Object.assign(new Error('DRAW_ALREADY_EMPTY'),{status:409});
+  await c.query('delete from matches where id=any($1::uuid[])',[s.matches.map(m=>m.id)]);
+  await audit(c,req.user,'division',req.params.id,'RESET_KNOCKOUT',{matches:s.matches,sets:s.sets,events:s.events},{removedMatches:s.matches.length},'Reset knockout only; preserve pool results');
+  return {ok:true,removedMatches:s.matches.length};
+ });await emitState();res.json(result);
 }));
 
 app.post("/api/divisions/:id/generate-bracket",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{

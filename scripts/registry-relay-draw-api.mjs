@@ -126,6 +126,13 @@ if(process.env.DATABASE_URL){
     assert.equal((await match(destination)).a,teams[0]);await draw(destination);
     await api(`/api/matches/${source}/undo`,{expectedVersion:(await match(source)).version});
     const rewound=await match(destination);assert.equal(rewound.a,"TBD");assert.equal(rewound.relayOrderA,null);assert.equal(rewound.relayOrderB,null);assert.equal(rewound.relayDrawnAt,null,"Undo of advancement invalidates the destination's participant-owned draw");
+    const knockout=await makeMatch();await db.query("update matches set bracket_slot='SE-R1-M1',round_no=1 where id=$1",[knockout]);
+    const poolBefore=(await db.query('select * from matches where division_id=$1 and bracket_slot is null order by id',[did])).rows;
+    const preview=(await api(`/api/divisions/${did}/reset-knockout`)).data;assert.equal(preview.summary.matchCount,1);
+    await api(`/api/divisions/${did}/reset-knockout`,{confirmation:'DAT LAI',expectedToken:preview.token});
+    assert.equal((await db.query('select id from matches where id=$1',[knockout])).rowCount,0);
+    assert.deepEqual((await db.query('select * from matches where division_id=$1 and bracket_slot is null order by id',[did])).rows,poolBefore);
+    console.log('POSTGRES_KNOCKOUT_RESET_OK');
   }finally{await db.end()}
 }
 console.log("RELAY_DRAW_HTTP_OK",JSON.stringify({rolesAndScope:true,requiredDraw:true,independentPersistence:true,staleAndConcurrent:true,participantInvalidation:true,undoAndLegacyPreserved:true,publicOrders:true,finishedScores:true}));
