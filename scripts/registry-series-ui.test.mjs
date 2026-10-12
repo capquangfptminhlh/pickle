@@ -6,7 +6,7 @@ import {webcrypto} from 'node:crypto';
 
 const source=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 test('homepage qualification uses official standings for two- and three-way ties',()=>{
-  const fn=source('assets/public.js').match(/function sortGroupTeams\(arr,matches\)\{[^\r\n]+/)[0];
+  const fn=source('assets/public.js').match(/function sortGroupTeams\([^)]*\)\{[^\r\n]+/)[0];
   for(const count of [2,3]){
     const teams=Array.from({length:count},(_,i)=>({id:'t'+i,w:2,sw:count-i,sl:0,pf:30-i,pa:10,seed:i+1,standingRank:count-i}));
     const c={teams};vm.runInNewContext(fn+';result=sortGroupTeams(teams,[]);',c);
