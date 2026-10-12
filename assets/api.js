@@ -26,6 +26,12 @@
     }
     return data;
   }
+  async function galleryRequest(url,options={}){
+    const res=await fetch(apiUrl(url),{credentials:API_BASE?"omit":"include",...options,headers:authHeaders(options.body instanceof FormData?{}:{"Content-Type":"application/json"})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw Object.assign(new Error(data.error||"REQUEST_FAILED"),{status:res.status,data});
+    return data;
+  }
   async function login(email,password){
     const data=await request("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})});
     if(data?.token)localStorage.setItem(TOKEN_KEY,data.token);
@@ -37,6 +43,25 @@
   }
   window.PickleAPI={
     request,
+    tournamentPhotos:id=>galleryRequest(`/api/tournaments/${encodeURIComponent(id)}/photos`),
+    uploadTournamentPhoto:async(id,file,caption="")=>{
+      if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error("INVALID_FILE_TYPE");
+      const image=await window.PickleAPI.shrinkImage(file,{max:1600,quality:.85});
+      if(image.size>6*1024*1024)throw new Error("FILE_TOO_LARGE");
+      const form=new FormData();form.append("image",image);form.append("caption",caption);
+      return galleryRequest(`/api/tournaments/${encodeURIComponent(id)}/photos`,{method:"POST",body:form});
+    },
+    updateTournamentPhoto:(id,pid,payload)=>galleryRequest(`/api/tournaments/${encodeURIComponent(id)}/photos/${encodeURIComponent(pid)}`,{method:"PATCH",body:JSON.stringify(payload)}),
+    deleteTournamentPhoto:(id,pid,expectedVersion)=>galleryRequest(`/api/tournaments/${encodeURIComponent(id)}/photos/${encodeURIComponent(pid)}`,{method:"DELETE",body:JSON.stringify({expectedVersion})}),
+    galleryImageUrl:async(url,authenticated=false)=>{
+      const resolved=apiUrl(url);
+      if(!authenticated)return resolved;
+      const target=new URL(resolved,location.href),base=new URL(API_BASE||location.origin);
+      if(target.origin!==base.origin)throw new Error("INVALID_IMAGE_URL");
+      const res=await fetch(target.href,{headers:authHeaders(),credentials:API_BASE?"omit":"include"});
+      if(!res.ok)throw new Error("IMAGE_FAILED");
+      return URL.createObjectURL(await res.blob());
+    },
     apiBase:()=>API_BASE,
     setApiBase:value=>{API_BASE=String(value||"").replace(/\/+$/,"");API_BASE?localStorage.setItem("pickle-api-base",API_BASE):localStorage.removeItem("pickle-api-base")},
     login,

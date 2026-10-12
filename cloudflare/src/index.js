@@ -3,6 +3,7 @@ import {authenticate,ensureBootstrapAdmin,hashPassword,verifyPassword,signSessio
 import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./state.js";
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
+import {handleTournamentPhotos} from "./tournament-photos.js";
 import {handleScoring} from "./scoring.js";
 import {handleRelayDraw} from "./relay-draw.js";
 import {parseRelayOrder} from "../../shared/relay-draw.js";
@@ -216,6 +217,8 @@ async function handleApi(request,env,ctx){
   if(score)return score;
   const extra=await handleOperations(request,env);
   if(extra)return extra;
+  const photos=await handleTournamentPhotos(request,env);
+  if(photos)return photos;
   if(path==="/api/health"&&method==="GET"){
     const probe=await one(env,"SELECT 1 AS ok");
     return ok({ok:Boolean(probe?.ok),service:"pickleup-api",storage:"D1",realtime:"Durable Objects",time:nowIso()},request,env);
@@ -226,6 +229,7 @@ async function handleApi(request,env,ctx){
   }
   if(path.startsWith("/api/media/")&&method==="GET"){
     const key=decodeURIComponent(path.slice("/api/media/".length));
+    if(key.startsWith('gallery/'))return fail('NOT_FOUND',request,env,404);
     const privateReceipt=key.startsWith("receipts/");
     let user=null,linked=[];
     if(privateReceipt){

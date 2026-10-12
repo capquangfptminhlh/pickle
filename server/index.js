@@ -11,6 +11,7 @@ import multer from "multer";
 import QRCode from "qrcode";
 import {Server as SocketServer} from "socket.io";
 import {pool,tx} from "./db.js";
+import {registerTournamentPhotos} from "./tournament-photos.js";
 import {authRequired,allow,signUser,verifyPassword,sessionUser,hashPassword} from "./auth.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../shared/team-player-selection.js";
 import {divisionBracketRules,bracketRulesChanged} from "../shared/bracket-rules.js";
@@ -609,6 +610,8 @@ async function applyScore(c,user,m,sets,action,plan){
   await audit(c,user,"match",m.id,action.toUpperCase().replaceAll("-","_"),before,plan.after,plan.undoEvent?`Undo event ${plan.undoEvent.id}`:null);
   return updated;
 }
+
+registerTournamentPhotos(app,{pool,tx,sessionUser,canManageTournament,audit,uploadRoot});
 
 const tournamentManageParam=wrap(async(req,res,next)=>{
   if(req.user.role==="organizer"&&!(await canManageTournament(req.user,req.params.id)))return res.status(403).json({error:"TOURNAMENT_SCOPE_FORBIDDEN"});

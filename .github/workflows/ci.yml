@@ -55,6 +55,7 @@ jobs:
           node scripts/registry-accounts-ui.mjs
           node scripts/registry-operator-center-ui.mjs
           node scripts/registry-draw-reset-ui.mjs
+          node scripts/registry-gallery-ui.mjs
           node scripts/registry-court-scheduling-ui.mjs
           node scripts/registry-timeout-clock-ui.mjs
           node scripts/registry-relay-draw-ui.mjs
@@ -167,6 +168,7 @@ jobs:
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-public-api.mjs
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-series-api.mjs
           REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-relay-draw-api.mjs
+          REGISTRY_TEST_URL=http://127.0.0.1:8080 node scripts/registry-gallery-api.mjs
           node --test scripts/registry-preview.test.mjs
       - name: Start static preview server
         run: |

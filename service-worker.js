@@ -1,6 +1,8 @@
-const VERSION="pickleup-v76-knockout-reset-20261011";
+const VERSION="pickleup-v77-tournament-memories-20261012";
 const STATIC=[
-  "/assets/api.js?v=57",
+  "/assets/api.js?v=58",
+  "/assets/tournament-gallery.js?v=1",
+  "/assets/tournament-gallery.css?v=1",
   "/assets/referee-arena.css?v=2",
   "/assets/referee-arena.css",
   "/assets/courtside.css?v=1",
@@ -42,10 +44,10 @@ const STATIC=[
   "/assets/styles.css?v=4",
   "/assets/ui-motion.js?v=34",
   "/assets/tournament-detail.css?v=1",
-  "/assets/tournament.js?v=55",
+  "/assets/tournament.js?v=56",
   "/assets/admin-sport.css?v=6",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=83",
+  "/assets/admin-app.js?v=84",
   "/assets/bracket-ui.js?v=38",
   "/assets/admin-crud.js?v=13",
   "/assets/player-picker.js?v=3",

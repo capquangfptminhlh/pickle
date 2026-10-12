@@ -281,7 +281,48 @@
     return s;
   };
 
+  const galleryPersist=photos=>{
+    const next={...state,tournamentPhotos:photos};
+    try{localStorage.setItem(KEY,JSON.stringify(next))}catch{throw new Error("GALLERY_STORAGE_FULL")}
+    state=next;
+  };
+  const galleryPhoto=(tid,pid,version)=>{
+    const photo=(state.tournamentPhotos||[]).find(p=>p.id===pid&&p.tournamentId===tid);
+    if(!photo)throw Object.assign(new Error("NOT_FOUND"),{status:404});
+    if(Number(version)!==photo.version)throw Object.assign(new Error("VERSION_CONFLICT"),{status:409});
+    return photo;
+  };
+  const galleryShrink=async file=>{
+    try{
+      if(typeof createImageBitmap!=="function")return file;
+      const bitmap=await createImageBitmap(file),scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const context=canvas.getContext("2d");context.fillStyle="#fff";context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.85));
+      return blob&&blob.size<file.size?new File([blob],String(file.name||"image").replace(/\.[a-z0-9]+$/i,"")+".jpg",{type:"image/jpeg"}):file;
+    }catch{return file}
+  };
   const api={
+    galleryLocalOnly:true,
+    tournamentPhotos:async tid=>clone((state.tournamentPhotos||[]).filter(p=>p.tournamentId===tid).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))),
+    galleryImageUrl:async url=>url,
+    uploadTournamentPhoto:async(tid,file,caption="")=>{
+      if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error("INVALID_FILE_TYPE");
+      if(typeof caption!=="string"||caption.trim().length>300)throw new Error("INVALID_CAPTION");caption=caption.trim();
+      const compressed=await galleryShrink(file);
+      if(compressed.size>6*1024*1024)throw new Error("FILE_TOO_LARGE");
+      const photo={id:uid(),tournamentId:tid,caption,url:await fileData(compressed),createdAt:new Date().toISOString(),version:1};
+      galleryPersist([photo,...(state.tournamentPhotos||[])]);return clone(photo);
+    },
+    updateTournamentPhoto:async(tid,pid,payload)=>{
+      const photo=galleryPhoto(tid,pid,payload.expectedVersion);
+      if(typeof payload.caption!=="string"||payload.caption.trim().length>300)throw new Error("INVALID_CAPTION");
+      const updated={...photo,caption:payload.caption.trim(),version:photo.version+1};
+      galleryPersist(state.tournamentPhotos.map(p=>p.id===pid?updated:p));return clone(updated);
+    },
+    deleteTournamentPhoto:async(tid,pid,version)=>{
+      galleryPhoto(tid,pid,version);galleryPersist(state.tournamentPhotos.filter(p=>p.id!==pid));return {ok:true};
+    },
     login:async(email,password)=>{
       const normalized=String(email||"").trim().toLowerCase();
       let user=null;

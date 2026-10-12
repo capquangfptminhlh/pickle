@@ -43,6 +43,7 @@ function render(){
  }
  $("#tourUnavailable")?.remove();
  document.querySelectorAll(".tournament-app-main>section,.tournament-tabs").forEach(x=>x.hidden=false);
+ window.TournamentGallery?.loadPublic(t.id);
  document.title=t.name+" | Pickle Tour";
  $("#tourName").textContent=t.name;
  $("#tourMeta").textContent=[t.date,t.venue,t.format].filter(Boolean).join(" • ");
