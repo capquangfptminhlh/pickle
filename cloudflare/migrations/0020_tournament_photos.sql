@@ -17,6 +17,6 @@ CREATE TABLE tournament_photos (
 DROP TABLE tournament_photos_legacy;
 CREATE INDEX idx_tournament_photos_album ON tournament_photos(tournament_id,removed_at,created_at);
 CREATE TABLE tournament_photo_guards (photo_id TEXT PRIMARY KEY, expected_version INTEGER NOT NULL);
-CREATE TRIGGER tournament_photo_version_guard BEFORE INSERT ON tournament_photo_guards BEGIN
- SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM tournament_photos WHERE id=NEW.photo_id AND version=NEW.expected_version AND removed_at IS NULL) THEN RAISE(ABORT,'PHOTO_VERSION_CONFLICT') END;
-END;
+CREATE TRIGGER tournament_photo_version_guard BEFORE INSERT ON tournament_photo_guards
+WHEN NOT EXISTS(SELECT 1 FROM tournament_photos WHERE id=NEW.photo_id AND version=NEW.expected_version AND removed_at IS NULL)
+BEGIN SELECT RAISE(ABORT,'PHOTO_VERSION_CONFLICT'); END;
