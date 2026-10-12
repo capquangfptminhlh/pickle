@@ -496,3 +496,66 @@ html body.admin-sport .live-pill.is-idle{background:transparent!important;color:
   html body.site-sport.board-body .board-tools{flex:0 1 auto;min-width:0;flex-wrap:wrap!important;justify-content:flex-end;gap:8px!important}
   html body.site-sport.board-body .board-tools select{max-width:230px;text-overflow:ellipsis}
 }
+
+/* Tournament Photo Album & Gallery */
+.gallery-head-actions{display:flex;align-items:center;gap:10px}
+.tournament-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:16px}
+.tournament-photo-card{margin:0;border-radius:18px;overflow:hidden;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+html[data-theme="light"] .tournament-photo-card{background:#ffffff;border:1px solid #e1ebe4;box-shadow:0 4px 16px rgba(16,40,29,0.06)}
+.tournament-photo-card:hover{transform:translateY(-3px);border-color:#4ade80;box-shadow:0 12px 30px rgba(0,0,0,0.2)}
+.photo-card-media{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:#0d1a13}
+.photo-card-media img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease;display:block}
+.tournament-photo-card:hover .photo-card-media img{transform:scale(1.05)}
+.photo-card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 50%);opacity:0;transition:opacity .2s ease;display:flex;align-items:center;justify-content:center}
+.tournament-photo-card:hover .photo-card-overlay{opacity:1}
+.photo-zoom-icon{background:rgba(0,0,0,0.65);color:#fff;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:18px;backdrop-filter:blur(4px)}
+.photo-card-caption{padding:10px 14px;font-size:13px;font-weight:600;line-height:1.4;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Lightbox Modal */
+body.lightbox-open{overflow:hidden}
+.photo-lightbox-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center}
+.photo-lightbox-backdrop{position:absolute;inset:0;background:rgba(5,12,8,0.92);backdrop-filter:blur(10px)}
+.photo-lightbox-container{position:relative;z-index:1;width:100%;max-width:1100px;max-height:96vh;display:flex;flex-direction:column;padding:12px}
+.photo-lightbox-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;color:#fff}
+.lightbox-counter{font-size:14px;font-weight:800;letter-spacing:.05em;color:#d9ff63}
+.lightbox-close-btn{background:rgba(255,255,255,0.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;cursor:pointer;display:grid;place-items:center;transition:background .2s}
+.lightbox-close-btn:hover{background:rgba(255,255,255,0.3)}
+.photo-lightbox-body{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative}
+.lightbox-stage{flex:1;display:flex;align-items:center;justify-content:center;max-height:76vh}
+.lightbox-img{max-width:100%;max-height:76vh;object-fit:contain;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+.lightbox-nav-btn{background:rgba(255,255,255,0.15);border:none;color:#fff;width:44px;height:44px;border-radius:50%;font-size:26px;cursor:pointer;display:grid;place-items:center;transition:background .2s;flex:0 0 44px}
+.lightbox-nav-btn:hover:not(:disabled){background:#d9ff63;color:#0b2a1d}
+.lightbox-nav-btn:disabled{opacity:.2;cursor:not-allowed}
+.photo-lightbox-footer{padding:12px;text-align:center}
+.lightbox-caption{color:#e2e8f0;font-size:15px;font-weight:500;margin:0}
+
+/* Admin Tournament Photos Dialog */
+.tournament-photos-dialog{max-width:880px;width:95vw;border-radius:24px;border:none;padding:0;background:#ffffff;color:#10281d;box-shadow:0 24px 60px rgba(0,0,0,0.3)}
+html[data-theme="dark"] .tournament-photos-dialog{background:#14231b;color:#f0f5f2;border:1px solid rgba(255,255,255,0.1)}
+.photos-modal-shell{padding:24px;display:flex;flex-direction:column;gap:18px;max-height:88vh;overflow-y:auto}
+.photos-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.photos-modal-head span{font-size:11px;font-weight:900;letter-spacing:.08em;color:#059669;text-transform:uppercase}
+.photos-modal-head h2{margin:4px 0;font-size:20px}
+.photos-modal-head p{margin:0;font-size:13px;color:#61776c}
+html[data-theme="dark"] .photos-modal-head p{color:#9cb5a8}
+.photos-upload-card{background:#f5f8f6;border:1px solid #d9e5dc;border-radius:18px;padding:16px;display:grid;gap:12px}
+html[data-theme="dark"] .photos-upload-card{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1)}
+.photos-upload-head{display:flex;justify-content:space-between;align-items:center}
+.photos-upload-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.photo-queue-preview{background:#ffffff;border:1px solid #d9e5dc;border-radius:14px;padding:12px;display:grid;gap:10px}
+html[data-theme="dark"] .photo-queue-preview{background:#101d16;border-color:rgba(255,255,255,0.1)}
+.photo-queue-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;max-height:160px;overflow-y:auto}
+.queue-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f5f8f6;border-radius:8px;font-size:12px}
+html[data-theme="dark"] .queue-item{background:rgba(255,255,255,0.06)}
+.photo-queue-actions{display:flex;gap:10px;flex-wrap:wrap}
+.photo-queue-actions .input{flex:1;min-width:240px}
+.photos-manage-section{display:grid;gap:12px}
+.photos-gallery-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;max-height:45vh;overflow-y:auto;padding:2px}
+.photo-manage-item{border:1px solid #e1ebe4;border-radius:14px;overflow:hidden;background:#ffffff;display:flex;flex-direction:column}
+html[data-theme="dark"] .photo-manage-item{background:#101d16;border-color:rgba(255,255,255,0.1)}
+.photo-manage-thumb{width:100%;height:140px;overflow:hidden;background:#0d1a13}
+.photo-manage-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-manage-meta{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
+.photo-caption-input{font-size:12px;padding:6px 8px;width:100%}
+.photo-manage-actions{display:flex;justify-content:space-between;gap:6px}
+

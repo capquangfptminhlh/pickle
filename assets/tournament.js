@@ -153,7 +153,95 @@ function render(){
  $("#tourBracket").innerHTML=bracketHtml+(champ&&champ!=="Chưa xác định"?'<div class="public-champion"><span>VÔ ĐỊCH</span><strong>'+esc(champ)+'</strong></div>':"");
  requestAnimationFrame(()=>{requestAnimationFrame(drawBracketConnectors)});
  const relevant=sponsors.filter(s=>!s.tournament_id||s.tournament_id===t.id);
- $("#tourSponsors").innerHTML=relevant.map(s=>'<a class="public-sponsor" href="'+esc(safeHttps(s.website_url))+'" '+(safeHttps(s.website_url)!=="#"?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có nhà tài trợ công khai.</span>';
+  $("#tourSponsors").innerHTML=relevant.map(s=>'<a class="public-sponsor" href="'+esc(safeHttps(s.website_url))+'" '+(safeHttps(s.website_url)!=="#"?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có nhà tài trợ công khai.</span>';
+  renderPhotos(t);
+}
+let currentPhotos=[];
+async function renderPhotos(t){
+  const container=$("#tourPhotos");if(!container)return;
+  const countEl=$("#tourPhotoCount"),extLink=$("#tourExternalAlbum");
+  if(extLink){if(t.albumUrl){extLink.href=t.albumUrl;extLink.hidden=false}else extLink.hidden=true}
+  try{
+    const photos=await (window.PickleAPI?.tournamentPhotos?window.PickleAPI.tournamentPhotos(t.id):Promise.resolve([])).catch(()=>[]);
+    currentPhotos=Array.isArray(photos)?photos:[];
+    if(countEl)countEl.textContent=currentPhotos.length+" ảnh";
+    if(!currentPhotos.length){
+      container.innerHTML=empty("📸","Chưa có ảnh kỷ niệm","Khoảnh khắc đẹp của giải đấu sẽ được cập nhật tại đây.");
+      return;
+    }
+    container.innerHTML=currentPhotos.map((p,idx)=>`
+      <figure class="tournament-photo-card" data-photo-index="${idx}" tabindex="0" role="button" aria-label="Xem ảnh ${idx+1}">
+        <div class="photo-card-media">
+          <img src="${esc(p.url)}" alt="${esc(p.caption||'Ảnh kỷ niệm')}" loading="lazy">
+          <div class="photo-card-overlay"><span class="photo-zoom-icon">🔍</span></div>
+        </div>
+        ${p.caption?`<figcaption class="photo-card-caption">${esc(p.caption)}</figcaption>`:""}
+      </figure>
+    `).join("");
+    container.querySelectorAll(".tournament-photo-card").forEach(card=>{
+      const idx=Number(card.dataset.photoIndex||0);
+      const open=()=>openPhotoLightbox(idx);
+      card.onclick=open;
+      card.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}};
+    });
+  }catch(err){
+    container.innerHTML=empty("📸","Không thể tải ảnh","Vui lòng thử lại sau.");
+  }
+}
+function openPhotoLightbox(initialIndex=0){
+  if(!currentPhotos.length)return;
+  let activeIndex=Math.max(0,Math.min(initialIndex,currentPhotos.length-1));
+  let overlay=document.querySelector(".photo-lightbox-overlay");
+  if(overlay)overlay.remove();
+  overlay=document.createElement("div");
+  overlay.className="photo-lightbox-overlay";
+  overlay.setAttribute("role","dialog");
+  overlay.setAttribute("aria-modal","true");
+  overlay.setAttribute("aria-label","Xem ảnh kỷ niệm");
+  const update=()=>{
+    const item=currentPhotos[activeIndex];
+    overlay.querySelector(".lightbox-img").src=item.url;
+    overlay.querySelector(".lightbox-img").alt=item.caption||"Ảnh kỷ niệm";
+    overlay.querySelector(".lightbox-caption").textContent=item.caption||"";
+    overlay.querySelector(".lightbox-counter").textContent=`${activeIndex+1} / ${currentPhotos.length}`;
+    overlay.querySelector(".lightbox-prev").disabled=activeIndex<=0;
+    overlay.querySelector(".lightbox-next").disabled=activeIndex>=currentPhotos.length-1;
+  };
+  overlay.innerHTML=`
+    <div class="photo-lightbox-backdrop"></div>
+    <div class="photo-lightbox-container">
+      <header class="photo-lightbox-top">
+        <span class="lightbox-counter">${activeIndex+1} / ${currentPhotos.length}</span>
+        <button type="button" class="lightbox-close-btn" aria-label="Đóng ảnh">✕</button>
+      </header>
+      <div class="photo-lightbox-body">
+        <button type="button" class="lightbox-nav-btn lightbox-prev" aria-label="Ảnh trước">‹</button>
+        <div class="lightbox-stage">
+          <img class="lightbox-img" src="${esc(currentPhotos[activeIndex].url)}" alt="${esc(currentPhotos[activeIndex].caption||'Ảnh kỷ niệm')}">
+        </div>
+        <button type="button" class="lightbox-nav-btn lightbox-next" aria-label="Ảnh kế tiếp">›</button>
+      </div>
+      <footer class="photo-lightbox-footer">
+        <p class="lightbox-caption">${esc(currentPhotos[activeIndex].caption||"")}</p>
+      </footer>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add("lightbox-open");
+  const close=()=>{overlay.remove();document.body.classList.remove("lightbox-open");document.removeEventListener("keydown",onKey)};
+  const prev=()=>{if(activeIndex>0){activeIndex--;update()}};
+  const next=()=>{if(activeIndex<currentPhotos.length-1){activeIndex++;update()}};
+  overlay.querySelector(".lightbox-close-btn").onclick=close;
+  overlay.querySelector(".photo-lightbox-backdrop").onclick=close;
+  overlay.querySelector(".lightbox-prev").onclick=prev;
+  overlay.querySelector(".lightbox-next").onclick=next;
+  const onKey=e=>{
+    if(e.key==="Escape")close();
+    else if(e.key==="ArrowLeft")prev();
+    else if(e.key==="ArrowRight")next();
+  };
+  document.addEventListener("keydown",onKey);
+  update();
 }
 function drawBracketConnectors(){
   const host=document.querySelector("#tourBracket");

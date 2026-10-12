@@ -295,6 +295,11 @@ async function handleApi(request,env,ctx){
     const row=await one(env,"SELECT value FROM app_settings WHERE key='branding'");
     return ok(safeJsonParse(row?.value,{}),request,env);
   }
+  p=route(path,"/api/public/tournaments/:id/photos");
+  if(p&&method==="GET"){
+    const list=await rows(env,"SELECT id,tournament_id,url,caption,sort_order,created_at FROM tournament_photos WHERE tournament_id=? ORDER BY sort_order ASC,created_at DESC",p.id);
+    return ok(list,request,env);
+  }
 
   if(path==="/api/admin/state"&&method==="GET"){
     const user=await userRequired(request,env);return ok(await loadAdminState(env,user),request,env);
@@ -413,8 +418,8 @@ async function handleApi(request,env,ctx){
     const before=await one(env,"SELECT * FROM tournaments WHERE id=?",p.id);if(!before)return fail("NOT_FOUND",request,env,404);
     const b=await bodyJson(request),status=b.status===undefined?before.status:String(b.status);
     if(!["draft","registration","live","completed","cancelled"].includes(status))return fail("INVALID_STATUS",request,env,400);
-    await env.DB.prepare("UPDATE tournaments SET name=?,venue_name=?,start_at=?,end_at=?,status=?,public_visible=?,updated_at=? WHERE id=?")
-      .bind(String(b.name??before.name),String(b.venue??b.venueName??before.venue_name??""),b.startAt??before.start_at,b.endAt??before.end_at,status,b.publicVisible===undefined?before.public_visible:(asBool(b.publicVisible)?1:0),nowIso(),p.id).run();
+    await env.DB.prepare("UPDATE tournaments SET name=?,venue_name=?,start_at=?,end_at=?,status=?,public_visible=?,album_url=?,updated_at=? WHERE id=?")
+      .bind(String(b.name??before.name),String(b.venue??b.venueName??before.venue_name??""),b.startAt??before.start_at,b.endAt??before.end_at,status,b.publicVisible===undefined?before.public_visible:(asBool(b.publicVisible)?1:0),b.albumUrl!==undefined?(b.albumUrl?String(b.albumUrl).trim():null):(b.album_url!==undefined?(b.album_url?String(b.album_url).trim():null):before.album_url),nowIso(),p.id).run();
     const after=await one(env,"SELECT * FROM tournaments WHERE id=?",p.id);await createAudit(env,user,"tournament",p.id,"UPDATE",before,after);await emitUpdate(env,p.id);
     return ok(after,request,env);
   }
@@ -422,6 +427,54 @@ async function handleApi(request,env,ctx){
     const user=await userRequired(request,env);await assertTournament(env,user,p.id);
     const before=await one(env,"SELECT * FROM tournaments WHERE id=?",p.id);if(!before)return fail("NOT_FOUND",request,env,404);
     await env.DB.prepare("DELETE FROM tournaments WHERE id=?").bind(p.id).run();await createAudit(env,user,"tournament",p.id,"DELETE",before,null);await emitUpdate(env,p.id);
+    return ok({ok:true},request,env);
+  }
+
+  p=route(path,"/api/tournaments/:id/photos");
+  if(p&&method==="GET"){
+    const user=await userRequired(request,env);await assertTournament(env,user,p.id);
+    const list=await rows(env,"SELECT id,tournament_id,url,caption,sort_order,created_at FROM tournament_photos WHERE tournament_id=? ORDER BY sort_order ASC,created_at DESC",p.id);
+    return ok(list,request,env);
+  }
+  if(p&&method==="POST"){
+    const user=await userRequired(request,env);await assertTournament(env,user,p.id);
+    const b=await bodyJson(request);
+    const items=Array.isArray(b.photos)?b.photos:(b.url?[b]:[]);
+    if(!items.length)return fail("PHOTO_URL_REQUIRED",request,env,400);
+    const created=[];
+    for(const item of items){
+      const url=String(item.url||"").trim();
+      if(!url)continue;
+      const photoId=uid();
+      const caption=item.caption?String(item.caption).trim().slice(0,500):null;
+      const sortOrder=Number(item.sortOrder??item.sort_order??0);
+      await env.DB.prepare("INSERT INTO tournament_photos(id,tournament_id,url,caption,sort_order,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?)")
+        .bind(photoId,p.id,url,caption,sortOrder,user.id,nowIso()).run();
+      created.push({id:photoId,tournament_id:p.id,url,caption,sort_order:sortOrder});
+    }
+    await emitUpdate(env,p.id);
+    return ok(created,request,env,201);
+  }
+  p=route(path,"/api/tournaments/:id/photos/:photoId");
+  if(p&&method==="PATCH"){
+    const user=await userRequired(request,env);await assertTournament(env,user,p.id);
+    const before=await one(env,"SELECT * FROM tournament_photos WHERE id=? AND tournament_id=?",p.photoId,p.id);
+    if(!before)return fail("NOT_FOUND",request,env,404);
+    const b=await bodyJson(request);
+    const caption=b.caption!==undefined?(b.caption?String(b.caption).trim().slice(0,500):null):before.caption;
+    const sortOrder=b.sortOrder!==undefined?Number(b.sortOrder):(b.sort_order!==undefined?Number(b.sort_order):before.sort_order);
+    await env.DB.prepare("UPDATE tournament_photos SET caption=?,sort_order=? WHERE id=? AND tournament_id=?")
+      .bind(caption,sortOrder,p.photoId,p.id).run();
+    const after=await one(env,"SELECT id,tournament_id,url,caption,sort_order,created_at FROM tournament_photos WHERE id=?",p.photoId);
+    await emitUpdate(env,p.id);
+    return ok(after,request,env);
+  }
+  if(p&&method==="DELETE"){
+    const user=await userRequired(request,env);await assertTournament(env,user,p.id);
+    const before=await one(env,"SELECT * FROM tournament_photos WHERE id=? AND tournament_id=?",p.photoId,p.id);
+    if(!before)return fail("NOT_FOUND",request,env,404);
+    await env.DB.prepare("DELETE FROM tournament_photos WHERE id=? AND tournament_id=?").bind(p.photoId,p.id).run();
+    await emitUpdate(env,p.id);
     return ok({ok:true},request,env);
   }
 

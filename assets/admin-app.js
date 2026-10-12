@@ -472,7 +472,7 @@ async function openTournamentDetail(tournamentId){
   }).join("");
   $("#genericTitle").textContent=t.name+" • Trung tâm điều hành";
   $("#genericBody").innerHTML=`<div style="display:grid;gap:12px">
-    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-share-roster="${t.id}">🔗 Chia sẻ danh sách</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length} sân</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → thiết lập/chia bảng → vòng bảng → Top N theo cấu hình → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
+    <div class="tournament-control-hero"><div><b>${escHtml(t.name)}</b><div>${escHtml(t.date||"")} • ${escHtml(t.venue||"")}</div></div><div class="tournament-control-actions"><button type="button" class="btn secondary" data-center-roster>👥 VĐV đăng ký</button><button type="button" class="btn secondary" data-center-share-roster="${t.id}">🔗 Chia sẻ danh sách</button><button type="button" class="btn secondary" data-center-draw>🎡 Quay số chia bảng</button><button type="button" class="btn secondary" data-center-bracket>🧩 Sơ đồ thi đấu</button><button type="button" class="btn secondary" data-center-live>🔴 Live / Nhập điểm</button><button type="button" class="btn secondary" data-center-courts="${t.id}">🏟 ${state.courts.filter(x=>x.tournamentId===t.id&&x.active!==false).length} sân</button><button type="button" class="btn secondary" data-center-photos="${t.id}">📸 Ảnh kỷ niệm</button>${canReferees()?'<button type="button" class="btn primary" data-center-referees>👨‍⚖️ Tài khoản trọng tài</button>':""}</div><small>Quy trình: duyệt VĐV → thiết lập/chia bảng → vòng bảng → Top N theo cấu hình → bracket → chung kết. Trọng tài chỉ nhập điểm các trận được phân công.</small></div>
     ${tournamentInsightPanel(t)}
     ${courtGridHtml}
     ${unassignedHtml}
@@ -641,6 +641,7 @@ async function openTournamentDetail(tournamentId){
   document.querySelector("[data-center-bracket]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("bracket")});
   document.querySelector("[data-center-live]")?.addEventListener("click",()=>{$("#genericDialog").close();switchAdminPage("scores")});
   document.querySelector("[data-center-courts]")?.addEventListener("click",e=>openCourtCountModal(e.currentTarget.dataset.centerCourts));
+  document.querySelector("[data-center-photos]")?.addEventListener("click",e=>openTournamentPhotosModal(e.currentTarget.dataset.centerPhotos));
   document.querySelector("[data-center-referees]")?.addEventListener("click",()=>openRefereeModal(tournamentId));
   document.querySelectorAll("[data-center-score]").forEach(b=>b.onclick=()=>openScore(b.dataset.centerScore));
   document.querySelectorAll("[data-center-assign]").forEach(b=>b.onclick=()=>openMatchDetail(b.dataset.centerAssign));
@@ -1241,6 +1242,150 @@ async function syncTournamentCourtCount(tournamentId,count){
     const remove=[...active].sort((a,b)=>(b.sortOrder||0)-(a.sortOrder||0)).slice(0,active.length-count);
     for(const court of remove)await API.deleteCourt(court.id);
   }
+}
+async function openTournamentPhotosModal(tournamentId){
+  const t=state.tournaments.find(x=>x.id===tournamentId);if(!t)return;
+  const modal=document.createElement("dialog");
+  modal.className="tournament-photos-dialog";
+  modal.setAttribute("aria-label","Quản lý ảnh kỷ niệm: "+t.name);
+  let photos=[];
+  try{photos=await (API.tournamentPhotos?API.tournamentPhotos(tournamentId):Promise.resolve([]))}catch{photos=[]}
+  const renderModalContent=()=>{
+    modal.innerHTML=`<div class="photos-modal-shell">
+      <header class="photos-modal-head">
+        <div>
+          <span>KHOẢNH KHẮC GIẢI ĐẤU</span>
+          <h2>${escHtml(t.name)} • Ảnh kỷ niệm</h2>
+          <p>Chọn ảnh từ điện thoại/máy tính để đăng trực tiếp. Ảnh tự động tối ưu để tải nhanh.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-photos-modal aria-label="Đóng">✕</button>
+      </header>
+      <section class="photos-upload-card">
+        <div class="photos-upload-head">
+          <b>📤 Đăng ảnh mới</b>
+          <small>Có thể chọn nhiều ảnh cùng lúc (JPG, PNG, WEBP)</small>
+        </div>
+        <div class="photos-upload-controls">
+          <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none">
+          <button type="button" class="btn primary" id="btnSelectPhotos">📱 Chọn ảnh từ thiết bị...</button>
+          <span id="photoSelectedCount" class="muted">Chưa chọn ảnh</span>
+        </div>
+        <div id="photoQueuePreview" class="photo-queue-preview" hidden>
+          <div id="photoQueueList" class="photo-queue-list"></div>
+          <div class="photo-queue-actions">
+            <input type="text" id="photoBatchCaption" class="input" placeholder="Chú thích chung (tùy chọn, vd: Lễ trao giải)...">
+            <button type="button" class="btn primary" id="btnUploadPhotosNow">🚀 Bắt đầu tải lên (<span id="queueCountBadge">0</span> ảnh)</button>
+          </div>
+        </div>
+        <div class="photos-external-album">
+          <label for="tourAlbumUrlInput"><b>🔗 Hoặc liên kết Album ngoài (Google Drive, Photos, Facebook):</b></label>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input type="url" id="tourAlbumUrlInput" class="input" placeholder="https://photos.google.com/share/..." value="${escHtml(t.albumUrl||'')}">
+            <button type="button" class="btn secondary" id="btnSaveAlbumUrl">Lưu link</button>
+          </div>
+        </div>
+      </section>
+      <section class="photos-manage-section">
+        <div class="photos-manage-head">
+          <b>📸 Thư viện ảnh giải đấu (<span id="managePhotoCount">${photos.length}</span> ảnh)</b>
+        </div>
+        <div id="photosGalleryList" class="photos-gallery-list">
+          ${photos.length?photos.map(p=>`<div class="photo-manage-item" data-photo-id="${escHtml(p.id)}">
+            <div class="photo-manage-thumb">
+              <img src="${escHtml(p.url)}" alt="${escHtml(p.caption||'Ảnh kỷ niệm')}" loading="lazy">
+            </div>
+            <div class="photo-manage-meta">
+              <input type="text" class="input photo-caption-input" value="${escHtml(p.caption||'')}" placeholder="Thêm chú thích ảnh...">
+              <div class="photo-manage-actions">
+                <button type="button" class="mini btn-save-caption" data-photo-id="${escHtml(p.id)}">Lưu chú thích</button>
+                <button type="button" class="mini danger btn-delete-photo" data-photo-id="${escHtml(p.id)}">🗑 Gỡ ảnh</button>
+              </div>
+            </div>
+          </div>`).join(""):'<div class="empty">Chưa có ảnh nào được đăng cho giải này. Hãy bấm chọn ảnh ở trên để đăng.</div>'}
+        </div>
+      </section>
+    </div>`;
+    modal.querySelector("[data-close-photos-modal]").onclick=()=>{modal.close();modal.remove()};
+    const fileInput=modal.querySelector("#photoFileInput");
+    const selectBtn=modal.querySelector("#btnSelectPhotos");
+    const selectedCount=modal.querySelector("#photoSelectedCount");
+    const queuePreview=modal.querySelector("#photoQueuePreview");
+    const queueList=modal.querySelector("#photoQueueList");
+    const countBadge=modal.querySelector("#queueCountBadge");
+    const uploadBtn=modal.querySelector("#btnUploadPhotosNow");
+    let queueFiles=[];
+    selectBtn.onclick=()=>fileInput.click();
+    fileInput.onchange=e=>{
+      queueFiles=Array.from(e.target.files||[]);
+      if(!queueFiles.length){selectedCount.textContent="Chưa chọn ảnh";queuePreview.hidden=true;return}
+      selectedCount.textContent=`Đã chọn ${queueFiles.length} ảnh`;
+      countBadge.textContent=queueFiles.length;
+      queuePreview.hidden=false;
+      queueList.innerHTML=queueFiles.map(f=>`<div class="queue-item"><span>🖼 ${escHtml(f.name)}</span><small>${(f.size/1024).toFixed(0)} KB</small></div>`).join("");
+    };
+    uploadBtn.onclick=async()=>{
+      if(!queueFiles.length)return;
+      uploadBtn.disabled=true;uploadBtn.textContent="⏳ Đang nén & tải lên...";
+      const batchCaption=modal.querySelector("#photoBatchCaption").value.trim();
+      let successCount=0;
+      try{
+        for(let i=0;i<queueFiles.length;i++){
+          const file=queueFiles[i];
+          uploadBtn.textContent=`⏳ Đang tải ảnh ${i+1}/${queueFiles.length}...`;
+          const upResult=await API.uploadImage(file);
+          if(upResult&&upResult.url){
+            await API.addTournamentPhotos(tournamentId,{
+              url:upResult.url,
+              caption:batchCaption||file.name.replace(/\.[a-z0-9]+$/i,""),
+              sortOrder:photos.length+i+1
+            });
+            successCount++;
+          }
+        }
+        toast(`Đã đăng thành công ${successCount} ảnh kỷ niệm!`);
+        photos=await API.tournamentPhotos(tournamentId);
+        queueFiles=[];fileInput.value="";
+        renderModalContent();
+      }catch(err){
+        toast("Lỗi khi tải ảnh: "+err.message);
+        uploadBtn.disabled=false;uploadBtn.textContent="Thử lại";
+      }
+    };
+    modal.querySelector("#btnSaveAlbumUrl").onclick=async()=>{
+      const albumUrl=modal.querySelector("#tourAlbumUrlInput").value.trim();
+      try{
+        await API.updateTournament(tournamentId,{albumUrl});
+        t.albumUrl=albumUrl||null;
+        toast("Đã lưu liên kết album ngoài.");
+      }catch(err){toast("Không thể lưu liên kết: "+err.message)}
+    };
+    modal.querySelectorAll(".btn-save-caption").forEach(btn=>{
+      btn.onclick=async()=>{
+        const photoId=btn.dataset.photoId;
+        const input=btn.closest(".photo-manage-item").querySelector(".photo-caption-input");
+        const caption=input.value.trim();
+        try{
+          await API.updateTournamentPhoto(tournamentId,photoId,{caption});
+          toast("Đã cập nhật chú thích.");
+        }catch(err){toast("Lỗi cập nhật: "+err.message)}
+      };
+    });
+    modal.querySelectorAll(".btn-delete-photo").forEach(btn=>{
+      btn.onclick=async()=>{
+        const photoId=btn.dataset.photoId;
+        if(!confirm("Bạn có chắc muốn gỡ ảnh này khỏi album giải đấu?"))return;
+        try{
+          await API.deleteTournamentPhoto(tournamentId,photoId);
+          toast("Đã gỡ ảnh thành công.");
+          photos=photos.filter(x=>x.id!==photoId);
+          renderModalContent();
+        }catch(err){toast("Không thể gỡ ảnh: "+err.message)}
+      };
+    });
+  };
+  document.body.appendChild(modal);
+  renderModalContent();
+  modal.showModal();
 }
 function openCourtCountModal(tournamentId,{onSaved}={}){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");

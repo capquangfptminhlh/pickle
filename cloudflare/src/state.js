@@ -41,7 +41,8 @@ export async function loadState(env,{publicOnly=false}={}){
     isFeatured:bool(t.is_featured),featuredRank:Number(t.featured_rank||0),
     sponsorPackage:t.sponsor_package||"free",posterUrl:t.poster_url||null,
     prizePool:t.prize_pool||null,entryFee:t.entry_fee||null,
-    contactName:t.contact_name||null,contactPhone:t.contact_phone||null
+    contactName:t.contact_name||null,contactPhone:t.contact_phone||null,
+    albumUrl:t.album_url||null
   }));
   const tournamentIds=new Set(tournaments.map(t=>t.id));
   if(!tournamentIds.size)return {tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[],audit:[]};

@@ -393,3 +393,18 @@ end $$;
 drop trigger if exists division_bracket_settings_lock on divisions;
 create trigger division_bracket_settings_lock before update on divisions
   for each row execute function protect_division_bracket_settings();
+
+-- Tournament photo gallery
+alter table tournaments add column if not exists album_url text;
+
+create table if not exists tournament_photos (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references tournaments(id) on delete cascade,
+  url text not null,
+  caption text,
+  sort_order integer not null default 0,
+  uploaded_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_tournament_photos_tour on tournament_photos(tournament_id);
+
