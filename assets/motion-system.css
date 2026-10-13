@@ -1,0 +1,59 @@
+.motion-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.motion-ripple {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 1px;
+  height: 1px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.motion-glow {
+  position: relative;
+  isolation: isolate;
+  filter: drop-shadow(0 0 12px var(--motion-color, currentColor));
+}
+
+.motion-route-leaving {
+  pointer-events: none;
+}
+
+[data-motion-state] {
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  .motion-celebration,
+  .motion-ripple {
+    display: none !important;
+  }
+
+  .motion-glow,
+  .motion-route-leaving,
+  [data-motion-state] {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}

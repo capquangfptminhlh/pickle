@@ -30,7 +30,7 @@ before(async()=>{
 after(async()=>{await browser?.close();if(server)await new Promise(done=>server.close(done));f?.db.close()});
 
 async function withPage(options,fn){
-  const {width=1440,motion="no-preference",fallback=false,admin=false,path="/",...rest}=options;
+  const {width=1440,motion="no-preference",fallback=false,blockGsap=false,admin=false,path="/",...rest}=options;
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:motion,serviceWorkers:"block",...rest});
   try{
     const page=await context.newPage(),errors=[];
@@ -39,6 +39,7 @@ async function withPage(options,fn){
     await page.addInitScript(()=>localStorage.setItem("pickleup-theme-v2","light"));
     if(fallback)await page.addInitScript(()=>{delete Document.prototype.startViewTransition});
     if(admin)await page.addInitScript(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.admin);
+    if(blockGsap)await page.route("**/gsap-3.15.0.min.js",route=>route.abort());
     await page.route("**/api/**",async route=>{
       const req=route.request(),r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);
       await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
@@ -49,6 +50,11 @@ async function withPage(options,fn){
       await page.addInitScript(state=>localStorage.setItem("pickle-local-state-v1",JSON.stringify(state)),state);
     }
     await page.goto(base+path,{waitUntil:"domcontentloaded"});
+    if(blockGsap)await page.evaluate(async()=>{
+      const load=src=>new Promise(resolve=>{const script=document.createElement("script");script.src=src;script.onload=resolve;script.onerror=resolve;document.head.appendChild(script)});
+      await load("/assets/vendor/gsap-3.15.0.min.js");
+      await load("/assets/motion-system.js");
+    });
     await page.locator(admin?".club-home-hero":".public-header").first().waitFor();
     await page.evaluate(()=>document.fonts.ready);
     await page.waitForTimeout(350);
@@ -156,6 +162,15 @@ for(const motion of ["no-preference","reduce"]){
 
 test("fallback entry finishes without retaining a whole-page animation",async()=>{
   await withPage({fallback:true},async page=>assert.equal(await page.locator("body").evaluate(el=>el.classList.contains("route-entering")),false));
+});
+
+test("motion core keeps navigation usable when GSAP is unavailable",async()=>{
+  await withPage({blockGsap:true},async page=>{
+    assert.equal(await page.evaluate(()=>window.PickleMotion?.ready),false);
+    assert.equal(await page.locator("body").evaluate(el=>getComputedStyle(el).opacity),"1");
+    await page.locator(".public-nav>.btn").click();
+    await page.waitForFunction(()=>location.hash==="#tournaments");
+  });
 });
 
 test("browser Back restores an admin page after a fallback route fade",async()=>{
