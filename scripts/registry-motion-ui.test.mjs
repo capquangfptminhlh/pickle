@@ -150,15 +150,64 @@ for(const motion of ["no-preference","reduce"]){
       const button=page.locator(".public-nav>.btn"),before=await button.innerHTML(),rect=await button.boundingBox();
       await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
       await page.mouse.down();
-      try{assert.equal(await button.innerHTML(),before,"press feedback does not insert layout children")}
+      try{
+        assert.equal(await button.innerHTML(),before,"press feedback does not insert layout children");
+        if(motion==="no-preference"){
+          const feedback=page.locator("body > .motion-ripple");
+          await feedback.waitFor({state:"attached"});
+          assert.equal(await button.evaluate((el,ripple)=>el.contains(ripple),await feedback.elementHandle()),false,"ripple stays outside control layout");
+          assert.ok(await feedback.evaluate(el=>el.getAnimations().length>0),"press creates visible animated feedback");
+        }
+      }
       finally{await page.mouse.move(0,850);await page.mouse.up()}
       if(motion==="reduce"){
         assert.equal(await button.evaluate(el=>getComputedStyle(el).transitionDuration),"0s");
         assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).scrollBehavior),"auto","reduced motion disables smooth page scrolling");
+        assert.equal(await button.evaluate(el=>getComputedStyle(el).transform),"none","reduced press leaves no computed transform");
+        assert.equal(await page.locator(".motion-ripple").count(),0,"reduced press does not add ripple motion");
       }
     });
   });
 }
+
+test("fallback route exit navigates to a controlled local target within 220ms",async()=>{
+  await withPage({fallback:true},async page=>{
+    await page.route("**/__motion-target",route=>route.fulfill({contentType:"text/html",body:"<!doctype html><title>Motion target</title>"}));
+    await page.evaluate(()=>{
+      const link=document.createElement("a");
+      link.id="motion-target-link";
+      link.href="/__motion-target";
+      link.textContent="Motion target";
+      document.body.appendChild(link);
+    });
+    const started=Date.now();
+    await Promise.all([page.waitForURL(/\/__motion-target$/),page.locator("#motion-target-link").click()]);
+    assert.ok(Date.now()-started<=220,"route exit respects the hard navigation maximum");
+  });
+});
+
+test("dynamically inserted cards receive grouped semantic entrance motion",async()=>{
+  await withPage({},async page=>{
+    await page.evaluate(()=>{
+      const original=window.PickleMotion.entrance;
+      window.__uiEntranceCalls=[];
+      window.PickleMotion.entrance=(targets,options)=>{
+        window.__uiEntranceCalls.push({targets:[...targets].map(el=>el.id),options});
+        return original(targets,options);
+      };
+      const group=document.createElement("section");
+      group.innerHTML='<article id="dynamic-motion-a" class="tour-card">A</article><article id="dynamic-motion-b" class="tour-card">B</article>';
+      document.body.appendChild(group);
+    });
+    await page.waitForFunction(()=>window.__uiEntranceCalls.some(call=>call.targets.includes("dynamic-motion-a")&&call.targets.includes("dynamic-motion-b")));
+    const call=await page.evaluate(()=>window.__uiEntranceCalls.find(item=>item.targets.includes("dynamic-motion-a")));
+    assert.equal(call.options.y,28);
+    assert.equal(call.options.stagger,.055);
+    assert.match(call.options.key,/^ui-entrance:/);
+    assert.equal(await page.locator("#dynamic-motion-a").getAttribute("data-motion-entered"),"1");
+    assert.equal(await page.locator("#dynamic-motion-b").getAttribute("data-motion-entered"),"1");
+  });
+});
 
 test("fallback entry finishes without retaining a whole-page animation",async()=>{
   await withPage({fallback:true},async page=>assert.equal(await page.locator("body").evaluate(el=>el.classList.contains("route-entering")),false));

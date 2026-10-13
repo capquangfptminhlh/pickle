@@ -3,14 +3,51 @@
   const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   const isPreview=location.pathname.includes("/preview/");
   const local=p=>p.replace(/^\//,"");
-
-  const observer=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{
-      if(!e.isIntersecting)return;
-      e.target.classList.add("is-visible");
-      observer.unobserve(e.target);
+  const entranceSelector=[
+    ".kpi",".panel",".tour-card",".public-match",".public-standings",
+    ".public-bracket-card",".match-card",".top-player-card",".news-card",
+    ".sponsor-card",".club-card",".booking-card",".metric-card",".card",
+    ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap",
+    ".table tbody tr","[role='row']","dialog",".modal","[role='dialog']",
+    ".toast","[role='status']"
+  ].join(",");
+  const observers=new Set(),ripples=new Set(),entranceIds=new WeakMap();
+  let nextEntranceId=0,dynamicFrame=0,routeTimer=0;
+  const track=observer=>(observers.add(observer),observer);
+  const entranceId=element=>{
+    if(!entranceIds.has(element))entranceIds.set(element,++nextEntranceId);
+    return entranceIds.get(element);
+  };
+  const showFinal=elements=>elements.forEach(element=>{
+    element.classList.remove("reveal-target","is-visible");
+    Object.assign(element.style,{opacity:"1",visibility:"visible",transform:"none",filter:"none"});
+  });
+  const enter=elements=>{
+    const targets=elements.filter(element=>element.dataset.motionEntered!=="1");
+    if(!targets.length)return;
+    targets.forEach(element=>element.dataset.motionEntered="1");
+    const motion=window.PickleMotion;
+    if(reduced||!motion?.entrance){showFinal(targets);return}
+    motion.entrance(targets,{key:"ui-entrance:"+targets.map(entranceId).join("-"),stagger:.055,y:28});
+  };
+  const observer=track(new IntersectionObserver(entries=>{
+    const visible=entries.filter(entry=>entry.isIntersecting).map(entry=>entry.target);
+    if(!visible.length)return;
+    const groups=new Map();
+    visible.forEach(element=>{
+      observer.unobserve(element);
+      const parent=element.parentElement||document.body;
+      if(!groups.has(parent))groups.set(parent,[]);
+      groups.get(parent).push(element);
     });
-  },{threshold:.055,rootMargin:"0px 0px -24px"});
+    groups.forEach((elements,parent)=>{
+      const siblings=[...parent.children].filter(element=>element.matches(entranceSelector)&&element.dataset.motionReady==="1"&&element.dataset.motionEntered!=="1");
+      const targets=[...new Set([...elements,...siblings])];
+      targets.forEach(element=>observer.unobserve(element));
+      targets.sort((a,b)=>a===b?0:a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
+      enter(targets);
+    });
+  },{threshold:.055,rootMargin:"0px 0px -24px"}));
 
   function decorateTables(){
     document.querySelectorAll(".table").forEach(table=>{
@@ -23,25 +60,35 @@
     });
   }
 
-  function enhance(){
-    const selectors=[
-      ".kpi",".panel",".tour-card",".public-match",".public-standings",
-      ".public-bracket-card",".match-card",".top-player-card",".news-card",
-      ".sponsor-card",".club-card",".booking-card",".metric-card",
-      ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap"
-    ].join(",");
-    const mobile=matchMedia("(max-width:760px)").matches;
-    $$(selectors).forEach((el,i)=>{
+  function enhance(root=document){
+    const elements=[];
+    if(root instanceof Element&&root.matches(entranceSelector))elements.push(root);
+    if(root.querySelectorAll)elements.push(...root.querySelectorAll(entranceSelector));
+    elements.forEach(el=>{
       if(el.dataset.motionReady)return;
       el.dataset.motionReady="1";
-      if(mobile){
-        el.style.opacity="1";
-        el.style.transform="none";
-        return;
-      }
-      el.classList.add("reveal-target");
-      el.style.animationDelay=Math.min(i*24,180)+"ms";
+      if(reduced||!window.PickleMotion?.entrance){enter([el]);return}
       observer.observe(el);
+    });
+  }
+
+  function scheduleEnhance(node){
+    if(!(node instanceof Element)||node.classList.contains("motion-ripple"))return;
+    if(!scheduleEnhance.nodes)scheduleEnhance.nodes=new Set();
+    scheduleEnhance.nodes.add(node);
+    if(dynamicFrame)return;
+    dynamicFrame=requestAnimationFrame(()=>{
+      dynamicFrame=0;
+      const nodes=[...scheduleEnhance.nodes];scheduleEnhance.nodes.clear();
+      nodes.forEach(element=>{
+        decorateTables();enhance(element);
+        const targets=[];
+        if(element.matches(entranceSelector))targets.push(element);
+        targets.push(...element.querySelectorAll(entranceSelector));
+        const pending=targets.filter(target=>target.dataset.motionReady==="1"&&target.dataset.motionEntered!=="1");
+        pending.forEach(target=>observer.unobserve(target));
+        enter(pending);
+      });
     });
   }
 
@@ -60,7 +107,8 @@
       backdrop.classList.toggle("show",!!open);
       document.body.classList.toggle("app-drawer-open",!!open);
     };
-    new MutationObserver(sync).observe(sidebar,{attributes:true,attributeFilter:["class"]});
+    const sidebarObserver=track(new MutationObserver(sync));
+    sidebarObserver.observe(sidebar,{attributes:true,attributeFilter:["class"]});
     sync();
   }
 
@@ -191,7 +239,7 @@
     if(!header)return;
     const measure=()=>document.documentElement.style.setProperty("--public-header-height",Math.ceil(header.getBoundingClientRect().height)+"px");
     measure();
-    if("ResizeObserver" in window)new ResizeObserver(measure).observe(header);
+    if("ResizeObserver" in window){const resize=track(new ResizeObserver(measure));resize.observe(header)}
     else addEventListener("resize",measure,{passive:true});
     const path=p=>p.replace(/\/index\.html$/,"/");
     const links=$$(".public-nav nav a",header);
@@ -217,12 +265,44 @@
       if(!raw||raw.startsWith("#")||raw.startsWith("mailto:")||raw.startsWith("tel:")||raw.startsWith("javascript:"))return;
       const u=new URL(a.href,location.href);
       if(u.origin!==location.origin)return;
-      if(u.pathname===location.pathname&&u.search===location.search&&u.hash){return}
-      if("startViewTransition" in document)return;
+      if(u.pathname===location.pathname&&u.search===location.search)return;
+      if(typeof document.startViewTransition==="function")return;
       e.preventDefault();
-      document.body.classList.add("route-leaving");
-      setTimeout(()=>location.href=u.href,150);
+      if(document.body.classList.contains("motion-route-leaving"))return;
+      let navigated=false;
+      const navigate=()=>{
+        if(navigated)return;
+        navigated=true;
+        clearTimeout(routeTimer);routeTimer=0;
+        location.assign(u.href);
+      };
+      document.body.classList.add("route-leaving","motion-route-leaving");
+      routeTimer=setTimeout(navigate,180);
+      const motion=window.PickleMotion;
+      if(!motion?.keyed)return;
+      motion.keyed("route",timeline=>timeline.to(document.body,{opacity:0,duration:.12,ease:"power1.in",overwrite:"auto"}),navigate);
     });
+  }
+
+  function pressFeedback(event){
+    const control=event.target.closest?.("button,[role='button'],input[type='button'],input[type='submit'],input[type='reset'],.btn");
+    if(!control||control.disabled||control.getAttribute("aria-disabled")==="true"||reduced)return;
+    window.PickleMotion?.press?.(control);
+    const rect=control.getBoundingClientRect(),size=Math.max(rect.width,rect.height)*1.35;
+    const x=Number.isFinite(event.clientX)?event.clientX:rect.left+rect.width/2;
+    const y=Number.isFinite(event.clientY)?event.clientY:rect.top+rect.height/2;
+    const ripple=document.createElement("span");
+    ripple.className="motion-ripple";
+    ripple.setAttribute("aria-hidden","true");
+    Object.assign(ripple.style,{position:"fixed",inset:"auto",left:x+"px",top:y+"px",width:size+"px",height:size+"px",zIndex:"9999",willChange:"transform,opacity"});
+    document.body.appendChild(ripple);ripples.add(ripple);
+    const remove=()=>{ripples.delete(ripple);ripple.remove()};
+    const animation=ripple.animate([
+      {opacity:.34,transform:"translate(-50%, -50%) scale(.08)"},
+      {opacity:0,transform:"translate(-50%, -50%) scale(1)"}
+    ],{duration:380,easing:"cubic-bezier(.2,.8,.2,1)",fill:"forwards"});
+    animation.addEventListener("finish",remove,{once:true});
+    animation.addEventListener("cancel",remove,{once:true});
   }
 
   function syncTournamentNavigation(){
@@ -252,25 +332,26 @@
   }
 
   function scorePop(){
-    const obs=new MutationObserver(ms=>ms.forEach(m=>{
+    const obs=track(new MutationObserver(ms=>ms.forEach(m=>{
       const el=m.target.closest?.("#scoreA,#scoreB")||m.target;
       if(el?.id==="scoreA"||el?.id==="scoreB"){
         el.classList.remove("score-pop");void el.offsetWidth;el.classList.add("score-pop");
       }
-    }));
+    })));
     ["scoreA","scoreB"].forEach(id=>{const e=document.getElementById(id);if(e)obs.observe(e,{childList:true,characterData:true,subtree:true})});
   }
 
   function watchAdminContent(){
     const content=document.querySelector("#content");
     if(content){
-      new MutationObserver(()=>{
+      const contentObserver=track(new MutationObserver(()=>{
         content.classList.remove("page-swap");void content.offsetWidth;content.classList.add("page-swap");
         decorateTables();enhance();buildAdminDock();buildFab();
-      }).observe(content,{childList:true,subtree:false});
+      }));
+      contentObserver.observe(content,{childList:true,subtree:false});
     }
     const nav=document.querySelector("#nav");
-    if(nav)new MutationObserver(()=>{buildAdminDock();buildFab()}).observe(nav,{childList:true,subtree:true});
+    if(nav){const navObserver=track(new MutationObserver(()=>{buildAdminDock();buildFab()}));navObserver.observe(nav,{childList:true,subtree:true})}
   }
 
   function normalizeProjectLinks(){
@@ -287,7 +368,7 @@
 
   function enforcePublicScrollSafety(){
     if(!document.body.classList.contains("public-body"))return;
-    document.body.classList.remove("app-drawer-open","route-leaving");
+    document.body.classList.remove("app-drawer-open","route-leaving","motion-route-leaving");
     document.documentElement.style.height="auto";
     document.documentElement.style.minHeight="100%";
     document.documentElement.style.overflowX="hidden";
@@ -307,11 +388,24 @@
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
     enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();syncTournamentNavigation();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    const contentObserver=track(new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(scheduleEnhance))));
+    contentObserver.observe(document.body,{childList:true,subtree:true});
     const finishEntry=e=>{if(e.target===document.body&&e.animationName==="routeEnterFallback")document.body.classList.remove("route-entering")};
     document.body.addEventListener("animationend",finishEntry);document.body.addEventListener("animationcancel",finishEntry);
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
-    addEventListener("pageshow",e=>{document.body.classList.remove("route-leaving");if(e.persisted)document.body.classList.remove("route-entering");enforcePublicScrollSafety()});
+    document.addEventListener("pointerdown",pressFeedback,{passive:true});
+    const resetRoute=()=>{
+      clearTimeout(routeTimer);routeTimer=0;
+      document.body.classList.remove("route-leaving","motion-route-leaving");
+      document.body.style.opacity="";
+    };
+    addEventListener("pageshow",e=>{resetRoute();if(e.persisted)document.body.classList.remove("route-entering");enforcePublicScrollSafety()});
+    addEventListener("pagehide",e=>{
+      resetRoute();
+      ripples.forEach(ripple=>{ripple.getAnimations().forEach(animation=>animation.cancel());ripple.remove()});ripples.clear();
+      if(!e.persisted){observers.forEach(item=>item.disconnect());observers.clear();if(dynamicFrame)cancelAnimationFrame(dynamicFrame);scheduleEnhance.nodes?.clear()}
+    });
     addEventListener("focus",enforcePublicScrollSafety);document.addEventListener("visibilitychange",()=>{if(!document.hidden)enforcePublicScrollSafety()});
     document.addEventListener("click",e=>{
       const score=e.target.closest("[data-score]");

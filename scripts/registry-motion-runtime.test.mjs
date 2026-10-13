@@ -1,10 +1,86 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const read = (path) =>
   readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+const scopedPages = [
+  "index.html",
+  "about.html",
+  "admin.html",
+  "checkin.html",
+  "court-board.html",
+  "legacy-migrate.html",
+  "login.html",
+  "match.html",
+  "offline.html",
+  "player.html",
+  "ranking.html",
+  "referee.html",
+  "submit-tournament.html",
+  "tournament.html",
+];
+
+async function exists(path) {
+  try {
+    await access(new URL(`../${path}`, import.meta.url));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("every supported root and preview document loads shared motion in deterministic order", async () => {
+  const pages = [...scopedPages];
+  for (const page of scopedPages) {
+    const preview = `preview/${page}`;
+    if (await exists(preview)) pages.push(preview);
+  }
+
+  for (const page of pages) {
+    const source = await read(page);
+    const prefix = page.startsWith("preview/") ? "../" : "";
+    const headEnd = source.indexOf("</head>");
+    const css = `${prefix}assets/motion-system.css?v=1`;
+    const vendor = `${prefix}assets/vendor/gsap-3.15.0.min.js`;
+    const core = `${prefix}assets/motion-system.js?v=1`;
+    const ui = `${prefix}assets/ui-motion.js?v=35`;
+    const positions = [css, vendor, core, ui].map(asset => source.indexOf(asset));
+
+    positions.forEach((position, index) => assert.ok(position >= 0, `${page} loads ${[css, vendor, core, ui][index]}`));
+    assert.ok(positions[0] < headEnd, `${page} loads motion styles in head`);
+    assert.ok(positions[1] < positions[2] && positions[2] < positions[3], `${page} loads vendor, core, then shared UI motion`);
+    for (const asset of [css, vendor, core, ui]) {
+      assert.equal(source.split(asset).length - 1, 1, `${page} loads ${asset} exactly once`);
+    }
+
+    const businessScripts = [...source.matchAll(/<script\s+[^>]*src=["']([^"']+)["'][^>]*>/g)]
+      .filter(([, src]) => !src.includes("theme.js") && !src.includes("socket.io") && !src.includes("preview-guard.js") && ![vendor, core, ui].includes(src));
+    for (const match of businessScripts) {
+      assert.ok(positions[2] < match.index, `${page} loads motion core before ${match[1]}`);
+    }
+  }
+});
+
+test("root and preview service workers cache versioned and unversioned shared motion", async () => {
+  for (const [path, prefix] of [["service-worker.js", "/"], ["preview/service-worker.js", "../"]]) {
+    const source = await read(path);
+    assert.match(source, /full-motion-20261013/, `${path} uses the phase cache version`);
+    for (const asset of [
+      "assets/vendor/gsap-3.15.0.min.js",
+      "assets/motion-system.js",
+      "assets/motion-system.css",
+      "assets/ui-motion.js",
+    ]) {
+      const url = `${prefix}${asset}`;
+      assert.ok(source.includes(`"${url}"`), `${path} caches ${url}`);
+      const version = asset.endsWith("ui-motion.js") ? "35" : asset.includes("vendor/") ? null : "1";
+      if (version) assert.ok(source.includes(`"${url}?v=${version}"`), `${path} caches ${url}?v=${version}`);
+    }
+  }
+});
 
 async function loadMotion({ gsap, reduced = false, memory = 8, width = 1440 } = {}) {
   const listeners = new Map();

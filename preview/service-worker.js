@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v51-direct-server-pick-20261013";
+const VERSION="pickleup-preview-v52-full-motion-20261013";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -22,6 +22,11 @@ const CORE=[
   "../assets/ranking.js?v=3",
   "../assets/pickleup-logo-sport-v3.svg",
   "../assets/app-icon-sport-v3.svg",
+  "../assets/vendor/gsap-3.15.0.min.js",
+  "../assets/motion-system.js?v=1",
+  "../assets/motion-system.js",
+  "../assets/motion-system.css?v=1",
+  "../assets/motion-system.css",
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
   "../assets/theme.css?v=2",
@@ -30,6 +35,7 @@ const CORE=[
   "../assets/site-sport.css?v=9",
   "../assets/styles.css?v=3",
   "../assets/ui-motion.js?v=34",
+  "../assets/ui-motion.js?v=35",
   "../assets/tournament-detail.css?v=1",
   "../assets/tournament.js?v=55",
   "../assets/admin-sport.css?v=5",

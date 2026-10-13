@@ -1,4 +1,4 @@
-const VERSION="pickleup-v79-direct-server-pick-20261013";
+const VERSION="pickleup-v80-full-motion-20261013";
 const STATIC=[
   "/assets/api.js?v=58",
   "/assets/tournament-gallery.js?v=1",
@@ -35,6 +35,11 @@ const STATIC=[
   "/assets/public-refresh.css",
   "/assets/ranking.js?v=3",
   "/assets/public.js?v=54",
+  "/assets/vendor/gsap-3.15.0.min.js",
+  "/assets/motion-system.js?v=1",
+  "/assets/motion-system.js",
+  "/assets/motion-system.css?v=1",
+  "/assets/motion-system.css",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",
@@ -43,6 +48,7 @@ const STATIC=[
   "/assets/site-sport.css?v=9",
   "/assets/styles.css?v=4",
   "/assets/ui-motion.js?v=34",
+  "/assets/ui-motion.js?v=35",
   "/assets/tournament-detail.css?v=1",
   "/assets/tournament.js?v=56",
   "/assets/admin-sport.css?v=6",
