@@ -212,6 +212,7 @@ test("sibling cards committed into an existing host receive one grouped entrance
     await page.evaluate(()=>{
       const host=document.createElement("section");
       host.id="dynamic-motion-host";
+      host.style.cssText="position:fixed;left:0;top:0;width:120px;z-index:-1";
       document.body.appendChild(host);
     });
     await page.waitForTimeout(50);
@@ -234,6 +235,56 @@ test("sibling cards committed into an existing host receive one grouped entrance
     assert.match(call.options.key,/^ui-entrance:/);
     assert.equal(await page.locator("#dynamic-motion-a").getAttribute("data-motion-entered"),"1");
     assert.equal(await page.locator("#dynamic-motion-b").getAttribute("data-motion-entered"),"1");
+  });
+});
+
+test("nested entrance targets animate only the outer committed hierarchy level",async()=>{
+  await withPage({},async page=>{
+    await page.evaluate(()=>{
+      const host=document.createElement("section");
+      host.id="nested-motion-host";
+      host.style.cssText="position:fixed;left:140px;top:0;width:120px;z-index:-1";
+      document.body.appendChild(host);
+    });
+    await page.waitForTimeout(50);
+    await page.evaluate(()=>{
+      const original=window.PickleMotion.entrance;
+      window.__nestedEntranceCalls=[];
+      window.PickleMotion.entrance=(targets,options)=>{
+        window.__nestedEntranceCalls.push([...targets].map(el=>el.id));
+        return original(targets,options);
+      };
+      document.querySelector("#nested-motion-host").innerHTML='<section id="nested-panel" class="panel"><article id="nested-card-a" class="match-card">A</article><article id="nested-card-b" class="match-card">B</article></section>';
+    });
+    await page.waitForFunction(()=>window.__nestedEntranceCalls.length>0);
+    assert.deepEqual(await page.evaluate(()=>window.__nestedEntranceCalls.flat()),["nested-panel"]);
+  });
+});
+
+test("offscreen siblings wait for their own intersection before entering",async()=>{
+  await withPage({},async page=>{
+    await page.evaluate(()=>{
+      const host=document.createElement("section");
+      host.id="visibility-motion-host";
+      host.style.cssText="position:relative;height:1900px";
+      document.body.prepend(host);
+    });
+    await page.waitForTimeout(50);
+    await page.evaluate(()=>{
+      const original=window.PickleMotion.entrance;
+      window.__visibilityEntranceCalls=[];
+      window.PickleMotion.entrance=(targets,options)=>{
+        window.__visibilityEntranceCalls.push([...targets].map(el=>el.id));
+        return original(targets,options);
+      };
+      document.querySelector("#visibility-motion-host").innerHTML='<article id="visible-motion-card" class="tour-card">Visible</article><article id="offscreen-motion-card" class="tour-card" style="margin-top:1450px">Offscreen</article>';
+    });
+    await page.waitForFunction(()=>document.querySelector("#visible-motion-card")?.dataset.motionEntered==="1");
+    assert.equal(await page.locator("#offscreen-motion-card").getAttribute("data-motion-entered"),null,"far sibling is not entered with the visible row");
+    assert.equal(await page.evaluate(()=>window.__visibilityEntranceCalls.some(call=>call.includes("offscreen-motion-card"))),false);
+    await page.locator("#offscreen-motion-card").scrollIntoViewIfNeeded();
+    await page.waitForFunction(()=>document.querySelector("#offscreen-motion-card")?.dataset.motionEntered==="1");
+    assert.ok(await page.evaluate(()=>window.__visibilityEntranceCalls.some(call=>call.includes("offscreen-motion-card"))));
   });
 });
 

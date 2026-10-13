@@ -18,12 +18,23 @@
     if(!entranceIds.has(element))entranceIds.set(element,++nextEntranceId);
     return entranceIds.get(element);
   };
+  const outermost=elements=>{
+    const unique=[...new Set(elements)];
+    return unique.filter(element=>!unique.some(ancestor=>ancestor!==element&&ancestor.contains(element)));
+  };
+  const nearViewport=element=>{
+    if(!element.getClientRects().length)return false;
+    const rect=element.getBoundingClientRect(),margin=24;
+    return rect.bottom>=-margin&&rect.top<=innerHeight+margin&&rect.right>=-margin&&rect.left<=innerWidth+margin;
+  };
   const showFinal=elements=>elements.forEach(element=>{
     element.classList.remove("reveal-target","is-visible");
     Object.assign(element.style,{opacity:"1",visibility:"visible",transform:"none",filter:"none"});
   });
   const enter=elements=>{
-    const targets=elements.filter(element=>element.dataset.motionEntered!=="1");
+    const candidates=elements.filter(element=>element.dataset.motionEntered!=="1");
+    const targets=outermost(candidates),selected=new Set(targets);
+    candidates.forEach(element=>{if(!selected.has(element))element.dataset.motionEntered="1"});
     if(!targets.length)return;
     targets.forEach(element=>element.dataset.motionEntered="1");
     const motion=window.PickleMotion;
@@ -41,8 +52,8 @@
       groups.get(parent).push(element);
     });
     groups.forEach((elements,parent)=>{
-      const siblings=[...parent.children].filter(element=>element.matches(entranceSelector)&&element.dataset.motionReady==="1"&&element.dataset.motionEntered!=="1");
-      const targets=[...new Set([...elements,...siblings])];
+      const siblings=[...parent.children].filter(element=>element.matches(entranceSelector)&&element.dataset.motionReady==="1"&&element.dataset.motionEntered!=="1"&&nearViewport(element));
+      const targets=outermost([...elements,...siblings]);
       targets.forEach(element=>observer.unobserve(element));
       targets.sort((a,b)=>a===b?0:a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
       enter(targets);
@@ -64,9 +75,11 @@
     const elements=[];
     if(root instanceof Element&&root.matches(entranceSelector))elements.push(root);
     if(root.querySelectorAll)elements.push(...root.querySelectorAll(entranceSelector));
-    elements.forEach(el=>{
-      if(el.dataset.motionReady)return;
+    const fresh=elements.filter(element=>!element.dataset.motionReady);
+    const targets=outermost(fresh),selected=new Set(targets);
+    fresh.forEach(el=>{
       el.dataset.motionReady="1";
+      if(!selected.has(el)){el.dataset.motionEntered="1";return}
       if(reduced||!window.PickleMotion?.entrance){enter([el]);return}
       observer.observe(el);
     });
@@ -89,12 +102,13 @@
       });
       pending.forEach(target=>{
         if(target.dataset.motionReady!=="1"||target.dataset.motionEntered==="1")return;
-        observer.unobserve(target);
+        if(!nearViewport(target))return;
         const parent=target.parentElement||document.body;
         if(!groups.has(parent))groups.set(parent,[]);
         groups.get(parent).push(target);
       });
       groups.forEach(targets=>{
+        targets.forEach(target=>observer.unobserve(target));
         targets.sort((a,b)=>a===b?0:a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
         enter(targets);
       });
