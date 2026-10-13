@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v49-knockout-reset-20261011";
+const VERSION="pickleup-preview-v50-athlete-avatars-20261013";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -40,8 +40,8 @@ const CORE=[
   "../assets/admin-crud.js?v=13",
   "../assets/player-picker.js?v=3",
   "../assets/match-format.js?v=7",
-  "../assets/team-lineup.js?v=6",
-  "../assets/team-lineup.css?v=3",
+  "../assets/team-lineup.js?v=7",
+  "../assets/team-lineup.css?v=4",
   "../assets/timeout-clock.css?v=1",
   "../assets/timeout-clock.js?v=1",
   "../assets/team-lineup.css",

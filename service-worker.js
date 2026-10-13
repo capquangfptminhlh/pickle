@@ -1,9 +1,9 @@
-const VERSION="pickleup-v77-tournament-memories-20261012";
+const VERSION="pickleup-v78-referee-athlete-avatars-20261013";
 const STATIC=[
   "/assets/api.js?v=58",
   "/assets/tournament-gallery.js?v=1",
   "/assets/tournament-gallery.css?v=1",
-  "/assets/referee-arena.css?v=2",
+  "/assets/referee-arena.css?v=3",
   "/assets/referee-arena.css",
   "/assets/courtside.css?v=1",
   "/assets/typography.css?v=1",
@@ -23,7 +23,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-800-vietnamese.woff2",
   "/assets/fonts/barlow-condensed-800-latin.woff2",
   "/assets/draw-flex.js?v=9",
-  "/assets/referee-courtside.js?v=15",
+  "/assets/referee-courtside.js?v=16",
   "/assets/timeout-clock.js?v=1",
   "/assets/timeout-clock.css?v=1",
   "/assets/timeout-clock.js",
@@ -53,8 +53,8 @@ const STATIC=[
   "/assets/player-picker.js?v=3",
   "/assets/match-format.js?v=7",
   "/assets/match-format.js",
-  "/assets/team-lineup.js?v=6",
-  "/assets/team-lineup.css?v=3",
+  "/assets/team-lineup.js?v=7",
+  "/assets/team-lineup.css?v=4",
   "/assets/team-lineup.css",
   "/assets/team-lineup.js",
   "/assets/theme.js",

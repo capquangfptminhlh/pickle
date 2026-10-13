@@ -19,7 +19,12 @@ const browserOptions=process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:proc
 const base=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch(browserOptions);
 try{
  for(const reducedMotion of ['no-preference','reduce']){
-  const f=await scoringFixture();f.db.exec("UPDATE divisions SET points_to_win=15,best_of=3,scoring_mode='rally',win_by_two=1 WHERE id='division'; UPDATE teams SET name='Nguyễn Minh / Trần Thuỳ Anh' WHERE id='a'; UPDATE teams SET name='Hoàng Nam / Lê Thanh Hà' WHERE id='b';");
+  const f=await scoringFixture();f.db.exec(`UPDATE divisions SET points_to_win=15,best_of=3,scoring_mode='rally',win_by_two=1 WHERE id='division';
+    UPDATE teams SET name='Nguyễn Minh / Trần Thuỳ Anh' WHERE id='a'; UPDATE teams SET name='Hoàng Nam / Lê Thanh Hà' WHERE id='b';
+    INSERT INTO players(id,full_name,rating,skill_level,avatar_url) VALUES
+      ('pa1','Nguyễn Minh',3.8,'A','/assets/app-icon-v2.svg'),('pa2','Trần Thuỳ Anh',3.2,'B',NULL),
+      ('pb1','Hoàng Nam',3.7,'A','/assets/app-icon-v2.svg'),('pb2','Lê Thanh Hà',3.1,'B',NULL);
+    INSERT INTO team_players(team_id,player_id,slot_no) VALUES('a','pa1',1),('a','pa2',2),('b','pb1',1),('b','pb2',2);`);
   const context=await browser.newContext({viewport:{width:375,height:900},reducedMotion,serviceWorkers:'block',...(process.env.REFEREE_VIDEO&&reducedMotion==='no-preference'?{recordVideo:{dir:resolve(out,'video'),size:{width:375,height:900}}}:{})}),page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(token=>{localStorage.setItem('pickle-api-token-v1',token);localStorage.setItem('pickleup-theme-v2','light');window.motionCalls=[];const animate=Element.prototype.animate;Element.prototype.animate=function(frames,options){window.motionCalls.push({id:this.id,cls:this.className,frames});return animate.call(this,frames,options)}},f.tokens.ref);
@@ -29,7 +34,17 @@ try{
    if(slowState&&req.url().endsWith('/api/admin/state'))await new Promise(r=>setTimeout(r,1400));
    const r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
   });
-  await page.goto(base+'/referee.html?match=match');await page.locator('#scoreSurface').waitFor();
+  await page.goto(base+'/referee.html');await page.locator('#matchPicker .picker-card').waitFor();
+  assert.equal(await page.locator('#matchPicker .picker-athlete').count(),4,'match list shows every athlete identity');
+  assert.equal(await page.locator('#matchPicker .picker-athlete img').count(),2,'match list uses stored athlete avatars');
+  assert.deepEqual(await page.locator('#matchPicker .picker-athlete-fallback').allTextContents(),['TA','TH'],'missing avatars use athlete initials');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'athlete identities do not overflow the match list');
+  if(reducedMotion==='no-preference')await page.screenshot({path:resolve(out,'match-list-375.png'),fullPage:true});
+  await page.locator('#matchPicker .picker-card').click();await page.locator('#scoreSurface').waitFor();
+  assert.equal(await page.locator('#refRosterA .lineup-player').count(),2,'standard doubles shows both athletes on side A');
+  assert.equal(await page.locator('#refRosterB .lineup-player').count(),2,'standard doubles shows both athletes on side B');
+  assert.equal(await page.locator('.ref-team-roster .lineup-avatar img').count(),2,'score cards use stored athlete avatars');
+  assert.deepEqual(await page.locator('.ref-team-roster .lineup-avatar-fallback').allTextContents(),['TA','TH'],'score cards use initials when no avatar exists');
   assert.match(await page.locator('#refRules').innerText(),/15/);assert.match(await page.locator('#refRules').innerText(),/Cách 2/);assert.match(await page.locator('#refRules').innerText(),/Thắng 2\/3/);
   assert.equal(await page.locator('#refScoreA').innerText(),'0');
   if(process.env.REFEREE_VIDEO)await page.waitForTimeout(400);

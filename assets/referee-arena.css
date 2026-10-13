@@ -138,3 +138,21 @@ html:root[data-theme="dark"] body.site-sport.site-sport.courtside-body.referee-a
 @media(prefers-reduced-motion:reduce){html:root body.site-sport.site-sport.courtside-body.referee-arena button {transition:none!important;transform:none!important;}}
 
 .ref-team-roster{display:block;margin-top:5px;color:#72847a;font-size:10px;font-weight:650;line-height:1.25}
+
+html:root body.site-sport.courtside-body.referee-arena .picker-vs{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start}
+html:root body.site-sport.courtside-body.referee-arena .picker-side{display:grid;gap:6px;min-width:0}
+html:root body.site-sport.courtside-body.referee-arena .picker-side:last-child{text-align:right}
+html:root body.site-sport.courtside-body.referee-arena .picker-side>strong{color:var(--ref-ink)!important;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+html:root body.site-sport.courtside-body.referee-arena .picker-athletes{display:flex;flex-wrap:wrap;gap:5px}
+html:root body.site-sport.courtside-body.referee-arena .picker-side:last-child .picker-athletes{justify-content:flex-end}
+html:root body.site-sport.courtside-body.referee-arena .picker-athlete{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;font-size:10px;color:#66796f}
+html:root body.site-sport.courtside-body.referee-arena :is(.picker-athlete>img,.picker-athlete-fallback){width:24px;height:24px;flex:0 0 24px;border-radius:50%;object-fit:cover}
+html:root body.site-sport.courtside-body.referee-arena .picker-athlete-fallback{display:grid;place-items:center;background:#e5eee9;color:#254c38;font-size:8px;font-weight:900}
+html:root body.site-sport.courtside-body.referee-arena .picker-athlete>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html:root body.site-sport.courtside-body.referee-arena .picker-vs>i{align-self:center}
+
+@media(max-width:520px){
+ html:root body.site-sport.courtside-body.referee-arena .picker-side>strong{font-size:13px}
+ html:root body.site-sport.courtside-body.referee-arena .picker-athlete{font-size:9px}
+ html:root body.site-sport.courtside-body.referee-arena :is(.picker-athlete>img,.picker-athlete-fallback){width:22px;height:22px;flex-basis:22px}
+}

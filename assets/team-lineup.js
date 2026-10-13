@@ -6,6 +6,7 @@
   const players=(id,state)=>(state?.teamPlayers?.[id]||[]).map(playerId=>state?.players?.find(player=>player.id===playerId)).filter(Boolean);
   const source=(id,state)=>state?.teamLineupSources?.[id]||"unassigned";
   const playerName=player=>player?.full_name||player?.nickname||"VĐV";
+  const initials=player=>playerName(player).trim().split(/\s+/).slice(-2).map(part=>part[0]||"").join("").toUpperCase()||"VĐV";
   const skill=player=>String(player?.skillLevel||player?.skill_level||"").trim().toUpperCase();
   const skillRole=player=>/^([ABC])\+?$/.exec(skill(player))?.[1]||"";
   function roster(id,state){
@@ -67,20 +68,25 @@
   function renderRoster(element,lineup,servingServer=0,finished=false){
     if(!element)return;
     element.replaceChildren();
-    if(!lineup?.relay)return;
+    if(!lineup?.players?.length)return;
     const fragment=document.createDocumentFragment();
-    if(!lineup.ready&&!lineup.awaitingDraw){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
-    (lineup.ready?lineup.players.slice(0,lineup.leg.size):lineup.players).forEach((player,index)=>{
-      const letter=letters[index],playing=!finished&&lineup.ready&&lineup.code.includes(letter),serving=playing&&lineup.code[servingServer-1]===letter;
-      const row=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span"),grade=document.createElement("span");
+    if(lineup.relay&&!lineup.ready&&!lineup.awaitingDraw){const warning=document.createElement("span");warning.className="lineup-warning";warning.textContent=lineup.identityWarning||"Chưa gán đủ vị trí A/B/C";fragment.append(warning)}
+    const visiblePlayers=lineup.relay&&lineup.ready?lineup.players.slice(0,lineup.leg.size):lineup.players;
+    visiblePlayers.forEach((player,index)=>{
+      const letter=letters[index],playing=!finished&&(lineup.relay?lineup.ready&&lineup.code.includes(letter):true);
+      const serving=playing&&(lineup.relay?lineup.code[servingServer-1]===letter:index===servingServer-1);
+      const row=document.createElement("span"),avatar=document.createElement("span"),slot=document.createElement("b"),name=document.createElement("span"),grade=document.createElement("span");
       row.className="lineup-player";row.dataset.playerId=player.id;
-      if(lineup.ready)row.dataset.playerSlot=letter;
+      if(lineup.relay&&lineup.ready)row.dataset.playerSlot=letter;
       row.dataset.playing=String(playing);row.dataset.serving=String(serving);
-      slot.className="lineup-slot";slot.textContent=lineup.ready?"Vị trí "+letter:"Chưa xếp";
+      avatar.className="lineup-avatar";
+      if(player.avatar_url){const image=document.createElement("img");image.src=player.avatar_url;image.alt="";image.loading="lazy";image.decoding="async";avatar.append(image)}
+      else{avatar.classList.add("lineup-avatar-fallback");avatar.textContent=initials(player);avatar.setAttribute("aria-hidden","true")}
+      slot.className="lineup-slot";slot.textContent=lineup.relay?(lineup.ready?"Vị trí "+letter:"Chưa xếp"):"VĐV "+(index+1);
       name.className="lineup-name";name.textContent=playerName(player);
       grade.className="lineup-grade";grade.textContent="Trình "+(skill(player)||"Chưa nhập");
-      row.append(slot,name,grade);
-      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${grade.textContent} · ${finished?"Trận đã kết thúc":lineup.ready?(playing?"Đang đánh":"Chờ lượt"):"Chưa xác định vị trí"}${serving?" · Đang giao":""}`);
+      row.append(avatar,name,grade,slot);
+      row.setAttribute("aria-label",`${slot.textContent}: ${name.textContent} · ${grade.textContent} · ${finished?"Trận đã kết thúc":lineup.relay?(lineup.ready?(playing?"Đang đánh":"Chờ lượt"):"Chưa xác định vị trí"):"Đang thi đấu"}${serving?" · Đang giao":""}`);
       if(serving){const badge=document.createElement("i");badge.className="lineup-serving";badge.textContent="GIAO";row.append(badge)}
       fragment.append(row);
     });

@@ -1,7 +1,7 @@
 (()=>{
   const API=window.PickleAPI;
   const $=s=>document.querySelector(s);
-  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
+  let state={tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
   let lastScore=null;
   const motionPreference=matchMedia("(prefers-reduced-motion: reduce)"),motions=new Map();
   function motion(el,frames,duration=240){
@@ -23,6 +23,13 @@
   const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5;
   const toast=msg=>{const el=$("#refToast");el.textContent=msg;el.hidden=false;motion(el,[{opacity:0,transform:"translate(-50%, 8px)"},{opacity:1,transform:"translate(-50%, 0)"}],180);clearTimeout(el._timer);el._timer=setTimeout(()=>el.hidden=true,2600)};
   const roleLabel=r=>({super_admin:"Super Admin",organizer:"Chủ giải",referee:"Trọng tài"}[r]||r);
+  const playerName=player=>player?.full_name||player?.nickname||"VĐV";
+  const initials=player=>playerName(player).trim().split(/\s+/).slice(-2).map(part=>part[0]||"").join("").toUpperCase()||"VĐV";
+  const teamPlayers=id=>(state.teamPlayers?.[id]||[]).map(playerId=>state.players?.find(player=>player.id===playerId)).filter(Boolean);
+  const athleteAvatar=player=>player.avatar_url
+    ?'<img src="'+esc(player.avatar_url)+'" alt="" loading="lazy" decoding="async">'
+    :'<span class="picker-athlete-fallback" aria-hidden="true">'+esc(initials(player))+'</span>';
+  const pickerSide=id=>'<div class="picker-side"><strong>'+esc(team(id))+'</strong>'+(teamPlayers(id).length?'<span class="picker-athletes">'+teamPlayers(id).map(player=>'<span class="picker-athlete">'+athleteAvatar(player)+'<span>'+esc(playerName(player))+'</span></span>').join("")+'</span>':'')+'</div>';
 
   function orderedMatches(){
     return [...state.matches].filter(m=>m.status!=="cancelled").sort((a,b)=>queueRank(a)-queueRank(b)||String(a.scheduledAt||"").localeCompare(String(b.scheduledAt||"")));
@@ -42,7 +49,7 @@
     const next={scheduled:["called","📣 Gọi VĐV"],called:["on_deck","⏭ On deck"],on_deck:["warming_up","🔥 Khởi động"]}[q];
     return '<article class="picker-card '+(m.status==="live"?"live":"")+'" data-open="'+esc(m.id)+'">'+
       '<div class="picker-top"><span>'+esc(court(m))+' · '+esc(stage(m))+'</span><b class="queue-badge '+meta[1]+'">'+meta[0]+'</b></div>'+
-      '<div class="picker-vs"><strong>'+esc(team(m.a))+'</strong><i>VS</i><strong>'+esc(team(m.b))+'</strong></div>'+
+      '<div class="picker-vs">'+pickerSide(m.a)+'<i>VS</i>'+pickerSide(m.b)+'</div>'+
       '<div class="picker-actions">'+(sets?'<span>Kết quả: '+esc(sets)+'</span>':'<span>'+esc(m.time||"Chưa chốt giờ")+'</span>')+
       (next&&m.status==="wait"?'<button type="button" class="queue-advance" data-queue-match="'+esc(m.id)+'" data-queue-state="'+next[0]+'">'+next[1]+'</button>':'')+
       '</div></article>';
