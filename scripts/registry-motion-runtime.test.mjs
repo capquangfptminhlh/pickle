@@ -92,6 +92,40 @@ test("motion quality follows accessibility and device capability", async () => {
   assert.equal((await loadMotion()).api.quality(), "full");
 });
 
+test("reduced motion preference is exposed as a callable operation", async () => {
+  const normal = (await loadMotion()).api;
+  const reduced = (await loadMotion({ reduced: true })).api;
+  assert.equal(typeof normal.reduced, "function");
+  assert.equal(normal.reduced(), false);
+  assert.equal(reduced.reduced(), true);
+});
+
+test("count preserves fractional values to two decimals during motion", async () => {
+  const intermediate = [];
+  const element = { textContent: "4" };
+  const gsap = {
+    timeline(options) {
+      return {
+        to(state, animation) {
+          state.value = 4.25;
+          animation.onUpdate();
+          intermediate.push(element.textContent);
+          options.onComplete();
+          return this;
+        },
+        kill() {
+          options.onInterrupt?.();
+        },
+      };
+    },
+    globalTimeline: { pause() {}, resume() {} },
+  };
+  const { api } = await loadMotion({ gsap });
+  api.count(element, 4, 4.5);
+  assert.deepEqual(intermediate, ["4.25"]);
+  assert.equal(element.textContent, "4.5");
+});
+
 test("keyed motion interrupts once and completes once", async () => {
   const created = [];
   const gsap = {

@@ -50,6 +50,10 @@
     return "full";
   }
 
+  function reduced() {
+    return motionPreference.matches;
+  }
+
   function kill(key) {
     const timeline = timelines.get(key);
     if (!timeline) return;
@@ -182,7 +186,7 @@
         ease: "power2.out",
         overwrite: true,
         onUpdate: () => {
-          if (element) element.textContent = String(Math.round(state.value));
+          if (element) element.textContent = String(Math.round(state.value * 100) / 100);
         },
       });
     }, finish);
@@ -271,9 +275,7 @@
 
   const api = {
     ready: Boolean(gsap),
-    get reduced() {
-      return motionPreference.matches;
-    },
+    reduced,
     quality,
     keyed,
     kill,

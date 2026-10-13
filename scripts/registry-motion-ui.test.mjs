@@ -167,6 +167,14 @@ test("fallback entry finishes without retaining a whole-page animation",async()=
 test("motion core keeps navigation usable when GSAP is unavailable",async()=>{
   await withPage({blockGsap:true},async page=>{
     assert.equal(await page.evaluate(()=>window.PickleMotion?.ready),false);
+    const fallback=await page.evaluate(()=>{
+      const target=document.createElement("div");
+      target.style.cssText="opacity:0;visibility:hidden;transform:translateY(20px);filter:blur(4px)";
+      document.body.appendChild(target);
+      const result=window.PickleMotion.entrance(target);
+      return {operation:typeof window.PickleMotion.entrance,result,opacity:target.style.opacity,visibility:target.style.visibility,transform:target.style.transform,filter:target.style.filter};
+    });
+    assert.deepEqual(fallback,{operation:"function",result:null,opacity:"1",visibility:"visible",transform:"none",filter:"none"});
     assert.equal(await page.locator("body").evaluate(el=>getComputedStyle(el).opacity),"1");
     await page.locator(".public-nav>.btn").click();
     await page.waitForFunction(()=>location.hash==="#tournaments");
