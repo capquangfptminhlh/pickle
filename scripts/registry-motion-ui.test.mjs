@@ -186,8 +186,35 @@ test("fallback route exit navigates to a controlled local target within 220ms",a
   });
 });
 
-test("dynamically inserted cards receive grouped semantic entrance motion",async()=>{
+test("mixed-case blank targets bypass shared route exits",async()=>{
+  await withPage({fallback:true},async page=>{
+    await page.evaluate(()=>{
+      const link=document.createElement("a");
+      link.id="mixed-blank-link";
+      link.href="/about.html";
+      link.target="_BLANK";
+      link.textContent="Open separately";
+      document.body.appendChild(link);
+      document.addEventListener("click",event=>{
+        if(event.target!==link)return;
+        window.__mixedBlankPrevented=event.defaultPrevented;
+        event.preventDefault();
+      },{once:true});
+    });
+    await page.locator("#mixed-blank-link").click();
+    assert.equal(await page.evaluate(()=>window.__mixedBlankPrevented),false,"route handler leaves mixed-case blank targets untouched");
+    assert.equal(await page.locator("body").evaluate(el=>el.classList.contains("motion-route-leaving")),false);
+  });
+});
+
+test("sibling cards committed into an existing host receive one grouped entrance",async()=>{
   await withPage({},async page=>{
+    await page.evaluate(()=>{
+      const host=document.createElement("section");
+      host.id="dynamic-motion-host";
+      document.body.appendChild(host);
+    });
+    await page.waitForTimeout(50);
     await page.evaluate(()=>{
       const original=window.PickleMotion.entrance;
       window.__uiEntranceCalls=[];
@@ -195,12 +222,13 @@ test("dynamically inserted cards receive grouped semantic entrance motion",async
         window.__uiEntranceCalls.push({targets:[...targets].map(el=>el.id),options});
         return original(targets,options);
       };
-      const group=document.createElement("section");
-      group.innerHTML='<article id="dynamic-motion-a" class="tour-card">A</article><article id="dynamic-motion-b" class="tour-card">B</article>';
-      document.body.appendChild(group);
+      document.querySelector("#dynamic-motion-host").innerHTML='<article id="dynamic-motion-a" class="tour-card">A</article><article id="dynamic-motion-b" class="tour-card">B</article>';
     });
     await page.waitForFunction(()=>window.__uiEntranceCalls.some(call=>call.targets.includes("dynamic-motion-a")&&call.targets.includes("dynamic-motion-b")));
-    const call=await page.evaluate(()=>window.__uiEntranceCalls.find(item=>item.targets.includes("dynamic-motion-a")));
+    const calls=await page.evaluate(()=>window.__uiEntranceCalls.filter(item=>item.targets.some(id=>id.startsWith("dynamic-motion-"))));
+    assert.equal(calls.length,1,"one parent commit produces one entrance call");
+    const [call]=calls;
+    assert.deepEqual(call.targets,["dynamic-motion-a","dynamic-motion-b"]);
     assert.equal(call.options.y,28);
     assert.equal(call.options.stagger,.055);
     assert.match(call.options.key,/^ui-entrance:/);

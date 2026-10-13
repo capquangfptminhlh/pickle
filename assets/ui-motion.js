@@ -80,14 +80,23 @@
     dynamicFrame=requestAnimationFrame(()=>{
       dynamicFrame=0;
       const nodes=[...scheduleEnhance.nodes];scheduleEnhance.nodes.clear();
+      const pending=new Set(),groups=new Map();
+      decorateTables();
       nodes.forEach(element=>{
-        decorateTables();enhance(element);
-        const targets=[];
-        if(element.matches(entranceSelector))targets.push(element);
-        targets.push(...element.querySelectorAll(entranceSelector));
-        const pending=targets.filter(target=>target.dataset.motionReady==="1"&&target.dataset.motionEntered!=="1");
-        pending.forEach(target=>observer.unobserve(target));
-        enter(pending);
+        enhance(element);
+        if(element.matches(entranceSelector))pending.add(element);
+        element.querySelectorAll(entranceSelector).forEach(target=>pending.add(target));
+      });
+      pending.forEach(target=>{
+        if(target.dataset.motionReady!=="1"||target.dataset.motionEntered==="1")return;
+        observer.unobserve(target);
+        const parent=target.parentElement||document.body;
+        if(!groups.has(parent))groups.set(parent,[]);
+        groups.get(parent).push(target);
+      });
+      groups.forEach(targets=>{
+        targets.sort((a,b)=>a===b?0:a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
+        enter(targets);
       });
     });
   }
@@ -260,7 +269,7 @@
     if(reduced)return;
     document.addEventListener("click",e=>{
       const a=e.target.closest("a[href]");
-      if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||a.target==="_blank"||a.hasAttribute("download"))return;
+      if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||String(a.target).toLowerCase()==="_blank"||a.hasAttribute("download"))return;
       const raw=a.getAttribute("href");
       if(!raw||raw.startsWith("#")||raw.startsWith("mailto:")||raw.startsWith("tel:")||raw.startsWith("javascript:"))return;
       const u=new URL(a.href,location.href);
