@@ -62,6 +62,14 @@
 
   function setDisabled(selector,disabled){document.querySelectorAll(selector).forEach(x=>x.disabled=disabled)}
   function activeMatch(){return state.matches.find(m=>m.id===activeId)||null}
+  function enableDirectServerPicker(element,side,serve,server,disabled){
+    element?.querySelectorAll(".lineup-player").forEach((row,index)=>{
+      const number=index+1,name=row.querySelector(".lineup-name")?.textContent||"VĐV";
+      row.dataset.servicePlayer=side;row.dataset.serverNumber=String(number);row.setAttribute("role","button");
+      row.setAttribute("aria-disabled",String(disabled));row.setAttribute("aria-pressed",String(!disabled&&side===serve&&number===server));
+      row.tabIndex=disabled?-1:0;row.title=disabled?"Không thể đổi người giao lúc này":`Chọn ${name} giao bóng · Bên ${side} · Ô ${number}`;
+    });
+  }
 
   function renderScore(){
     const m=activeMatch();
@@ -82,6 +90,8 @@
     $("#refTeamA").textContent=locked?team(m.a):(lineupA?.label||team(m.a));$("#refTeamB").textContent=locked?team(m.b):(lineupB?.label||team(m.b));
     window.PickleTeamLineup?.renderRoster($("#refRosterA"),lineupA,!locked&&serve==="A"?server:0,locked);
     window.PickleTeamLineup?.renderRoster($("#refRosterB"),lineupB,!locked&&serve==="B"?server:0,locked);
+    enableDirectServerPicker($("#refRosterA"),"A",serve,server,locked||awaitingDraw);
+    enableDirectServerPicker($("#refRosterB"),"B",serve,server,locked||awaitingDraw);
     const specialResult=Boolean(m.winner&&m.resultReason);
     const finalScore=m.winner&&!specialResult&&(m.sets||[]).length?m.sets[m.sets.length-1]:null;
     $("#refScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#refScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
@@ -217,6 +227,11 @@
   }
 
   document.addEventListener("click",e=>{
+    const player=e.target.closest("[data-service-player]");
+    if(player&&player.getAttribute("aria-disabled")!=="true"){
+      const m=activeMatch(),name=player.querySelector(".lineup-name")?.textContent||"VĐV";
+      if(m)return action(()=>API.service(m.id,{side:player.dataset.servicePlayer,serverNumber:Number(player.dataset.serverNumber),expectedVersion:m.version}),`Đã chọn ${name} giao bóng.`);
+    }
     const queue=e.target.closest("[data-queue-match]");
     if(queue){e.preventDefault();e.stopPropagation();const m=state.matches.find(x=>x.id===queue.dataset.queueMatch);if(m)return action(()=>API.setCourtState(m.id,{courtState:queue.dataset.queueState,expectedVersion:m.version}),"Đã cập nhật điều phối sân.");}
     const open=e.target.closest("[data-open]");if(open)return showScore(open.dataset.open);
@@ -224,6 +239,10 @@
     const correct=e.target.closest("[data-correct]");if(correct){const m=activeMatch();if(m)return action(()=>API.point(m.id,{side:correct.dataset.correct,delta:Number(correct.dataset.delta),expectedVersion:m.version}));}
     const service=e.target.closest("[data-service]");if(service){const m=activeMatch();if(m)return action(()=>API.service(m.id,{side:service.dataset.service,serverNumber:Number(service.dataset.server),expectedVersion:m.version}));}
     const timeout=e.target.closest("[data-timeout]");if(timeout){const m=activeMatch();if(m)return action(()=>API.timeout(m.id,{side:timeout.dataset.timeout,kind:timeout.dataset.kind,expectedVersion:m.version}),timeout.dataset.kind==="medical"?"Đã ghi medical timeout.":"Đã ghi timeout.");}
+  });
+  document.addEventListener("keydown",e=>{
+    const player=e.target.closest?.("[data-service-player]");
+    if(player&&player.getAttribute("aria-disabled")!=="true"&&(e.key==="Enter"||e.key===" ")){e.preventDefault();player.click()}
   });
 
   $("#refRelayDrawButton").onclick=()=>{const m=activeMatch();if(m)action(()=>API.relayDraw(m.id,{expectedVersion:m.version}),"Đã bốc thăm và áp dụng cùng thứ tự cặp cho hai đội.")};

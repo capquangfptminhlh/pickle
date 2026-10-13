@@ -82,7 +82,7 @@
       avatar.className="lineup-avatar";
       if(player.avatar_url){const image=document.createElement("img");image.src=player.avatar_url;image.alt="";image.loading="lazy";image.decoding="async";avatar.append(image)}
       else{avatar.classList.add("lineup-avatar-fallback");avatar.textContent=initials(player);avatar.setAttribute("aria-hidden","true")}
-      slot.className="lineup-slot";slot.textContent=lineup.relay?(lineup.ready?"Vị trí "+letter:"Chưa xếp"):"VĐV "+(index+1);
+      slot.className="lineup-slot";slot.textContent=lineup.relay?(lineup.ready?"Vị trí "+letter:"Chưa xếp"):"Ô "+(index+1);
       name.className="lineup-name";name.textContent=playerName(player);
       grade.className="lineup-grade";grade.textContent="Trình "+(skill(player)||"Chưa nhập");
       row.append(avatar,name,grade,slot);

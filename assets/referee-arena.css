@@ -150,6 +150,12 @@ html:root body.site-sport.courtside-body.referee-arena :is(.picker-athlete>img,.
 html:root body.site-sport.courtside-body.referee-arena .picker-athlete-fallback{display:grid;place-items:center;background:#e5eee9;color:#254c38;font-size:8px;font-weight:900}
 html:root body.site-sport.courtside-body.referee-arena .picker-athlete>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 html:root body.site-sport.courtside-body.referee-arena .picker-vs>i{align-self:center}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-service-player]{margin:0 -4px;padding:5px 4px;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-service-player]:hover{background:rgba(255,255,255,.06)}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-service-player]:focus-visible{outline:2px solid #d8ff55;outline-offset:2px}
+html:root body.site-sport.courtside-body.referee-arena .team-a .lineup-player[data-service-player][aria-pressed="true"]{background:rgba(188,255,55,.12);border-color:var(--ref-a)}
+html:root body.site-sport.courtside-body.referee-arena .team-b .lineup-player[data-service-player][aria-pressed="true"]{background:rgba(77,208,255,.12);border-color:var(--ref-b)}
+html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-service-player][aria-disabled="true"]{cursor:default}
 
 @media(max-width:520px){
  html:root body.site-sport.courtside-body.referee-arena .picker-side>strong{font-size:13px}

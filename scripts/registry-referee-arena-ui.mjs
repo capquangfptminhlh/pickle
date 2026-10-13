@@ -45,6 +45,13 @@ try{
   assert.equal(await page.locator('#refRosterB .lineup-player').count(),2,'standard doubles shows both athletes on side B');
   assert.equal(await page.locator('.ref-team-roster .lineup-avatar img').count(),2,'score cards use stored athlete avatars');
   assert.deepEqual(await page.locator('.ref-team-roster .lineup-avatar-fallback').allTextContents(),['TA','TH'],'score cards use initials when no avatar exists');
+  assert.deepEqual(await page.locator('#refRosterA .lineup-slot').allTextContents(),['Ô 1','Ô 2'],'athletes expose their initial court slots');
+  assert.equal(await page.locator('#refRosterA [data-service-player="A"][data-server-number="2"]').getAttribute('aria-pressed'),'true','initial server is highlighted on the athlete');
+  await page.locator('#refRosterB [data-service-player="B"][data-server-number="1"]').click();
+  await page.waitForFunction(()=>document.querySelector('#refRosterB [data-server-number="1"]')?.getAttribute('aria-pressed')==='true');
+  assert.equal(f.match().serving_side,'B');assert.equal(f.match().server_number,1);
+  await page.locator('#refRosterA [data-service-player="A"][data-server-number="2"]').click();
+  await page.waitForFunction(()=>document.querySelector('#refRosterA [data-server-number="2"]')?.getAttribute('aria-pressed')==='true');
   assert.match(await page.locator('#refRules').innerText(),/15/);assert.match(await page.locator('#refRules').innerText(),/Cách 2/);assert.match(await page.locator('#refRules').innerText(),/Thắng 2\/3/);
   assert.equal(await page.locator('#refScoreA').innerText(),'0');
   if(process.env.REFEREE_VIDEO)await page.waitForTimeout(400);
@@ -79,6 +86,7 @@ try{
   await page.evaluate(()=>window.motionCalls=[]);await page.locator('#finishMatchBtn').click();await page.locator('#queueLabel').filter({hasText:'HOÀN TẤT'}).waitFor();
   assert.match(await page.locator('#scoreHint').innerText(),/Thắng trận/);assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id==='scoreHint').length),reducedMotion==='reduce'?0:1,'completion banner animates on confirmed finish');
   assert.equal(f.match().winner_team_id,'a');
+  assert.equal(await page.locator('#refRosterA [data-service-player]').first().getAttribute('aria-disabled'),'true','finished matches disable direct server selection');
   assert.equal(await page.locator('#refScoreA').innerText(),'11','finished scoreboard retains final game result');assert.equal(await page.locator('#refScoreB').innerText(),'9');
   await page.evaluate(()=>window.motionCalls=[]);await page.locator('#refreshBtn').click();await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>window.motionCalls.length),0,'unchanged completed match never replays any motion');
   for(const theme of ['light','dark'])for(const width of [320,375,844,1440]){
