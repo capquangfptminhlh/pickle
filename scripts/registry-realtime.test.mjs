@@ -51,3 +51,38 @@ test("overlapping public invalidations queue another fetch so the latest score i
   old(next(1));await new Promise(r=>setImmediate(r));assert.equal(pending.length,1);pending.shift()(next(2));await new Promise(r=>setImmediate(r));
   assert.equal(vm.runInNewContext("state.matches[0].current[0]",context),2);
 });
+
+test("live match animates only a confirmed score change and ignores identical socket snapshots",async()=>{
+  const listeners={},timers=[],calls=[];
+  const match={id:"m<&",version:1,status:"live",a:"a",b:"b",current:[4,3],sets:[],courtId:"c",time:"10:00"};
+  const state=()=>({matches:[{...match,current:[...match.current]}],teams:[{id:"a",name:"Alpha"},{id:"b",name:"Beta"}],divisions:[{id:"d",tournamentId:"t"}],tournaments:[{id:"t",name:"Open"}],courts:[{id:"c",name:"Court 1"}]});
+  const nodes=new Map(),node=()=>({hidden:false,textContent:"",innerHTML:"",className:"",href:"",dataset:{},classList:{add(){},remove(){}}});
+  const document={title:"",querySelector(selector){if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector)}};
+  const context={console,URLSearchParams,location:{search:"?id=m%3C%26"},document,window:{PickleAPI:{publicState:async()=>state()},io:()=>({on:(name,fn)=>listeners[name]=fn}),PickleMotion:{scoreChange:(...args)=>calls.push(args)}},setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout(){},Date,Number,Boolean,String};
+  vm.runInNewContext(source("assets/match-live.js"),context);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,0,"initial state is static");
+  const update=async()=>{listeners["match:update"]({id:match.id});await timers.at(-1)();await new Promise(resolve=>setImmediate(resolve))};
+  await update();
+  assert.equal(calls.length,0,"same persisted match version does not replay");
+  match.current[0]=5;match.version++;await update();
+  assert.equal(calls.length,1,"one changed score produces one score motion");
+  assert.equal(calls[0][0],nodes.get("#matchScoreA"),"only the changed side is animated");
+  assert.equal(nodes.get("#matchScoreA").textContent,"5","confirmed score remains final text");
+  assert.equal(nodes.get("#matchScoreA").dataset.motionKey,"match:m<&:score:A","score motion key keeps the real match ID");
+});
+test("live match derives a stable persisted signature when the response has no version",async()=>{
+  const listeners={},timers=[],calls=[];
+  const match={id:"legacy",status:"live",a:"a",b:"b",current:[7,6],sets:[[11,9]],courtId:"c",time:"10:30"};
+  const state=()=>({matches:[{...match,current:[...match.current],sets:match.sets.map(set=>[...set])}],teams:[],divisions:[],tournaments:[],courts:[]});
+  const nodes=new Map(),node=()=>({hidden:false,textContent:"",innerHTML:"",className:"",href:"",dataset:{},classList:{add(){},remove(){}}});
+  const document={title:"",querySelector(selector){if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector)}};
+  const context={console,URLSearchParams,location:{search:"?id=legacy"},document,window:{PickleAPI:{publicState:async()=>state()},io:()=>({on:(name,fn)=>listeners[name]=fn}),PickleMotion:{scoreChange:(...args)=>calls.push(args)}},setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout(){},Date,Number,Boolean,String};
+  vm.runInNewContext(source("assets/match-live.js"),context);await new Promise(resolve=>setImmediate(resolve));
+  match.current[1]=7;listeners["match:update"]({id:"legacy"});await timers.at(-1)();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,1,"persisted scores provide a change signature without a version field");
+  assert.equal(calls[0][0],nodes.get("#matchScoreB"));
+  assert.equal(nodes.get("#matchScoreB").textContent,"7");
+  listeners["match:update"]({id:"legacy"});await timers.at(-1)();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,1,"identical unversioned snapshots do not replay");
+});

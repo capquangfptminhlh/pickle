@@ -2,6 +2,7 @@
   const API=window.PickleAPI,$=s=>document.querySelector(s);
   let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false,refreshVersion=0;
   const announced=new Set();
+  const renderedPlacements=new Map();
   let voiceEnabled=localStorage.getItem("pickle-board-voice")==="1";
 
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
@@ -57,13 +58,13 @@
 
   function card(c){
     const m=activeForCourt(c.id),next=nextForCourt(c.id,m);
-    if(!m)return '<article class="tv-court"><header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><b class="tv-state">TRỐNG</b></header><div class="tv-match"><div class="tv-team"><small>TRẠNG THÁI</small><strong>Sẵn sàng nhận trận</strong></div><div class="tv-vs">🏟</div><div class="tv-team right"><small>TIẾP THEO</small><strong>'+esc(next?team(next.a)+" vs "+team(next.b):"Chưa xếp")+'</strong></div></div><footer class="tv-court-foot"><span>Pickleup.vn</span><b>COURT READY</b><span></span></footer></article>';
+    if(!m)return '<article data-motion-key="court:'+esc(c.id)+'" class="tv-court"><header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><b class="tv-state">TRỐNG</b></header><div class="tv-match"><div class="tv-team"><small>TRẠNG THÁI</small><strong>Sẵn sàng nhận trận</strong></div><div class="tv-vs">🏟</div><div class="tv-team right"><small>TIẾP THEO</small><strong>'+esc(next?team(next.a)+" vs "+team(next.b):"Chưa xếp")+'</strong></div></div><footer class="tv-court-foot"><span>Pickleup.vn</span><b>COURT READY</b><span></span></footer></article>';
     const q=m.status==="live"?"live":m.status==="done"?"done":m.courtState||"scheduled",meta=qMeta(q),isLive=m.status==="live";
     const d=division(m),serve=m.servingSide||"A",server=Number(m.serverNumber||2),mode=d?.scoringMode||"side_out";
     const score=isLive?'<div class="tv-score"><b>'+Number(m.current?.[0]||0)+'</b><i>:</i><b>'+Number(m.current?.[1]||0)+'</b></div>':'<div class="tv-vs">VS</div>';
     const serveText=isLive?'<span class="serve-dot"></span>'+(serve==="A"?matchTeam(m,m.a):matchTeam(m,m.b))+(mode==="side_out"?" · S"+server:""):'';
     const qr=isTournamentPublic()?'<button class="tv-qr" type="button" data-match-qr="'+esc(m.id)+'">▦ QR</button>':'';
-    return '<article class="tv-court '+(isLive?"live":"")+'">'+
+    return '<article data-motion-key="match:'+esc(m.id)+'" class="tv-court '+(isLive?"live":"")+'">'+
       '<header class="tv-court-head"><div><span>SÂN</span><h2>'+esc(c.name)+'</h2></div><div class="tv-head-actions"><b class="tv-state '+meta[1]+'">'+meta[0]+'</b>'+qr+'</div></header>'+
       '<div class="tv-match"><div class="tv-team"><small>ĐỘI A</small><strong>'+esc(matchTeam(m,m.a))+'</strong>'+matchRoster(m,m.a)+'</div>'+score+'<div class="tv-team right"><small>ĐỘI B</small><strong>'+esc(matchTeam(m,m.b))+'</strong>'+matchRoster(m,m.b)+'</div></div>'+
       '<footer class="tv-court-foot"><span>'+esc(stage(m))+'</span><b>'+serveText+'</b><span class="tv-next">'+(next?"Tiếp: "+esc(matchTeam(next,next.a))+" vs "+esc(matchTeam(next,next.b)):"")+'</span></footer></article>';
@@ -99,7 +100,23 @@
     $("#boardMeta").textContent=t?[(t.venue||""),(t.date||"")].filter(Boolean).join(" · "):(internalMode?"Không có giải trong tài khoản này":"Chưa có giải công khai");
     $("#dataMode").textContent=internalMode?"NỘI BỘ":"CÔNG KHAI";$("#dataMode").classList.toggle("internal",internalMode);
     const cs=courts(),grid=$("#courtGrid"),empty=$("#boardEmpty");
+    const oldPositions=new Map([...grid.querySelectorAll("[data-motion-key]")].map(el=>[el.dataset.motionKey,el.getBoundingClientRect()]));
     grid.innerHTML=cs.map(card).join("");empty.hidden=cs.length>0;
+    const targets=[],changedIds=[];
+    for(const m of matches()){
+      const signature=JSON.stringify([m.courtId||null,m.scheduledAt||m.scheduled_at||m.time||""]),previous=renderedPlacements.get(m.id);
+      if(previous&&previous.signature!==signature){
+        const key="match:"+m.id,element=[...grid.querySelectorAll("[data-motion-key]")].find(el=>el.dataset.motionKey===key),position=oldPositions.get(key);
+        if(element&&position){targets.push({element,position});changedIds.push(m.id)}
+      }
+      renderedPlacements.set(m.id,{signature});
+    }
+    if(targets.length){
+      const before=new Map(targets.map(({element,position})=>[element,position])),elements=targets.map(item=>item.element);
+      elements.forEach(el=>el.dataset.motionState="travel");
+      window.PickleMotion?.flip?.(before,elements,"court-reassignment-"+changedIds.join("|"));
+      setTimeout(()=>elements.forEach(el=>{if(el.dataset.motionState==="travel")delete el.dataset.motionState}),560);
+    }
     $("#boardLoginLink").hidden=internalMode||Boolean(state.tournaments.length);
     $("#boardEmptyTitle").textContent=state.tournaments.length?"Chưa có lịch sân":(internalMode?"Chưa có giải trong tài khoản":"Chưa có giải công khai");
     $("#boardEmptyText").textContent=state.tournaments.length?"Hãy xếp sân cho các trận; màn hình sẽ tự cập nhật realtime.":(internalMode?"Tạo giải hoặc kiểm tra quyền tài khoản BTC.":"Đăng nhập BTC để xem trước giải nội bộ, hoặc bật Công khai cho giải.");

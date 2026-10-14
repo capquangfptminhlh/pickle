@@ -496,3 +496,7 @@ html body.admin-sport .live-pill.is-idle{background:transparent!important;color:
   html body.site-sport.board-body .board-tools{flex:0 1 auto;min-width:0;flex-wrap:wrap!important;justify-content:flex-end;gap:8px!important}
   html body.site-sport.board-body .board-tools select{max-width:230px;text-overflow:ellipsis}
 }
+body.site-sport:not(.admin-sport) #checkinTeam[data-motion-state="checked-in"]{position:relative;isolation:isolate;overflow:hidden}
+body.site-sport:not(.admin-sport) #checkinTeam[data-motion-state="checked-in"][data-motion-success="1"]::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 25%,rgba(90,231,151,.34) 48%,rgba(255,255,255,.48) 52%,transparent 74%);transform:translateX(-110%);animation:checkin-identity-sweep .72s ease-out forwards}
+@keyframes checkin-identity-sweep{to{transform:translateX(110%)}}
+@media(prefers-reduced-motion:reduce){body.site-sport:not(.admin-sport) #checkinTeam[data-motion-state="checked-in"][data-motion-success="1"]::after{animation:none;display:none}}

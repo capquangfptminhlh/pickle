@@ -2,6 +2,7 @@
   const API=window.PickleAPI,$=s=>document.querySelector(s);
   const id=new URLSearchParams(location.search).get("id")||"";
   let state=null,refreshTimer=null,refreshVersion=0;
+  const renderedMatches=new Map();
   const team=x=>state?.teams?.find(t=>t.id===x)?.name||(x==="TBD"||!x?"Chưa xác định":x);
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
 
@@ -22,7 +23,19 @@
     const lineupA=window.PickleTeamLineup?.match(m.a,d,m.current?.[0],m.current?.[1],state,m),lineupB=window.PickleTeamLineup?.match(m.b,d,m.current?.[0],m.current?.[1],state,m);
     $("#matchTeamA").textContent=locked?team(m.a):(lineupA?.label||team(m.a));$("#matchTeamB").textContent=locked?team(m.b):(lineupB?.label||team(m.b));
     const specialResult=Boolean(m.winner&&m.resultReason),finalScore=m.winner&&!specialResult&&m.sets?.length?m.sets[m.sets.length-1]:null;
-    $("#matchScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:Number(m.current?.[0]||0);$("#matchScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:Number(m.current?.[1]||0);
+    const scoreA=String(specialResult?"—":finalScore?finalScore[0]:Number(m.current?.[0]||0)),scoreB=String(specialResult?"—":finalScore?finalScore[1]:Number(m.current?.[1]||0));
+    const scoreAEl=$("#matchScoreA"),scoreBEl=$("#matchScoreB");
+    scoreAEl.textContent=scoreA;scoreBEl.textContent=scoreB;
+    scoreAEl.dataset.motionKey="match:"+m.id+":score:A";scoreBEl.dataset.motionKey="match:"+m.id+":score:B";
+    const signature=JSON.stringify([m.version??null,scoreA,scoreB,m.sets||[],m.winner||null,m.status||""]),previous=renderedMatches.get(m.id);
+    if(previous&&previous.signature!==signature){
+      for(const [element,oldScore,nextScore] of [[scoreAEl,previous.scoreA,scoreA],[scoreBEl,previous.scoreB,scoreB]])if(oldScore!==nextScore&&Number.isFinite(Number(oldScore))&&Number.isFinite(Number(nextScore))){
+        element.dataset.motionState="score";
+        window.PickleMotion?.scoreChange?.(element,Number(nextScore)-Number(oldScore));
+        setTimeout(()=>{if(element.dataset.motionState==="score")delete element.dataset.motionState},420);
+      }
+    }
+    renderedMatches.set(m.id,{signature,scoreA,scoreB});
     $("#setList").innerHTML=(m.sets||[]).length?(m.sets||[]).map((s,i)=>'<span>Set '+(i+1)+': '+s[0]+'–'+s[1]+'</span>').join(""):'<span>Chưa có set hoàn tất</span>';
     const serve=$("#serveInfo");
     if(m.winner){serve.hidden=false;serve.textContent=team(m.winner)+" · thắng trận"}

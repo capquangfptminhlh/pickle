@@ -48,5 +48,25 @@ try{
       assert.deepEqual(errors,[]);console.log('PASS',actor,width,mode,'real Worker scheduling');
     }finally{await page.close();f.db.close()}
   }
+  const page=await browser.newPage(),boardErrors=[];page.on('pageerror',error=>boardErrors.push(error.message));
+  await page.goto(`http://127.0.0.1:${server.address().port}/court-board.html`);
+  await page.setContent('<select id="tournamentSelect"></select><div id="boardTournament"></div><div id="boardMeta"></div><div id="dataMode"></div><div id="courtGrid"></div><div id="boardEmpty"></div><a id="boardLoginLink"></a><div id="boardEmptyTitle"></div><div id="boardEmptyText"></div><div id="callTicker"></div><div id="announceNowBtn"></div><div id="boardConnection"></div><div id="boardClock"></div><button id="voiceBtn"></button><button id="fullscreenBtn"></button><dialog id="qrDialog"><div id="qrMatchTitle"></div><div id="qrImage"></div><a id="qrOpenLink"></a><button id="qrCloseBtn"></button></dialog>');
+  const boardState={tournaments:[{id:'tour',name:'Open',publicVisible:true}],divisions:[{id:'div',tournamentId:'tour',name:'Open',scoringMode:'side_out'}],courts:[{id:'c1',tournamentId:'tour',name:'Sân 1'},{id:'c2',tournamentId:'tour',name:'Sân 2'}],teams:[{id:'a',name:'Alpha'},{id:'b',name:'Beta'}],matches:[{id:'match<&',divisionId:'div',a:'a',b:'b',status:'live',current:[4,3],sets:[],courtId:'c1',scheduledAt:'2026-10-14T10:00:00Z',time:'10:00'}]};
+  await page.evaluate(()=>{window.__boardState=null;window.__boardFlips=[];window.__boardSockets={};window.PickleMotion={flip:(...args)=>window.__boardFlips.push(args)};window.PickleTeamLineup={match:()=>null};window.io=()=>({on:(name,fn)=>window.__boardSockets[name]=fn});window.PickleAPI={optionalAdminState:async()=>null,publicState:async()=>JSON.parse(JSON.stringify(window.__boardState)),publicMatchQr:async()=>({})};window.__boardState=window.__seedState});
+  await page.evaluate(state=>window.__boardState=state,boardState);
+  await page.addScriptTag({path:resolve(root,'assets/court-board.js')});
+  await page.waitForTimeout(250);
+  assert.deepEqual(boardErrors,[],'court board renders without browser errors');
+  assert.equal(await page.locator('#courtGrid .tv-court').count(),2,'court cards render from confirmed state');
+  assert.equal(await page.evaluate(()=>window.__boardFlips.length),0,'initial board does not animate movement');
+  await page.evaluate(()=>window.__boardSockets['match:update']?.({id:'match<&'}));await page.waitForTimeout(240);
+  assert.equal(await page.evaluate(()=>window.__boardFlips.length),0,'identical snapshot does not replay movement');
+  await page.evaluate(()=>{window.__boardState.matches[0].courtId='c2';window.__boardState.matches[0].scheduledAt='2026-10-14T10:20:00Z';window.__boardState.matches[0].time='10:20';window.__boardSockets['match:update']?.({id:'match<&'})});await page.waitForTimeout(240);
+  assert.equal(await page.evaluate(()=>window.__boardFlips.length),1,'confirmed court/time reassignment flips once');
+  assert.equal(await page.evaluate(()=>document.querySelectorAll('#courtGrid [data-motion-key]').length),2,'court cards have stable motion keys');
+  assert.equal(await page.locator('#courtGrid .tv-court').nth(1).innerText().then(x=>x.includes('Alpha')),true,'moved match lands on its confirmed court');
+  await page.evaluate(()=>window.__boardSockets['match:update']?.({id:'match<&'}));await page.waitForTimeout(240);
+  assert.equal(await page.evaluate(()=>window.__boardFlips.length),1,'repeated assignment does not replay movement');
+  await page.close();console.log('COURT_MOTION_UI_OK');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve))}
 console.log('COURT_SCHEDULING_UI_OK');
