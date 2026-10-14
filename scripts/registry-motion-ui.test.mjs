@@ -36,6 +36,7 @@ async function withPage(options,fn){
     const page=await context.newPage(),errors=[];
     page.setDefaultTimeout(7000);
     page.on("pageerror",e=>errors.push(e.message));
+    if(blockGsap){page.__gsapRequests=0;page.on("request",request=>{if(request.url().includes("gsap-3.15.0.min.js"))page.__gsapRequests++})}
     await page.addInitScript(()=>localStorage.setItem("pickleup-theme-v2","light"));
     if(motionSpy)await page.addInitScript(()=>{
       window.__motionCalls=[];
@@ -65,11 +66,6 @@ async function withPage(options,fn){
       await page.addInitScript(state=>localStorage.setItem("pickle-local-state-v1",JSON.stringify(state)),state);
     }
     await page.goto(base+path,{waitUntil:"domcontentloaded"});
-    if(blockGsap)await page.evaluate(async()=>{
-      const load=src=>new Promise(resolve=>{const script=document.createElement("script");script.src=src;script.onload=resolve;script.onerror=resolve;document.head.appendChild(script)});
-      await load("/assets/vendor/gsap-3.15.0.min.js");
-      await load("/assets/motion-system.js");
-    });
     await page.locator(admin?".club-home-hero":".public-header").first().waitFor();
     await page.evaluate(()=>document.fonts.ready);
     await page.waitForTimeout(350);
@@ -308,6 +304,8 @@ test("fallback entry finishes without retaining a whole-page animation",async()=
 
 test("motion core keeps navigation usable when GSAP is unavailable",async()=>{
   await withPage({blockGsap:true},async page=>{
+    assert.equal(page.__gsapRequests,1,"the fallback page makes only the normal initial GSAP request");
+    assert.equal(await page.evaluate(()=>Boolean(window.gsap)),false,"GSAP stays absent for the entire page lifetime");
     assert.equal(await page.evaluate(()=>window.PickleMotion?.ready),false);
     const fallback=await page.evaluate(()=>{
       const target=document.createElement("div");
@@ -337,7 +335,7 @@ test("ranking update flips reordered rows, counts confirmed decimals, and celebr
     assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-a']").getAttribute("data-motion-state"),null,"initial leader is not celebrated as a promotion");
     await page.evaluate(()=>{
       window.__leaderTransitions=0;
-      new MutationObserver(records=>{window.__leaderTransitions+=records.filter(r=>r.attributeName==="data-motion-state"&&r.target.dataset.motionState==="leader").length}).observe(document.querySelector("#rankingRows"),{subtree:true,attributes:true,attributeFilter:["data-motion-state"]});
+      new MutationObserver(records=>{window.__leaderTransitions+=records.filter(r=>r.attributeName==="data-motion-state"&&r.target.dataset.motionState==="leader").length}).observe(document.querySelector(".ranking-app-shell"),{subtree:true,attributes:true,attributeFilter:["data-motion-state"]});
     });
     records[1].rating=6.25;
     await page.evaluate(()=>window.__testSocketHandlers["public:state"]?.({}));
@@ -348,9 +346,12 @@ test("ranking update flips reordered rows, counts confirmed decimals, and celebr
     assert.equal(callsAfterUpdate.filter(name=>name==="flip").length,1);
     assert.ok(callsAfterUpdate.includes("count"),"confirmed decimal rating animates with count");
     assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-b'] .ranking-app-rating").textContent(),"6.25");
-    assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-b']").getAttribute("data-motion-state"),"leader");
+    const promotedRow=page.locator("#rankingRows [data-motion-key='player:player-b']"),promotedPodium=page.locator("#rankingPodium [data-motion-key='player:player-b']");
+    assert.equal(await promotedPodium.getAttribute("data-motion-state"),"leader","podium is the canonical promotion sweep when present");
+    assert.equal(await promotedRow.getAttribute("data-motion-state"),null,"the ranking row does not replay the same promotion sweep");
     await page.waitForTimeout(30);
     assert.equal(await page.evaluate(()=>window.__leaderTransitions),1,"new leader is swept once after update");
+    assert.equal(await page.locator(".ranking-app-shell [data-motion-state='leader']").count(),1,"a single canonical podium or row receives the promotion state");
     await page.evaluate(()=>window.__testSocketHandlers["public:state"]?.({}));
     await page.waitForTimeout(150);
     assert.equal(await page.evaluate(()=>window.__motionCalls.filter(c=>c.name==="flip").length),1,"identical state does not replay reorder motion");
@@ -393,6 +394,11 @@ for(const width of [375,844,1440])for(const mode of [{motion:"no-preference"},{m
   test(`public cards remain visible at ${width}px with ${mode.blockGsap?"missing GSAP":mode.motion+" motion"}`,async()=>{
     await withPage({width,...mode},async page=>{
       const card=page.locator("#publicTours .tour-card").first();await card.waitFor();
+      if(mode.blockGsap){
+        assert.equal(page.__gsapRequests,1,"no test helper retry loads GSAP");
+        assert.equal(await page.evaluate(()=>Boolean(window.gsap)),false);
+        assert.equal(await page.evaluate(()=>window.PickleMotion?.ready),false);
+      }
       await page.waitForTimeout(1050);
       assert.equal(await card.evaluate(el=>getComputedStyle(el).opacity),"1");
       assert.equal(await card.evaluate(el=>getComputedStyle(el).visibility),"visible");

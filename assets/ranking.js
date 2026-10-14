@@ -82,7 +82,8 @@ function render(confirmed=false){
  if(hasRendered&&confirmed&&leader&&previousLeader&&leader!==previousLeader){
    const leaderRow=rendered.find(el=>el.dataset.motionKey===leader);
    const leaderPodium=[...document.querySelectorAll("#rankingPodium [data-motion-key]")].find(el=>el.dataset.motionKey===leader);
-   for(const el of [leaderRow,leaderPodium].filter(Boolean)){el.dataset.motionState="leader";setTimeout(()=>{if(el.dataset.motionState==="leader")delete el.dataset.motionState},1000)}
+   const promotionTarget=leaderPodium||leaderRow;
+   if(promotionTarget){promotionTarget.dataset.motionState="leader";setTimeout(()=>{if(promotionTarget.dataset.motionState==="leader")delete promotionTarget.dataset.motionState},1000)}
  }
  previousLeader=leader;hasRendered=true;
 }
