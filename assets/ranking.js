@@ -1,4 +1,4 @@
-let players=[],mode="player",hasRendered=false,previousLeader=null,committedKeys=new Set();const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let players=[],mode="player",hasRendered=false,previousLeader=null,renderedRatings=new Map(),committedKeys=new Set(),activeCountKeys=new Set(),activeCountTimers=new Map(),lastConfirmedSignature="";const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const initials=name=>(name||"P").split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase();
 const avatar=(p,cls="ranking-avatar")=>p.avatar_url
@@ -40,8 +40,10 @@ function podiumCard(item,index,rank=index+1){
 }
 function render(confirmed=false){
  const rows=currentRows();
+ const confirmedSignature=JSON.stringify({mode,search:$("#rankSearch").value||"",club:$("#rankClub").value||"",gender:$("#rankGender")?.value||"",rows});
+ if(confirmed&&activeCountKeys.size&&confirmedSignature===lastConfirmedSignature)return;
  const rowHost=$("#rankingRows"),oldRows=[...rowHost.querySelectorAll("[data-motion-key]")],before=new Map(oldRows.map(el=>[el.dataset.motionKey,el.getBoundingClientRect()]));
- const oldOrder=oldRows.map(el=>el.dataset.motionKey),oldRatings=new Map(oldRows.map(el=>[el.dataset.motionKey,Number.parseFloat(el.querySelector(".ranking-app-rating")?.textContent)||0]));
+ const oldOrder=oldRows.map(el=>el.dataset.motionKey),oldRatings=new Map(oldRows.map(el=>[el.dataset.motionKey,renderedRatings.get(el.dataset.motionKey)]));
  const keys=rows.map(itemKey),leader=keys[0]||null;
  $$(".ranking-tabs button").forEach(b=>{const active=b.dataset.rankMode===mode;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active))});
  $("#rankClub").hidden=mode!=="player";
@@ -74,9 +76,12 @@ function render(confirmed=false){
    const key=row.dataset.motionKey,rating=Number(rows.find(item=>itemKey(item)===key)?.rating||0),old=oldRatings.get(key);
    if(confirmed&&old!==undefined&&old!==rating){
      const value=row.querySelector(".ranking-app-rating");
+     clearTimeout(activeCountTimers.get(key));
+     activeCountKeys.add(key);
      window.PickleMotion?.count?.(value,old,rating);
-     setTimeout(()=>{if(value?.isConnected)value.textContent=fmtRating(rating)},520);
+     activeCountTimers.set(key,setTimeout(()=>{activeCountKeys.delete(key);activeCountTimers.delete(key);if(value?.isConnected)value.textContent=fmtRating(rating)},520));
    }
+   if(confirmed)renderedRatings.set(key,rating);
    committedKeys.add(key);
  }
  if(hasRendered&&confirmed&&leader&&previousLeader&&leader!==previousLeader){
@@ -85,6 +90,7 @@ function render(confirmed=false){
    const promotionTarget=leaderPodium||leaderRow;
    if(promotionTarget){promotionTarget.dataset.motionState="leader";setTimeout(()=>{if(promotionTarget.dataset.motionState==="leader")delete promotionTarget.dataset.motionState},1000)}
  }
+ if(confirmed)lastConfirmedSignature=confirmedSignature;
  previousLeader=leader;hasRendered=true;
 }
 async function load(){
