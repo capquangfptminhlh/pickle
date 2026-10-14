@@ -346,7 +346,8 @@ test("ranking update flips reordered rows, counts confirmed decimals, and celebr
     await page.waitForTimeout(30);
     assert.equal(await page.evaluate(()=>window.__leaderTransitions),1,"new leader is swept once after update");
     assert.equal(await page.locator(".ranking-app-shell [data-motion-state='leader']").count(),1,"a single canonical podium or row receives the promotion state");
-    await page.evaluate(()=>{window.__activeRatingNode=document.querySelector("#rankingRows [data-motion-key='player:player-b'] .ranking-app-rating");window.__testSocketHandlers["public:state"]?.({})});
+    await page.evaluate(async()=>{window.__activeRatingNode=document.querySelector("#rankingRows [data-motion-key='player:player-b'] .ranking-app-rating");await window.__testSocketHandlers["public:state"]?.({})});
+    assert.equal(calls,3,"duplicate socket reload's publicPlayers response completed before checking the active count");
     assert.equal(await page.evaluate(()=>window.__motionCalls.filter(c=>c.name==="count").length),1,"identical realtime state during the active count does not restart it");
     assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-b'] .ranking-app-rating").evaluate(el=>el===window.__activeRatingNode),true,"duplicate confirmed state preserves the active count node");
     await page.waitForTimeout(600);
