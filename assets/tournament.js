@@ -11,7 +11,7 @@ function unlockTournamentScroll(){
 unlockTournamentScroll();
 addEventListener("pageshow",unlockTournamentScroll);
 addEventListener("visibilitychange",()=>{if(!document.hidden)unlockTournamentScroll()});
-let state=null,sponsors=[],realtimeConnected=false,realtimeRefreshBusy=false;const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
+let state=null,sponsors=[],realtimeConnected=false,realtimeRefreshBusy=false;const enteredTournamentCards=new Set();const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const team=x=>state?.teams.find(t=>t.id===x)?.name||"Chưa xác định";
 const teamPlayers=id=>(state?.teamPlayers?.[id]||[]).map(pid=>state?.players?.find(p=>p.id===pid)).filter(Boolean);
@@ -30,6 +30,7 @@ const detailIcon=name=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
   pin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'
 }[name]||'')+'</svg>';
 function empty(icon,title,copy){return '<div class="app-empty-card"><span>'+icon+'</span><b>'+title+'</b><small>'+copy+'</small></div>'}
+function animateNewTournamentCards(){const fresh=[];for(const el of document.querySelectorAll("[data-motion-key]")){const key=el.dataset.motionKey;el.dataset.motionReady="1";el.dataset.motionEntered="1";if(!key||enteredTournamentCards.has(key))continue;enteredTournamentCards.add(key);fresh.push(el)}if(fresh.length)window.PickleMotion?.entrance?.(fresh,{key:"tournament-page-cards-"+fresh.map(el=>el.dataset.motionKey).join("|")})}
 function render(){
  if(!state)return;const t=state.tournaments.find(x=>x.id===id);
  if(!t){
@@ -91,7 +92,7 @@ function render(){
        '<div class="tournament-group-list">'+sorted.map((x,rowIndex)=>{
          const d=divs.find(v=>v.id===x.divisionId),ps=teamPlayers(x.id),avg=ps.length?ps.reduce((s,p)=>s+Number(p.rating||0),0)/ps.length:null;
          const athletes=ps.length?'<div class="tour-athlete-list">'+ps.map(athleteChip).join("")+'</div>':'<small class="tour-no-athlete">Chưa có hồ sơ VĐV/avatar</small>';
-         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
+         return '<article data-motion-key="team:'+esc(x.id)+'" class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
        }).join("")+'</div></section>';
    }
    const groupKeys=existingGroups.length?existingGroups:["__ungrouped__"];
@@ -103,7 +104,7 @@ function render(){
        '<div class="tournament-group-list">'+rows.map((x,rowIndex)=>{
          const d=divs.find(v=>v.id===x.divisionId),ps=teamPlayers(x.id),avg=ps.length?ps.reduce((s,p)=>s+Number(p.rating||0),0)/ps.length:null;
          const athletes=ps.length?'<div class="tour-athlete-list">'+ps.map(athleteChip).join("")+'</div>':'<small class="tour-no-athlete">Chưa có hồ sơ VĐV/avatar</small>';
-         return '<article class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
+         return '<article data-motion-key="team:'+esc(x.id)+'" class="tournament-team-row"><span class="team-seed">'+(x.seed||rowIndex+1)+'</span><div class="tour-team-main"><div class="tour-team-title"><b>'+esc(x.name)+'</b>'+(avg!==null?'<span>TB '+fmtRating(avg)+'</span>':'')+'</div><small class="tour-team-meta">'+esc(x.club||"Tự do")+(divs.length>1&&d?' • '+esc(d.name):'')+'</small>'+athletes+'</div></article>';
        }).join("")+'</div></section>';
    }).join("");
  })()||empty("👥","Chưa có đội / cặp tham dự","Danh sách sẽ xuất hiện khi BTC thêm đội."); const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5; const ordered=[...matches].sort((a,b)=>queueRank(a)-queueRank(b)||String(a.time).localeCompare(String(b.time)));
@@ -123,7 +124,7 @@ function render(){
    const cards=rows.map((m,mi)=>{
      const statusClass=m.status==="live"?"is-live":(m.status==="done"||m.status==="completed"?"is-done":"is-wait");
      const queueText=m.status==="live"?'<span class="live-dot"></span> Đang diễn ra':m.status==="done"||m.status==="completed"?'✓ Đã kết thúc':m.courtState==="warming_up"?'🔥 Đang khởi động':m.courtState==="on_deck"?'⏭ On deck':m.courtState==="called"?'📣 Đang gọi VĐV':'◷ Sắp diễn ra';
-     return '<article class="court-match-card '+statusClass+'" style="--match-delay:'+((ci*90)+(mi*45))+'ms"><div class="court-match-meta"><span><b>'+esc(m.time||"--:--")+'</b> • '+esc(window.PickleBracket?.stageLabel(m)||m.stage||"Trận đấu")+'</span>'+badge(m.status)+'</div>'+courtTeamRow(m,0)+courtTeamRow(m,1)+'<footer>'+queueText+'</footer></article>';
+     return '<article data-motion-key="match:'+esc(m.id)+'" class="court-match-card '+statusClass+'" style="--match-delay:'+((ci*90)+(mi*45))+'ms"><div class="court-match-meta"><span><b>'+esc(m.time||"--:--")+'</b> • '+esc(window.PickleBracket?.stageLabel(m)||m.stage||"Trận đấu")+'</span>'+badge(m.status)+'</div>'+courtTeamRow(m,0)+courtTeamRow(m,1)+'<footer>'+queueText+'</footer></article>';
    }).join("");
    const empty='<div class="court-empty-slot"><span>🏟</span><b>Sân đang trống</b><small>Chưa có trận được xếp</small></div>';
    return '<section class="court-board court-tone-'+((ci%4)+1)+'" style="--court-delay:'+(ci*70)+'ms"><header class="court-board-head"><div><span>SÂN</span><h3>Sân '+esc(court)+'</h3></div><b>'+(liveCount?'● '+liveCount+' LIVE':rows.length+' trận')+'</b></header><div class="court-match-stack">'+(cards||empty)+'</div></section>';
@@ -155,6 +156,7 @@ function render(){
  requestAnimationFrame(()=>{requestAnimationFrame(drawBracketConnectors)});
  const relevant=sponsors.filter(s=>!s.tournament_id||s.tournament_id===t.id);
  $("#tourSponsors").innerHTML=relevant.map(s=>'<a class="public-sponsor" href="'+esc(safeHttps(s.website_url))+'" '+(safeHttps(s.website_url)!=="#"?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có nhà tài trợ công khai.</span>';
+ animateNewTournamentCards();
 }
 function drawBracketConnectors(){
   const host=document.querySelector("#tourBracket");

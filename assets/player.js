@@ -19,27 +19,33 @@ addEventListener("focus",unlockPlayerScroll);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)unlockPlayerScroll()});
 const $=s=>document.querySelector(s);
 const id=new URLSearchParams(location.search).get('id');
+const enteredPlayerCards=new Set();let previousPlayerMetrics=null;
 const esc=s=>String(s??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
 const fmtDate=v=>v?new Date(v).toLocaleDateString('vi-VN'):'—';
 const initials=name=>(name||'P').split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase();
 const fmtRating=v=>{const n=Number(v||0),r=Math.round(n*100)/100;return r%1===0?r.toFixed(1):r.toString()};
+function animateNewPlayerCards(){const fresh=[];for(const el of document.querySelectorAll("[data-motion-key]")){const key=el.dataset.motionKey;el.dataset.motionReady="1";el.dataset.motionEntered="1";if(!key||enteredPlayerCards.has(key))continue;enteredPlayerCards.add(key);fresh.push(el)}if(fresh.length)window.PickleMotion?.entrance?.(fresh,{key:"player-cards-"+fresh.map(el=>el.dataset.motionKey).join("|")})}
 function avatarHtml(url,name,cls='mini-avatar'){return url?'<img class="'+cls+'" src="'+esc(url)+'" alt="'+esc(name)+' loading="lazy" decoding="async">':'<span class="'+cls+' avatar-fallback">'+esc(initials(name))+'</span>';}
 function scoreLabel(m){return !m.sets?.length?'—':m.sets.map(s=>s.join('–')).join(' / ');}
 function render(data){
   const p=data.profile,s=data.stats;
+  const priorMetrics=previousPlayerMetrics;
   document.title=p.fullName+' | Pickle Tour';
   $('#playerName').textContent=p.fullName;
   $('#playerMeta').textContent=[p.nickname?'"'+p.nickname+'"':null,p.clubName,p.clubCity].filter(Boolean).join(' • ')||'VĐV tự do';
-  $('#playerRating').textContent=fmtRating(p.rating);
+  $('#playerRating').textContent=fmtRating(p.rating);$('#playerRating').dataset.motionKey='player:'+esc(p.id||id);
   const av=$('#playerAvatar');
   if(p.avatarUrl){av.innerHTML='<img src="'+esc(p.avatarUrl)+'" alt="'+esc(p.fullName)+'">';}else{av.textContent=initials(p.fullName);}
   $('#playerTags').innerHTML=(p.dominantHand?'<span class="badge blue">'+(p.dominantHand==='left'?'Tay trái':'Tay phải')+'</span>':'')+(p.gender?'<span class="badge done">'+(p.gender==='male'?'Nam':p.gender==='female'?'Nữ':'Khác')+'</span>':'');
   $('#playerStats').innerHTML=[['Trận',s.matches],['Thắng',s.wins],['Thua',s.losses],['Tỉ lệ thắng',Number(s.matches)?s.winRate+'%':'—'],['Điểm ghi',s.pointsFor],['Hiệu số',Number(s.matches)?(s.diff>0?'+':'')+s.diff:'—']].map(x=>'<div class="player-stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('');
-  $('#matchHistory').innerHTML=data.matches.length?data.matches.map(m=>'<article class="player-match '+(m.won?'won':m.lost?'lost':'')+'"><div class="player-match-top"><div><b>'+esc(m.tournamentName)+'</b><small>'+esc(m.divisionName)+' • '+esc(m.stage)+'</small></div><span class="badge '+(m.won?'live':m.lost?'done':'wait')+'">'+(m.won?'THẮNG':m.lost?'THUA':m.status==='live'?'LIVE':'SẮP ĐẤU')+'</span></div><div class="player-score-line"><span>'+esc(m.teamAName)+'</span><b>'+(m.mySide==='A'?'Bạn':'')+'</b></div><div class="player-score-line"><span>'+esc(m.teamBName)+'</span><b>'+(m.mySide==='B'?'Bạn':'')+'</b></div><div class="player-match-score"><strong>'+esc(scoreLabel(m))+'</strong><span>'+m.myPoints+' – '+m.oppPoints+' điểm</span></div></article>').join(''):'<div class="empty">Chưa có lịch sử trận.</div>';
+  $('#matchHistory').innerHTML=data.matches.length?data.matches.map(m=>'<article data-motion-key="match:'+esc(m.id)+'" class="player-match '+(m.won?'won':m.lost?'lost':'')+'"><div class="player-match-top"><div><b>'+esc(m.tournamentName)+'</b><small>'+esc(m.divisionName)+' • '+esc(m.stage)+'</small></div><span class="badge '+(m.won?'live':m.lost?'done':'wait')+'">'+(m.won?'THẮNG':m.lost?'THUA':m.status==='live'?'LIVE':'SẮP ĐẤU')+'</span></div><div class="player-score-line"><span>'+esc(m.teamAName)+'</span><b>'+(m.mySide==='A'?'Bạn':'')+'</b></div><div class="player-score-line"><span>'+esc(m.teamBName)+'</span><b>'+(m.mySide==='B'?'Bạn':'')+'</b></div><div class="player-match-score"><strong>'+esc(scoreLabel(m))+'</strong><span>'+m.myPoints+' – '+m.oppPoints+' điểm</span></div></article>').join(''):'<div class="empty">Chưa có lịch sử trận.</div>';
   $('#ratingHistory').innerHTML=data.ratingHistory.length?data.ratingHistory.map(r=>'<div class="rating-event"><div><b>'+fmtRating(r.after_rating)+'</b><small>'+fmtDate(r.created_at)+' • '+esc(r.reason||'Điều chỉnh rating')+'</small></div><span class="'+(Number(r.delta)>=0?'rating-up':'rating-down')+'">'+(Number(r.delta)>=0?'+':'')+fmtRating(r.delta)+'</span></div>').join(''):'<div class="empty">Chưa có lịch sử rating.</div>';
-  $('#partners').innerHTML=data.partners.length?data.partners.map(x=>'<a class="partner-row" href="player.html?id='+encodeURIComponent(x.id)+'">'+avatarHtml(x.avatar_url,x.full_name)+'<span><b>'+esc(x.full_name)+'</b><small>'+esc(x.club_name||'Tự do')+'</small></span><strong>'+fmtRating(x.rating)+'</strong></a>').join(''):'<div class="empty">Chưa có đồng đội.</div>';
+  $('#partners').innerHTML=data.partners.length?data.partners.map(x=>'<a data-motion-key="player:'+esc(x.id)+'" class="partner-row" href="player.html?id='+encodeURIComponent(x.id)+'">'+avatarHtml(x.avatar_url,x.full_name)+'<span><b>'+esc(x.full_name)+'</b><small>'+esc(x.club_name||'Tự do')+'</small></span><strong>'+fmtRating(x.rating)+'</strong></a>').join(''):'<div class="empty">Chưa có đồng đội.</div>';
   const seen=new Set();const teams=data.teams.filter(t=>!seen.has(t.tournament_id)&&(seen.add(t.tournament_id),true));
-  $('#tournaments').innerHTML=teams.length?teams.map(t=>'<a class="tournament-row" href="tournament.html?id='+encodeURIComponent(t.tournament_id)+'"><div><b>'+esc(t.tournament_name)+'</b><small>'+fmtDate(t.start_at)+' • '+esc(t.division_name)+'</small></div><span>›</span></a>').join(''):'<div class="empty">Chưa có giải.</div>';
+  $('#tournaments').innerHTML=teams.length?teams.map(t=>'<a data-motion-key="tournament:'+esc(t.tournament_id)+'" class="tournament-row" href="tournament.html?id='+encodeURIComponent(t.tournament_id)+'"><div><b>'+esc(t.tournament_name)+'</b><small>'+fmtDate(t.start_at)+' • '+esc(t.division_name)+'</small></div><span>›</span></a>').join(''):'<div class="empty">Chưa có giải.</div>';
+  const metricElements=[...document.querySelectorAll('#playerStats .player-stat strong')],metricDisplays=[fmtRating(p.rating),...metricElements.map(el=>el.textContent)],metrics=[Number(p.rating)||0,...metricDisplays.slice(1).map(value=>Number.parseFloat(value)||0)];
+  if(priorMetrics)metrics.forEach((value,index)=>{if(value!==priorMetrics[index]){const el=index===0?$('#playerRating'):metricElements[index-1];window.PickleMotion?.count?.(el,priorMetrics[index],value);setTimeout(()=>{if(el?.isConnected)el.textContent=metricDisplays[index]},520)}});
+  previousPlayerMetrics=metrics;animateNewPlayerCards();
 }
 async function load(){if(!id){$('#playerName').textContent='Thiếu mã VĐV';return}try{render(await PickleAPI.publicPlayer(id))}catch(e){$('#playerName').textContent='Không tìm thấy VĐV';$('#playerMeta').textContent='Hồ sơ không tồn tại hoặc đã ẩn.'}}
 load();

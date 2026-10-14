@@ -214,3 +214,38 @@ html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .login-hom
   html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .form-grid {grid-template-columns:minmax(0,1fr)!important; gap:16px!important}
   html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .login-card {padding:24px!important}
 }
+/* Public cards use restrained depth; only a newly promoted ranking leader gets a one-shot sweep. */
+html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row,.ranking-app-row) {
+  position:relative;
+  isolation:isolate;
+  contain:layout style;
+  transform-style:preserve-3d;
+  backface-visibility:hidden;
+}
+html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row,.ranking-app-row)::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(110deg,transparent 28%,color-mix(in srgb,var(--acid,#d9ff63) 22%,transparent) 49%,transparent 70%);
+  transform:translateX(-120%);
+}
+html:root body.site-sport.public-refresh:not(.admin-sport) :is(.ranking-app-row,.podium-player)[data-motion-state="leader"]::after {
+  opacity:1;
+  animation:ranking-leader-sweep 850ms ease-out both;
+}
+@keyframes ranking-leader-sweep {to{opacity:0;transform:translateX(120%)}}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row):hover {
+    transform:perspective(900px) translateY(-2px) rotateX(.35deg);
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row,.ranking-app-row) {
+    transform:none!important;transform-style:flat;perspective:none;contain:layout style;
+  }
+  html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row,.ranking-app-row)::after {display:none}
+  html:root body.site-sport.public-refresh:not(.admin-sport) :is(.ranking-app-row,.podium-player)[data-motion-state="leader"]::after {animation:none}
+}

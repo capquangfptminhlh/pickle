@@ -30,13 +30,27 @@ before(async()=>{
 after(async()=>{await browser?.close();if(server)await new Promise(done=>server.close(done));f?.db.close()});
 
 async function withPage(options,fn){
-  const {width=1440,motion="no-preference",fallback=false,blockGsap=false,admin=false,path="/",...rest}=options;
+  const {width=1440,motion="no-preference",fallback=false,blockGsap=false,admin=false,path="/",motionSpy=false,beforeGoto,...rest}=options;
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:motion,serviceWorkers:"block",...rest});
   try{
     const page=await context.newPage(),errors=[];
     page.setDefaultTimeout(7000);
     page.on("pageerror",e=>errors.push(e.message));
     await page.addInitScript(()=>localStorage.setItem("pickleup-theme-v2","light"));
+    if(motionSpy)await page.addInitScript(()=>{
+      window.__motionCalls=[];
+      window.__testSocketHandlers={};
+      window.io=()=>({on:(name,fn)=>{window.__testSocketHandlers[name]=fn}});
+      let motion;
+      Object.defineProperty(window,"PickleMotion",{configurable:true,get:()=>motion,set:value=>{
+        motion=value;
+        for(const name of ["entrance","count","flip"]){
+          const original=motion?.[name];
+          if(typeof original!=="function")continue;
+          motion[name]=(...args)=>{window.__motionCalls.push({name,args:args.map(x=>Array.isArray(x)?x.map(el=>el?.dataset?.motionKey||el?.className):x)});return original(...args)};
+        }
+      }});
+    });
     if(fallback)await page.addInitScript(()=>{delete Document.prototype.startViewTransition});
     if(admin)await page.addInitScript(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.admin);
     if(blockGsap)await page.route("**/gsap-3.15.0.min.js",route=>route.abort());
@@ -44,6 +58,7 @@ async function withPage(options,fn){
       const req=route.request(),r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);
       await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
     });
+    if(beforeGoto)await beforeGoto(page);
     if(path.startsWith("/preview/")){
       const state=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
       state.tournaments.forEach(t=>{t.isFeatured=true;t.posterUrl="/assets/tournaments/pickleup-tour-binh-loi-20261015-original.jpg"});
@@ -62,7 +77,6 @@ async function withPage(options,fn){
     assert.deepEqual(errors,[],"browser runtime errors");
   }finally{await context.close()}
 }
-
 async function showInstall(page){
   await page.evaluate(()=>{
     const event=new Event("beforeinstallprompt",{cancelable:true});
@@ -308,6 +322,83 @@ test("motion core keeps navigation usable when GSAP is unavailable",async()=>{
     await page.waitForFunction(()=>location.hash==="#tournaments");
   });
 });
+
+test("ranking update flips reordered rows, counts confirmed decimals, and celebrates only a new leader",async()=>{
+  const records=[
+    {id:"player-a",full_name:"Player A",rating:5,active:true},
+    {id:"player-b",full_name:"Player B",rating:4,active:true},
+    {id:"player-c",full_name:"Player C",rating:3,active:true}
+  ];
+  let calls=0;
+  await withPage({path:"/ranking.html",motionSpy:true,beforeGoto:async page=>page.route("**/api/public/players**",async route=>route.fulfill({contentType:"application/json",body:JSON.stringify(calls++?records:[...records])}))},async page=>{
+    await page.waitForFunction(()=>document.querySelectorAll("#rankingRows .ranking-app-row").length===3);
+    const initialLeader=await page.locator("#rankingRows [data-motion-key]").first().getAttribute("data-motion-key");
+    assert.equal(initialLeader,"player:player-a");
+    assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-a']").getAttribute("data-motion-state"),null,"initial leader is not celebrated as a promotion");
+    await page.evaluate(()=>{
+      window.__leaderTransitions=0;
+      new MutationObserver(records=>{window.__leaderTransitions+=records.filter(r=>r.attributeName==="data-motion-state"&&r.target.dataset.motionState==="leader").length}).observe(document.querySelector("#rankingRows"),{subtree:true,attributes:true,attributeFilter:["data-motion-state"]});
+    });
+    records[1].rating=6.25;
+    await page.evaluate(()=>window.__testSocketHandlers["public:state"]?.({}));
+    await page.waitForFunction(()=>document.querySelector("#rankingRows [data-motion-key]")?.dataset.motionKey==="player:player-b");
+    await page.waitForTimeout(600);
+    const callsAfterUpdate=await page.evaluate(()=>window.__motionCalls.map(c=>c.name));
+    assert.deepEqual(await page.locator("#rankingRows [data-motion-key]").evaluateAll(els=>els.map(el=>el.dataset.motionKey)),["player:player-b","player:player-a","player:player-c"]);
+    assert.equal(callsAfterUpdate.filter(name=>name==="flip").length,1);
+    assert.ok(callsAfterUpdate.includes("count"),"confirmed decimal rating animates with count");
+    assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-b'] .ranking-app-rating").textContent(),"6.25");
+    assert.equal(await page.locator("#rankingRows [data-motion-key='player:player-b']").getAttribute("data-motion-state"),"leader");
+    await page.waitForTimeout(30);
+    assert.equal(await page.evaluate(()=>window.__leaderTransitions),1,"new leader is swept once after update");
+    await page.evaluate(()=>window.__testSocketHandlers["public:state"]?.({}));
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(()=>window.__motionCalls.filter(c=>c.name==="flip").length),1,"identical state does not replay reorder motion");
+    assert.equal(await page.evaluate(()=>window.__leaderTransitions),1,"promotion sweep is emitted once");
+    await page.locator("#rankSearch").fill("Player A");await page.locator("#rankSearch").fill("");
+    assert.equal(await page.evaluate(()=>window.__motionCalls.filter(c=>c.name==="flip").length),1,"typing filters without a confirmed reorder does not invoke FLIP");
+    assert.equal(await page.evaluate(()=>window.__motionCalls.filter(c=>c.name==="count").length),1,"typing filters do not animate unchanged ratings");
+  });
+});
+
+test("public tournament cards use stable IDs and enter once when confirmed state adds one",async()=>{
+  const response=await worker.fetch(new Request("http://localhost/api/public/state"),f.env),initialState=await response.json();
+  await withPage({motionSpy:true},async page=>{
+    await page.waitForSelector("#publicTours .tour-card");
+    await page.waitForTimeout(700);
+    const firstKey=await page.locator("#publicTours .tour-card").first().getAttribute("data-motion-key");
+    assert.match(firstKey,/^tournament:.+$/);
+    const next={...initialState,tournaments:[...initialState.tournaments,{id:"added-tour",name:"Added Tournament",status:"open",startAt:"2030-01-01T00:00:00.000Z",format:"Open",venue:"Court"}]};
+    await page.evaluate(state=>window.__testSocketHandlers["public:state"]?.(state),next);
+    await page.waitForSelector('#publicTours [data-motion-key="tournament:added-tour"]');
+    await page.waitForTimeout(100);
+    let entrances=await page.evaluate(()=>window.__motionCalls.filter(call=>call.name==="entrance"&&call.args[0]?.includes("tournament:added-tour")).length);
+    assert.equal(entrances,1,`new confirmed card receives one entrance call: ${JSON.stringify(await page.evaluate(()=>window.__motionCalls.filter(call=>call.name==="entrance")))}`);
+    await page.evaluate(state=>window.__testSocketHandlers["public:state"]?.(state),next);
+    await page.waitForTimeout(100);
+    entrances=await page.evaluate(()=>window.__motionCalls.filter(call=>call.name==="entrance"&&call.args[0]?.includes("tournament:added-tour")).length);
+    assert.equal(entrances,1,"duplicate state render does not replay card entrance");
+  });
+});
+
+test("preview tournament cards mirror the public stable-key convention",async()=>{
+  await withPage({path:"/preview/index.html"},async page=>{
+    const card=page.locator("#publicTours .tour-card").first();await card.waitFor();
+    const expected=await card.evaluate(el=>new URL(el.href).searchParams.get("id"));
+    assert.equal(await card.getAttribute("data-motion-key"),"tournament:"+expected);
+  });
+});
+
+for(const width of [375,844,1440])for(const mode of [{motion:"no-preference"},{motion:"reduce"},{motion:"no-preference",blockGsap:true}]){
+  test(`public cards remain visible at ${width}px with ${mode.blockGsap?"missing GSAP":mode.motion+" motion"}`,async()=>{
+    await withPage({width,...mode},async page=>{
+      const card=page.locator("#publicTours .tour-card").first();await card.waitFor();
+      await page.waitForTimeout(1050);
+      assert.equal(await card.evaluate(el=>getComputedStyle(el).opacity),"1");
+      assert.equal(await card.evaluate(el=>getComputedStyle(el).visibility),"visible");
+    });
+  });
+}
 
 test("browser Back restores an admin page after a fallback route fade",async()=>{
   await withPage({fallback:true,admin:true,path:"/admin.html"},async page=>{
