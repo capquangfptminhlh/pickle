@@ -49,6 +49,8 @@ jobs:
         run: node --test scripts/registry-theme.test.mjs
       - name: Player avatar create and retry flow
         run: node scripts/registry-player-avatar-ui.mjs
+      - name: Group draw reveal animation tests
+        run: node --test scripts/registry-group-draw-reveal.test.mjs
       - name: Registry desktop and mobile browser regressions
         run: |
           node scripts/registry-ui.mjs
