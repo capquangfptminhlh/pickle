@@ -19,12 +19,12 @@ export async function sessionUser(req){
   try{claims=jwt.verify(token,secret(),{algorithms:["HS256"],issuer:"pickle-tour",audience:"pickle-admin"})}
   catch{return null}
   const row=(await pool.query(
-    "select id,email,display_name,role,active,club_id,tournament_id_scope,auth_version from app_users where id=$1",
+    "select id,email,display_name,role,active,club_id,tournament_id_scope,is_head_referee,auth_version from app_users where id=$1",
     [claims.sub]
   )).rows[0];
   if(!row?.active)return null;
   if(Number(claims.ver||0)!==Number(row.auth_version||0))return null;
-  return {sub:row.id,id:row.id,email:row.email,name:row.display_name,role:row.role,clubId:row.club_id||null,tournamentScope:row.tournament_id_scope||null};
+  return {sub:row.id,id:row.id,email:row.email,name:row.display_name,role:row.role,headReferee:row.role==='referee'&&Boolean(row.is_head_referee)&&Boolean(row.tournament_id_scope),clubId:row.club_id||null,tournamentScope:row.tournament_id_scope||null};
 }
 
 export async function authRequired(req,res,next){
