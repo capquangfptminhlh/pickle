@@ -1,0 +1,19 @@
+name: iPhone PWA Safe Area
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  safe-area:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test standalone viewport and dock spacing
+        run: node --test scripts/pwa-ios-safe-area.test.mjs
