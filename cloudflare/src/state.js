@@ -1,3 +1,4 @@
+import {stageScoringRules} from "../../shared/stage-scoring-rules.js";
 import {bool} from "./util.js";
 import {parseRelayOrder} from "../../shared/relay-draw.js";
 import {isGroupStageMatch,rankGroupStandings} from "../../shared/standings.js";
@@ -122,7 +123,9 @@ export async function loadState(env,{publicOnly=false}={}){
       group:t.group_code||"",seed:t.seed,status:t.status,...s,diffSet:s.sw-s.sl,diffPts:s.pf-s.pa};
   });
 
+  const divisionById=new Map(divisionsRaw.map(d=>[d.id,d]));
   const matches=matchesRaw.map(m=>({
+    matchRules:(()=>{const rules=stageScoringRules(divisionById.get(m.division_id),m);return {bestOf:rules.best_of,pointsToWin:rules.points_to_win,winByTwo:Boolean(rules.win_by_two)}})(),
     id:m.id,divisionId:m.division_id,stage:m.stage,court:courtIndex[m.court_id]||m.court_name||"—",
     time:fmtTime(m.scheduled_at),a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",
     status:publicStatus(m.status),sets:setMap.get(m.id)||[],
@@ -164,7 +167,7 @@ export async function loadState(env,{publicOnly=false}={}){
     tournaments,
     divisions:divisionsRaw.map(d=>({
       id:d.id,tournamentId:d.tournament_id,name:d.name,eventType:d.event_type,format:d.format,
-      bestOf:Number(d.best_of||3),pointsToWin:Number(d.points_to_win||11),winByTwo:bool(d.win_by_two),
+      bestOf:Number(d.best_of||3),pointsToWin:Number(d.points_to_win||11),winByTwo:bool(d.win_by_two),stageRulesEnabled:bool(d.stage_rules_enabled),finalFormat:d.final_format||"single_15",
       advanceCount:Number(d.advance_count||2),tieBreakMode:d.tie_break_mode||"head_to_head",scoringMode:d.scoring_mode||"side_out",
       minimumRestMinutes:Number(d.minimum_rest_minutes??15),matchSlotMinutes:Number(d.match_slot_minutes??20),
       relaySegmentPoints:Number(d.relay_segment_points||0),relayTeamSize:Number(d.relay_team_size||0),finalPointOnServe:bool(d.final_point_on_serve),thirdPlaceMatch:bool(d.third_place_match),seriesBEnabled:bool(d.series_b_enabled),seriesBThirdPlaceMatch:bool(d.series_b_third_place_match),active:bool(d.active)

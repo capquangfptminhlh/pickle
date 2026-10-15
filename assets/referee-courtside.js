@@ -74,11 +74,11 @@
   function renderScore(){
     const m=activeMatch();
     if(!m){showPicker();return}
-    const d=division(m),a=Number(m.current?.[0]||0),b=Number(m.current?.[1]||0),locked=["done","completed","walkover","cancelled"].includes(m.status)||Boolean(m.winner);
+    const d=division(m),rule={...d,...m.matchRules},a=Number(m.current?.[0]||0),b=Number(m.current?.[1]||0),locked=["done","completed","walkover","cancelled"].includes(m.status)||Boolean(m.winner);
     const awaitingDraw=window.PickleTeamLineup?.awaitingDraw(d,m);
     window.PickleTeamLineup?.renderDrawPanel($("#refRelayDrawPanel"),$("#refRelayDrawButton"),m,d,state);
-    const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b),setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
-    const winsA=(m.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length,winsB=(m.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length,need=Math.ceil(Number(d?.bestOf||3)/2);
+    const target=Number(rule.pointsToWin||11),winByTwo=rule.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b),setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
+    const winsA=(m.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length,winsB=(m.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length,need=Math.ceil(Number(rule.bestOf||1)/2);
     const matchWon=setWon&&(a>b?winsA+1:winsB+1)>=need;
     const isDoubles=["doubles","mixed_doubles","team"].includes(d?.eventType),mode=d?.scoringMode||"side_out",serve=m.servingSide||"A",server=Number(m.serverNumber||(isDoubles?2:1));
     const q=m.status==="live"?"live":m.status==="done"?"done":m.courtState||"scheduled",qm=queueMeta(q);
@@ -97,9 +97,9 @@
     $("#refScoreA").textContent=specialResult?"—":finalScore?finalScore[0]:a;$("#refScoreB").textContent=specialResult?"—":finalScore?finalScore[1]:b;
     for(const side of ["A","B"]){const score=$("#refScore"+side);score.dataset.digits=Math.min(5,score.textContent.length)}
     $("#refRules").innerHTML=d?[
-      ["Điểm thắng","Chạm "+target],
+      ["Điểm thắng","Chạm "+target],["Số set",rule.bestOf===1?"1 set":`Best of ${rule.bestOf}`],
       ["Cách biệt",winByTwo?"Cách 2":"Không cách 2"],
-      ["Thể thức",Number(d.bestOf||3)===1?"1 game":"Thắng "+need+"/"+Number(d.bestOf||3)]
+      ["Thể thức",Number(rule.bestOf||1)===1?"1 game":"Thắng "+need+"/"+Number(rule.bestOf||1)]
     ].map(([label,value])=>'<div class="ref-rule"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>').join(""):'<span>Luật đang cập nhật</span>';
     $("#refGameLabel").textContent=locked?"KẾT QUẢ TRẬN":"GAME "+((m.sets||[]).length+1);
     $("#refGameWins").textContent="GAME THẮNG · A "+winsA+" : "+winsB+" B";
