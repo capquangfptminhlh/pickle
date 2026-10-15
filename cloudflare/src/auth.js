@@ -70,7 +70,7 @@ export async function verifySession(env,token){
     const payload=JSON.parse(dec.decode(fromB64url(parts[1])));
     if(!payload.exp||payload.exp<Math.floor(Date.now()/1000))return null;
     const row=await env.DB.prepare(
-      "SELECT id,email,display_name,role,active,auth_version,tournament_id_scope,club_id FROM app_users WHERE id=?"
+      "SELECT id,email,display_name,role,active,auth_version,tournament_id_scope,club_id,is_head_referee FROM app_users WHERE id=?"
     ).bind(payload.sub).first();
     if(!row||!row.active||Number(row.auth_version||0)!==Number(payload.authVersion||0))return null;
     return publicUser(row);
@@ -134,6 +134,12 @@ export async function canEditPlayer(env,user,playerId){
     return Boolean(linked);
   }
   if(user.role==="referee"){
+    if(user.headReferee&&user.tournamentScope){
+      const owned=await env.DB.prepare("SELECT id FROM players WHERE id=? AND created_by_user_id=?").bind(playerId,user.id).first();
+      if(owned)return true;
+      const linked=await env.DB.prepare("SELECT tp.player_id FROM team_players tp JOIN teams t ON t.id=tp.team_id JOIN divisions d ON d.id=t.division_id WHERE tp.player_id=? AND d.tournament_id=? LIMIT 1").bind(playerId,user.tournamentScope).first();
+      if(linked)return true;
+    }
     const row=await env.DB.prepare(
       "SELECT tp.player_id FROM team_players tp JOIN matches m ON (m.team_a_id=tp.team_id OR m.team_b_id=tp.team_id) JOIN divisions d ON d.id=m.division_id WHERE tp.player_id=? AND m.referee_user_id=? AND (? IS NULL OR d.tournament_id=?) LIMIT 1"
     ).bind(playerId,user.id,user.tournamentScope||null,user.tournamentScope||null).first();
