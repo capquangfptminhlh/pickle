@@ -63,6 +63,7 @@
       if(signal?.aborted||!host.isConnected)return {cancelled:true};
       const panel=panels.get(group.group);
       panel.classList.add("is-active");
+      if(!skipped)panel.scrollIntoView?.({block:"nearest",behavior:"smooth"});
       host.querySelector("[data-reveal-current]").textContent=group.group;
       status.textContent="Bảng "+group.group+" đang bốc thăm";
       footer.textContent="Đang đưa các cặp vào bảng "+group.group;
