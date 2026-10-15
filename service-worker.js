@@ -1,6 +1,6 @@
-const VERSION="pickleup-v82-global-motion-20261015";
+const VERSION="pickleup-v83-stage-scoring-20261015";
 const STATIC=[
-  "/assets/api.js?v=58",
+  "/assets/api.js?v=59",
   "/assets/tournament-gallery.js?v=1",
   "/assets/tournament-gallery.css?v=1",
   "/assets/referee-arena.css?v=5",
@@ -24,7 +24,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-800-latin.woff2",
   "/assets/draw-flex.js?v=10",
   "/assets/draw-reveal.js?v=1",
-  "/assets/referee-courtside.js?v=17",
+  "/assets/referee-courtside.js?v=18",
   "/assets/timeout-clock.js?v=1",
   "/assets/timeout-clock.css?v=1",
   "/assets/timeout-clock.js",
@@ -50,11 +50,11 @@ const STATIC=[
   "/assets/tournament.js?v=57",
   "/assets/admin-sport.css?v=7",
   "/assets/player-avatar-input.js?v=1",
-  "/assets/admin-app.js?v=84",
+  "/assets/admin-app.js?v=85",
   "/assets/bracket-ui.js?v=38",
   "/assets/admin-crud.js?v=13",
   "/assets/player-picker.js?v=3",
-  "/assets/match-format.js?v=7",
+  "/assets/match-format.js?v=8",
   "/assets/match-format.js",
   "/assets/team-lineup.js?v=8",
   "/assets/team-lineup.css?v=5",
