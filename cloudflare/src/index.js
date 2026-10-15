@@ -410,8 +410,8 @@ async function handleApi(request,env,ctx){
       .bind(id,user.id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,status,asBool(b.publicVisible)?1:0,created,created).run();
     const divId=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",1,11,0,2,created).run();
-    await env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format='single_15' WHERE id=?").bind(divId).run();
+      .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",b.eventType==="team"?3:1,11,b.eventType==="team"?1:0,2,created).run();
+    if(b.eventType!=="team")await env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format='single_15' WHERE id=?").bind(divId).run();
     const row=await one(env,"SELECT * FROM tournaments WHERE id=?",id);await createAudit(env,user,"tournament",id,"CREATE",null,row);await emitUpdate(env,id);
     return ok(row,request,env,201);
   }
@@ -440,7 +440,7 @@ async function handleApi(request,env,ctx){
     const eventType=String(b.eventType||"doubles"),format=String(b.format||"pool_to_knockout");
     if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
-    const useStageRules=b.stageRulesEnabled===undefined?(eventType!=="team"&&Number(b.relaySegmentPoints||0)===0):asBool(b.stageRulesEnabled);
+    const useStageRules=asBool(b.stageRulesEnabled);
     if(useStageRules&&(eventType==="team"||Number(b.relaySegmentPoints||0)>0))return fail("STAGE_RULES_NOT_SUPPORTED",request,env,400);
     const merged=useStageRules?{...b,bestOf:1,pointsToWin:11,winByTwo:false}:b;
     const rules=divisionMatchRules(merged),bracket=divisionBracketRules(b),id=uid();
