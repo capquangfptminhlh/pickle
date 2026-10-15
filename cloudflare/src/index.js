@@ -664,6 +664,7 @@ async function handleApi(request,env,ctx){
     const b=await bodyJson(request);
     const pair=await validateMatchAssignment(env,user,m.division_id,m.tournament_id,b,m);
     if(b.status!==undefined&&b.status!==m.status)return fail("USE_SCORE_ACTION",request,env,400);
+    if(b.stage!==undefined&&String(b.stage)!==String(m.stage)&&Number(m.stage_rules_enabled)&&await matchHasHistory(env,m))return fail("MATCH_STAGE_LOCKED",request,env,409);
     const after={...m,stage:String(b.stage??m.stage),scheduled_at:b.scheduledAt===undefined?m.scheduled_at:b.scheduledAt,court_id:b.courtId===undefined?m.court_id:b.courtId,referee_user_id:b.refereeUserId===undefined?m.referee_user_id:b.refereeUserId,team_a_id:pair.a,team_b_id:pair.b,version:Number(m.version)+1};
     await env.DB.batch([matchAudit(env,user,m,"UPDATE_MATCH",after),env.DB.prepare("UPDATE matches SET stage=?,scheduled_at=?,court_id=?,referee_user_id=?,team_a_id=?,team_b_id=?,version=version+1 WHERE id=?")
       .bind(after.stage,after.scheduled_at,after.court_id,after.referee_user_id,pair.a,pair.b,p.id)]);
