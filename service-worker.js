@@ -1,4 +1,4 @@
-const VERSION="pickleup-v80-iphone-safe-area-20261015";
+const VERSION="pickleup-v81-sequential-group-draw-20261015";
 const STATIC=[
   "/assets/api.js?v=58",
   "/assets/tournament-gallery.js?v=1",
@@ -22,7 +22,8 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-700-latin.woff2",
   "/assets/fonts/barlow-condensed-800-vietnamese.woff2",
   "/assets/fonts/barlow-condensed-800-latin.woff2",
-  "/assets/draw-flex.js?v=9",
+  "/assets/draw-flex.js?v=10",
+  "/assets/draw-reveal.js?v=1",
   "/assets/referee-courtside.js?v=17",
   "/assets/timeout-clock.js?v=1",
   "/assets/timeout-clock.css?v=1",
@@ -34,7 +35,7 @@ const STATIC=[
   "/assets/public-refresh.css?v=2",
   "/assets/public-refresh.css",
   "/assets/ranking.js?v=3",
-  "/assets/public.js?v=54",
+  "/assets/public.js?v=55",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
   "/assets/theme.css?v=2",
@@ -44,7 +45,7 @@ const STATIC=[
   "/assets/styles.css?v=4",
   "/assets/ui-motion.js?v=34",
   "/assets/tournament-detail.css?v=1",
-  "/assets/tournament.js?v=56",
+  "/assets/tournament.js?v=57",
   "/assets/admin-sport.css?v=7",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=84",
