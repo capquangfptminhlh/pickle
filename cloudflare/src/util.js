@@ -66,6 +66,7 @@ export function publicUser(row){
     name:row.display_name,
     displayName:row.display_name,
     role:row.role,
+    headReferee:row.role==="referee"&&Boolean(row.is_head_referee)&&Boolean(row.tournament_id_scope),
     active:Boolean(row.active),
     tournamentId:row.tournament_id_scope||null,
     tournamentScope:row.tournament_id_scope||null,
