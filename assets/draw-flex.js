@@ -243,8 +243,10 @@
     advanceEl.oninput=rebuild;
     modal.querySelectorAll("[data-flex-court]").forEach(x=>x.onchange=rebuild);
 
+    const revealAbort=new AbortController();
     function closeModal(){
-      modal.close();
+      revealAbort.abort();
+      if(modal.open)modal.close();
       modal.remove();
     }
     modal.querySelector("[data-flex-close]").onclick=closeModal;
@@ -275,9 +277,18 @@
       card.innerHTML=`<div class="draw-live-stage"><div class="draw-wheel"><div class="draw-wheel-ring"></div><strong>🎡</strong></div><h2>Đang quay bốc thăm...</h2><p>Mọi người đang online cũng đang thấy phiên quay này.</p></div>`;
       try{
         const result=await API.runDraw(divisionId,payload);
-        await new Promise(resolve=>setTimeout(resolve,900));
-        card.innerHTML=`<div class="draw-live-stage is-done"><div class="draw-result-icon">✓</div><h2>Đã chia bảng</h2><p>${result.groupCount} bảng • ${result.created} trận vòng bảng • Top ${result.advanceCount} đi tiếp</p><div class="draw-result-groups">${(result.groups||[]).map(g=>`<span><b>Bảng ${esc(g.group)}</b><small>${g.count} đội</small></span>`).join("")}</div></div>`;
-        await new Promise(resolve=>setTimeout(resolve,900));
+        if(!modal.isConnected||revealAbort.signal.aborted)return;
+        if(window.PickleDrawReveal&&Array.isArray(result.assignments)&&result.assignments.length){
+          const reveal=await window.PickleDrawReveal.play(card,result,{signal:revealAbort.signal});
+          if(reveal?.cancelled||revealAbort.signal.aborted)return;
+          await new Promise(resolve=>setTimeout(resolve,reveal?.skipped?450:1850));
+        }else{
+          // If the backend lacks assignments, show only real summary counts.
+          await new Promise(resolve=>setTimeout(resolve,900));
+          card.innerHTML=`<div class="draw-live-stage is-done"><div class="draw-result-icon">✓</div><h2>Đã chia bảng</h2><p>${result.groupCount} bảng • ${result.created} trận vòng bảng • Top ${result.advanceCount} đi tiếp</p><div class="draw-result-groups">${(result.groups||[]).map(g=>`<span><b>Bảng ${esc(g.group)}</b><small>${g.count} đội</small></span>`).join("")}</div></div>`;
+          await new Promise(resolve=>setTimeout(resolve,900));
+        }
+        if(!modal.isConnected||revealAbort.signal.aborted)return;
         closeModal();
         await refresh();
         document.querySelector("#genericDialog")?.close();
