@@ -21,13 +21,13 @@
     return [...byGroup].sort(([a],[b])=>a.localeCompare(b,"en")).map(([group,teams])=>({group,teams}));
   }
 
-  function wait(milliseconds,signal,shouldSkip){
+  function wait(milliseconds,signal,shouldSkip,register){
     if(signal?.aborted||shouldSkip())return Promise.resolve();
     return new Promise(resolve=>{
       const timeout=setTimeout(finish,milliseconds);
       function finish(){clearTimeout(timeout);signal?.removeEventListener("abort",finish);resolve()}
       signal?.addEventListener("abort",finish,{once:true});
-      window.__pickleDrawReleaseWait=finish;
+      register(finish);
     });
   }
 
@@ -36,7 +36,7 @@
     const groups=prepare(payload);
     const total=groups.reduce((sum,g)=>sum+g.teams.length,0);
     if(!total)return {unavailable:true};
-    let skipped=reducedMotion(),count=0;
+    let skipped=reducedMotion(),count=0,releaseWait=()=>{};
     const stepDelay=Math.max(185,Math.min(compact?400:520,Math.floor((compact?7200:8500)/total)));
     const content=groups.map(({group,teams})=>
       '<section class="draw-reveal-group" data-reveal-group="'+group+'" aria-label="Bảng '+group+'">'+
@@ -54,7 +54,7 @@
     '</div>';
     const scene=host.querySelector(".draw-reveal-stage");
     const skipButton=host.querySelector("[data-reveal-skip]");
-    skipButton.addEventListener("click",()=>{skipped=true;window.__pickleDrawReleaseWait?.()});
+    skipButton.addEventListener("click",()=>{skipped=true;releaseWait()});
     if(skipped)skipButton.hidden=true;
     const panels=new Map(groups.map(g=>[g.group,host.querySelector('[data-reveal-group="'+g.group+'"]')]));
     const status=host.querySelector("[data-reveal-status]");
@@ -66,7 +66,7 @@
       host.querySelector("[data-reveal-current]").textContent=group.group;
       status.textContent="Bảng "+group.group+" đang bốc thăm";
       footer.textContent="Đang đưa các cặp vào bảng "+group.group;
-      if(count&&!skipped)await wait(220,signal,()=>skipped);
+      if(count&&!skipped)await wait(220,signal,()=>skipped,fn=>{releaseWait=fn});
       const rows=panel.querySelector(".draw-reveal-rows");
       for(let i=0;i<group.teams.length;i++){
         if(signal?.aborted||!host.isConnected)return {cancelled:true};
@@ -81,7 +81,7 @@
         panel.querySelector("[data-reveal-count]").textContent=(i+1)+"/"+group.teams.length+" cặp";
         host.querySelector("[data-reveal-total]").textContent=count+"/"+total+" cặp";
         host.querySelector("[data-reveal-progress]").style.width=(count/total*100)+"%";
-        if(!skipped)await wait(stepDelay,signal,()=>skipped);
+        if(!skipped)await wait(stepDelay,signal,()=>skipped,fn=>{releaseWait=fn});
       }
       panel.classList.remove("is-active");
       panel.classList.add("is-complete");
