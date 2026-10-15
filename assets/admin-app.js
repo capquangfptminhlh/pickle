@@ -782,6 +782,16 @@ function settings(){
       <label class="field">Thời lượng/trận (phút)<input data-rule-slot="${d.id}" type="number" min="5" max="180" value="${d.matchSlotMinutes??20}" ${canManage()?"":"disabled"}></label>
       <label class="field" style="align-content:end"><span><input data-rule-win2="${d.id}" type="checkbox" ${d.winByTwo?"checked":""} ${canManage()?"":"disabled"}> Thắng cách 2</span></label>
       ${window.PickleMatchFormat.extraFieldsHtml("rule-"+d.id+"-",d,{disabled:!canManage(),fields:{bestOf:`[data-rule-best="${d.id}"]`,points:`[data-rule-points="${d.id}"]`,scoring:`[data-rule-scoring="${d.id}"]`,winByTwo:`[data-rule-win2="${d.id}"]`}})}
+      <div class="field full" style="padding:15px;border:1px solid var(--line);border-radius:14px">
+        <b>Thể thức theo vòng</b>
+        <p>Vòng bảng, tứ kết, bán kết, tranh hạng ba: 1 set 11 điểm, không cách 2. Riêng chung kết:</p>
+        <label class="field">Chung kết <select data-stage-final="${d.id}" ${canManage()?"":"disabled"}>
+          <option value="single_15" ${d.finalFormat!=="best3_11"?"selected":""}>1 set 15 điểm, không cách 2</option>
+          <option value="best3_11" ${d.finalFormat==="best3_11"?"selected":""}>Best of 3 · mỗi set 11 điểm, không cách 2</option>
+        </select></label>
+        <small>${d.stageRulesEnabled?"Đã áp dụng thể thức theo vòng":"Chưa áp dụng cho nội dung đang có dữ liệu thi đấu"}</small>
+        ${canManage()&&d.eventType!=="team"&&!d.relaySegmentPoints?`<button type="button" class="btn secondary" data-apply-stage-rules="${d.id}">${d.stageRulesEnabled?"Kiểm tra & cập nhật chung kết":"Kiểm tra dữ liệu thật & áp dụng luật"}</button>`:""}
+      </div>
       ${canManage()?`<div class="field full"><button class="btn primary" data-save-rules="${d.id}">Lưu cấu hình</button></div>`:""}
     </div></div>`).join("")}</div>`;
 }
@@ -888,6 +898,7 @@ function bindDynamic(){
   document.querySelectorAll("[data-view-receipt]").forEach(b=>b.onclick=()=>openReceiptModal(b.dataset.viewReceipt));
   document.querySelectorAll("[data-review-payment]").forEach(b=>b.onclick=async()=>{try{await API.reviewPayment(b.dataset.reviewPayment,b.dataset.status);await render();toast("Đã cập nhật thanh toán.")}catch(e){toast("Không thể xử lý: "+e.message)}});
   document.querySelectorAll("[data-save-rules]").forEach(b=>b.onclick=()=>saveRules(b.dataset.saveRules));
+  document.querySelectorAll("[data-apply-stage-rules]").forEach(b=>b.onclick=()=>applyStageRules(b.dataset.applyStageRules));
   ["#courtFilter","#statusFilter"].forEach(s=>{const el=$(s);if(el)el.onchange=applyMatchFilters});
   applyMatchFilters();
 }
@@ -914,15 +925,16 @@ function openScore(id){
   activeMatch=state.matches.find(m=>m.id===id);if(!activeMatch)return;
   if(activeMatch.a==="TBD"||activeMatch.b==="TBD"){toast("Chưa xác định đủ hai đội.");return}
   const d=divisionForMatch(activeMatch);
+  const matchRule={...d,...activeMatch.matchRules};
   const isMlp=d?.eventType==="team";
   const isDoubles=d?.eventType==="doubles"||d?.eventType==="mixed_doubles";
-  $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time}`;
+  $("#scoreMeta").textContent=`${activeMatch.stage} • Sân ${activeMatch.court} • ${activeMatch.time} • ${matchRule.bestOf===1?"1 set":`Best of ${matchRule.bestOf}`} • ${matchRule.pointsToWin} điểm`;
   $("#scoreTitle").textContent=isMlp?"Nhập điểm: MLP Đồng đội":isDoubles?"Nhập điểm: Đôi":"Nhập điểm trận";
-  $("#targetScore").innerHTML=window.PickleMatchFormat.pointOptions(d?.pointsToWin||11).replace(/>(\d+)</g,">$1 điểm<");
-  $("#targetScore").value=String(d?.pointsToWin||11);$("#targetScore").disabled=true;
-  $("#winByTwo").checked=d?.winByTwo!==false;$("#winByTwo").disabled=true;
+  $("#targetScore").innerHTML=window.PickleMatchFormat.pointOptions(matchRule.pointsToWin||11).replace(/>(\d+)</g,">$1 điểm<");
+  $("#targetScore").value=String(matchRule.pointsToWin||11);$("#targetScore").disabled=true;
+  $("#winByTwo").checked=matchRule.winByTwo!==false;$("#winByTwo").disabled=true;
 
-  const maxSets=Number(d?.bestOf||3);
+  const maxSets=Number(matchRule.bestOf||1);
   const roster=(state.teamPlayers?.[activeMatch.a]||[]).length||(state.teamPlayers?.[activeMatch.b]||[]).length;
   const relay=Number(d?.relaySegmentPoints||0)>0;
   const mlpLabels=relay?[`Chạy điểm đến ${d.pointsToWin}`]:window.PickleMatchFormat.teamGameLabels(roster);
@@ -941,7 +953,7 @@ function openScore(id){
 }
 function syncScoreDialog(){
   if(!activeMatch)return;
-  const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch);
+  const a=Number(activeMatch.current?.[0]||0),b=Number(activeMatch.current?.[1]||0),d=divisionForMatch(activeMatch),rule={...d,...activeMatch.matchRules};
   const awaitingDraw=window.PickleTeamLineup?.awaitingDraw(d,activeMatch);
   const locked=["done","completed","walkover","cancelled"].includes(activeMatch.status)||Boolean(activeMatch.winner);
   window.PickleTeamLineup?.renderDrawPanel($("#relayDrawPanel"),$("#relayDrawButton"),activeMatch,d,state);
@@ -980,10 +992,10 @@ function syncScoreDialog(){
     const used=Number((kind==="medical"?activeMatch.medicalTimeouts:activeMatch.timeouts)?.[side]||0),limit=kind==="medical"?1:timeoutMax;
     btn.disabled=locked||awaitingDraw||used>=limit;
   });
-  const target=Number(d?.pointsToWin||11),winByTwo=d?.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
+  const target=Number(rule.pointsToWin||11),winByTwo=rule.winByTwo!==false,hi=Math.max(a,b),lo=Math.min(a,b);
   const setWon=window.PickleMatchFormat?window.PickleMatchFormat.gameWon(a,b,target,winByTwo):(a!==b&&hi>=target&&(!winByTwo||hi-lo>=2));
   $("#finishSet").disabled=locked||!setWon;
-  const need=Math.ceil(Number(d?.bestOf||3)/2);
+  const need=Math.ceil(Number(rule.bestOf||1)/2);
   const winsA=(activeMatch.sets||[]).filter(s=>Number(s[0])>Number(s[1])).length;
   const winsB=(activeMatch.sets||[]).filter(s=>Number(s[1])>Number(s[0])).length;
   const decider=setWon&&(a>b?winsA+1:winsB+1)>=need;
@@ -1212,18 +1224,18 @@ function openDivisionModal(){
     <label class="field full">Tên nội dung<input id="dName" placeholder="VD: Đôi nam 3.0–3.5"></label>
     <label class="field">Loại<select id="dType"><option value="doubles">Doubles</option><option value="mixed_doubles">Mixed Doubles</option><option value="singles">Singles</option><option value="team">Team</option></select></label>
     <label class="field">Thể thức<select id="dFormat"><option value="pool_to_knockout">Vòng bảng + loại trực tiếp</option><option value="round_robin">Vòng tròn (không có knockout)</option><option value="single_elimination">Loại trực tiếp</option><option value="double_elimination">Loại kép</option></select></label>
-    <label class="field">Best of<select id="dBest"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select></label>
+    <label class="field">Best of<select id="dBest"><option value="1" selected>1</option><option value="3">3</option><option value="5">5</option></select></label>
     <label class="field">Điểm/set<select id="dPoints">${window.PickleMatchFormat.pointOptions(11)}</select></label>
     <label class="field">Top đi tiếp<input id="dAdvance" type="number" value="2" min="1"></label>
     <label class="field">Cách tính điểm<select id="dScoring"><option value="side_out">Side-out</option><option value="rally">Rally scoring</option></select></label>
     <label class="field">Nghỉ tối thiểu (phút)<input id="dRest" type="number" value="15" min="0" max="120"></label>
     <label class="field">Thời lượng/trận (phút)<input id="dSlot" type="number" value="20" min="5" max="180"></label>
-    <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox" checked> Thắng cách 2</span></label>
+    <label class="field" style="align-content:end"><span><input id="dWin2" type="checkbox"> Thắng cách 2</span></label>
     ${window.PickleMatchFormat.extraFieldsHtml("dRule",{},{fields:{bestOf:"#dBest",points:"#dPoints",scoring:"#dScoring",winByTwo:"#dWin2"}})}
     <div class="field full"><button type="button" class="btn primary" id="saveDivision">Thêm nội dung</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),advanceCount:Number($("#dAdvance").value),scoringMode:$("#dScoring").value,minimumRestMinutes:Number($("#dRest").value),matchSlotMinutes:Number($("#dSlot").value),winByTwo:$("#dWin2").checked,...window.PickleMatchFormat.readExtra("dRule")});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+ruleError(e))}};
+  $("#saveDivision").onclick=async()=>{try{await API.createDivision($("#dTournament").value,{name:$("#dName").value,eventType:$("#dType").value,format:$("#dFormat").value,bestOf:Number($("#dBest").value),pointsToWin:Number($("#dPoints").value),stageRulesEnabled:$("#dType").value!=="team"&&Number($("#dRuleRelay")?.value||0)===0,advanceCount:Number($("#dAdvance").value),scoringMode:$("#dScoring").value,minimumRestMinutes:Number($("#dRest").value),matchSlotMinutes:Number($("#dSlot").value),winByTwo:$("#dWin2").checked,...window.PickleMatchFormat.readExtra("dRule")});$("#genericDialog").close();await refresh();toast("Đã thêm nội dung.")}catch(e){toast("Không thể thêm: "+ruleError(e))}};
 }
 function openCourtModal(){
   if(!state.tournaments.length)return toast("Cần tạo giải trước.");
@@ -1555,6 +1567,29 @@ async function openTeamModal(presetDivisionId=null,autoRegister=false){
 }
 function ruleError(e){
   return ({SERIES_B_REQUIRES_POOL_FORMAT:"Serie B cần vòng bảng + loại trực tiếp.",SERIES_B_ADVANCE_COUNT_OVERLAP:"Khi bật Serie B, Serie A chỉ lấy Top 1 hoặc Top 2.",NOT_ENOUGH_SERIES_B_QUALIFIERS:"Serie B cần hạng 3 của ít nhất 2 bảng.",BRACKET_SETTINGS_LOCKED:"Đã tạo nhánh đấu. Đặt lại bảng trước khi đổi cấu hình Serie.",RULES_LOCKED_AFTER_START:"Nội dung đã có trận bắt đầu: không thể đổi luật tính điểm nữa (vẫn đổi được tên, thời lượng, thời gian nghỉ).",INVALID_RELAY_TEAM_SIZE:"Chạy điểm hỗ trợ đội 3 hoặc 4 người.",RELAY_REQUIRES_SINGLE_GAME:"Chạy điểm chỉ dùng với 1 game (Best of 1).",INVALID_RELAY_SEGMENT:"Mốc đổi cặp phải nhỏ hơn điểm thắng.",INVALID_POINTS_TO_WIN:"Điểm thắng phải từ 1 đến 99.",INVALID_BEST_OF:"Best of chỉ nhận 1, 3 hoặc 5."})[e?.message]||e?.message||"Lỗi không xác định";
+}
+async function applyStageRules(id){
+  const d=state.divisions.find(x=>x.id===id);
+  if(!d)return;
+  const finalFormat=document.querySelector(`[data-stage-final="${id}"]`)?.value||"single_15";
+  try{
+    const preview=await API.stageRulesPreview(id,finalFormat);
+    if(!preview.eligible){
+      const labels=preview.blockers.slice(0,5).map(item=>{
+        const m=state.matches.find(x=>x.id===item.matchId);
+        return `${item.stage}: ${m?teamName(m.a)+" / "+teamName(m.b):item.matchId} (${item.reason})`;
+      }).join("\n");
+      toast(`Chưa áp dụng: ${preview.blockers.length} trận cần BTC kiểm tra.\n${labels}`);
+      return;
+    }
+    const label=finalFormat==="best3_11"?"chung kết Best of 3 (11 điểm)":"chung kết 1 set 15 điểm";
+    if(!confirm(`Áp dụng cho "${d.name}"?\n\nTất cả các vòng trước chung kết: 1 set 11 điểm, không cách 2.\n${label}.\n\nĐã kiểm tra ${preview.matchCount} trận và ${preview.recordedSets} set: tương thích. Không xóa, thay điểm hay tự chốt trận. Thao tác sẽ được ghi nhật ký.`))return;
+    await API.applyStageRules(id,{finalFormat,expectedSignature:preview.expectedSignature,confirm:true});
+    await refresh();
+    toast("Đã áp dụng luật theo vòng. Dữ liệu lịch sử vẫn giữ nguyên.");
+  }catch(e){
+    toast("Không thể áp dụng thể thức: "+({STAGE_RULES_PREVIEW_EXPIRED:"Dữ liệu vừa thay đổi, cần kiểm tra lại.",STAGE_RULES_REVIEW_REQUIRED:"Có trận không tương thích; chưa thay đổi dữ liệu.",STAGE_RULES_NOT_SUPPORTED:"Nội dung MLP/đồng đội có luật riêng."}[e.message]||e.message))
+  }
 }
 async function saveRules(id){
   try{
