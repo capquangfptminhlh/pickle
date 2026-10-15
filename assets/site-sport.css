@@ -496,3 +496,21 @@ html body.admin-sport .live-pill.is-idle{background:transparent!important;color:
   html body.site-sport.board-body .board-tools{flex:0 1 auto;min-width:0;flex-wrap:wrap!important;justify-content:flex-end;gap:8px!important}
   html body.site-sport.board-body .board-tools select{max-width:230px;text-overflow:ellipsis}
 }
+
+/* Public routes without the refreshed shell also need bottom gesture clearance. */
+@media (max-width:760px) {
+  body.site-sport.site-sport.public-body:not(.public-refresh) {
+    padding-bottom:calc(106px + env(safe-area-inset-bottom,0px))!important;
+  }
+  body.site-sport.site-sport.public-body:not(.public-refresh) .public-header {
+    padding-top:env(safe-area-inset-top,0px)!important;
+    height:auto!important;
+  }
+  body.site-sport.site-sport.public-body:not(.public-refresh) .public-mobile-dock {
+    height:auto!important;
+    min-height:calc(74px + env(safe-area-inset-bottom,0px))!important;
+    bottom:0!important;
+    padding:6px 8px calc(8px + env(safe-area-inset-bottom,0px))!important;
+    align-items:stretch!important;
+  }
+}
