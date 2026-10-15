@@ -463,3 +463,38 @@ body.admin-sport .organizer-step.is-done .organizer-step-no {background:var(--ac
   body.admin-sport .tournament-insight-grid{grid-template-columns:1fr 1fr}
   body.admin-sport .tournament-stat-leader-list{grid-template-columns:1fr}
 }
+
+/* iOS home-screen web app: respect the status-bar and gesture areas. */
+@media (max-width:760px) {
+  body.admin-sport .topbar {
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:calc(64px + env(safe-area-inset-top,0px))!important;
+    padding:calc(9px + env(safe-area-inset-top,0px)) 12px 9px!important;
+  }
+  body.admin-sport .sidebar {
+    height:100dvh!important;
+    padding-top:calc(14px + env(safe-area-inset-top,0px))!important;
+    padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))!important;
+  }
+  body.admin-sport .mobile-dock {
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:calc(74px + env(safe-area-inset-bottom,0px))!important;
+    bottom:0!important;
+    padding:6px 6px calc(8px + env(safe-area-inset-bottom,0px))!important;
+    border-radius:18px 18px 0 0!important;
+    align-items:stretch!important;
+  }
+  body.admin-sport .content {padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important;}
+  body.admin-sport .app-fab {bottom:calc(96px + env(safe-area-inset-bottom,0px))!important;}
+  body.admin-sport :is(.score-dialog[open],.generic-dialog[open]) {
+    max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 16px)!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+  }
+  body.admin-sport :is(.score-card,.modal-card) {
+    max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 16px)!important;
+    overflow-y:auto!important;
+  }
+}

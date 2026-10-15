@@ -162,3 +162,21 @@ html:root body.site-sport.courtside-body.referee-arena .lineup-player[data-servi
  html:root body.site-sport.courtside-body.referee-arena .picker-athlete{font-size:9px}
  html:root body.site-sport.courtside-body.referee-arena :is(.picker-athlete>img,.picker-athlete-fallback){width:22px;height:22px;flex-basis:22px}
 }
+
+/* iPhone PWA courtside: no point / finish buttons behind the Home indicator. */
+@media (max-width:760px) {
+  html:root body.site-sport.site-sport.courtside-body.referee-arena {
+    padding-bottom:calc(116px + env(safe-area-inset-bottom,0px))!important;
+  }
+  html:root body.site-sport.site-sport.courtside-body.referee-arena .courtside-top {
+    padding-top:calc(10px + env(safe-area-inset-top,0px))!important;
+  }
+  html:root body.site-sport.site-sport.courtside-body.referee-arena .courtside-main {
+    padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))!important;
+  }
+  html:root body.site-sport.site-sport.courtside-body.referee-arena .ref-bottom-actions {
+    bottom:0!important;
+    height:auto!important;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;
+  }
+}
