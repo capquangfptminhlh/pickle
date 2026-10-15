@@ -367,6 +367,7 @@ async function handleApi(request,env,ctx){
     const referee=user.role==="referee";
     const clubManager=user.role==="club_manager";
     const canCorrectRating=["super_admin","organizer"].includes(user.role);
+    const canCorrectSkill=canCorrectRating||(referee&&user.headReferee);
     const fullName=String(b.fullName??before.full_name).trim();
     if(!fullName)return fail("NAME_REQUIRED",request,env,400);
     const nickname=String(b.nickname??before.nickname??"").trim();
@@ -379,7 +380,7 @@ async function handleApi(request,env,ctx){
     const active=referee?before.active:(b.active===undefined?before.active:(asBool(b.active)?1:0));
     const oldRating=Number(before.rating||0);
     const rating=canCorrectRating&&b.rating!==undefined?Number(b.rating):oldRating;
-    const level=canCorrectRating&&b.skillLevel!==undefined?skillLevel(b.skillLevel,""):skillLevel(before.skill_level);
+    const level=canCorrectSkill&&b.skillLevel!==undefined?skillLevel(b.skillLevel,""):skillLevel(before.skill_level);
     if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
     if(!level)return fail("INVALID_SKILL_LEVEL",request,env,400);
     const ratingChanged=Math.abs(rating-oldRating)>1e-9;
