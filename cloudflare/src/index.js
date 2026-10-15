@@ -10,6 +10,7 @@ import {parseRelayOrder} from "../../shared/relay-draw.js";
 import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch,knockoutResetSnapshot,resetKnockout} from "./draw-reset.js";
 import {scheduleDivisionCourts} from "./court-scheduling.js";
 import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
+import {FINAL_FORMATS,stageScoringRules,inspectExistingMatch} from "../../shared/stage-scoring-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
 import {accountLogin,accountUsername,normalizeLogin,validLoginIdentifier} from "../../shared/account-login.js";
 
@@ -78,9 +79,10 @@ async function assertCourt(env,user,id){
   await assertTournament(env,user,tid);return tid;
 }
 async function getMatch(env,id){
-  return one(env,
-    "SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id
+  const row=await one(env,
+    "SELECT m.*,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.stage_rules_enabled,d.final_format,d.event_type,d.relay_segment_points FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id
   );
+  return row?{...row,...stageScoringRules(row,row)}:null;
 }
 async function authorizeMatch(env,user,m){
   if(!m)return false;
@@ -94,6 +96,7 @@ async function matchJson(env,id){
   const sets=await rows(env,"SELECT score_a,score_b FROM match_sets WHERE match_id=? ORDER BY set_no",id);
   return {
     id:m.id,divisionId:m.division_id,stage:m.stage,a:m.team_a_id||"TBD",b:m.team_b_id||"TBD",
+    matchRules:{bestOf:m.best_of,pointsToWin:m.points_to_win,winByTwo:Boolean(m.win_by_two)},
     courtId:m.court_id||null,refereeId:m.referee_user_id||null,status:["scheduled","ready"].includes(m.status)?"wait":m.status==="completed"?"done":m.status,
     current:[Number(m.current_score_a||0),Number(m.current_score_b||0)],
     sets:sets.map(s=>[Number(s.score_a||0),Number(s.score_b||0)]),
@@ -407,7 +410,8 @@ async function handleApi(request,env,ctx){
       .bind(id,user.id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,status,asBool(b.publicVisible)?1:0,created,created).run();
     const divId=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
-      .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",3,11,1,2,created).run();
+      .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",1,11,0,2,created).run();
+    await env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format='single_15' WHERE id=?").bind(divId).run();
     const row=await one(env,"SELECT * FROM tournaments WHERE id=?",id);await createAudit(env,user,"tournament",id,"CREATE",null,row);await emitUpdate(env,id);
     return ok(row,request,env,201);
   }
@@ -436,11 +440,49 @@ async function handleApi(request,env,ctx){
     const eventType=String(b.eventType||"doubles"),format=String(b.format||"pool_to_knockout");
     if(!["singles","doubles","mixed_doubles","team"].includes(eventType))return fail("INVALID_EVENT_TYPE",request,env,400);
     if(!["round_robin","pool_to_knockout","single_elimination","double_elimination"].includes(format))return fail("INVALID_FORMAT",request,env,400);
-    const rules=divisionMatchRules(b),bracket=divisionBracketRules(b),id=uid();
+    const useStageRules=b.stageRulesEnabled===undefined?(eventType!=="team"&&Number(b.relaySegmentPoints||0)===0):asBool(b.stageRulesEnabled);
+    if(useStageRules&&(eventType==="team"||Number(b.relaySegmentPoints||0)>0))return fail("STAGE_RULES_NOT_SUPPORTED",request,env,400);
+    const merged=useStageRules?{...b,bestOf:1,pointsToWin:11,winByTwo:false}:b;
+    const rules=divisionMatchRules(merged),bracket=divisionBracketRules(b),id=uid();
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,tie_break_mode,scoring_mode,minimum_rest_minutes,match_slot_minutes,relay_segment_points,relay_team_size,final_point_on_serve,third_place_match,series_b_enabled,series_b_third_place_match,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)")
       .bind(id,p.id,name,eventType,format,rules.bestOf,rules.pointsToWin,rules.winByTwo,bracket.advanceCount,"head_to_head",["side_out","rally"].includes(String(b.scoringMode))?String(b.scoringMode):"side_out",Math.max(0,Number(b.minimumRestMinutes??15)),Math.max(5,Number(b.matchSlotMinutes??20)),rules.relaySegmentPoints,rules.relayTeamSize,rules.finalPointOnServe,rules.thirdPlaceMatch,Number(bracket.seriesBEnabled),Number(bracket.seriesBThirdPlaceMatch),nowIso()).run();
+    if(useStageRules)await env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format='single_15' WHERE id=?").bind(id).run();
     const row=await one(env,"SELECT * FROM divisions WHERE id=?",id);await createAudit(env,user,"division",id,"CREATE",null,row);await emitUpdate(env,p.id);
     return ok(row,request,env,201);
+  }
+  // Opt-in activation is deliberately separate from generic rule edits.
+  // Live-score history is never deleted, rewritten or automatically finalized.
+  p=route(path,"/api/divisions/:id/stage-rules");
+  if(p&&(method==="GET"||method==="PUT")){
+    const user=await userRequired(request,env);
+    if(!["super_admin","organizer"].includes(user.role))return fail("FORBIDDEN",request,env,403);
+    const tid=await assertDivision(env,user,p.id);
+    const division=await one(env,"SELECT * FROM divisions WHERE id=?",p.id);
+    if(!division)return fail("NOT_FOUND",request,env,404);
+    if(division.event_type==="team"||Number(division.relay_segment_points||0)>0)return fail("STAGE_RULES_NOT_SUPPORTED",request,env,400);
+    const input=method==="PUT"?await bodyJson(request):{finalFormat:url.searchParams.get("finalFormat")};
+    const finalFormat=String(input.finalFormat||division.final_format||"single_15");
+    if(!FINAL_FORMATS.includes(finalFormat))return fail("INVALID_FINAL_FORMAT",request,env,400);
+    const matchRows=await rows(env,"SELECT id,division_id,stage,status,version,team_a_id,team_b_id,winner_team_id,result_reason,current_score_a,current_score_b FROM matches WHERE division_id=? ORDER BY id",p.id);
+    const setRows=await rows(env,"SELECT s.match_id,s.set_no,s.score_a,s.score_b FROM match_sets s JOIN matches m ON m.id=s.match_id WHERE m.division_id=? ORDER BY s.match_id,s.set_no",p.id);
+    const grouped=new Map();
+    for(const row of setRows){if(!grouped.has(row.match_id))grouped.set(row.match_id,[]);grouped.get(row.match_id).push(row)}
+    const blockers=matchRows.map(m=>inspectExistingMatch(m,grouped.get(m.id)||[],division,finalFormat)).filter(Boolean);
+    const signatureValue=JSON.stringify({division:[division.stage_rules_enabled,division.final_format,division.best_of,division.points_to_win,division.win_by_two],matches:matchRows.map(m=>[m.id,m.version,m.status,m.stage,m.winner_team_id,m.current_score_a,m.current_score_b]),sets:setRows.map(x=>[x.match_id,x.set_no,x.score_a,x.score_b])});
+    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(signatureValue));
+    const signature=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,"0")).join("");
+    const preview={eligible:blockers.length===0,blockers,finalFormat,matchCount:matchRows.length,recordedSets:setRows.length,expectedSignature:signature,currentlyEnabled:Boolean(division.stage_rules_enabled)};
+    if(method==="GET")return ok(preview,request,env);
+    if(!preview.eligible)return fail("STAGE_RULES_REVIEW_REQUIRED",request,env,409,{blockers});
+    if(!input.confirm||input.expectedSignature!==signature)return fail("STAGE_RULES_PREVIEW_EXPIRED",request,env,409);
+    const at=nowIso();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format=?,updated_at=? WHERE id=?").bind(finalFormat,at,p.id),
+      env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) VALUES(?,'division',?,'ACTIVATE_STAGE_SCORING',?,?,?)")
+        .bind(user.id,p.id,JSON.stringify({stageRulesEnabled:division.stage_rules_enabled,finalFormat:division.final_format}),JSON.stringify({stageRulesEnabled:1,finalFormat,matchCount:matchRows.length,recordedSets:setRows.length}),"BTC xác nhận luật vòng bảng/loại trực tiếp: 1 set 11 điểm, không cách 2; chung kết theo lựa chọn")
+    ]);
+    await emitUpdate(env,tid);
+    return ok({ok:true,...preview},request,env);
   }
   p=route(path,"/api/divisions/:id");
   if(p&&method==="PATCH"){
