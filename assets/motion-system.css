@@ -77,10 +77,26 @@ html.motion-ready body.site-sport :is(.live-pill i,.status-dot,.desktop-online-d
   html.motion-ready body.site-sport .pu-motion-in {animation-duration:.44s!important}
   html.motion-ready body.site-sport .pu-dialog-in {animation-duration:.27s!important}
 }
+/* Hero headlines and action clusters arrive with a subtle visual rhythm. */
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2,p,.eyebrow,.desktop-kicker,.desktop-hero-actions,.mobile-primary-actions) {
+  animation:puMotionRise .62s var(--pu-motion-ease) both;
+}
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2) {animation-delay:90ms}
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(p,.desktop-hero-actions,.mobile-primary-actions) {animation-delay:175ms}
+html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.public-match) :is(.tour-media img,.top-player-avatar img,.news-card img) {
+  transition:filter .35s ease,transform .35s var(--pu-motion-ease)!important;
+}
+@media (hover:hover) and (pointer:fine) {
+  html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.public-match):hover :is(.tour-media img,.top-player-avatar img,.news-card img) {
+    transform:scale(1.028)!important;filter:saturate(1.09)
+  }
+}
+
 /* No hidden content, no unexpected movement in accessibility mode. */
 @media(prefers-reduced-motion:reduce){
   html.motion-ready body.site-sport :is(.pu-motion-in,.pu-page-switch,.pu-dialog-in,.pu-button-press,.pu-score-pop,.pu-toast-enter),
-  html.motion-ready body.site-sport :is(.live-pill i,.status-dot,.desktop-online-dot) {
+  html.motion-ready body.site-sport :is(.live-pill i,.status-dot,.desktop-online-dot),
+  html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2,p,.eyebrow,.desktop-kicker,.desktop-hero-actions,.mobile-primary-actions) {
     animation:none!important;transform:none!important;filter:none!important;opacity:1!important
   }
   html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.match-card,.club-card,.ranking-list-card,.sponsor-card,.public-match,.player-panel,.tournament-team-row,.court-match-card,.btn,.mini,.icon-btn,.nav-btn,.ref-btn) {
