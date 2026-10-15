@@ -310,7 +310,7 @@ async function handleApi(request,env,ctx){
     let data=await rows(env,"SELECT p.*,c.name AS club_name FROM players p LEFT JOIN clubs c ON c.id=p.club_id ORDER BY p.full_name");
     if(user.role==="referee"){
       const ids=new Set((await loadAdminState(env,user)).players.map(x=>x.id));
-      data=data.filter(x=>ids.has(x.id));
+      data=data.filter(x=>ids.has(x.id)||(user.headReferee&&x.created_by_user_id===user.id));
     }else if(user.role==="club_manager"){
       if(!user.clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
       data=data.filter(x=>x.club_id===user.clubId);
@@ -322,19 +322,41 @@ async function handleApi(request,env,ctx){
     })),request,env);
   }
   if(path==="/api/players"&&method==="POST"){
-    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer","club_manager");
+    const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer","club_manager","referee");
+    if(user.role==="referee"&&(!user.headReferee||!user.tournamentScope))return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),fullName=String(b.fullName||"").trim();
     if(!fullName)return fail("NAME_REQUIRED",request,env,400);
-    const clubId=user.role==="club_manager"?user.clubId:(b.clubId||user.clubId||null);
+    const clubId=user.role==="referee"?null:(user.role==="club_manager"?user.clubId:(b.clubId||user.clubId||null));
     if(user.role==="club_manager"&&!clubId)return fail("CLUB_SCOPE_REQUIRED",request,env,403);
     if(clubId&&!(await one(env,"SELECT id FROM clubs WHERE id=? AND active=1",clubId)))return fail("INVALID_CLUB",request,env,400);
     const gender=String(b.gender||"other");if(!["male","female","other"].includes(gender))return fail("INVALID_GENDER",request,env,400);
-    const rating=user.role==="club_manager"?3:(b.rating===undefined?3:Number(b.rating));if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
+    const rating=["club_manager","referee"].includes(user.role)?3:(b.rating===undefined?3:Number(b.rating));if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
     const id=uid(),level=skillLevel(b.skillLevel||b.skill_level);
     await env.DB.prepare("INSERT INTO players(id,club_id,created_by_user_id,full_name,nickname,gender,rating,skill_level,phone,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)")
-      .bind(id,clubId,user.id,fullName,String(b.nickname||""),gender,rating,level,String(b.phone||""),nowIso(),nowIso()).run();
+      .bind(id,clubId,user.id,fullName,String(b.nickname||""),gender,rating,level,user.role==="referee"?"":String(b.phone||""),nowIso(),nowIso()).run();
     const row=await one(env,"SELECT * FROM players WHERE id=?",id);await createAudit(env,user,"player",id,"CREATE",null,row);
     return ok(row,request,env,201);
+  }
+  if(path==="/api/referee/players/bulk"&&method==="POST"){
+    const user=await userRequired(request,env);
+    if(user.role!=="referee"||!user.headReferee||!user.tournamentScope)return fail("FORBIDDEN",request,env,403);
+    const b=await bodyJson(request),names=Array.isArray(b.names)?b.names:[];
+    if(!names.length||names.length>100)return fail("INVALID_IMPORT_SIZE",request,env,400);
+    const existing=new Set((await rows(env,"SELECT full_name FROM players WHERE created_by_user_id=?",user.id)).map(p=>p.full_name.normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi")));
+    const statements=[],createdNames=[];let skipped=0;
+    for(const value of names){
+      if(typeof value!=="string")return fail("INVALID_PLAYER_NAME",request,env,400);
+      const name=value.normalize("NFC").trim().replace(/\s+/g," ");
+      if(!name||name.length>120)return fail("INVALID_PLAYER_NAME",request,env,400);
+      const key=name.toLocaleLowerCase("vi");
+      if(existing.has(key)){skipped++;continue}
+      existing.add(key);const id=uid(),at=nowIso();
+      statements.push(env.DB.prepare("INSERT INTO players(id,created_by_user_id,full_name,gender,rating,skill_level,phone,active,created_at,updated_at) VALUES(?,?,?,'other',3,'B','',1,?,?)").bind(id,user.id,name,at,at));
+      statements.push(env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data,created_at) VALUES(?,'player',?,'REFEREE_CREATE_PLAYER',?,?)").bind(user.id,id,JSON.stringify({fullName:name,tournamentId:user.tournamentScope}),at));
+      createdNames.push(name);
+    }
+    if(statements.length)await env.DB.batch(statements);
+    return ok({created:createdNames.length,skipped,names:createdNames},request,env,201);
   }
   p=route(path,"/api/players/:id");
   if(p&&method==="PATCH"){
@@ -345,6 +367,7 @@ async function handleApi(request,env,ctx){
     const referee=user.role==="referee";
     const clubManager=user.role==="club_manager";
     const canCorrectRating=["super_admin","organizer"].includes(user.role);
+    const canCorrectSkill=canCorrectRating||(referee&&user.headReferee);
     const fullName=String(b.fullName??before.full_name).trim();
     if(!fullName)return fail("NAME_REQUIRED",request,env,400);
     const nickname=String(b.nickname??before.nickname??"").trim();
@@ -357,7 +380,7 @@ async function handleApi(request,env,ctx){
     const active=referee?before.active:(b.active===undefined?before.active:(asBool(b.active)?1:0));
     const oldRating=Number(before.rating||0);
     const rating=canCorrectRating&&b.rating!==undefined?Number(b.rating):oldRating;
-    const level=canCorrectRating&&b.skillLevel!==undefined?skillLevel(b.skillLevel,""):skillLevel(before.skill_level);
+    const level=canCorrectSkill&&b.skillLevel!==undefined?skillLevel(b.skillLevel,""):skillLevel(before.skill_level);
     if(!Number.isFinite(rating)||rating<0)return fail("INVALID_RATING",request,env,400);
     if(!level)return fail("INVALID_SKILL_LEVEL",request,env,400);
     const ratingChanged=Math.abs(rating-oldRating)>1e-9;
@@ -530,12 +553,16 @@ async function handleApi(request,env,ctx){
 
   p=route(path,"/api/divisions/:id/teams");
   if(p&&method==="POST"){
-    const user=await userRequired(request,env),tid=await assertDivision(env,user,p.id),b=await bodyJson(request);
+    const user=await userRequired(request,env),tid=await tournamentForDivision(env,p.id),b=await bodyJson(request);
+    if(!tid)return fail("NOT_FOUND",request,env,404);
+    const headRef=user.role==="referee"&&user.headReferee&&user.tournamentScope===tid;
+    if(!headRef)await assertDivision(env,user,p.id);
+    if(headRef&&await one(env,"SELECT id FROM matches WHERE division_id=? LIMIT 1",p.id))return fail("ROSTER_LOCKED",request,env,409);
     const roster=await validateDivisionRoster(env,p.id,b.playerIds);
     const name=String(b.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
     if(!name)return fail("NAME_REQUIRED",request,env,400);
     const id=uid(),changedAt=nowIso(),statements=[];
-    const clubId=await teamClub(env,b,statements);
+    const clubId=headRef?null:await teamClub(env,b,statements);
     statements.push(env.DB.prepare("INSERT INTO teams(id,division_id,name,club_id,seed,group_code,status,updated_at) VALUES(?,?,?,?,?,?,?,?)")
       .bind(id,p.id,name,clubId,b.seed??null,b.group?String(b.group):null,"active",changedAt));
     roster.ids.forEach((playerId,index)=>statements.push(env.DB.prepare("INSERT INTO team_players(team_id,player_id,slot_no) VALUES(?,?,?)").bind(id,playerId,index+1)));
@@ -868,7 +895,7 @@ async function handleApi(request,env,ctx){
 
   if(path==="/api/users"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
-    let data=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name,c.name AS club_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope LEFT JOIN clubs c ON c.id=u.club_id ORDER BY u.display_name");
+    let data=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.is_head_referee,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name,c.name AS club_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope LEFT JOIN clubs c ON c.id=u.club_id ORDER BY u.display_name");
     if(user.role==="organizer"){
       const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));
       data=data.filter(x=>x.id===user.id||(x.role==="referee"&&x.tournament_id_scope&&owned.has(x.tournament_id_scope)));
@@ -898,12 +925,14 @@ async function handleApi(request,env,ctx){
     }else if(tournamentId&&!(await one(env,"SELECT id FROM tournaments WHERE id=?",tournamentId))){
       return fail("INVALID_TOURNAMENT",request,env,400);
     }
+    const headReferee=role==="referee"&&asBool(b.headReferee);
+    if(headReferee&&!tournamentId)return fail("TOURNAMENT_REQUIRED",request,env,400);
     if(await one(env,"SELECT id FROM app_users WHERE email=?",email))return fail("EMAIL_EXISTS",request,env,409);
     const id=uid(),hash=await hashPassword(password),at=nowIso();
-    const after={id,email,display_name:name,role,active:1,tournament_id_scope:tournamentId,club_id:clubId};
+    const after={id,email,display_name:name,role,active:1,is_head_referee:headReferee?1:0,tournament_id_scope:tournamentId,club_id:clubId};
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?)")
-        .bind(id,email,name,role,hash,tournamentId,clubId,at,at),
+      env.DB.prepare("INSERT INTO app_users(id,email,display_name,role,active,password_hash,auth_version,tournament_id_scope,club_id,is_head_referee,created_at,updated_at) VALUES(?,?,?,?,1,?,0,?,?,?,?,?)")
+        .bind(id,email,name,role,hash,tournamentId,clubId,headReferee?1:0,at,at),
       accountAudit(env,user,id,refereeWrite?"CREATE_REFEREE":"CREATE_CHILD_ACCOUNT",null,after)
     ]);
     const created=await one(env,"SELECT * FROM app_users WHERE id=?",id);
@@ -939,16 +968,19 @@ async function handleApi(request,env,ctx){
     }else if(tournamentId&&!(await one(env,"SELECT id FROM tournaments WHERE id=?",tournamentId))){
       return fail("INVALID_TOURNAMENT",request,env,400);
     }
+    const headReferee=role==="referee"&&(b.headReferee===undefined?Boolean(target.is_head_referee):asBool(b.headReferee));
+    if(headReferee&&!tournamentId)return fail("TOURNAMENT_REQUIRED",request,env,400);
     let hash=target.password_hash,authVersion=Number(target.auth_version||0);
     if(b.password){
       const pwd=String(b.password);if(pwd.length<12||pwd.length>64)return fail("PASSWORD_POLICY",request,env,400);
       hash=await hashPassword(pwd);authVersion++;
     }
     const active=b.active===undefined?target.active:(asBool(b.active)?1:0);
-    const after={...target,email,display_name:name,role,active,club_id:clubId,tournament_id_scope:tournamentId};
+    if((headReferee?1:0)!==Number(target.is_head_referee||0)||tournamentId!==target.tournament_id_scope||role!==target.role)authVersion++;
+    const after={...target,email,display_name:name,role,active,club_id:clubId,tournament_id_scope:tournamentId,is_head_referee:headReferee?1:0};
     await env.DB.batch([
-      env.DB.prepare("UPDATE app_users SET email=?,display_name=?,role=?,active=?,club_id=?,tournament_id_scope=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
-        .bind(email,name,role,active,clubId,tournamentId,hash,authVersion,nowIso(),p.id),
+      env.DB.prepare("UPDATE app_users SET email=?,display_name=?,role=?,active=?,club_id=?,tournament_id_scope=?,is_head_referee=?,password_hash=?,auth_version=?,updated_at=? WHERE id=?")
+        .bind(email,name,role,active,clubId,tournamentId,headReferee?1:0,hash,authVersion,nowIso(),p.id),
       accountAudit(env,user,p.id,refereeWrite?"UPDATE_REFEREE":"UPDATE_CHILD_ACCOUNT",target,after,b.password?"Password reset":null)
     ]);
     const updated=await one(env,"SELECT * FROM app_users WHERE id=?",p.id);
@@ -956,7 +988,7 @@ async function handleApi(request,env,ctx){
   }
   if(path==="/api/users/referees"&&method==="GET"){
     const user=await userRequired(request,env);await requireAdminRole(user,"super_admin","organizer");
-    let refs=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope WHERE u.role='referee' ORDER BY u.display_name");
+    let refs=await rows(env,"SELECT u.id,u.email,u.display_name,u.role,u.active,u.is_head_referee,u.tournament_id_scope,u.club_id,u.created_at,t.name AS tournament_name FROM app_users u LEFT JOIN tournaments t ON t.id=u.tournament_id_scope WHERE u.role='referee' ORDER BY u.display_name");
     if(user.role==="organizer"){
       const owned=new Set((await loadAdminState(env,user)).tournaments.map(x=>x.id));refs=refs.filter(x=>x.tournament_id_scope&&owned.has(x.tournament_id_scope));
     }

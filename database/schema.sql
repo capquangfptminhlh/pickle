@@ -24,6 +24,8 @@ alter table app_users drop constraint if exists app_users_role_check;
 alter table app_users add constraint app_users_role_check
   check (role in ('super_admin','organizer','referee','club_manager','finance','player'));
 
+alter table app_users add column if not exists is_head_referee boolean not null default false;
+
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references app_users(id) on delete set null,
