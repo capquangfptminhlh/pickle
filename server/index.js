@@ -221,6 +221,12 @@ async function canEditPlayer(user,playerId,c=pool){
     `,[playerId,user.sub,user.tournamentScope||null])).rowCount);
   }
   if(user?.role==="referee"){
+    if(user.headReferee&&user.tournamentScope){
+      const owned=(await c.query("select id from players where id=$1 and created_by_user_id=$2",[playerId,user.sub])).rowCount;
+      if(owned)return true;
+      const linked=(await c.query("select 1 from team_players tp join teams t on t.id=tp.team_id join divisions d on d.id=t.division_id where tp.player_id=$1 and d.tournament_id=$2 limit 1",[playerId,user.tournamentScope])).rowCount;
+      if(linked)return true;
+    }
     return Boolean((await c.query(`
       select 1
       from team_players tp
@@ -373,6 +379,9 @@ async function loadAdminState(user){
     const state=await loadState();
     const ids=await organizerTournamentIds(user);
     return filterStateToTournamentIds(state,ids);
+  }
+  if(user.role==="referee"&&user.headReferee&&user.tournamentScope){
+    return filterStateToTournamentIds(await loadState(),[user.tournamentScope]);
   }
   if(user.role==="referee"){
     const state=await loadState();
@@ -704,7 +713,7 @@ app.post("/api/auth/login",wrap(async(req,res)=>{
   const token=signUser(u);
   res.cookie(authCookieName,token,authCookieOptions);
   res.set("Cache-Control","no-store");
-  res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role}});
+  res.json({user:{id:u.id,email:u.email,name:u.display_name,role:u.role,headReferee:u.role==="referee"&&Boolean(u.is_head_referee)&&Boolean(u.tournament_id_scope)}});
 }));
 app.post("/api/auth/logout",(req,res)=>{
   res.clearCookie("pickle_token",{httpOnly:true,sameSite:"strict",secure:false,path:"/"});
@@ -923,6 +932,13 @@ app.get("/api/players",authRequired,allow("super_admin","organizer","referee","c
   if(req.user.role==="club_manager"){
     if(!req.user.clubId)return res.json([]);
     where="where p.club_id=$1";params=[req.user.clubId];
+  }else if(req.user.role==="referee"&&req.user.headReferee&&req.user.tournamentScope){
+    where=`where p.created_by_user_id=$1 or exists (
+      select 1 from team_players tp
+      join teams t on t.id=tp.team_id join divisions d on d.id=t.division_id
+      where tp.player_id=p.id and d.tournament_id=$2
+    )`;
+    params=[req.user.sub,req.user.tournamentScope];
   }else if(req.user.role==="referee"){
     where=`where exists (
       select 1 from team_players tp
@@ -937,13 +953,35 @@ app.get("/api/players",authRequired,allow("super_admin","organizer","referee","c
     from players p left join clubs c on c.id=p.club_id ${where} order by p.full_name
   `,params);res.json(req.user.role==="referee"?rows.map(p=>({...p,phone:""})):rows);
 }));
-app.post("/api/players",authRequired,allow("super_admin","organizer","club_manager"),wrap(async(req,res)=>{
+app.post("/api/players",authRequired,allow("super_admin","organizer","club_manager","referee"),wrap(async(req,res)=>{
+  if(req.user.role==="referee"&&(!req.user.headReferee||!req.user.tournamentScope))return res.status(403).json({error:"FORBIDDEN"});
   const {fullName,nickname,gender,phone}=req.body;if(!fullName)return res.status(400).json({error:"NAME_REQUIRED"});
-  const clubId=req.user.role==="club_manager"?req.user.clubId:(req.body.clubId||null);
+  const clubId=req.user.role==="referee"?null:(req.user.role==="club_manager"?req.user.clubId:(req.body.clubId||null));
   if(req.user.role==="club_manager"&&!clubId)return res.status(403).json({error:"CLUB_SCOPE_REQUIRED"});
-  const rating=req.user.role==="club_manager"?3:Number(req.body.rating??3);
-  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id,created_by_user_id) values($1,$2,$3,$4,$5,$6,$7) returning *",[fullName,nickname||null,gender||null,rating,phone||null,clubId,req.user.sub])).rows[0];
+  const rating=["club_manager","referee"].includes(req.user.role)?3:Number(req.body.rating??3);
+  const level=["A+","A","B+","B","C+","C"].includes(req.body.skillLevel)?req.body.skillLevel:"B";
+  const row=(await pool.query("insert into players(full_name,nickname,gender,rating,phone,club_id,created_by_user_id,skill_level) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[String(fullName).trim(),nickname||null,gender||"other",rating,req.user.role==="referee"?null:phone||null,clubId,req.user.sub,level])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,after_data) values($1,'player',$2,'CREATE_PLAYER',$3)",[req.user.sub,row.id,row]);res.status(201).json(row);
+}));
+app.post("/api/referee/players/bulk",authRequired,allow("referee"),wrap(async(req,res)=>{
+  if(!req.user.headReferee||!req.user.tournamentScope)return res.status(403).json({error:"FORBIDDEN"});
+  const names=req.body?.names;
+  if(!Array.isArray(names)||names.length<1||names.length>100)return res.status(400).json({error:"INVALID_IMPORT_SIZE"});
+  if(names.some(v=>typeof v!=="string"||!v.trim()||v.trim().length>120))return res.status(400).json({error:"INVALID_PLAYER_NAME"});
+  const result=await tx(async c=>{
+    const existing=new Set((await c.query("select full_name from players where created_by_user_id=$1",[req.user.sub])).rows.map(p=>registryNameKey(p.full_name)));
+    let created=0,skipped=0;const added=[];
+    for(const raw of names){
+      const name=raw.normalize("NFC").trim().replace(/\s+/g," "),key=registryNameKey(name);
+      if(existing.has(key)){skipped++;continue}
+      existing.add(key);
+      const row=(await c.query("insert into players(full_name,gender,rating,skill_level,created_by_user_id) values($1,'other',3,'B',$2) returning id",[name,req.user.sub])).rows[0];
+      await audit(c,req.user,"player",row.id,"REFEREE_CREATE_PLAYER",null,{fullName:name,tournamentId:req.user.tournamentScope});
+      added.push(name);created++;
+    }
+    return {created,skipped,names:added};
+  });
+  res.status(201).json(result);
 }));
 app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","referee","club_manager"),wrap(async(req,res)=>{
   const before=(await pool.query("select * from players where id=$1",[req.params.id])).rows[0];
@@ -1183,14 +1221,23 @@ app.patch("/api/tournaments/:id",authRequired,allow("super_admin","organizer"),t
   await emitState();res.json(after);
 }));
 
-app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer"),divisionManageParam,wrap(async(req,res)=>{
+app.post("/api/divisions/:id/teams",authRequired,allow("super_admin","organizer","referee"),divisionManageParam,wrap(async(req,res)=>{
   const {club,clubId:requestedClubId,group="A",seed}=req.body;
+  const headRef=req.user.role==="referee"&&req.user.headReferee&&req.user.tournamentScope;
+  if(req.user.role==="referee"&&!headRef)return res.status(403).json({error:"FORBIDDEN"});
   const row=await tx(async c=>{
+    if(req.user.role==="referee"){
+      const d=(await c.query("select tournament_id from divisions where id=$1",[req.params.id])).rows[0];
+      if(!d||d.tournament_id!==req.user.tournamentScope)throw Object.assign(new Error("TOURNAMENT_SCOPE_FORBIDDEN"),{status:403});
+      if((await c.query("select 1 from matches where division_id=$1 limit 1",[req.params.id])).rowCount)throw Object.assign(new Error("ROSTER_LOCKED"),{status:409});
+    }
     const roster=await validateDivisionRoster(c,req.params.id,req.body.playerIds);
     const name=String(req.body.name||roster.players.map(player=>player.full_name).join(" / ")).trim();
     if(!name)throw Object.assign(new Error("NAME_REQUIRED"),{status:400});
     let clubId=null;
-    if(requestedClubId){
+    if(req.user.role==="referee"){
+      clubId=null;
+    }else if(requestedClubId){
       const cr=(await c.query("select id from clubs where id=$1 and active=true",[requestedClubId])).rows[0];
       if(!cr)throw Object.assign(new Error("INVALID_CLUB"),{status:400});
       clubId=cr.id;
