@@ -23,6 +23,10 @@ test("head referee can enter athletes only for assigned tournament",async()=>{
     assert.equal(r.status,201);assert.equal(r.data.created,0);
     const ids=f.db.prepare("SELECT id FROM players WHERE created_by_user_id='local'").all().map(x=>x.id);
     assert.equal(ids.length,2);
+    r=await f.api("/api/players/"+ids[0],{skillLevel:"A+",rating:9},"PATCH","local");
+    assert.equal(r.status,200);
+    assert.equal(r.data.skill_level,"A+");
+    assert.equal(r.data.rating,3,"head referee must not edit rating");
     r=await f.api("/api/admin/state",undefined,"GET","local");
     assert.equal(r.status,200);assert.deepEqual(r.data.tournaments.map(t=>t.id),["own"]);
     r=await f.api("/api/players",undefined,"GET","local");assert.equal(r.data.length,2);
