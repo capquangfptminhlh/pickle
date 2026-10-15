@@ -71,6 +71,11 @@
       requestAnimationFrame(()=>{
         queued=false;
         enhance();
+        document.querySelectorAll(".toast,.pwa-toast,.ref-toast").forEach(notification=>{
+          if(notification.dataset.puToastAnimated)return;
+          notification.dataset.puToastAnimated="1";
+          notification.classList.add("pu-toast-enter");
+        });
         document.querySelectorAll("dialog").forEach(dialog=>{
           if(!dialog.open){dialog.dataset.puModalAnimated="";return}
           if(dialog.dataset.puModalAnimated)return;
