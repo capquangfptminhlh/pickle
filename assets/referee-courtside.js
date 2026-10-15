@@ -259,6 +259,7 @@
   async function init(){
     try{
       const me=await API.me();user=me.user;
+      if($("#headRosterLink"))$("#headRosterLink").hidden=!(user?.role==="referee"&&user?.headReferee);
       if(!["super_admin","organizer","referee"].includes(user?.role)){location.href="admin.html";return}
       await refresh({quiet:true});
       const requested=new URLSearchParams(location.search).get("match");
