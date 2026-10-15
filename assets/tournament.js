@@ -199,10 +199,25 @@ function showTournamentDraw(payload,done=false){
   if(payload?.tournamentId!==id)return;
   let el=document.querySelector(".realtime-draw-overlay");
   if(!el){el=document.createElement("div");el.className="realtime-draw-overlay";document.body.appendChild(el)}
+  window.__tourGroupDrawAbort?.abort();
+  clearTimeout(window.__tourDrawTimer);
+  el.classList.remove("has-reveal");
   const groups=Array.isArray(payload?.groups)?payload.groups:[];
-  el.innerHTML=`<div class="realtime-draw-card ${done?"is-done":""}"><div class="realtime-draw-icon">${done?"✓":"🎡"}</div><span>${done?"KẾT QUẢ BỐC THĂM":"ĐANG BỐC THĂM REALTIME"}</span><h3>${esc(payload?.divisionName||"Chia bảng")}</h3><p>${done?`${payload.groupCount||groups.length} bảng • Top ${payload.advanceCount||2} đi tiếp`:`${payload.teamCount||0} cặp/đội đang được quay`}</p>${done&&groups.length?`<div class="realtime-draw-groups">${groups.map(g=>`<b>Bảng ${esc(g.group)} <small>${g.count} đội</small></b>`).join("")}</div>`:""}</div>`;
-  el.classList.add("show");clearTimeout(window.__tourDrawTimer);
-  if(done)window.__tourDrawTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),250)},6000);
+  if(done&&Array.isArray(payload?.assignments)&&payload.assignments.length&&window.PickleDrawReveal){
+    const controller=new AbortController();
+    window.__tourGroupDrawAbort=controller;
+    el.classList.add("has-reveal","show");
+    el.innerHTML='<div class="realtime-draw-card draw-reveal-spectator"><div data-reveal-host></div></div>';
+    window.PickleDrawReveal.play(el.querySelector("[data-reveal-host]"),payload,{compact:true,signal:controller.signal})
+      .then(result=>{
+        if(result?.cancelled||controller.signal.aborted)return;
+        window.__tourDrawTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>{if(!controller.signal.aborted)el.remove()},280)},3800);
+      }).catch(console.error);
+    return;
+  }
+  el.innerHTML=`<div class="realtime-draw-card ${done?"is-done":""}"><div class="realtime-draw-icon">${done?"✓":"🎡"}</div><span>${done?"KẾT QUẢ BỐC THĂM":"ĐANG BỐC THĂM REALTIME"}</span><h3>${esc(payload?.divisionName||"Giải đấu")}</h3><p>${done?`${payload.groupCount||groups.length} bảng • Top ${payload.advanceCount||2} đi tiếp`:`${payload.teamCount||0} cặp/đội • ${payload.groupCount||0} bảng`}</p>${done&&groups.length?`<div class="realtime-draw-groups">${groups.map(g=>`<b>Bảng ${esc(g.group)} <small>${g.count} đội</small></b>`).join("")}</div>`:""}</div>`;
+  el.classList.add("show");
+  if(done)window.__tourDrawTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),280)},3800);
 }
 async function load(){
   if(realtimeRefreshBusy){realtimeRefreshAgain=true;return}
