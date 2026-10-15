@@ -97,6 +97,9 @@
   }
   function rulesSummary(d){
     if(!d)return "";
+    if(d.stageRulesEnabled){
+      return "Vòng bảng / tứ kết / bán kết / tranh hạng ba: 1 set 11 điểm, không cách 2 • Chung kết: "+(d.finalFormat==="best3_11"?"Best of 3, mỗi set 11 điểm":"1 set 15 điểm")+" (không cách 2)";
+    }
     const parts=[];
     const size=Number(d.relayTeamSize||0)||Math.round(Number(d.pointsToWin)/Number(d.relaySegmentPoints||1));
     if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm ${size} lượt × ${d.relaySegmentPoints} = ${d.pointsToWin} điểm`,size===3?"Đội 3 người, mỗi đội bốc thăm độc lập AB, BC, CA trước trận":`Đội ${size} người, thứ tự cặp ${relayPairs(size).join(" → ")}`);
