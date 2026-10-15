@@ -1,6 +1,8 @@
 name: Cloudflare Worker
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -41,6 +43,10 @@ jobs:
         run: npm audit --audit-level=high
       - name: Courtside client syntax
         run: |
+          node --check assets/admin-app.js
+          node --check assets/api.js
+          node --check server/index.js
+          node --check cloudflare/src/index.js
           node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
           node --check assets/timeout-clock.js
