@@ -91,3 +91,14 @@ test("live current scores beyond target are flagged, without rewriting them",()=
   const m={id:"m",stage:"Bảng B",status:"live",current_score_a:12,current_score_b:10};
   assert.equal(inspectExistingMatch(m,[],d,"single_15").reason,"LIVE_SCORE_OUTSIDE_RULES");
 });
+
+test("a scored match cannot change its stage and implicitly change rules",async()=>{
+  const f=await scoringFixture();
+  try{
+    f.db.exec("UPDATE divisions SET stage_rules_enabled=1 WHERE id='division';UPDATE matches SET started_at='2026-10-15T09:00:00Z',status='live',current_score_a=2,current_score_b=11 WHERE id='match'");
+    const res=await call(f,"/api/matches/match",{method:"PATCH",body:{stage:"Chung kết"}});
+    assert.equal(res.status,409);
+    assert.equal(res.data.error,"MATCH_STAGE_LOCKED");
+    assert.equal(f.match().stage,"Vòng bảng");
+  }finally{f.db.close()}
+});
