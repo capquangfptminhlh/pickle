@@ -184,6 +184,7 @@ export async function loadAdminState(env,user){
     )).map(x=>x.id);
     return filterState(state,new Set(owned));
   }
+  if(user.role==="referee"&&user.headReferee&&user.tournamentScope)return filterState(state,new Set([user.tournamentScope]));
   if(user.role==="referee"){
     const allowedDivisions=new Set(state.divisions.filter(d=>!user.tournamentScope||d.tournamentId===user.tournamentScope).map(d=>d.id));
     const matches=state.matches.filter(m=>m.refereeId===user.id&&allowedDivisions.has(m.divisionId));
