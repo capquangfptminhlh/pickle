@@ -99,7 +99,7 @@
     $("#refRules").innerHTML=d?[
       ["Điểm thắng","Chạm "+target],["Số set",rule.bestOf===1?"1 set":`Best of ${rule.bestOf}`],
       ["Cách biệt",winByTwo?"Cách 2":"Không cách 2"],
-      ["Thể thức",Number(d.bestOf||3)===1?"1 game":"Thắng "+need+"/"+Number(d.bestOf||3)]
+      ["Thể thức",Number(rule.bestOf||1)===1?"1 game":"Thắng "+need+"/"+Number(rule.bestOf||1)]
     ].map(([label,value])=>'<div class="ref-rule"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>').join(""):'<span>Luật đang cập nhật</span>';
     $("#refGameLabel").textContent=locked?"KẾT QUẢ TRẬN":"GAME "+((m.sets||[]).length+1);
     $("#refGameWins").textContent="GAME THẮNG · A "+winsA+" : "+winsB+" B";
