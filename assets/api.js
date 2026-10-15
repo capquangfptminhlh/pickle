@@ -126,6 +126,7 @@
     },
     adminState:()=>request("/api/admin/state"),
     players:()=>request("/api/players"),
+    bulkRefereePlayers:names=>request("/api/referee/players/bulk",{method:"POST",body:JSON.stringify({names})}),
     importPlayers:rows=>request("/api/import/players",{method:"POST",body:JSON.stringify({rows})}),
     importTeams:(divisionId,rows)=>request(`/api/divisions/${divisionId}/import-teams`,{method:"POST",body:JSON.stringify({rows})}),
     clubs:()=>request("/api/clubs"),
