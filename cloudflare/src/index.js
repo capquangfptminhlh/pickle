@@ -410,7 +410,7 @@ async function handleApi(request,env,ctx){
       .bind(id,user.id,name,slug,String(b.venue||b.venueName||""),b.startAt||null,b.endAt||null,status,asBool(b.publicVisible)?1:0,created,created).run();
     const divId=uid();
     // New tournaments default to one game; regression/legacy events may explicitly opt out.
-    const stageMode=b.stageRulesEnabled!==false&&b.eventType!=="team";
+    const stageMode=b.stageRulesEnabled===true&&b.eventType!=="team";
     await env.DB.prepare("INSERT INTO divisions(id,tournament_id,name,event_type,format,best_of,points_to_win,win_by_two,advance_count,active,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
       .bind(divId,id,String(b.divisionName||"Nội dung chính"),b.eventType||"doubles",b.format||"pool_to_knockout",stageMode?1:3,11,stageMode?0:1,2,created).run();
     if(stageMode)await env.DB.prepare("UPDATE divisions SET stage_rules_enabled=1,final_format='single_15' WHERE id=?").bind(divId).run();
