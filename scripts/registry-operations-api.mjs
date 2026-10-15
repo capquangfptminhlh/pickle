@@ -16,7 +16,7 @@ auth=await login(process.env.ADMIN_EMAIL||"admin@pickle.test",process.env.ADMIN_
 const stamp=Date.now(),password="operations-local-synthetic-password-123";
 const state=async()=>(await api("/api/admin/state")).data;
 const current=async id=>(await state()).matches.find(m=>m.id===id);
-const tour=(await api("/api/tournaments",{name:"Operations "+stamp,eventType:"singles",format:"single_elimination",venue:"Local regression"})).data;
+const tour=(await api("/api/tournaments",{name:"Operations "+stamp,eventType:"singles",format:"single_elimination",venue:"Local regression",stageRulesEnabled:false})).data;
 const tid=tour.tournament?.id||tour.id,did=(await state()).divisions.find(d=>d.tournamentId===tid).id;
 const otherTour=(await api("/api/tournaments",{name:"Other Operations "+stamp,eventType:"singles",venue:"Local regression"})).data;
 const otherTid=otherTour.tournament?.id||otherTour.id,otherDid=(await state()).divisions.find(d=>d.tournamentId===otherTid).id;
