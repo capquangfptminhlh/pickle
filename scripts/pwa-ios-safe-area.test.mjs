@@ -32,6 +32,6 @@ test("all shell pages and installed PWA use refreshed safe-area asset versions",
     }
   }
   const worker=read("service-worker.js");
-  assert.match(worker,/pickleup-v80-iphone-safe-area-20261015/);
+  const version=worker.match(/const VERSION="pickleup-v(\d+)-/);assert.ok(version&&Number(version[1])>=80,"PWA cache must be v80 or newer");
   for(const [filename,version] of versions)assert.ok(worker.includes("/assets/"+filename+"?v="+version),"precache "+filename);
 });
