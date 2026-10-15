@@ -988,13 +988,16 @@ app.patch("/api/players/:id",authRequired,allow("super_admin","organizer","refer
   if(!before)return res.status(404).json({error:"NOT_FOUND"});
   if(!(await canEditPlayer(req.user,before.id)))return res.status(403).json({error:"PLAYER_SCOPE_FORBIDDEN"});
   const referee=req.user.role==="referee";
+  const canCorrectSkill=referee&&req.user.headReferee;
+  const skillLevel=canCorrectSkill&&req.body.skillLevel!==undefined?String(req.body.skillLevel):before.skill_level;
+  if(!["A+","A","B+","B","C+","C"].includes(skillLevel))return res.status(400).json({error:"INVALID_SKILL_LEVEL"});
   const clubId=referee||req.user.role==="club_manager"?before.club_id:(req.body.clubId===undefined?before.club_id:(req.body.clubId||null));
   const phone=referee?null:(req.body.phone??null),active=referee?null:(req.body.active??null);
   const row=(await pool.query(`
     update players set full_name=coalesce($1,full_name),nickname=coalesce($2,nickname),gender=coalesce($3,gender),
-      phone=coalesce($4,phone),club_id=$5,active=coalesce($6,active)
+      phone=coalesce($4,phone),club_id=$5,active=coalesce($6,active),skill_level=$8
     where id=$7 returning *
-  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,phone,clubId,active,req.params.id])).rows[0];
+  `,[req.body.fullName??null,req.body.nickname??null,req.body.gender??null,phone,clubId,active,req.params.id,skillLevel])).rows[0];
   await pool.query("insert into audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) values($1,'player',$2,'UPDATE_PLAYER',$3,$4)",[req.user.sub,row.id,before,row]);
   res.json(row);
 }));
