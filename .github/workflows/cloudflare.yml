@@ -43,6 +43,7 @@ jobs:
         run: node --test scripts/pwa-ios-safe-area.test.mjs
       - name: Courtside client syntax
         run: |
+          node --check assets/ui-motion.js
           node --check assets/draw-reveal.js
           node --check assets/draw-flex.js
           node --check assets/public.js

@@ -1,0 +1,105 @@
+/* PickleUp Motion System v1 — GPU-friendly micro-interactions, accessible and mobile-safe.
+   All page content is visible without JavaScript: animations never gate visibility. */
+:root{--pu-motion-ease:cubic-bezier(.18,.82,.2,1);--pu-motion-stagger:0ms}
+@keyframes puMotionRise {
+  0%{opacity:.24;transform:translate3d(0,17px,0);filter:blur(2px)}
+  65%{opacity:1;filter:blur(0)}
+  100%{opacity:1;transform:translate3d(0,0,0);filter:none}
+}
+@keyframes puMotionPage {
+  0%{opacity:.35;transform:translate3d(10px,9px,0)}
+  100%{opacity:1;transform:none}
+}
+@keyframes puMotionSheet {
+  0%{opacity:0;transform:translate3d(0,21px,0)}
+  100%{opacity:1;transform:none}
+}
+@keyframes puMotionPress {
+  0%{transform:scale(1)}
+  42%{transform:scale(.94)}
+  100%{transform:scale(1)}
+}
+@keyframes puMotionScore {
+  0%,100%{transform:scale(1);filter:none}
+  40%{transform:scale(1.16);filter:drop-shadow(0 0 10px #d9ff6388)}
+}
+@keyframes puMotionToast {
+  from{opacity:0;transform:translate3d(0,16px,0) scale(.96)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes puMotionIndicator {
+  0%,100%{box-shadow:0 0 0 0 #d9ff634d}
+  55%{box-shadow:0 0 0 6px #d9ff6300}
+}
+html.motion-ready body.site-sport .pu-motion-in {
+  animation:puMotionRise .52s var(--pu-motion-ease) var(--pu-motion-stagger,0ms) both!important;
+  backface-visibility:hidden
+}
+html.motion-ready body.site-sport #content.pu-page-switch {
+  animation:puMotionPage .3s var(--pu-motion-ease) both!important
+}
+html.motion-ready body.site-sport .pu-dialog-in {
+  animation:puMotionSheet .32s var(--pu-motion-ease) both!important
+}
+html.motion-ready body.site-sport .pu-button-press {
+  animation:puMotionPress .28s var(--pu-motion-ease) both!important
+}
+html.motion-ready body.site-sport .pu-score-pop {
+  animation:puMotionScore .42s var(--pu-motion-ease) both!important
+}
+html.motion-ready body.site-sport .pu-toast-enter {
+  animation:puMotionToast .34s var(--pu-motion-ease) both!important
+}
+/* Clearly visible but short hover/focus feedback; no moving cards under a user's finger. */
+@media (hover:hover) and (pointer:fine) {
+  html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.match-card,.club-card,.ranking-list-card,.sponsor-card,.public-match,.player-panel,.tournament-team-row,.court-match-card) {
+    transition:transform .22s var(--pu-motion-ease),box-shadow .22s ease,border-color .22s ease!important
+  }
+  html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.match-card,.club-card,.ranking-list-card,.sponsor-card,.public-match,.player-panel,.tournament-team-row,.court-match-card):hover {
+    transform:translate3d(0,-4px,0)!important;
+    box-shadow:0 16px 34px #0a251b24!important
+  }
+  html.motion-ready body.site-sport :is(.btn,.mini,.icon-btn,.nav-btn,.public-mobile-dock a,.mobile-dock button,.ref-btn):not(:disabled) {
+    transition:transform .18s ease,filter .18s ease,box-shadow .18s ease!important
+  }
+  html.motion-ready body.site-sport :is(.btn,.mini,.icon-btn,.nav-btn,.public-mobile-dock a,.mobile-dock button,.ref-btn):not(:disabled):hover {
+    transform:translateY(-2px)!important;filter:brightness(1.06)
+  }
+}
+/* Active nav is distinguishable even without a hover device. */
+html.motion-ready body.site-sport :is(.public-mobile-dock a.active,.mobile-dock button.active,.nav-btn.active) {
+  transition:background .18s ease,color .18s ease,border-color .18s ease!important
+}
+html.motion-ready body.site-sport :is(.live-pill i,.status-dot,.desktop-online-dot) {
+  animation:puMotionIndicator 2s ease-in-out infinite
+}
+@media(max-width:760px){
+  html.motion-ready body.site-sport .pu-motion-in {animation-duration:.44s!important}
+  html.motion-ready body.site-sport .pu-dialog-in {animation-duration:.27s!important}
+}
+/* Hero headlines and action clusters arrive with a subtle visual rhythm. */
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2,p,.eyebrow,.desktop-kicker,.desktop-hero-actions,.mobile-primary-actions) {
+  animation:puMotionRise .62s var(--pu-motion-ease) both;
+}
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2) {animation-delay:90ms}
+html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(p,.desktop-hero-actions,.mobile-primary-actions) {animation-delay:175ms}
+html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.public-match) :is(.tour-media img,.top-player-avatar img,.news-card img) {
+  transition:filter .35s ease,transform .35s var(--pu-motion-ease)!important;
+}
+@media (hover:hover) and (pointer:fine) {
+  html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.public-match):hover :is(.tour-media img,.top-player-avatar img,.news-card img) {
+    transform:scale(1.028)!important;filter:saturate(1.09)
+  }
+}
+
+/* No hidden content, no unexpected movement in accessibility mode. */
+@media(prefers-reduced-motion:reduce){
+  html.motion-ready body.site-sport :is(.pu-motion-in,.pu-page-switch,.pu-dialog-in,.pu-button-press,.pu-score-pop,.pu-toast-enter),
+  html.motion-ready body.site-sport :is(.live-pill i,.status-dot,.desktop-online-dot),
+  html.motion-ready body.site-sport :is(.desktop-hero-copy,.mobile-app-status-card,.mobile-dashboard-head,.public-page-intro,.tournament-app-hero) > :is(h1,h2,p,.eyebrow,.desktop-kicker,.desktop-hero-actions,.mobile-primary-actions) {
+    animation:none!important;transform:none!important;filter:none!important;opacity:1!important
+  }
+  html.motion-ready body.site-sport :is(.tour-card,.news-card,.top-player-card,.match-card,.club-card,.ranking-list-card,.sponsor-card,.public-match,.player-panel,.tournament-team-row,.court-match-card,.btn,.mini,.icon-btn,.nav-btn,.ref-btn) {
+    transition:none!important
+  }
+}

@@ -4,13 +4,25 @@
   const isPreview=location.pathname.includes("/preview/");
   const local=p=>p.replace(/^\//,"");
 
-  const observer=new IntersectionObserver(entries=>{
+  const animatedItems=new Map();
+  const motionSelector=[
+    ".desktop-hero-card",".desktop-today-card",".mobile-app-status-card",
+    ".tournament-event-hero",".tournament-event-summary",".tournament-app-hero",
+    ".public-page-intro",".ranking-app-title",".kpi",".panel",".tour-card",
+    ".public-match",".public-standings",".public-bracket-card",".match-card",
+    ".top-player-card",".news-card",".sponsor-card",".club-card",
+    ".booking-card",".metric-card",".hero-media-stage",".ranking-list-card",
+    ".player-panel",".tournament-team-row",".court-match-card",".ref-team-card",
+    ".ref-control-card",".picker-card",".club-event-home-row"
+  ].join(",");
+  const observer=("IntersectionObserver" in window)?new IntersectionObserver(entries=>{
     entries.forEach(e=>{
       if(!e.isIntersecting)return;
-      e.target.classList.add("is-visible");
+      // No pre-hidden styles: this only adds a visible, short transition.
+      if(!reduced)e.target.classList.add("pu-motion-in");
       observer.unobserve(e.target);
     });
-  },{threshold:.055,rootMargin:"0px 0px -24px"});
+  },{threshold:.01,rootMargin:"0px 0px 10px"}):null;
 
   function decorateTables(){
     document.querySelectorAll(".table").forEach(table=>{
@@ -23,26 +35,65 @@
     });
   }
 
-  function enhance(){
-    const selectors=[
-      ".kpi",".panel",".tour-card",".public-match",".public-standings",
-      ".public-bracket-card",".match-card",".top-player-card",".news-card",
-      ".sponsor-card",".club-card",".booking-card",".metric-card",
-      ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap"
-    ].join(",");
-    const mobile=matchMedia("(max-width:760px)").matches;
-    $$(selectors).forEach((el,i)=>{
-      if(el.dataset.motionReady)return;
+  function enhance(root=document){
+    if(reduced)return;
+    const nodes=[...(root.matches?.(motionSelector)?[root]:[]),...(root.querySelectorAll?.(motionSelector)||[])];
+    let staged=0;
+    for(const el of nodes){
+      if(el.dataset.motionReady||!el.getClientRects().length||el.closest(".draw-reveal-stage"))continue;
       el.dataset.motionReady="1";
-      if(mobile){
-        el.style.opacity="1";
-        el.style.transform="none";
-        return;
-      }
-      el.classList.add("reveal-target");
-      el.style.animationDelay=Math.min(i*24,180)+"ms";
-      observer.observe(el);
-    });
+      // Most realtime refreshes recreate the exact same cards; don't replay constantly.
+      const key=location.pathname+"|"+(document.querySelector("#nav .nav-btn.active")?.dataset.page||"")+"|"+el.tagName+"."+el.className+"|"+(el.getAttribute("href")||el.getAttribute("data-id")||el.textContent||"").trim().slice(0,84);
+      const now=Date.now(),prev=animatedItems.get(key)||0;
+      if(now-prev<14000)continue;
+      animatedItems.set(key,now);
+      if(animatedItems.size>400)for(const [k,time] of animatedItems)if(now-time>20000)animatedItems.delete(k);
+      el.style.setProperty("--pu-motion-stagger",Math.min(staged++*48,240)+"ms");
+      if(observer)observer.observe(el);
+      else el.classList.add("pu-motion-in");
+    }
+  }
+
+  function motionInteractions(){
+    if(reduced)return;
+    document.addEventListener("pointerdown",e=>{
+      const target=e.target.closest?.("button,.btn,.mini,.icon-btn,.nav-btn,.ref-btn,[data-dock-page]");
+      if(!target||target.disabled||!target.getClientRects().length)return;
+      target.classList.remove("pu-button-press");
+      void target.offsetWidth;
+      target.classList.add("pu-button-press");
+    },{passive:true});
+
+    let queued=false;
+    function refreshDynamic(){
+      if(queued)return;
+      queued=true;
+      requestAnimationFrame(()=>{
+        queued=false;
+        enhance();
+        document.querySelectorAll(".toast,.pwa-toast,.ref-toast").forEach(notification=>{
+          if(notification.dataset.puToastAnimated)return;
+          notification.dataset.puToastAnimated="1";
+          notification.classList.add("pu-toast-enter");
+        });
+        document.querySelectorAll("dialog").forEach(dialog=>{
+          if(!dialog.open){dialog.dataset.puModalAnimated="";return}
+          if(dialog.dataset.puModalAnimated)return;
+          dialog.dataset.puModalAnimated="1";
+          const card=dialog.querySelector(".modal-card,.score-card,.draw-setup-card,.draw-wheel-card");
+          if(card)card.classList.add("pu-dialog-in");
+        });
+        document.querySelectorAll(".realtime-draw-overlay.show:not([data-pu-modal-animated])").forEach(overlay=>{
+          overlay.dataset.puModalAnimated="1";
+          overlay.querySelector(".realtime-draw-card")?.classList.add("pu-dialog-in");
+        });
+      });
+    }
+    new MutationObserver(records=>{
+      if(records.some(record=>record.type==="childList"&&record.addedNodes.length||(record.type==="attributes"&&record.attributeName==="open")))
+        refreshDynamic();
+    }).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["open"]});
+    refreshDynamic();
   }
 
   function buildBackdrop(){
@@ -252,20 +303,38 @@
   }
 
   function scorePop(){
-    const obs=new MutationObserver(ms=>ms.forEach(m=>{
-      const el=m.target.closest?.("#scoreA,#scoreB")||m.target;
-      if(el?.id==="scoreA"||el?.id==="scoreB"){
-        el.classList.remove("score-pop");void el.offsetWidth;el.classList.add("score-pop");
-      }
-    }));
-    ["scoreA","scoreB"].forEach(id=>{const e=document.getElementById(id);if(e)obs.observe(e,{childList:true,characterData:true,subtree:true})});
+    if(reduced)return;
+    const ids=["scoreA","scoreB","refScoreA","refScoreB","tvScoreA","tvScoreB"];
+    const values=new WeakMap();
+    const attach=el=>{
+      if(!el||values.has(el))return;
+      values.set(el,el.textContent.trim());
+      const obs=new MutationObserver(()=>{
+        const value=el.textContent.trim();
+        if(value===values.get(el))return;
+        values.set(el,value);
+        el.classList.remove("pu-score-pop");void el.offsetWidth;el.classList.add("pu-score-pop");
+      });
+      obs.observe(el,{childList:true,characterData:true,subtree:true});
+    };
+    ids.forEach(id=>attach(document.getElementById(id)));
+    new MutationObserver(()=>ids.forEach(id=>attach(document.getElementById(id))))
+      .observe(document.body,{subtree:true,childList:true});
   }
 
   function watchAdminContent(){
     const content=document.querySelector("#content");
     if(content){
+      let priorPage=document.querySelector("#nav .nav-btn.active")?.dataset.page||"";
       new MutationObserver(()=>{
-        content.classList.remove("page-swap");void content.offsetWidth;content.classList.add("page-swap");
+        const active=document.querySelector("#nav .nav-btn.active")?.dataset.page||"";
+        // Only animate real navigation; score saves and realtime refresh stay stable.
+        if(!reduced&&priorPage!==active){
+          content.classList.remove("pu-page-switch");
+          void content.offsetWidth;
+          content.classList.add("pu-page-switch");
+        }
+        priorPage=active;
         decorateTables();enhance();buildAdminDock();buildFab();
       }).observe(content,{childList:true,subtree:false});
     }
@@ -306,7 +375,7 @@
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
-    enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();syncTournamentNavigation();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();syncTournamentNavigation();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();motionInteractions();
     const finishEntry=e=>{if(e.target===document.body&&e.animationName==="routeEnterFallback")document.body.classList.remove("route-entering")};
     document.body.addEventListener("animationend",finishEntry);document.body.addEventListener("animationcancel",finishEntry);
     document.querySelectorAll("#nav .nav-btn").forEach(b=>b.addEventListener("click",()=>closeDrawer()));

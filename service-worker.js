@@ -1,4 +1,4 @@
-const VERSION="pickleup-v81-sequential-group-draw-20261015";
+const VERSION="pickleup-v82-global-motion-20261015";
 const STATIC=[
   "/assets/api.js?v=58",
   "/assets/tournament-gallery.js?v=1",
@@ -43,7 +43,9 @@ const STATIC=[
   "/assets/admin-light.css?v=2",
   "/assets/site-sport.css?v=10",
   "/assets/styles.css?v=4",
-  "/assets/ui-motion.js?v=34",
+  "/assets/ui-motion.js?v=35",
+  "/assets/motion-system.css?v=1",
+  "/assets/motion-system.css",
   "/assets/tournament-detail.css?v=1",
   "/assets/tournament.js?v=57",
   "/assets/admin-sport.css?v=7",
