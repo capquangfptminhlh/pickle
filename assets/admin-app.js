@@ -142,7 +142,9 @@ const toast=msg=>{
 const canManage=()=>["super_admin","organizer"].includes(user?.role);
 const canOperateMatch=()=>canManage()||user?.role==="referee";
 const canRoster=()=>["super_admin","organizer","referee","club_manager"].includes(user?.role);
-const canCreatePlayer=()=>["super_admin","organizer","club_manager"].includes(user?.role);
+const isHeadReferee=()=>user?.role==="referee"&&user?.headReferee===true;
+const canEditEntryRoster=()=>canManage()||isHeadReferee();
+const canCreatePlayer=()=>["super_admin","organizer","club_manager"].includes(user?.role)||isHeadReferee();
 const canFinance=()=>["super_admin","organizer","finance"].includes(user?.role);
 const canReferees=()=>["super_admin","organizer"].includes(user?.role);
 const canAccounts=()=>["super_admin","organizer"].includes(user?.role)&&!location.pathname.includes("/preview/");
@@ -664,7 +666,7 @@ async function players(){
   setHeader("Bảng VĐV / Phân trình","Hồ sơ VĐV, CLB, trình A+ → C, rating và đội tham dự");
   const roster=canRoster()?await API.players().catch(()=>[]):[];
   return `<div class="panel" style="margin-bottom:16px">
-    <div class="panel-head"><div><h2>Bảng VĐV / Rating hệ thống</h2><p>${roster.length} VĐV${user?.role==="referee"?" trong các trận được phân công":""}</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':""}${canCreatePlayer()?'<button class="btn primary" data-action="newPlayer">Tạo hồ sơ VĐV</button>':""}</div>`:""}</div>
+    <div class="panel-head"><div><h2>Bảng VĐV / Rating hệ thống</h2><p>${roster.length} VĐV${isHeadReferee()?" trong giải được phân công và do bạn nhập":user?.role==="referee"?" trong các trận được phân công":""}</p></div>${canRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="importCsv">Import CSV</button><button class="btn secondary" data-action="newClub">Thêm CLB</button>':isHeadReferee()?'<button class="btn secondary" data-action="bulkRefereePlayers">Nhập danh sách VĐV</button>':""}${canCreatePlayer()?'<button class="btn primary" data-action="newPlayer">Tạo hồ sơ VĐV</button>':""}</div>`:""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>VĐV</th><th>CLB</th><th>Giới tính</th><th>Trình</th><th>Rating</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       ${roster.map(p=>{
         const id=escHtml(p.id),name=escHtml(p.full_name),initials=escHtml((p.full_name||"P").trim().split(/\s+/).slice(-2).map(x=>x[0]).join("").toUpperCase());
@@ -673,7 +675,7 @@ async function players(){
       }).join("")}
     </tbody></table></div>
   </div>
-  <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canManage()?'<div class="actions"><button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button><button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>':""}</div>
+  <div class="panel"><div class="panel-head"><div><h2>Cặp / đội thi đấu</h2><p>${state.teams.length} đội/cặp</p></div>${canEditEntryRoster()?`<div class="actions">${canManage()?'<button class="btn secondary" data-action="autoSeed">Chia bảng tự động</button>':""}<button class="btn primary" data-action="newTeam">Thêm cặp / đội</button></div>`:""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Seed</th><th>Cặp VĐV</th><th>CLB</th><th>Bảng</th><th>W</th><th>L</th><th>+/-</th></tr></thead>
       <tbody>${state.teams.map(t=>`<tr data-team-row="${escHtml(t.id)}"><td>${escHtml(t.seed||"—")}</td><td><b>${escHtml(t.name)}</b></td><td>${escHtml(t.club)}</td><td><span class="badge blue">${escHtml(t.group||"—")}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf-t.pa>0?"+":""}${t.pf-t.pa}</td></tr>`).join("")}</tbody>
     </table></div>
@@ -738,7 +740,7 @@ async function refereesPage(){
   if(!canReferees())return '<div class="panel empty">Bạn không có quyền quản lý tài khoản trọng tài.</div>';
   const refs=await API.referees().catch(()=>[]);
   return `<div class="panel"><div class="panel-head"><div><h2>Danh sách trọng tài</h2><p>${refs.length} tài khoản • chỉ hiện trọng tài thuộc giải bạn quản lý</p></div><button class="btn primary" data-action="newReferee">Tạo trọng tài</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Đăng nhập</th><th>Giải được giao</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b></td><td>${escHtml(r.email)}</td><td>${escHtml(r.tournament_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Đăng nhập</th><th>Giải được giao</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${refs.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b>${r.headReferee?'<small style="display:block">TRỌNG TÀI CHÍNH</small>':""}</td><td>${escHtml(r.email)}</td><td>${escHtml(r.tournament_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">KHÓA</span>'}</td><td><button class="mini" data-edit-referee="${r.id}">Sửa / Reset</button></td></tr>`).join("")||'<tr><td colspan="5">Chưa có trọng tài.</td></tr>'}</tbody></table></div>
   </div>`;
 }
 async function accountsPage(){
@@ -754,7 +756,7 @@ async function accountsPage(){
   <div class="panel"><div class="panel-head"><div><h2>${isOwner?"Tài khoản con":"Tài khoản trọng tài"}</h2><p>${children.length} tài khoản • phân quyền tại server</p></div><button class="btn primary" data-action="newUser">${isOwner?"Tạo tài khoản con":"Tạo trọng tài"}</button></div>
     <div class="role-help"><span><b>Chủ giải</b>Chỉ vận hành các giải mình sở hữu/được gán và VĐV trong các giải đó.</span><span><b>Trọng tài</b>Chỉ thấy trận được phân công; được nhập điểm và cập nhật thông tin cơ bản VĐV của trận đó.</span><span><b>Khách xem</b>Không cần tài khoản; chỉ đọc danh sách VĐV, lịch, BXH và bracket từ link công khai.</span>${isOwner?'<span><b>Quản lý CLB / Thu ngân</b>Giới hạn theo CLB hoặc nghiệp vụ được giao.</span>':""}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Tên</th><th>Đăng nhập</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${children.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b>${r.club_name?`<small style="display:block;color:#73847b">${escHtml(r.club_name)}</small>`:""}</td><td>${escHtml(r.email)}</td><td>${roleLabel(r.role)}</td><td>${escHtml(r.tournament_name||r.club_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="6">Chưa có tài khoản con.</td></tr>'}
+      ${children.map(r=>`<tr><td><b>${escHtml(r.display_name)}</b>${r.club_name?`<small style="display:block;color:#73847b">${escHtml(r.club_name)}</small>`:""}</td><td>${escHtml(r.email)}</td><td>${r.role==="referee"&&r.headReferee?"Trọng tài chính":roleLabel(r.role)}</td><td>${escHtml(r.tournament_name||r.club_name||"Toàn hệ thống")}</td><td>${r.active?'<span class="badge live">HOẠT ĐỘNG</span>':'<span class="badge done">ĐÃ KHÓA</span>'}</td><td><button class="mini" data-edit-user="${r.id}">Sửa quyền</button></td></tr>`).join("")||'<tr><td colspan="6">Chưa có tài khoản con.</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
@@ -870,6 +872,7 @@ function bindDynamic(){
   document.querySelectorAll('[data-action="newTeam"]').forEach(b=>b.onclick=openTeamModal);
   document.querySelectorAll('[data-action="autoSeed"]').forEach(b=>b.onclick=openAutoSeedModal);
   document.querySelectorAll('[data-action="newPlayer"]').forEach(b=>b.onclick=openPlayerModal);
+  document.querySelectorAll('[data-action="bulkRefereePlayers"]').forEach(b=>b.onclick=openHeadRefereeRosterModal);
   document.querySelectorAll('[data-action="importCsv"]').forEach(b=>b.onclick=openCsvImportModal);
   document.querySelectorAll('[data-action="newClub"]').forEach(b=>b.onclick=openClubModal);
   document.querySelectorAll("[data-rating-player]").forEach(b=>b.onclick=()=>openRatingModal(b.dataset.ratingPlayer,b.dataset.ratingName,b.dataset.ratingCurrent));
@@ -1386,6 +1389,29 @@ function openCsvImportModal(){
     }catch(e){btn.disabled=false;showIssues(e);toast("Import thất bại. Xem chi tiết trong hộp import.")}
   };
 }
+async function openHeadRefereeRosterModal(){
+  if(!isHeadReferee())return toast("Chỉ trọng tài chính được nhập danh sách.");
+  $("#genericTitle").textContent="Nhập danh sách vận động viên";
+  $("#genericBody").innerHTML=`<div class="form-grid">
+    <p class="field full">Mỗi dòng một VĐV. Tối đa 100 người/lần. Hệ thống tạo hồ sơ VĐV; sau đó chọn “Thêm cặp / đội” để đưa VĐV vào nội dung thi đấu.</p>
+    <label class="field full">Họ tên VĐV<textarea id="headRosterNames" rows="10" placeholder="Nguyễn Văn A&#10;Trần Thị B" required></textarea></label>
+    <div id="headRosterError" class="field full security-note" role="alert" hidden></div>
+    <div class="field full"><button type="button" id="saveHeadRoster" class="btn primary">Lưu danh sách</button></div>
+  </div>`;
+  $("#genericDialog").showModal();
+  $("#saveHeadRoster").onclick=async()=>{
+    const names=$("#headRosterNames").value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+    const error=$("#headRosterError");
+    if(!names.length||names.length>100){error.hidden=false;error.textContent="Nhập từ 1 đến 100 VĐV.";return}
+    const btn=$("#saveHeadRoster");btn.disabled=true;
+    try{
+      const result=await API.bulkRefereePlayers(names);
+      $("#genericDialog").close();await refresh();
+      toast(`Đã nhập ${result.created} VĐV. Bỏ qua ${result.skipped||0} tên trùng. Chọn “Thêm cặp / đội” để đưa vào giải.`);
+    }catch(e){error.hidden=false;error.textContent="Không thể nhập danh sách: "+e.message}
+    finally{btn.disabled=false}
+  };
+}
 async function openPlayerModal(){
   const clubs=await API.clubs().catch(()=>[]);
   $("#genericTitle").textContent="Tạo hồ sơ VĐV";
@@ -1407,6 +1433,10 @@ async function openPlayerModal(){
   let createdPlayerId="",busyCreate=false;
   dialog.addEventListener("close",()=>avatar.destroy(),{once:true});
   dialog.showModal();
+  if(isHeadReferee()){
+    for(const id of ["pClub","pRating","pPhone"])$("#"+id)?.closest("label")?.setAttribute("hidden","");
+    $("#genericTitle").textContent="Trọng tài chính · Thêm VĐV";
+  }
   const setProfileDisabled=disabled=>document.querySelectorAll("[data-player-profile] input,[data-player-profile] select").forEach(control=>{control.disabled=disabled});
   const complete=async message=>{dialog.close();await refresh();toast(message)};
   const uploadAvatar=async()=>{
@@ -1616,14 +1646,15 @@ async function openEditRefereeModal(id){
     <label class="field full">Giải được giao<select id="erTournament">${user?.role==="super_admin"?'<option value="">Toàn hệ thống</option>':""}${tournaments.map(t=>`<option value="${t.id}" ${t.id===r.tournament_id_scope?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="erPassword" type="password" minlength="12"></label>
     <label class="field full"><span><input id="erActive" type="checkbox" ${r.active?"checked":""}> Tài khoản hoạt động</span></label>
-    <div class="field full security-note"><b>Phạm vi giải</b><span>Trọng tài chỉ thấy các trận được phân công trong giải này.</span></div>
+    <label class="field full"><span><input id="erHeadReferee" type="checkbox" ${r.headReferee?"checked":""}> Trọng tài chính — được nhập VĐV và cặp/đội cho giải này</span></label>
+    <div class="field full security-note"><b>Phạm vi giải</b><span>Quyền nhập VĐV chỉ áp dụng trong giải được chọn, không gồm tài chính hay tài khoản.</span></div>
     <div class="field full"><button type="button" class="btn primary" id="saveRefereeEdit">Lưu</button></div>
   </div>`;
   $("#genericDialog").showModal();
   $("#saveRefereeEdit").onclick=async()=>{try{
     const password=$("#erPassword").value,tournamentId=$("#erTournament").value||null;
-    if(user?.role==="organizer"&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.updateReferee(id,{name:$("#erName").value.trim(),username:$("#erEmail").value.trim(),active:$("#erActive").checked,tournamentId,...(password?{password}:{})});
+    if((user?.role==="organizer"||$("#erHeadReferee").checked)&&!tournamentId)return toast("Chọn giải cho trọng tài chính.");
+    await API.updateReferee(id,{headReferee:$("#erHeadReferee").checked,name:$("#erName").value.trim(),username:$("#erEmail").value.trim(),active:$("#erActive").checked,tournamentId,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã cập nhật và reset mật khẩu.":"Đã cập nhật trọng tài.");
   }catch(e){toast({INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập đã được sử dụng."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
@@ -1655,7 +1686,8 @@ function openRefereeModal(tournamentId){
       </div>
     </div>
     <div class="security-note" style="grid-column:1/-1" id="refereeError" role="alert" hidden></div>
-    <div class="field full security-note"><b>Quyền trọng tài</b><span>Chỉ nhập điểm trận được phân công và cập nhật thông tin cơ bản VĐV của các trận đó.</span></div>
+    <label class="field full"><span><input id="rHeadReferee" type="checkbox"> Trọng tài chính — nhập danh sách VĐV, tạo cặp/đội trong giải</span></label>
+    <div class="field full security-note"><b>Quyền trọng tài</b><span>Trọng tài thường chỉ nhập điểm trận được giao. Trọng tài chính có thêm quyền danh sách VĐV, không được chỉnh tài chính hoặc tài khoản.</span></div>
     <div class="field full"><button type="button" class="btn primary" id="saveReferee">Tạo tài khoản</button></div>
   </div>`;
   const dlg=$("#genericDialog");if(!dlg.open)dlg.showModal();
@@ -1690,10 +1722,10 @@ function openRefereeModal(tournamentId){
     if(!name)return showError("Nhập tên trọng tài.",nameInput);
     if(!/^[a-z0-9][a-z0-9._-]{2,31}$/i.test(email)&&!(email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return showError("Tên đăng nhập không hợp lệ.",usernameInput);
     if(password.length<12||password.length>64)return showError("Mật khẩu phải từ 12–64 ký tự.",passwordInput);
-    if(user?.role==="organizer"&&!scope)return showError("Chọn giải cho trọng tài.",$("#rTournament"));
+    if((user?.role==="organizer"||$("#rHeadReferee").checked)&&!scope)return showError("Chọn giải cho trọng tài chính.",$("#rTournament"));
     save.disabled=true;errorBox.hidden=true;
     try{
-      await API.createReferee({name,username:email,password,tournamentId:scope});
+      await API.createReferee({name,username:email,password,tournamentId:scope,headReferee:$("#rHeadReferee").checked});
       dlg.close();if(typeof tournamentId==="string")page="referees";await render();toast("Đã tạo trọng tài.");
     }catch(e){showError(e instanceof TypeError?"Mất kết nối. Kiểm tra mạng rồi thử tạo trọng tài lại.":({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",INVALID_EMAIL:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập đã được sử dụng. Hãy nhập tên khác.",FIELDS_REQUIRED:"Nhập đủ tên, tên đăng nhập và mật khẩu.",TOURNAMENT_REQUIRED:"Chọn giải cho trọng tài.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền tạo trọng tài cho giải này.",INTERNAL_ERROR:"Máy chủ chưa thể tạo tài khoản. Hãy thử lại.",REQUEST_FAILED:"Không thể gửi yêu cầu tạo tài khoản. Hãy thử lại."}[e.message]||"Không thể tạo trọng tài: "+e.message))}finally{save.disabled=false}
   };
@@ -1715,15 +1747,16 @@ async function openUserModal(){
     <label class="field full" id="uTournamentWrap">Giải được gán<select id="uTournament"><option value="">${isOrganizer?"Chọn giải":"Không giới hạn / tự sở hữu"}</option>${tournaments.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full" id="uClubWrap" hidden>CLB được quản lý<select id="uClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}">${escHtml(x.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu tạm (tối thiểu 12 ký tự)<input id="uPassword" type="password" minlength="12" autocomplete="new-password"></label>
-    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Chủ giải chỉ quản lý giải thuộc phạm vi của mình. Trọng tài chỉ thấy trận được phân công. Không thể tự nâng quyền.</span></div>
+    <label class="field full" id="uHeadWrap" hidden><span><input id="uHeadReferee" type="checkbox"> Trọng tài chính — được nhập VĐV và lập cặp/đội</span></label>
+    <div class="field full security-note"><b>Phân quyền được kiểm tra ở server</b><span>Trọng tài chính chỉ quản lý danh sách VĐV trong giải được gán. Không thể tự nâng quyền.</span></div>
     <div class="field full"><button type="button" class="btn primary" id="saveUser">Tạo tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uTournamentWrap").hidden=![ "organizer","referee" ].includes(r);$("#uLoginLabel").textContent=r==="referee"?"Tên đăng nhập":"Email đăng nhập";$("#uEmail").type=r==="referee"?"text":"email";};$("#uRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const r=$("#uRole").value;$("#uClubWrap").hidden=![ "club_manager","finance" ].includes(r);$("#uTournamentWrap").hidden=![ "organizer","referee" ].includes(r);$("#uHeadWrap").hidden=r!=="referee";$("#uLoginLabel").textContent=r==="referee"?"Tên đăng nhập":"Email đăng nhập";$("#uEmail").type=r==="referee"?"text":"email";};$("#uRole").onchange=syncRole;syncRole();
   $("#saveUser").onclick=async()=>{try{
     const role=$("#uRole").value,tournamentId=["organizer","referee"].includes(role)?($("#uTournament").value||null):null;
-    if(isOrganizer&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.createUser({name:$("#uName").value.trim(),...(role==="referee"?{username:$("#uEmail").value.trim()}:{email:$("#uEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#uClub").value||null):null,tournamentId,password:$("#uPassword").value});
+    if((isOrganizer||role==="referee"&&$("#uHeadReferee").checked)&&!tournamentId)return toast("Chọn giải cho trọng tài chính.");
+    await API.createUser({headReferee:role==="referee"&&$("#uHeadReferee").checked,name:$("#uName").value.trim(),...(role==="referee"?{username:$("#uEmail").value.trim()}:{email:$("#uEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#uClub").value||null):null,tournamentId,password:$("#uPassword").value});
     $("#genericDialog").close();await render();toast(isOrganizer?"Đã tạo trọng tài.":"Đã tạo tài khoản con.");
   }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12–64 ký tự.",PASSWORD_POLICY:"Mật khẩu phải từ 12–64 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",INVALID_EMAIL:"Email không hợp lệ.",NAME_TOO_LONG:"Tên hiển thị quá dài.",EMAIL_EXISTS:"Tên đăng nhập hoặc Email đã được sử dụng.",INVALID_CHILD_ROLE:"Vai trò không hợp lệ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_REQUIRED:"Hãy chọn giải.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",INVALID_TOURNAMENT:"Giải không hợp lệ."}[e.message]||"Không thể tạo: "+e.message)}};
 }
@@ -1740,15 +1773,16 @@ async function openEditUserModal(id){
     <label class="field full" id="euTournamentWrap">Giải được gán<select id="euTournament"><option value="">${isOrganizer?"Chọn giải":"Không giới hạn / tự sở hữu"}</option>${tournaments.map(t=>`<option value="${t.id}" ${t.id===r.tournament_id_scope?"selected":""}>${escHtml(t.name)}</option>`).join("")}</select></label>
     <label class="field full" id="euClubWrap">CLB được quản lý<select id="euClub"><option value="">Chọn CLB</option>${clubs.map(x=>`<option value="${x.id}" ${x.id===r.club_id?"selected":""}>${escHtml(x.name)}</option>`).join("")}</select></label>
     <label class="field full">Mật khẩu mới <small>(để trống nếu không reset)</small><input id="euPassword" type="password" minlength="12" autocomplete="new-password"></label>
+    <label class="field full" id="euHeadWrap"><span><input id="euHeadReferee" type="checkbox" ${r.headReferee?"checked":""}> Trọng tài chính — nhập VĐV / cặp / đội</span></label>
     <label class="field full"><span><input id="euActive" type="checkbox" ${r.active?"checked":""}> Cho phép đăng nhập</span></label>
     <div class="field full"><button type="button" class="btn primary" id="saveUserEdit">Lưu tài khoản</button></div>
   </div>`;
   $("#genericDialog").showModal();
-  const syncRole=()=>{const role=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(role);$("#euTournamentWrap").hidden=![ "organizer","referee" ].includes(role);$("#euLoginLabel").textContent=role==="referee"?"Tên đăng nhập":"Email";$("#euEmail").type=role==="referee"?"text":"email";};$("#euRole").onchange=syncRole;syncRole();
+  const syncRole=()=>{const role=$("#euRole").value;$("#euClubWrap").hidden=![ "club_manager","finance" ].includes(role);$("#euTournamentWrap").hidden=![ "organizer","referee" ].includes(role);$("#euHeadWrap").hidden=role!=="referee";$("#euLoginLabel").textContent=role==="referee"?"Tên đăng nhập":"Email";$("#euEmail").type=role==="referee"?"text":"email";};$("#euRole").onchange=syncRole;syncRole();
   $("#saveUserEdit").onclick=async()=>{try{
     const password=$("#euPassword").value,role=$("#euRole").value,tournamentId=["organizer","referee"].includes(role)?($("#euTournament").value||null):null;
-    if(isOrganizer&&!tournamentId)return toast("Chọn giải cho trọng tài.");
-    await API.updateUser(id,{name:$("#euName").value.trim(),...(role==="referee"?{username:$("#euEmail").value.trim()}:{email:$("#euEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#euClub").value||null):null,tournamentId,active:$("#euActive").checked,...(password?{password}:{})});
+    if((isOrganizer||role==="referee"&&$("#euHeadReferee").checked)&&!tournamentId)return toast("Chọn giải cho trọng tài chính.");
+    await API.updateUser(id,{headReferee:role==="referee"&&$("#euHeadReferee").checked,name:$("#euName").value.trim(),...(role==="referee"?{username:$("#euEmail").value.trim()}:{email:$("#euEmail").value.trim()}),role,clubId:["club_manager","finance"].includes(role)?($("#euClub").value||null):null,tournamentId,active:$("#euActive").checked,...(password?{password}:{})});
     $("#genericDialog").close();await render();toast(password?"Đã lưu và reset mật khẩu.":"Đã cập nhật phân quyền.");
   }catch(e){toast({PASSWORD_TOO_SHORT:"Mật khẩu phải từ 12 ký tự.",INVALID_USERNAME:"Tên đăng nhập không hợp lệ.",EMAIL_EXISTS:"Tên đăng nhập hoặc Email đã được sử dụng.",OWNER_ACCOUNT_PROTECTED:"Không thể chỉnh tài khoản chủ.",CLUB_REQUIRED:"Quản lý CLB phải được gán một CLB.",TOURNAMENT_SCOPE_FORBIDDEN:"Bạn không có quyền trên giải này.",ORGANIZER_CAN_ONLY_EDIT_REFEREE:"Chủ giải chỉ được quản lý tài khoản trọng tài.",INVALID_CLUB:"CLB không hợp lệ."}[e.message]||"Không thể cập nhật: "+e.message)}};
 }
@@ -1767,8 +1801,8 @@ $("#logoutBtn").onclick=async()=>{await API.logout().catch(()=>{});location.href
 
 (async function boot(){
   try{
-    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=roleLabel(user.role);$("#quickTournament").hidden=!canManage();
-    if(user.role==="referee")page="scores";
+    const me=await API.me();user=me.user;$("#userName").textContent=user.name;$("#userRole").textContent=isHeadReferee()?"Trọng tài chính":roleLabel(user.role);$("#quickTournament").hidden=!canManage();
+    if(user.role==="referee")page=user.headReferee?"players":"scores";
     if(user.role==="finance")page="payments";
     state=await API.adminState();await render();
     const socket=window.io?io():null;
