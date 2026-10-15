@@ -342,7 +342,7 @@ async function handleApi(request,env,ctx){
     if(user.role!=="referee"||!user.headReferee||!user.tournamentScope)return fail("FORBIDDEN",request,env,403);
     const b=await bodyJson(request),names=Array.isArray(b.names)?b.names:[];
     if(!names.length||names.length>100)return fail("INVALID_IMPORT_SIZE",request,env,400);
-    const existing=new Set((await rows(env,"SELECT lower(full_name) AS name FROM players WHERE created_by_user_id=?",user.id)).map(p=>p.name));
+    const existing=new Set((await rows(env,"SELECT full_name FROM players WHERE created_by_user_id=?",user.id)).map(p=>p.full_name.normalize("NFC").trim().replace(/\s+/g," ").toLocaleLowerCase("vi")));
     const statements=[],createdNames=[];let skipped=0;
     for(const value of names){
       if(typeof value!=="string")return fail("INVALID_PLAYER_NAME",request,env,400);
