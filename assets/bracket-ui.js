@@ -1,23 +1,25 @@
 (()=>{
   const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
   const setWins=(m,side)=>(m.sets||[]).filter(s=>side==="A"?s[0]>s[1]:s[1]>s[0]).length;
-  const match=(m,team,{admin=false}={})=>{
+  const match=(m,team,{admin=false,divisionId=""}={})=>{
     const ready=m.a&&m.b&&m.a!=="TBD"&&m.b!=="TBD";
+    const series=seriesOf(m),slot=slotOf(m),motionBase='bracket:'+divisionId+':'+series+':'+slot;
     const special=m.resultReason?'<small class="bracket-reason">'+esc(m.resultReason.replaceAll("_"," "))+'</small>':"";
     const action=admin&&m.status!=="done"&&ready?'<button class="mini" data-score-match="'+esc(m.id)+'">Nhập điểm</button>':"";
     const statusLabel=m.status==="live"?"LIVE":(m.status==="done"||m.status==="completed"?"KẾT THÚC":"SẮP ĐẤU");
     const statusClass=m.status==="live"?"is-live":(m.status==="done"||m.status==="completed"?"is-done":"is-wait");
     const setScores=!m.resultReason&&["done","completed"].includes(m.status)&&(m.sets||[]).length?'<div class="bracket-set-scores muted">'+m.sets.map((s,i)=>'<small>Set '+(i+1)+': '+esc(s[0])+'–'+esc(s[1])+'</small>').join(' · ')+'</div>':"";
-    return '<div class="bracket-match bracket-match-pro '+statusClass+'" data-bracket-match="'+esc(m.id)+'">'+
+    return '<div class="bracket-match bracket-match-pro '+statusClass+'" data-bracket-match="'+esc(m.id)+'" data-bracket-slot="'+esc(slot)+'" data-division-id="'+esc(divisionId||m.divisionId||'')+'" data-motion-key="'+esc(motionBase+':match')+'" data-match-id="'+esc(m.id)+'" data-confirmed-winner="'+esc(['done','completed'].includes(m.status)?m.winner||'':'')+'">'+
       '<div class="bracket-match-meta"><span>'+esc(m.time||"")+' • Sân '+esc(m.court||"—")+'</span><b>'+statusLabel+'</b></div>'+
-      '<div class="bracket-team '+(m.winner===m.a?"win":"")+'"><span>'+esc(team(m.a))+'</span><b>'+(m.status==="done"?setWins(m,"A"):"")+'</b></div>'+
-      '<div class="bracket-team '+(m.winner===m.b?"win":"")+'"><span>'+esc(team(m.b))+'</span><b>'+(m.status==="done"?setWins(m,"B"):"")+'</b></div>'+
+      '<div class="bracket-team bracket-team-slot '+(m.winner===m.a?"win":"")+'" data-team-id="'+esc(m.a||'')+'" data-motion-key="'+esc(motionBase+':team-a')+'"><span>'+esc(team(m.a))+'</span><b>'+(m.status==="done"?setWins(m,"A"):"")+'</b></div>'+
+      '<div class="bracket-team bracket-team-slot '+(m.winner===m.b?"win":"")+'" data-team-id="'+esc(m.b||'')+'" data-motion-key="'+esc(motionBase+':team-b')+'"><span>'+esc(team(m.b))+'</span><b>'+(m.status==="done"?setWins(m,"B"):"")+'</b></div>'+
       setScores+special+action+'</div>';
   };
   const round=(title,matches,team,opts,idx=0)=>{
     const isFinal=/chung kết|grand final/i.test(title||"");
+    const division=opts.divisionId||matches[0]?.divisionId||"",series=opts.series||seriesOf(matches[0]||{}),anchor=slotOf(matches[0]||{})||('round-'+idx);
     const titleHtml=isFinal?'<span class="final-cup" aria-hidden="true">🏆</span><span>'+esc(title)+'</span>':esc(title);
-    return '<div class="round bracket-round-pro bracket-round-'+(idx+1)+(isFinal?' is-final-round':'')+'" data-round-index="'+idx+'" data-round-title="'+esc(title)+'" style="--round-index:'+idx+'"><h3>'+titleHtml+'</h3><div class="bracket-round-matches">'+matches.map((m,i)=>'<div class="bracket-match-wrap" data-match-index="'+i+'" style="--bracket-delay:'+((idx*110)+(i*55))+'ms">'+match(m,team,opts)+'</div>').join("")+'</div></div>';
+    return '<div class="round bracket-round-pro bracket-round-'+(idx+1)+(isFinal?' is-final-round':'')+'" data-round-index="'+idx+'" data-round-title="'+esc(title)+'" data-motion-key="'+esc('bracket:'+division+':'+series+':'+anchor+':round')+'" style="--round-index:'+idx+'"><h3>'+titleHtml+'</h3><div class="bracket-round-matches">'+matches.map((m,i)=>'<div class="bracket-match-wrap" data-match-index="'+i+'" data-motion-key="'+esc('bracket:'+division+':'+series+':'+slotOf(m)+':match-'+i)+'" style="--bracket-delay:'+((idx*110)+(i*55))+'ms">'+match(m,team,{...opts,divisionId:division})+'</div>').join("")+'</div></div>';
   };
   const sortSlot=(a,b)=>(a.bracketSlot||"").localeCompare(b.bracketSlot||"",undefined,{numeric:true});
   const seriesOf=m=>m.bracketSeries==="B"||String(m.bracketSlot||"").startsWith("B-SE-")?"B":"A";
@@ -25,11 +27,12 @@
   const seriesTitle=(series,note)=>'<div class="bracket-section-title"><span>SÉRIE '+series+'</span><h3>Serie '+series+'</h3>'+(note?'<p>'+esc(note)+'</p>':'')+'</div>';
   function render(matches,team,opts={}){
     const divisions=[...new Set(matches.filter(m=>m.bracketSlot||/bán kết|chung kết/i.test(m.stage||"")).map(m=>m.divisionId||""))];
-    if(divisions.length>1)return divisions.map(id=>'<section class="bracket-division" data-bracket-division="'+esc(id)+'"><h2>'+esc(opts.divisionNames?.[id]||"Nội dung thi đấu")+'</h2>'+render(matches.filter(m=>(m.divisionId||"")===id),team,opts)+'</section>').join("");
+    if(divisions.length>1)return divisions.map(id=>'<section class="bracket-division" data-bracket-division="'+esc(id)+'" data-motion-key="'+esc('bracket:'+id+':division')+'"><h2>'+esc(opts.divisionNames?.[id]||"Nội dung thi đấu")+'</h2>'+render(matches.filter(m=>(m.divisionId||"")===id),team,{...opts,divisionId:id})+'</section>').join("");
+    if(!opts.divisionId)opts={...opts,divisionId:matches[0]?.divisionId||""};
     const hasB=matches.some(m=>m.bracketSlot&&seriesOf(m)==="B");
     if(!opts.series&&(hasB||opts.seriesBEnabled))return ['A','B'].map(series=>{
       const branch=matches.filter(m=>seriesOf(m)===series),champ=champion(branch,team,{series});
-      return '<section class="bracket-series" data-bracket-series="'+series+'">'+seriesTitle(series,series==="B"?"Đội hạng 3 mỗi bảng":"Nhánh chính")+render(branch,team,{...opts,series})+(opts.showChampions?'<div class="'+(opts.admin?'admin':'public')+'-champion"><span>VÔ ĐỊCH SERIE '+series+'</span><strong>'+esc(champ)+'</strong></div>':'')+'</section>';
+      return '<section class="bracket-series" data-bracket-series="'+series+'" data-motion-key="'+esc('bracket:'+opts.divisionId+':'+series+':series')+'">'+seriesTitle(series,series==="B"?"Đội hạng 3 mỗi bảng":"Nhánh chính")+render(branch,team,{...opts,series})+(opts.showChampions?'<div class="'+(opts.admin?'admin':'public')+'-champion"><span>VÔ ĐỊCH SERIE '+series+'</span><strong>'+esc(champ)+'</strong></div>':'')+'</section>';
     }).join("");
     if(opts.series)matches=matches.filter(m=>seriesOf(m)===opts.series);
     const html=renderBranch(matches,team,opts);

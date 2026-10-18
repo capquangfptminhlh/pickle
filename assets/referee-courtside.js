@@ -3,17 +3,6 @@
   const $=s=>document.querySelector(s);
   let state={tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
   let lastScore=null;
-  const motionPreference=matchMedia("(prefers-reduced-motion: reduce)"),motions=new Map();
-  function motion(el,frames,duration=240){
-    if(!el)return;
-    motions.get(el)?.cancel();motions.delete(el);
-    if(motionPreference.matches||!el.animate)return;
-    const animation=el.animate(frames,{duration,easing:"cubic-bezier(.2,.8,.2,1)"});
-    motions.set(el,animation);
-    animation.finished.then(()=>{if(motions.get(el)===animation)motions.delete(el)},()=>{});
-  }
-  motionPreference.addEventListener("change",()=>{if(motionPreference.matches){motions.forEach(a=>a.cancel());motions.clear()}});
-
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
   const stage=m=>(m?.bracketSlot?"Serie "+(m.bracketSeries==="B"||String(m.bracketSlot).startsWith("B-")?"B":"A")+" · ":"")+(m?.stage||"Trận đấu");
@@ -145,22 +134,28 @@
       hint.textContent=(a>b?team(m.a):team(m.b))+" đã đủ điều kiện thắng "+(matchWon?"trận":"set")+" "+hi+"–"+lo+".";
     }else{hint.hidden=true;hint.textContent=""}
 
-    const next={id:m.id,a,b,sets:(m.sets||[]).length,winner:m.winner||null,serve,server,hint:hint.textContent};
+    const next={id:m.id,version:m.version,a,b,sets:(m.sets||[]).length,winner:m.winner||null,serve,server,hint:hint.textContent};
     const previous=lastScore;lastScore=next;
-    if(previous?.id===next.id){
+    if(previous?.id===next.id&&previous.version!==next.version){
       // Animate confirmed state only. A new game resets scores without a point flash.
       if(previous.sets===next.sets&&!m.winner){
         for(const side of ["A","B"]){
           const key=side.toLowerCase(),delta=next[key]-previous[key];
           if(!delta)continue;
           const score=$("#refScore"+side),feedback=score.parentElement.querySelector(".ref-point-feedback");
-          motion(score,[{transform:"translateY("+(delta>0?"8":"-8")+"px) scale(.94)",opacity:.7},{transform:"translateY(0) scale(1.08)",opacity:1,offset:.55},{transform:"translateY(0) scale(1)",opacity:1}],280);
+          window.PickleMotion?.scoreChange(score,delta);
           feedback.textContent=(delta>0?"+":"")+delta;
-          motion(feedback,[{opacity:0,transform:"translateY(4px)"},{opacity:1,transform:"translateY(-4px)",offset:.3},{opacity:0,transform:"translateY(-20px)"}],480);
         }
-      }else if(previous.sets!==next.sets)motion($("#setHistory"),[{opacity:.3,transform:"translateY(6px)"},{opacity:1,transform:"translateY(0)"}]);
-      if(previous.serve!==serve||previous.server!==server)motion($("#serveBanner"),[{opacity:.4,transform:"translateX(-6px)"},{opacity:1,transform:"translateX(0)"}]);
-      if(next.hint&&previous.hint!==next.hint)motion(hint,[{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"translateY(0)"}]);
+      }
+      const reversing=$("#scoreSurface").dataset.motionDirection==="reverse";
+      if(next.sets>previous.sets&&!reversing&&!next.winner){
+        const last=m.sets[m.sets.length-1];
+        window.PickleMotion?.setWin($("#setHistory"),Number(last[0])>Number(last[1])?"#bcff37":"#4dd0ff");
+      }
+      if(previous.serve!==serve||previous.server!==server){
+        window.PickleMotion?.serviceChange(document.querySelector(`[data-service-player="${serve}"][data-server-number="${server}"]`),$("#serveBanner"),serve==="A"?"#bcff37":"#4dd0ff");
+      }
+      if(!previous.winner&&next.winner&&!reversing)window.PickleMotion?.matchWin(hint,next.winner===m.a?"#bcff37":"#4dd0ff");
       if(previous.a!==a||previous.b!==b||previous.sets!==next.sets||previous.winner!==next.winner||previous.serve!==serve||previous.server!==server){
         $("#refAnnouncement").textContent=m.winner?hint.textContent:"Điểm đội A "+a+", đội B "+b+". "+$("#serveBanner").textContent;
       }
@@ -173,7 +168,7 @@
     const url=new URL(location.href);url.searchParams.set("match",id);history.replaceState(null,"",url);
     $("#refSummary").hidden=true;$("#matchPicker").hidden=true;$("#scoreSurface").hidden=false;
     renderScore();scrollTo({top:0,behavior:"instant"});
-    motion($(".ref-score-grid"),[{opacity:0,transform:"translateY(12px)"},{opacity:1,transform:"translateY(0)"}],260);
+    window.PickleMotion?.entrance($(".ref-score-grid"),{duration:.26});
   }
   function showPicker(){
     window.PickleTimeoutClock?.detach($("#refTimeoutClock"));
@@ -211,8 +206,9 @@
     return true;
   }
 
-  async function action(fn,success){
+  async function action(fn,success,reverse=false){
     if(busy)return;busy=true;
+    if(reverse)$("#scoreSurface").dataset.motionDirection="reverse";
     if(refreshTimer){clearTimeout(refreshTimer);refreshTimer=null}
     refreshVersion++;
     try{
@@ -223,7 +219,7 @@
     catch(e){
       if(e.message==="VERSION_CONFLICT"){await refresh({quiet:true});toast("Điểm đã đổi từ thiết bị khác. Đã đồng bộ lại.");}
       else toast({RELAY_LINEUP_REQUIRED:"Chưa xác định vị trí A/B/C. BTC cần xác nhận thứ tự thành viên hoặc nhập đúng Trình trước khi bốc thăm.",RELAY_PARTICIPANTS_REQUIRED:"Mỗi đội cần đúng 3 VĐV đang hoạt động trước khi bốc thăm.",RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Chờ sân trống hoặc báo BTC đổi sân.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Báo BTC kiểm tra lịch.",SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",NOTHING_TO_RESET:"Trận chưa có dữ liệu để đặt lại.",RESET_HISTORY_UNAVAILABLE:"Lịch sử trận không đủ để đặt lại an toàn.",DOWNSTREAM_MATCH_LOCKED:"Trận nhánh sau đã bắt đầu nên không thể đặt lại kết quả."}[e.message]||"Không thể thực hiện: "+e.message);
-    }finally{busy=false}
+    }finally{busy=false;delete $("#scoreSurface").dataset.motionDirection}
   }
 
   document.addEventListener("click",e=>{
@@ -250,9 +246,9 @@
   $("#refreshBtn").onclick=()=>refresh();
   $("#resetMatchBtn").onclick=()=>{
     const m=activeMatch();
-    if(m&&confirm("Đặt lại toàn bộ điểm, set và kết quả của trận này? Bạn vẫn có thể bấm Undo ngay sau đó để khôi phục."))action(()=>API.resetMatch(m.id,{expectedVersion:m.version}),"Đã đặt lại trận về ban đầu.");
+    if(m&&confirm("Đặt lại toàn bộ điểm, set và kết quả của trận này? Bạn vẫn có thể bấm Undo ngay sau đó để khôi phục."))action(()=>API.resetMatch(m.id,{expectedVersion:m.version}),"Đã đặt lại trận về ban đầu.",true);
   };
-  $("#undoBtn").onclick=()=>{const m=activeMatch();if(m)action(()=>API.undo(m.id,{expectedVersion:m.version}),"Đã Undo.")};
+  $("#undoBtn").onclick=()=>{const m=activeMatch();if(m)action(()=>API.undo(m.id,{expectedVersion:m.version}),"Đã Undo.",true)};
   $("#finishSetBtn").onclick=()=>{const m=activeMatch();if(m)action(()=>API.finishSet(m.id,{expectedVersion:m.version}),"Đã chốt set.")};
   $("#finishMatchBtn").onclick=()=>{const m=activeMatch();if(m&&confirm("Kết thúc và chốt kết quả trận này?"))action(()=>API.finishMatch(m.id,{expectedVersion:m.version}),"Đã chốt trận.")};
 

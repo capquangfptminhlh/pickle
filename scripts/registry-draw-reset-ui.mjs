@@ -20,6 +20,51 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})});
 await mkdir(resolve(root,'ui-artifacts/draw-reset'),{recursive:true});
+const motionPage=await browser.newPage();
+try{
+  await motionPage.goto(base+'/index.html');
+  const probe=await motionPage.evaluate(async()=>{
+    const root=document.createElement('div'),completedRoot=document.createElement('div');document.body.append(root,completedRoot);
+    const group='<div class="group-results"><b>Bảng A</b><span>Đã đấu 3 trận</span></div>';
+    const matches=(winner=null,empty=false)=>[
+      {id:'semi-1',divisionId:'motion-test',bracketSlot:'SE-R1-1',stage:'Bán kết',a:empty?'':'t1',b:empty?'':'t2',winner,status:winner?'done':'wait'},
+      {id:'semi-2',divisionId:'motion-test',bracketSlot:'SE-R1-2',stage:'Bán kết',a:empty?'':'t3',b:empty?'':'t4',status:'wait'},
+      {id:'final',divisionId:'motion-test',bracketSlot:'SE-R2-1',stage:'Chung kết',a:empty?'':winner||'TBD',b:empty?'':'TBD',status:'wait'}
+    ];
+    const render=(winner=null,empty=false)=>window.PickleBracket.render(matches(winner,empty),id=>id,{admin:true});
+    const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    completedRoot.innerHTML=render('t1');window.PickleBracketMotion.reconcile(completedRoot);await settle();
+    const completedInitial=completedRoot.querySelector('[data-motion-state="advanced"]')!==null;
+    root.innerHTML=group+'<div class="bracket-motion-host"></div>';
+    const bracket=root.querySelector('.bracket-motion-host');bracket.innerHTML=render();window.PickleBracketMotion.reconcile(root);await settle();
+    const keys=[...root.querySelectorAll('[data-motion-key]')].map(el=>el.getAttribute('data-motion-key'));
+    const initialCelebration=root.querySelector('[data-motion-state="advanced"], [data-motion-state="reset"]')!==null;
+    bracket.innerHTML=render('t1');window.PickleBracketMotion.reconcile(root);await settle();
+    const advanced=root.querySelectorAll('.bracket-team-slot[data-motion-state="advanced"]').length;
+    await new Promise(resolve=>setTimeout(resolve,850));
+    bracket.innerHTML=render('t1');window.PickleBracketMotion.reconcile(root);await settle();
+    const duplicate=root.querySelectorAll('.bracket-team-slot[data-motion-state="advanced"]').length;
+    const groupBefore=root.querySelector('.group-results').outerHTML;
+    const uncertain=document.createElement('div');document.body.append(uncertain);uncertain.innerHTML=render('t1');window.PickleBracketMotion.reconcile(uncertain);
+    uncertain.innerHTML=render(null,true);window.PickleBracketMotion.reconcile(uncertain);await settle();
+    const unconfirmedReset=uncertain.querySelectorAll('[data-motion-state="reset"]').length;uncertain.remove();
+    root.dataset.bracketResetConfirmed='motion-test';
+    bracket.innerHTML=render(null,true);window.PickleBracketMotion.reconcile(root);await settle();
+    const reset=root.querySelectorAll('.bracket-team-slot[data-motion-state="reset"]').length;
+    const groupAfter=root.querySelector('.group-results').outerHTML;
+    const safe=keys.every(key=>key.includes('motion-test')&&!key.includes('"')&&!key.includes('<'));
+    root.remove();completedRoot.remove();return {keys,safe,completedInitial,initialCelebration,advanced,duplicate,unconfirmedReset,reset,groupBefore,groupAfter};
+  });
+  assert.ok(probe.keys.length>=3,'bracket rounds, matches and team slots expose stable motion keys');
+  assert.ok(probe.safe,'motion keys include division identity and serialize safely');
+  assert.equal(probe.completedInitial,false,'completed initial load does not celebrate');
+  assert.equal(probe.initialCelebration,false,'initial bracket draw has no fake advancement/reset');
+  assert.equal(probe.advanced,1,'confirmed winner transition advances exactly one destination slot');
+  assert.equal(probe.duplicate,0,'duplicate confirmed state does not replay advancement');
+  assert.equal(probe.unconfirmedReset,0,'cleared slots do not animate without a confirmed knockout reset');
+  assert.equal(probe.reset,5,'knockout reset marks only populated knockout team slots');
+  assert.equal(probe.groupAfter,probe.groupBefore,'knockout reset preserves group results DOM bit-for-bit');
+}finally{await motionPage.close()}
 try{
   for(const actor of ['admin','organizer'])for(const width of [1440,375]){
     const f=await accountFixture();

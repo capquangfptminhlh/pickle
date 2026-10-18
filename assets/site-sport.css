@@ -305,6 +305,21 @@ body.site-sport.site-sport:not(.admin-sport) .rank-badge.rank-other {background:
 body.site-sport.site-sport:not(.admin-sport) .badge.done {background:#354f40!important; color:#e3ece6!important; border-color:#9ab5a3!important}
 body.site-sport.site-sport:not(.admin-sport) :is(.bracket-team.win,.public-bracket-row.win) {background:#203c2a!important; color:#90f7bc!important}
 body.site-sport.site-sport:not(.admin-sport) #tourBracket .bracket-team.win {background:#203c2a!important; color:#90f7bc!important}
+
+/* Bracket motion uses only paint and transforms so slot geometry stays fixed. */
+.bracket-connectors {pointer-events:none!important;overflow:visible}
+.bracket-connector-glow,.bracket-connector-line {fill:none;stroke-dasharray:48 48;stroke-dashoffset:48;pointer-events:none}
+.bracket-connector-glow {stroke:#d9ff63;stroke-width:7;opacity:.15;filter:blur(2px)}
+.bracket-connector-line {stroke:#9ab5a3;stroke-width:2;opacity:.72}
+.bracket-connector-glow.is-advancing {opacity:.85;filter:drop-shadow(0 0 5px #d9ff63)}
+.bracket-connector-line.is-advancing {stroke:#d9ff63;opacity:1}
+.bracket-connector-glow.is-resetting,.bracket-connector-line.is-resetting {stroke:#ff8a78;opacity:.85}
+.bracket-team-slot[data-motion-state="advanced"] {outline:2px solid #d9ff63;outline-offset:1px;box-shadow:0 0 18px #d9ff6370}
+.bracket-team-slot[data-motion-state="reset"] {outline:2px solid #ff8a78;outline-offset:1px}
+@media (prefers-reduced-motion:reduce) {
+  .bracket-round-pro,.bracket-connectors,.bracket-team-slot {animation:none!important;transition:none!important}
+  .bracket-connector-glow,.bracket-connector-line {stroke-dashoffset:0!important;filter:none!important}
+}
 body.site-sport.site-sport:not(.admin-sport) :is(.bracket-team.win,.public-bracket-row.win) :is(b,span) {color:#90f7bc!important}
 /* ID rules supersede old home card rules that hardcode white and tiny labels. */
 body.site-sport.site-sport:not(.admin-sport) #publicTopPlayers .top-player-card {background:#2a4033!important; color:#f6fbf7!important; border-color:#7c9b87!important; border-radius:18px!important; min-height:80px!important; padding:12px!important}
