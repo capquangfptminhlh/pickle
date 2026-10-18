@@ -2,6 +2,7 @@ import {authenticate,canManageTournament} from "./auth.js";
 import {bodyJson,ok,fail,nowIso,uid,safeJsonParse} from "./util.js";
 import {broadcast} from "./realtime.js";
 import {validateSet,validateSeries,timeoutsPerGame} from "../../shared/scoring-rules.js";
+import {stageScoringRules} from "../../shared/stage-scoring-rules.js";
 import {parseRelayOrder,relayDrawRequired} from "../../shared/relay-draw.js";
 
 const legacyScoringFields=["status","current_score_a","current_score_b","winner_team_id","result_reason","result_note","started_at","completed_at"];
@@ -325,7 +326,8 @@ export async function handleScoring(request,env,ctx){
   if(request.method!=="POST"||!match||!actions.has(match[2]))return null;
   const id=decodeURIComponent(match[1]),action=match[2];
   const user=await authenticate(request,env);if(!user)return fail("AUTH_REQUIRED",request,env,401);
-  const m=await one(env,"SELECT m.*,(EXISTS(SELECT 1 FROM score_events e WHERE e.match_id=m.id)) AS has_history,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.scoring_mode,d.final_point_on_serve,d.event_type,d.relay_team_size,d.relay_segment_points FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
+  const row=await one(env,"SELECT m.*,(EXISTS(SELECT 1 FROM score_events e WHERE e.match_id=m.id)) AS has_history,d.tournament_id,d.best_of,d.points_to_win,d.win_by_two,d.stage_rules_enabled,d.final_format,d.scoring_mode,d.final_point_on_serve,d.event_type,d.relay_team_size,d.relay_segment_points FROM matches m JOIN divisions d ON d.id=m.division_id WHERE m.id=?",id);
+  const m=row?{...row,...stageScoringRules(row,row)}:null;
   if(!m)return fail("NOT_FOUND",request,env,404);
   if(!(await authorize(env,user,m)))return fail("FORBIDDEN",request,env,403);
   const body=await bodyJson(request);

@@ -39,8 +39,15 @@ jobs:
       - name: Audit Worker dependencies (including development tools)
         working-directory: cloudflare
         run: npm audit --audit-level=high
+      - name: iPhone PWA safe-area regression
+        run: node --test scripts/pwa-ios-safe-area.test.mjs
       - name: Courtside client syntax
         run: |
+          node --check assets/ui-motion.js
+          node --check assets/draw-reveal.js
+          node --check assets/draw-flex.js
+          node --check assets/public.js
+          node --check assets/tournament.js
           node --check assets/player-avatar-input.js
           node --check assets/referee-courtside.js
           node --check assets/timeout-clock.js

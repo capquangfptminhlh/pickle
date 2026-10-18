@@ -26,7 +26,7 @@ const login=(await raw("/api/auth/login",{method:"POST",body:{email:"admin@pickl
 assert(login.token&&login.user?.role==="super_admin","bootstrap admin login");
 const admin=login.token;
 
-const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"CF Smoke "+stamp,venue:"Smoke Court",startAt:new Date().toISOString(),format:"pool_to_knockout"}})).data;
+const tournament=(await raw("/api/tournaments",{method:"POST",token:admin,body:{name:"CF Smoke "+stamp,venue:"Smoke Court",startAt:new Date().toISOString(),format:"pool_to_knockout",stageRulesEnabled:false}})).data;
 assert(tournament.id,"tournament created");
 await raw("/api/tournaments/"+tournament.id,{method:"PATCH",token:admin,body:{status:"registration",publicVisible:true}});
 

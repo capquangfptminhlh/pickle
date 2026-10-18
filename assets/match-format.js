@@ -97,6 +97,9 @@
   }
   function rulesSummary(d){
     if(!d)return "";
+    if(d.stageRulesEnabled){
+      return "Vòng bảng / tứ kết / bán kết / tranh hạng ba: 1 set 11 điểm, không cách 2 • Chung kết: "+(d.finalFormat==="best3_11"?"Best of 3, mỗi set 11 điểm":"1 set 15 điểm")+" (không cách 2)";
+    }
     const parts=[];
     const size=Number(d.relayTeamSize||0)||Math.round(Number(d.pointsToWin)/Number(d.relaySegmentPoints||1));
     if(Number(d.relaySegmentPoints)>0)parts.push(`Chạy điểm ${size} lượt × ${d.relaySegmentPoints} = ${d.pointsToWin} điểm`,size===3?"Đội 3 người, mỗi đội bốc thăm độc lập AB, BC, CA trước trận":`Đội ${size} người, thứ tự cặp ${relayPairs(size).join(" → ")}`);
@@ -127,6 +130,12 @@
     const size=Number(d.relayTeamSize||0)||(seg?Math.round(target/seg):0);
     const relay=seg&&TEAM_SIZES.includes(size)?relayPairs(size).map((pair,i)=>({pair:size===3?"Lượt "+(i+1):pair,from:i*seg,to:Math.min(target,(i+1)*seg)})):null;
     const bestOf=Number(d.bestOf||1),facts=[];
+    if(d.stageRulesEnabled){
+      facts.push({label:"Vòng bảng → bán kết",value:"1 set · 11 điểm",note:"chạm 11 thắng, không cần cách 2"});
+      facts.push({label:"Chung kết",value:d.finalFormat==="best3_11"?"Best of 3 · 11 điểm":"1 set · 15 điểm",note:"không cần cách 2"});
+      facts.push({label:"Timeout",value:"Theo điểm thắng",note:"2 lần/set 11 điểm; 3 lần/set 15 điểm"});
+      return {kicker:`${eventLabel(d.eventType)} · ${formatLabel(d.format)}`,facts,relay:null};
+    }
     if(relay&&size===3)facts.push({label:"Cặp thi đấu",value:"AB / BC / CA",note:"Mỗi đội bốc thăm độc lập thứ tự trước trận"});
     if(relay)facts.push({label:"Điểm thắng",value:`${target} điểm`,note:`1 game chạy điểm, ${size} lượt × ${seg}`});
     else{

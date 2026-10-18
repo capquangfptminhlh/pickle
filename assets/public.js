@@ -52,12 +52,28 @@ function renderPosts(){if($("#desktopPostCount"))$("#desktopPostCount").textCont
 function renderSponsors(){const el=$("#publicSponsors");if(!el)return;showSection("#sponsors",sponsors.length>0);el.innerHTML=sponsors.map(s=>'<a class="public-sponsor" href="'+esc(s.website_url||"#")+'" '+(s.website_url?'target="_blank" rel="noopener noreferrer"':"")+'>'+(s.logo_url?'<img src="'+esc(s.logo_url)+'" alt="'+esc(s.name)+'">':'<b>'+esc(s.name)+'</b>')+'<span>'+esc(s.tier||"Partner")+'</span></a>').join("")||'<span class="sponsor-empty">Chưa có sponsor công khai.</span>'}
 function applyBranding(){if(branding.primaryColor)document.documentElement.style.setProperty("--brand",branding.primaryColor);if(branding.accentColor)document.documentElement.style.setProperty("--acid",branding.accentColor);const brandName=(!branding.name||branding.name==="Pickle Tour")?"Pickleup.vn":branding.name;document.querySelectorAll(".public-brand b").forEach(el=>{el.textContent=brandName})}
 function showRealtimeDraw(payload,done=false){
+  
   let el=document.querySelector(".realtime-draw-overlay");
   if(!el){el=document.createElement("div");el.className="realtime-draw-overlay";document.body.appendChild(el)}
+  window.__publicGroupDrawAbort?.abort();
+  clearTimeout(window.__drawNoticeTimer);
+  el.classList.remove("has-reveal");
   const groups=Array.isArray(payload?.groups)?payload.groups:[];
+  if(done&&Array.isArray(payload?.assignments)&&payload.assignments.length&&window.PickleDrawReveal){
+    const controller=new AbortController();
+    window.__publicGroupDrawAbort=controller;
+    el.classList.add("has-reveal","show");
+    el.innerHTML='<div class="realtime-draw-card draw-reveal-spectator"><div data-reveal-host></div></div>';
+    window.PickleDrawReveal.play(el.querySelector("[data-reveal-host]"),payload,{compact:true,signal:controller.signal})
+      .then(result=>{
+        if(result?.cancelled||controller.signal.aborted)return;
+        window.__drawNoticeTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>{if(!controller.signal.aborted)el.remove()},280)},3800);
+      }).catch(console.error);
+    return;
+  }
   el.innerHTML=`<div class="realtime-draw-card ${done?"is-done":""}"><div class="realtime-draw-icon">${done?"✓":"🎡"}</div><span>${done?"KẾT QUẢ BỐC THĂM":"ĐANG BỐC THĂM REALTIME"}</span><h3>${esc(payload?.tournamentName||"Giải đấu")}</h3><p>${done?`${payload.groupCount||groups.length} bảng • Top ${payload.advanceCount||2} đi tiếp`:`${payload.teamCount||0} cặp/đội • ${payload.groupCount||0} bảng`}</p>${done&&groups.length?`<div class="realtime-draw-groups">${groups.map(g=>`<b>Bảng ${esc(g.group)} <small>${g.count} đội</small></b>`).join("")}</div>`:""}</div>`;
-  el.classList.add("show");clearTimeout(window.__drawNoticeTimer);
-  if(done)window.__drawNoticeTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),250)},5000);
+  el.classList.add("show");
+  if(done)window.__drawNoticeTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),280)},3800);
 }
 async function load(){try{const [,p,news,partners,brand]=await Promise.all([refreshCore(),PickleAPI.publicPlayers().catch(()=>[]),PickleAPI.publicPosts().catch(()=>[]),PickleAPI.publicSponsors().catch(()=>[]),PickleAPI.publicBranding().catch(()=>({}))]);players=p;posts=news;sponsors=partners;branding=brand;applyBranding();renderCore();renderPlayers();renderPosts();renderSponsors()}catch(e){console.error(e)}}
 let coreRefresh=null,coreDirty=false;

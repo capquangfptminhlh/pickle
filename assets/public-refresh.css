@@ -249,3 +249,27 @@ html:root body.site-sport.public-refresh:not(.admin-sport) :is(.ranking-app-row,
   html:root body.site-sport.public-refresh:not(.admin-sport) :is(.tour-card,.top-player-card,.podium-player,.player-match,.court-match-card,.tournament-team-row,.ranking-app-row)::after {display:none}
   html:root body.site-sport.public-refresh:not(.admin-sport) :is(.ranking-app-row,.podium-player)[data-motion-state="leader"]::after {animation:none}
 }
+
+/* iPhone standalone PWA: fit the bottom navigation above the Home indicator.
+   The old fixed 66px dock was shorter than its 52px buttons + safe-area padding. */
+@media (max-width:760px) {
+  html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) {
+    padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important;
+  }
+  html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .public-header {
+    padding-top:env(safe-area-inset-top,0px)!important;
+    height:auto!important;
+  }
+  html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .public-mobile-dock {
+    box-sizing:border-box!important;
+    height:auto!important;
+    min-height:calc(66px + env(safe-area-inset-bottom,0px))!important;
+    bottom:0!important;
+    padding:6px 8px calc(8px + env(safe-area-inset-bottom,0px))!important;
+    align-items:stretch!important;
+  }
+  html:root body.site-sport.site-sport.public-refresh:not(.admin-sport) .public-mobile-dock a {
+    min-width:0!important;
+    min-height:52px!important;
+  }
+}

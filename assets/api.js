@@ -241,6 +241,8 @@
     generateRoundRobin:(divisionId)=>request(`/api/divisions/${divisionId}/generate-round-robin`,{method:"POST",body:"{}"}),
     autoScheduleCourts:(divisionId)=>request(`/api/divisions/${divisionId}/auto-schedule-courts`,{method:"POST",body:"{}"}),
     autoSeedGroups:(divisionId,groupCount)=>request(`/api/divisions/${divisionId}/auto-seed-groups`,{method:"POST",body:JSON.stringify({groupCount})}),
+    stageRulesPreview:(divisionId,finalFormat)=>request(`/api/divisions/${divisionId}/stage-rules?finalFormat=${encodeURIComponent(finalFormat)}`),
+    applyStageRules:(divisionId,payload)=>request(`/api/divisions/${divisionId}/stage-rules`,{method:"PUT",body:JSON.stringify(payload)}),
     drawConfig:divisionId=>request(`/api/divisions/${divisionId}/draw-config`),
     saveDrawConfig:(divisionId,payload)=>request(`/api/divisions/${divisionId}/draw-config`,{method:"PUT",body:JSON.stringify(payload)}),
     runDraw:(divisionId,payload)=>request(`/api/divisions/${divisionId}/run-draw`,{method:"POST",body:JSON.stringify(payload)}),

@@ -49,6 +49,12 @@ jobs:
         run: node --test scripts/registry-theme.test.mjs
       - name: Player avatar create and retry flow
         run: node scripts/registry-player-avatar-ui.mjs
+      - name: Stage scoring and live-score safety regression
+        run: node --test cloudflare/tests/stage-scoring.test.mjs
+      - name: Global animation browser tests
+        run: node --test scripts/registry-global-motion.test.mjs
+      - name: Group draw reveal animation tests
+        run: node --test scripts/registry-group-draw-reveal.test.mjs
       - name: Registry desktop and mobile browser regressions
         run: |
           node scripts/registry-ui.mjs
@@ -81,6 +87,8 @@ jobs:
           DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
           node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/registry-checkin-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs scripts/registry-poster-variants.test.mjs
           node --test scripts/registry-network-ui.test.mjs
+      - name: iPhone PWA safe-area regression
+        run: node --test scripts/pwa-ios-safe-area.test.mjs
       - name: Syntax check
         run: |
           node --check server/index.js
