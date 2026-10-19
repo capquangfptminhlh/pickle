@@ -35,6 +35,8 @@ try{
    const r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
   });
   await page.goto(base+'/referee.html');await page.locator('#matchPicker .picker-card').waitFor();
+  await page.evaluate(()=>{for(const name of ['scoreChange','serviceChange','setWin','matchWin']){const original=PickleMotion[name];PickleMotion[name]=(...args)=>{if(!PickleMotion.reduced())window.motionCalls.push({id:(name==='serviceChange'?args[1]:args[0])?.id,name,delta:args[1],direction:document.querySelector('#scoreSurface').dataset.motionDirection});return original(...args)}}});
+
   assert.equal(await page.locator('#matchPicker .picker-athlete').count(),4,'match list shows every athlete identity');
   assert.equal(await page.locator('#matchPicker .picker-athlete img').count(),2,'match list uses stored athlete avatars');
   assert.deepEqual(await page.locator('#matchPicker .picker-athlete-fallback').allTextContents(),['TA','TH'],'missing avatars use athlete initials');
@@ -63,7 +65,9 @@ try{
   assert.equal(points.length,reducedMotion==='reduce'?0:1,'one confirmed point animates only its score');
   if(points.length)assert.equal(points[0].id,'refScoreA');
   assert.equal(await page.locator('#resetMatchBtn').isVisible(),true,'reset must stay available on the scoring surface');
-  await page.locator('#resetMatchBtn').click();await page.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='0');
+  await page.evaluate(()=>window.motionCalls=[]);await page.locator('#resetMatchBtn').click();await page.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='0');
+  const resetMotion=await page.evaluate(()=>window.motionCalls.find(c=>c.name==='scoreChange'));
+  if(reducedMotion!=='reduce'){assert.equal(resetMotion?.delta,-1,'reset uses a decreasing score transition');assert.equal(resetMotion?.direction,'reverse','reset is visibly marked as reverse motion')}
   assert.equal(f.match().status,'scheduled');assert.deepEqual(f.sets(),[]);
   await page.locator('#undoBtn').click();await page.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='1');
   await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(500);await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)});
@@ -71,7 +75,9 @@ try{
   await page.evaluate(()=>window.motionCalls=[]);await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/admin/state')),page.locator('#refreshBtn').click()]);
   assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id.startsWith('refScore')).length),0,'unchanged refresh has no score animation');
   await page.locator('#undoBtn').click();await page.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='0');
+  const undoMotion=await page.evaluate(()=>window.motionCalls.find(c=>c.name==='scoreChange'&&c.id==='refScoreA'));
   assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id==='refScoreA').length),reducedMotion==='reduce'?0:1,'Undo animates confirmed decrease');
+  if(reducedMotion!=='reduce')assert.equal(undoMotion?.direction,'reverse','Undo is visibly marked as reverse motion');
   if(process.env.REFEREE_VIDEO)await page.waitForTimeout(550);
   rejectPoint=true;await page.evaluate(()=>window.motionCalls=[]);await page.locator('[data-correct="A"][data-delta="1"]').click();await page.locator('#refToast').filter({hasText:'Không thể thực hiện'}).waitFor();
   assert.equal(f.match().current_score_a,0);assert.equal(await page.locator('#refScoreA').innerText(),'0');assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id.startsWith('refScore')).length),0,'failed point does not animate fake score');rejectPoint=false;
@@ -79,16 +85,25 @@ try{
   f.db.exec("UPDATE divisions SET scoring_mode='side_out' WHERE id='division'");await page.locator('#refreshBtn').click();await page.waitForFunction(()=>document.querySelector('#modeBanner').textContent.includes('Side-out'));
   await page.evaluate(()=>window.motionCalls=[]);await page.locator('[data-rally="B"]').click();await page.waitForFunction(()=>document.querySelector('[data-service="B"][data-server="1"]').classList.contains('active'));
   assert.equal(f.match().current_score_b,0);assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id==='serveBanner').length),reducedMotion==='reduce'?0:1,'service change animates without fake point');
+  // A confirmed set close celebrates once; first render and reset never replay it.
+  f.db.exec("UPDATE divisions SET points_to_win=11,best_of=3,scoring_mode='rally',win_by_two=1 WHERE id='division'; UPDATE matches SET current_score_a=11,current_score_b=9 WHERE id='match'");await page.locator('#refreshBtn').click();await page.waitForFunction(()=>!document.querySelector('#finishSetBtn').disabled);
+  await page.evaluate(()=>window.motionCalls=[]);await page.locator('#finishSetBtn').click();await page.waitForFunction(()=>document.querySelectorAll('#setHistory span').length===1&&!document.querySelector('#setHistory').textContent.includes('Chưa có'));
+  assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.name==='setWin').length),reducedMotion==='reduce'?0:1,'confirmed set completion animates once');
+  await page.locator('#resetMatchBtn').click();await page.waitForFunction(()=>document.querySelector('#setHistory').textContent.includes('Chưa có set'));
+  assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.name==='setWin').length),reducedMotion==='reduce'?0:1,'reset does not replay a set celebration');
   // Rules follow setup, including relay and its final-point constraint.
   f.db.exec("UPDATE divisions SET points_to_win=27,best_of=1,scoring_mode='rally',win_by_two=0,relay_segment_points=9,relay_team_size=3,final_point_on_serve=1 WHERE id='division'");await page.locator('#refreshBtn').click();await page.waitForFunction(()=>document.querySelector('#refRules').textContent.includes('27'));
   assert.match(await page.locator('#refRules').innerText(),/Chạm 27/);assert.match(await page.locator('#refRules').innerText(),/Không cách 2/);assert.match(await page.locator('#modeBanner').innerText(),/cầm giao/);
   f.db.exec("UPDATE divisions SET points_to_win=11,best_of=1,relay_segment_points=0,relay_team_size=0,final_point_on_serve=0,win_by_two=1 WHERE id='division'; UPDATE matches SET current_score_a=11,current_score_b=9 WHERE id='match'");await page.locator('#refreshBtn').click();await page.locator('#finishMatchBtn').waitFor();await page.waitForFunction(()=>!document.querySelector('#finishMatchBtn').disabled);
-  await page.evaluate(()=>window.motionCalls=[]);await page.locator('#finishMatchBtn').click();await page.locator('#queueLabel').filter({hasText:'HOÀN TẤT'}).waitFor();
+  await page.evaluate(()=>{window.motionCalls=[];window.celebrationAdds=0;new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node instanceof Element&&node.matches('.motion-celebration'))window.celebrationAdds++}).observe(document.body,{childList:true})});await page.locator('#finishMatchBtn').click();await page.locator('#queueLabel').filter({hasText:'HOÀN TẤT'}).waitFor();
   assert.match(await page.locator('#scoreHint').innerText(),/Thắng trận/);assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.id==='scoreHint').length),reducedMotion==='reduce'?0:1,'completion banner animates on confirmed finish');
   assert.equal(f.match().winner_team_id,'a');
+  assert.equal(await page.evaluate(()=>window.celebrationAdds),reducedMotion==='reduce'?0:1,'winner transition creates at most one celebration canvas');
+  if(reducedMotion==='reduce')assert.equal(await page.locator('.motion-celebration').count(),0,'reduced motion never creates a celebration canvas');
+  else{assert.equal(await page.locator('.motion-celebration').count(),1,'live winner transition creates one inert canvas');await page.waitForFunction(()=>!document.querySelector('.motion-celebration'),null,{timeout:3000})}
   assert.equal(await page.locator('#refRosterA [data-service-player]').first().getAttribute('aria-disabled'),'true','finished matches disable direct server selection');
   assert.equal(await page.locator('#refScoreA').innerText(),'11','finished scoreboard retains final game result');assert.equal(await page.locator('#refScoreB').innerText(),'9');
-  await page.evaluate(()=>window.motionCalls=[]);await page.locator('#refreshBtn').click();await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>window.motionCalls.length),0,'unchanged completed match never replays any motion');
+  await page.evaluate(()=>window.motionCalls=[]);await page.locator('#refreshBtn').click();await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>window.motionCalls.filter(c=>c.name).length),0,'unchanged completed match never replays any motion');
   for(const theme of ['light','dark'])for(const width of [320,375,844,1440]){
    await page.setViewportSize({width,height:width===844?390:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.evaluate(()=>document.fonts.ready);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${theme} ${width} no overflow`);

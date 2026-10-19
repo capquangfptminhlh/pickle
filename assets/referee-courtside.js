@@ -10,7 +10,7 @@
   const court=m=>state.courts.find(c=>c.id===m?.courtId)?.name||(m?.court&&m.court!=="—"?"Sân "+m.court:"Chưa gán sân");
   const queueMeta=s=>({scheduled:["CHỜ","scheduled"],called:["ĐANG GỌI","called"],on_deck:["ON DECK","on_deck"],warming_up:["KHỞI ĐỘNG","warming_up"],live:["ĐANG ĐẤU","live"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
   const queueRank=m=>m.status==="live"?0:m.courtState==="warming_up"?1:m.courtState==="on_deck"?2:m.courtState==="called"?3:m.status==="wait"?4:5;
-  const toast=msg=>{const el=$("#refToast");el.textContent=msg;el.hidden=false;motion(el,[{opacity:0,transform:"translate(-50%, 8px)"},{opacity:1,transform:"translate(-50%, 0)"}],180);clearTimeout(el._timer);el._timer=setTimeout(()=>el.hidden=true,2600)};
+  const toast=msg=>{const el=$("#refToast");el.textContent=msg;el.hidden=false;window.PickleMotion?.entrance(el,{key:"referee-toast",y:8,duration:.18,stagger:0});clearTimeout(el._timer);el._timer=setTimeout(()=>el.hidden=true,2600)};
   const roleLabel=r=>({super_admin:"Super Admin",organizer:"Chủ giải",referee:"Trọng tài"}[r]||r);
   const playerName=player=>player?.full_name||player?.nickname||"VĐV";
   const initials=player=>playerName(player).trim().split(/\s+/).slice(-2).map(part=>part[0]||"").join("").toUpperCase()||"VĐV";

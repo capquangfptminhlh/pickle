@@ -118,9 +118,9 @@
     };
     return keyed(key, timeline => {
       timeline.fromTo(targets,
-        { autoAlpha: 0, y, scale, filter: "blur(4px)" },
+        { opacity: 0, y, scale, filter: "blur(4px)" },
         {
-          autoAlpha: 1,
+          opacity: 1,
           y: 0,
           scale: 1,
           filter: "blur(0px)",
@@ -229,6 +229,7 @@
   }
 
   function setWin(target, color = "#dfff69") {
+    celebrate({target,color,kind:"set"});
     return keyed(elementKey("set-win", target), timeline => {
       timeline.fromTo(target,
         { scale: 0.97, filter: `drop-shadow(0 0 0 ${color})` },
@@ -238,6 +239,7 @@
   }
 
   function matchWin(target, color = "#dfff69") {
+    celebrate({target,color,kind:"match"});
     return keyed(elementKey("match-win", target), timeline => {
       timeline.fromTo(target,
         { scale: 0.94, autoAlpha: 0.72, filter: `drop-shadow(0 0 0 ${color})` },
@@ -264,11 +266,68 @@
     }, () => clearMotion(target));
   }
 
-  function celebrate() {
-    return null;
+  let celebration=null;
+  function stopCelebration(){
+    if(!celebration)return;
+    if(celebration.frame)cancelAnimationFrame(celebration.frame);
+    clearTimeout(celebration.timer);
+    celebration.canvas?.remove();
+    if(celebration.target?.dataset)delete celebration.target.dataset.motionCelebration;
+    if(celebration.originalOpacity!==undefined&&celebration.target?.style)celebration.target.style.opacity=celebration.originalOpacity;
+    celebration=null;
+  }
+  function celebrate({target,color="#bcff37",kind="match"}={}) {
+    stopCelebration();
+    if(document.hidden||!target)return null;
+    if(reduced()){
+      if(target.dataset)target.dataset.motionCelebration=kind;
+      const originalOpacity=target.style?.opacity;
+      if(target.style)target.style.opacity=".86";
+      const run={canvas:null,target,originalOpacity,frame:0,timer:0};
+      celebration=run;
+      run.timer=setTimeout(()=>{if(celebration===run)stopCelebration()},180);
+      return null;
+    }
+    if(!gsap)return null;
+    const canvas=document.createElement("canvas"),context=canvas.getContext("2d");
+    if(!context)return null;
+    canvas.className="motion-celebration";
+    canvas.setAttribute("aria-hidden","true");
+    canvas.style.pointerEvents="none";
+    const width=window.innerWidth,height=window.innerHeight;
+    const ratio=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=width*ratio;canvas.height=height*ratio;
+    context.scale(ratio,ratio);
+    const rect=target.getBoundingClientRect(),duration=kind==="set"?1200:2500;
+    const particles=Array.from({length:quality()==="compact"?48:96},(_,i)=>({
+      x:Math.max(0,Math.min(width,rect.left+rect.width/2)),
+      y:Math.max(0,Math.min(height,rect.top+rect.height/2)),
+      vx:(Math.random()-.5)*width*.9,vy:-120-Math.random()*360,
+      spin:Math.random()*8,color:[color,"#ffffff","#ffdb63"][i%3]
+    }));
+    document.body.append(canvas);
+    const run={canvas,target,frame:0,timer:0};celebration=run;
+    const start=performance.now();let last=start;
+    function tick(now){
+      if(celebration!==run)return;
+      const elapsed=now-start,dt=Math.min((now-last)/1000,.05);last=now;
+      if(elapsed>=duration||document.hidden||reduced()){stopCelebration();return}
+      context.clearRect(0,0,width,height);
+      context.globalAlpha=Math.min(1,(duration-elapsed)/500);
+      for(const p of particles){
+        p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=480*dt;
+        context.save();context.translate(p.x,p.y);context.rotate(p.spin*elapsed/1000);
+        context.fillStyle=p.color;context.fillRect(-3,-2,6,4);context.restore();
+      }
+      run.frame=requestAnimationFrame(tick);
+    }
+    run.timer=setTimeout(stopCelebration,duration+50);
+    run.frame=requestAnimationFrame(tick);
+    return canvas;
   }
 
   function dispose() {
+    stopCelebration();
     for (const key of [...timelines.keys()]) kill(key);
     document.querySelectorAll?.(".motion-celebration").forEach(element => element.remove());
   }
@@ -295,9 +354,11 @@
   window.PickleMotion = api;
 
   document.addEventListener("visibilitychange", () => {
+    if(document.hidden)stopCelebration();
     if (!gsap?.globalTimeline) return;
     if (document.hidden) gsap.globalTimeline.pause?.();
     else gsap.globalTimeline.resume?.();
   });
+  motionPreference.addEventListener?.("change",()=>{if(reduced())dispose()});
   window.addEventListener("pagehide", dispose);
 })();

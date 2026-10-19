@@ -45,7 +45,7 @@ async function withPage(options,fn){
       let motion;
       Object.defineProperty(window,"PickleMotion",{configurable:true,get:()=>motion,set:value=>{
         motion=value;
-        for(const name of ["entrance","count","flip"]){
+        for(const name of ["entrance","count","flip","error"]){
           const original=motion?.[name];
           if(typeof original!=="function")continue;
           motion[name]=(...args)=>{window.__motionCalls.push({name,args:args.map(x=>Array.isArray(x)?x.map(el=>el?.dataset?.motionKey||el?.className):x)});return original(...args)};
@@ -416,6 +416,31 @@ test("browser Back restores an admin page after a fallback route fade",async()=>
     assert.equal(await page.locator("body").evaluate(el=>el.classList.contains("route-leaving")),false);
     await page.waitForTimeout(200);
     assert.equal(await page.locator("body").evaluate(el=>getComputedStyle(el).opacity),"1");
+  });
+});
+
+test("admin dialog motion preserves focus and validation while toasts enter once",async()=>{
+  await withPage({admin:true,path:"/admin.html",motionSpy:true},async page=>{
+    await page.evaluate(()=>{
+      window.__motionCalls=[];
+      const trigger=document.createElement("button");
+      trigger.id="motionDialogTrigger";trigger.type="button";trigger.textContent="Mở kiểm tra";
+      trigger.onclick=()=>{
+        document.querySelector("#genericBody").innerHTML='<label>Tên<input id="motionRequired" required></label>';
+        document.querySelector("#genericDialog").showModal();
+      };
+      document.body.append(trigger);
+    });
+    await page.locator("#motionDialogTrigger").click();
+    await page.waitForFunction(()=>document.querySelector("#genericDialog")?.open);
+    assert.equal(await page.evaluate(()=>document.querySelector("#genericDialog").contains(document.activeElement)),true,"opening motion does not move focus outside the dialog");
+    await page.locator("#motionRequired").evaluate(input=>input.reportValidity());
+    await page.waitForFunction(()=>window.__motionCalls.some(call=>call.name==="error"));
+    await page.locator('#genericDialog button[aria-label="Đóng hộp thoại"]').click();
+    await page.waitForFunction(()=>!document.querySelector("#genericDialog").open);
+    await page.waitForFunction(()=>document.activeElement?.id==="motionDialogTrigger");
+    await page.evaluate(()=>{const toast=document.createElement("div");toast.className="toast";toast.textContent="Đã lưu";document.body.append(toast)});
+    await page.waitForFunction(()=>window.__motionCalls.filter(call=>call.name==="entrance"&&Array.isArray(call.args[0])&&call.args[0].includes("toast")).length===1);
   });
 });
 

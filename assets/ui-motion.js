@@ -8,8 +8,8 @@
     ".public-bracket-card",".match-card",".top-player-card",".news-card",
     ".sponsor-card",".club-card",".booking-card",".metric-card",".card",
     ".hero-media-stage",".ranking-hero-grid>img",".player-avatar-wrap",
-    ".table tbody tr","[role='row']","dialog",".modal","[role='dialog']",
-    ".toast","[role='status']"
+    ".table tbody tr","[role='row']",".modal",
+    ".toast",".pwa-toast",".ref-toast",".desktop-hero-card",".desktop-today-card",".mobile-app-status-card",".tournament-event-hero",".tournament-event-summary",".tournament-app-hero",".public-page-intro",".ranking-app-title",".ranking-list-card",".player-panel",".tournament-team-row",".court-match-card",".ref-control-card",".picker-card",".club-event-home-row"
   ].join(",");
   const observers=new Set(),ripples=new Set(),entranceIds=new WeakMap();
   let nextEntranceId=0,dynamicFrame=0,routeTimer=0;
@@ -75,7 +75,7 @@
     const elements=[];
     if(root instanceof Element&&root.matches(entranceSelector))elements.push(root);
     if(root.querySelectorAll)elements.push(...root.querySelectorAll(entranceSelector));
-    const fresh=elements.filter(element=>!element.dataset.motionReady);
+    const fresh=elements.filter(element=>!element.dataset.motionReady&&!element.closest(".draw-reveal-stage,dialog"));
     const targets=outermost(fresh),selected=new Set(targets);
     fresh.forEach(el=>{
       el.dataset.motionReady="1";
@@ -300,7 +300,7 @@
         location.assign(u.href);
       };
       document.body.classList.add("route-leaving","motion-route-leaving");
-      routeTimer=setTimeout(navigate,180);
+      routeTimer=setTimeout(navigate,120);
       const motion=window.PickleMotion;
       if(!motion?.keyed)return;
       motion.keyed("route",timeline=>timeline.to(document.body,{opacity:0,duration:.12,ease:"power1.in",overwrite:"auto"}),navigate);
@@ -411,6 +411,28 @@
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
     if(matchMedia("(max-width:760px)").matches)closeDrawer();
     enforcePublicScrollSafety();normalizeProjectLinks();syncPublicHeader();syncTournamentNavigation();decorateTables();enhance();buildBackdrop();buildAdminDock();buildFab();buildPublicDock();buildProgress();routeTransitions();heroParallax();scorePop();watchAdminContent();
+    const dialogInvokers=new WeakMap();
+    let pendingDialogInvoker=null;
+    document.addEventListener("click",event=>{pendingDialogInvoker=event.target.closest?.("button,a,[role='button']")||document.activeElement},true);
+    const dialogObserver=track(new MutationObserver(records=>{
+      for(const record of records){
+        const dialog=record.target;
+        if(dialog.tagName!=="DIALOG")continue;
+        const panel=dialog.querySelector(".modal-card,.score-card,.draw-setup-card,.draw-wheel-card")||dialog.firstElementChild;
+        if(dialog.open&&panel){
+          if(pendingDialogInvoker&&!dialog.contains(pendingDialogInvoker))dialogInvokers.set(dialog,pendingDialogInvoker);
+          window.PickleMotion?.entrance(panel,{key:"dialog:"+entranceId(dialog),y:21,duration:.32,stagger:0});
+        }else{
+          window.PickleMotion?.kill("dialog:"+entranceId(dialog));
+          const invoker=dialogInvokers.get(dialog);
+          if(invoker?.isConnected)queueMicrotask(()=>invoker.focus({preventScroll:true}));
+          dialogInvokers.delete(dialog);
+        }
+        pendingDialogInvoker=null;
+      }
+    }));
+    dialogObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:["open"]});
+    document.addEventListener("invalid",e=>window.PickleMotion?.error(e.target),true);
     const contentObserver=track(new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(scheduleEnhance))));
     contentObserver.observe(document.body,{childList:true,subtree:true});
     const finishEntry=e=>{if(e.target===document.body&&e.animationName==="routeEnterFallback")document.body.classList.remove("route-entering")};

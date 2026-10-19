@@ -7,6 +7,7 @@
     $("#genericDialog").showModal();
   };
   const close=()=>$("#genericDialog").close();
+  const invalid=(field,message,ctx)=>{field?.focus();window.PickleMotion?.error(field);ctx.toast(message);return false};
   const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
   const fmtLocal=v=>{
     if(!v)return"";
@@ -76,7 +77,7 @@
     $("#crudSaveP").onclick=async()=>{
       try{
         const fullName=$("#crudPName").value.trim();
-        if(!fullName)return ctx.toast("Họ tên VĐV không được để trống.");
+        if(!fullName)return invalid($("#crudPName"),"Họ tên VĐV không được để trống.",ctx);
         const payload={
           fullName,nickname:$("#crudPNick").value.trim(),
           gender:$("#crudPGender").value||"other"
@@ -85,7 +86,7 @@
         if(canChangeClub)payload.clubId=$("#crudPClub").value||null;
         if(canCorrectRating){
           const rating=Number($("#crudPRating").value),ratingReason=$("#crudPRatingReason").value.trim();
-          if(Math.abs(rating-Number(p.rating||0))>1e-9&&!ratingReason)return ctx.toast("Nhập lý do khi thay đổi rating.");
+          if(Math.abs(rating-Number(p.rating||0))>1e-9&&!ratingReason)return invalid($("#crudPRatingReason"),"Nhập lý do khi thay đổi rating.",ctx);
           Object.assign(payload,{rating,ratingReason,skillLevel:$("#crudPSkill").value});
         }
         await API.updatePlayer(p.id,payload);
