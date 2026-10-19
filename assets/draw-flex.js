@@ -59,6 +59,7 @@
             const error=host.querySelector("[data-reset-error]");error.hidden=true;
             try{
               await (knockout?API.resetKnockout(divisionId,{confirmation:"DAT LAI",expectedToken:preview.token}):API.resetDraw(divisionId,{confirmation:"QUAY LAI",expectedToken:preview.token}));
+              if(knockout)document.dispatchEvent(new CustomEvent("pickle:knockout-reset",{detail:{divisionId}}));
             }catch(e){
               stale=["DRAW_RESET_CONFLICT","DRAW_ALREADY_EMPTY"].includes(e.message);
               error.textContent=errorMessage(e);error.hidden=false;

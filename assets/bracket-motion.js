@@ -54,11 +54,13 @@
     }, () => cleanup(target, state));
   }
 
-  function animatePaths(root, slot, reset = false) {
+  function animatePaths(root, slot, reset = false, sourceWrap = null) {
     const matchWrap = slot.closest(".bracket-match-wrap");
     const key = matchWrap?.dataset.motionKey;
     if (!key) return;
-    root.querySelectorAll(`.bracket-connectors [data-connector-destination="${CSS.escape(key)}"]`).forEach(path => {
+    const sourceKey = sourceWrap?.dataset.motionKey || "";
+    const sourceFilter = sourceKey ? `[data-connector-source="${CSS.escape(sourceKey)}"]` : "";
+    root.querySelectorAll(`.bracket-connectors ${sourceFilter}[data-connector-destination="${CSS.escape(key)}"]`).forEach(path => {
       path.classList.add(reset ? "is-resetting" : "is-advancing");
       const api = motion(), gsapApi = gsap();
       const cleanupPath = () => path.classList.remove("is-resetting", "is-advancing");
@@ -94,12 +96,12 @@
     }, () => ghost.remove());
   }
 
-  function drawConnectors(root) {
+  function drawConnectors(root, force = false) {
     root.querySelectorAll(".bracket-tree").forEach(tree => {
       const rounds = [...tree.querySelectorAll(":scope > .bracket-round-pro")];
       if (rounds.length < 2) return;
       const existing = tree.querySelector(".bracket-connectors");
-      if (existing?.querySelector("[data-connector-source]")) return;
+      if (!force && existing?.querySelector("[data-connector-source]")) return;
       existing?.remove();
       const ns = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(ns, "svg");
@@ -140,32 +142,35 @@
     });
   }
 
-  function reconcile(root) {
+  function reconcile(root, { forceConnectors = false } = {}) {
     if (!root?.querySelectorAll) return;
     const current = snapshot(root);
     const previous = snapshots.get(root);
     if (!previous) {
       snapshots.set(root, current);
-      drawConnectors(root);
+      drawConnectors(root, forceConnectors);
       entrance(root);
       return;
     }
     if (!previous.matches.size && !previous.teams.size) {
       snapshots.set(root, current);
-      drawConnectors(root);
+      drawConnectors(root, forceConnectors);
       entrance(root);
       return;
     }
 
+    drawConnectors(root, forceConnectors);
     for (const [matchId, next] of current.matches) {
       const before = previous.matches.get(matchId);
-      if (!before?.winner && next.winner) {
-        const destination = [...root.querySelectorAll(".bracket-team-slot[data-motion-key]")].find(slot => {
-          if (slot.dataset.teamId !== next.winner) return false;
-          const match = slot.closest(".bracket-match");
-          return match?.dataset.matchId !== matchId;
-        });
-        if (destination) { playState(destination, "advanced"); animatePaths(root, destination); }
+      if (before && !before.winner && next.winner) {
+        const source = root.querySelector(`.bracket-match[data-match-id="${CSS.escape(matchId)}"]`);
+        const sourceWrap = source?.closest(".bracket-match-wrap");
+        const sourceKey = sourceWrap?.dataset.motionKey || "";
+        const path = sourceKey ? root.querySelector(`.bracket-connectors [data-connector-source="${CSS.escape(sourceKey)}"]`) : null;
+        const destinationKey = path?.dataset.connectorDestination || "";
+        const destinationWrap = destinationKey ? root.querySelector(`.bracket-match-wrap[data-motion-key="${CSS.escape(destinationKey)}"]`) : null;
+        const destination = [...(destinationWrap?.querySelectorAll(".bracket-team-slot") || [])].find(slot => slot.dataset.teamId === next.winner);
+        if (destination) { playState(destination, "advanced"); animatePaths(root, destination, false, sourceWrap); }
       }
     }
 
@@ -183,34 +188,34 @@
       if (resetApplied) delete root.dataset.bracketResetConfirmed;
     }
     snapshots.set(root, current);
-    drawConnectors(root);
   }
 
-  function scan() {
-    document.querySelectorAll(selector).forEach(reconcile);
+  function scan(options) {
+    document.querySelectorAll(selector).forEach(root => reconcile(root, options));
   }
 
-  let pendingReset = null;
-  document.addEventListener("click", event => {
-    const trigger = event.target.closest?.("[data-reset-knockout]");
-    if (trigger) { pendingReset = { division: trigger.dataset.resetKnockout, submitted: false }; return; }
-    if (event.target.closest?.(".draw-reset-dialog [data-reset-cancel], .draw-reset-dialog [data-reset-close]")) { pendingReset = null; return; }
-    if (pendingReset && event.target.closest?.(".draw-reset-dialog [data-reset-submit]")) pendingReset.submitted = true;
-  }, true);
+  document.addEventListener("pickle:knockout-reset", event => {
+    const division = event.detail?.divisionId;
+    if (!division) return;
+    document.querySelectorAll(selector).forEach(root => {
+      const state = snapshots.get(root);
+      if ([...(state?.teams?.values() || [])].some(slot => slot.division === division && slot.teamId)) {
+        root.dataset.bracketResetConfirmed = division;
+      }
+    });
+  });
 
-  const observer = new MutationObserver(() => queueMicrotask(() => {
-    if (pendingReset?.submitted && !document.querySelector(".draw-reset-dialog")) {
-      const { division } = pendingReset;
-      document.querySelectorAll(selector).forEach(root => {
-        const state = snapshots.get(root);
-        if ([...(state?.teams?.values() || [])].some(slot => slot.division === division && slot.teamId)) {
-          root.dataset.bracketResetConfirmed = division;
-        }
-      });
-      pendingReset = null;
-    }
-    scan();
-  }));
+  let scanQueued = false;
+  const observer = new MutationObserver(() => {
+    if (scanQueued) return;
+    scanQueued = true;
+    queueMicrotask(() => { scanQueued = false; scan(); });
+  });
+  let resizeFrame = 0;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => scan({ forceConnectors: true }));
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scan, { once: true });
   else scan();

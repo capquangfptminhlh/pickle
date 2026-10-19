@@ -24,7 +24,7 @@ const motionPage=await browser.newPage();
 try{
   await motionPage.goto(base+'/index.html');
   const probe=await motionPage.evaluate(async()=>{
-    const root=document.createElement('div'),completedRoot=document.createElement('div');document.body.append(root,completedRoot);
+    const root=document.createElement('div'),completedRoot=document.createElement('div'),multiRoot=document.createElement('div'),resizeRoot=document.createElement('div'),failedResetRoot=document.createElement('div');resizeRoot.id='publicBracket';document.body.append(root,completedRoot,multiRoot,resizeRoot,failedResetRoot);
     const group='<div class="group-results"><b>Bảng A</b><span>Đã đấu 3 trận</span></div>';
     const matches=(winner=null,empty=false)=>[
       {id:'semi-1',divisionId:'motion-test',bracketSlot:'SE-R1-1',stage:'Bán kết',a:empty?'':'t1',b:empty?'':'t2',winner,status:winner?'done':'wait'},
@@ -32,6 +32,16 @@ try{
       {id:'final',divisionId:'motion-test',bracketSlot:'SE-R2-1',stage:'Chung kết',a:empty?'':winner||'TBD',b:empty?'':'TBD',status:'wait'}
     ];
     const render=(winner=null,empty=false)=>window.PickleBracket.render(matches(winner,empty),id=>id,{admin:true});
+    const multiMatches=(winner=null,prefix='')=>[
+      {id:prefix+'q1',divisionId:'motion-test',bracketSlot:'SE-R1-M1',stage:'Tứ kết',a:'t1',b:'t2',winner:'t1',status:'done'},
+      {id:prefix+'q2',divisionId:'motion-test',bracketSlot:'SE-R1-M2',stage:'Tứ kết',a:'t3',b:'t4',winner:'t3',status:'done'},
+      {id:prefix+'q3',divisionId:'motion-test',bracketSlot:'SE-R1-M3',stage:'Tứ kết',a:'t5',b:'t6',winner:'t5',status:'done'},
+      {id:prefix+'q4',divisionId:'motion-test',bracketSlot:'SE-R1-M4',stage:'Tứ kết',a:'t7',b:'t8',winner:'t7',status:'done'},
+      {id:prefix+'s1',divisionId:'motion-test',bracketSlot:'SE-R2-M1',stage:'Bán kết',a:'t1',b:'t3',winner,status:winner?'done':'wait'},
+      {id:prefix+'s2',divisionId:'motion-test',bracketSlot:'SE-R2-M2',stage:'Bán kết',a:'t5',b:'t7',status:'wait'},
+      {id:prefix+'f',divisionId:'motion-test',bracketSlot:'SE-R3-M1',stage:'Chung kết',a:winner||'TBD',b:'TBD',status:'wait'}
+    ];
+    const renderMulti=(winner=null,prefix='')=>window.PickleBracket.render(multiMatches(winner,prefix),id=>id,{admin:true});
     const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     completedRoot.innerHTML=render('t1');window.PickleBracketMotion.reconcile(completedRoot);await settle();
     const completedInitial=completedRoot.querySelector('[data-motion-state="advanced"]')!==null;
@@ -52,8 +62,31 @@ try{
     bracket.innerHTML=render(null,true);window.PickleBracketMotion.reconcile(root);await settle();
     const reset=root.querySelectorAll('.bracket-team-slot[data-motion-state="reset"]').length;
     const groupAfter=root.querySelector('.group-results').outerHTML;
+    multiRoot.innerHTML=renderMulti();window.PickleBracketMotion.reconcile(multiRoot);await settle();
+    multiRoot.innerHTML=renderMulti('t1');window.PickleBracketMotion.reconcile(multiRoot);await settle();
+    const highlighted=[...multiRoot.querySelectorAll('[data-motion-state="advanced"]')].map(el=>el.closest('.bracket-match')?.dataset.matchId);
+    const advancingPaths=[...multiRoot.querySelectorAll('.bracket-connectors .is-advancing')].map(path=>({source:path.dataset.connectorSource,destination:path.dataset.connectorDestination}));
+    await new Promise(resolve=>setTimeout(resolve,850));
+    multiRoot.innerHTML=renderMulti('t1','other-');window.PickleBracketMotion.reconcile(multiRoot);await settle();
+    const viewSwitchCelebration=multiRoot.querySelector('[data-motion-state="advanced"]')!==null;
+    resizeRoot.innerHTML=renderMulti();window.PickleBracketMotion.reconcile(resizeRoot);await settle();
+    const connectorBefore=resizeRoot.querySelector('.bracket-connectors');window.dispatchEvent(new Event('resize'));await settle();
+    const connectorAfter=resizeRoot.querySelector('.bracket-connectors');
+    failedResetRoot.innerHTML=render();window.PickleBracketMotion.reconcile(failedResetRoot);await settle();
+    const fakeDialog=document.createElement('div');fakeDialog.className='draw-reset-dialog';fakeDialog.innerHTML='<button data-reset-submit>submit</button>';document.body.append(fakeDialog);fakeDialog.querySelector('button').click();fakeDialog.remove();await settle();
+    failedResetRoot.innerHTML=render(null,true);window.PickleBracketMotion.reconcile(failedResetRoot);await settle();
+    const failedResetAnimation=failedResetRoot.querySelector('[data-motion-state="reset"]')!==null;
+    root.remove();completedRoot.remove();multiRoot.remove();resizeRoot.remove();failedResetRoot.remove();
+    await new Promise(resolve=>setTimeout(resolve,850));
+    const renderSuccess=(winner=null,empty=false)=>render(winner,empty).replaceAll('motion-test','motion-success');
+    const explicitRoot=document.createElement('div');explicitRoot.id='tourBracket';document.body.append(explicitRoot);explicitRoot.innerHTML=renderSuccess();window.PickleBracketMotion.reconcile(explicitRoot);await settle();
+    document.dispatchEvent(new CustomEvent('pickle:knockout-reset',{detail:{divisionId:'motion-success'}}));
+    const explicitMarked=explicitRoot.dataset.bracketResetConfirmed;
+    explicitRoot.innerHTML=renderSuccess(null,true);window.PickleBracketMotion.reconcile(explicitRoot);await settle();
+    const explicitReset=explicitRoot.querySelectorAll('[data-motion-state="reset"]').length;
+    const explicitResetKeys=[...explicitRoot.querySelectorAll('[data-motion-state="reset"]')].map(el=>el.dataset.motionKey);
     const safe=keys.every(key=>key.includes('motion-test')&&!key.includes('"')&&!key.includes('<'));
-    root.remove();completedRoot.remove();return {keys,safe,completedInitial,initialCelebration,advanced,duplicate,unconfirmedReset,reset,groupBefore,groupAfter};
+    explicitRoot.remove();return {keys,safe,completedInitial,initialCelebration,advanced,duplicate,unconfirmedReset,reset,groupBefore,groupAfter,highlighted,advancingPaths,viewSwitchCelebration,connectorRebuilt:connectorBefore!==connectorAfter,failedResetAnimation,explicitMarked,explicitReset,explicitResetKeys};
   });
   assert.ok(probe.keys.length>=3,'bracket rounds, matches and team slots expose stable motion keys');
   assert.ok(probe.safe,'motion keys include division identity and serialize safely');
@@ -64,6 +97,14 @@ try{
   assert.equal(probe.unconfirmedReset,0,'cleared slots do not animate without a confirmed knockout reset');
   assert.equal(probe.reset,5,'knockout reset marks only populated knockout team slots');
   assert.equal(probe.groupAfter,probe.groupBefore,'knockout reset preserves group results DOM bit-for-bit');
+  assert.deepEqual(probe.highlighted,['f'],'a semifinal winner advances only into the final, never back into an earlier round');
+  assert.equal(probe.advancingPaths.length,2,'only the glow and line for the exact semifinal-to-final connector animate');
+  assert.ok(probe.advancingPaths.every(path=>path.source.includes('SE-R2-M1')&&path.destination.includes('SE-R3-M1')),'animated connector follows the exact next-round route');
+  assert.equal(probe.viewSwitchCelebration,false,'switching to a newly rendered completed bracket does not replay historic winners');
+  assert.equal(probe.connectorRebuilt,true,'resize rebuilds connector geometry');
+  assert.equal(probe.failedResetAnimation,false,'closing a submitted dialog without API success never animates a reset');
+  assert.equal(probe.explicitMarked,'motion-success','an explicit successful knockout reset event marks the matching rendered division');
+  assert.ok(probe.explicitReset>0,'an explicit successful knockout reset event animates cleared slots: '+probe.explicitResetKeys.join(','));
 }finally{await motionPage.close()}
 try{
   for(const actor of ['admin','organizer'])for(const width of [1440,375]){
@@ -94,12 +135,14 @@ try{
       await page.locator('.draw-reset-dialog [data-reset-cancel]').click();
       assert.equal(count(),2);assert.equal(writes,0,'bracket reset entry preserves data until confirmed');
       const poolBefore={...f.db.prepare("SELECT * FROM matches WHERE id='played'").get()};
+      await page.evaluate(()=>{window.__knockoutResetEvents=[];document.addEventListener('pickle:knockout-reset',event=>window.__knockoutResetEvents.push(event.detail?.divisionId))});
       await page.locator('[data-reset-knockout="division"]').click();
       await page.locator('.draw-reset-dialog [data-reset-confirmation]').fill('DAT LAI');
       await page.locator('.draw-reset-dialog [data-reset-submit]').click();
       await page.waitForFunction(()=>!document.querySelector('.draw-reset-dialog'));
       assert.equal(count(),1);assert.deepEqual({...f.db.prepare("SELECT * FROM matches WHERE id='played'").get()},poolBefore);
       assert.equal(f.db.prepare("SELECT count(*) n FROM match_sets WHERE match_id='played'").get().n,1);
+      assert.deepEqual(await page.evaluate(()=>window.__knockoutResetEvents),['division'],'successful knockout reset dispatches one explicit confirmation event');
       f.db.exec("INSERT INTO matches(id,division_id,team_a_id,team_b_id,stage,bracket_slot) VALUES('final','division','t2','t3','Chung kết','F-1')");
       if(width<=760)await page.locator('#mobileMenu').click();
       await page.locator('[data-page="tournaments"]').click();await page.locator('.tour-card[data-open-tournament="own"]').click();
