@@ -52,7 +52,7 @@ jobs:
       - name: Stage scoring and live-score safety regression
         run: node --test cloudflare/tests/stage-scoring.test.mjs
       - name: Global animation browser tests
-        run: node --test scripts/registry-global-motion.test.mjs
+        run: node --test scripts/registry-motion-runtime.test.mjs scripts/registry-global-motion.test.mjs
       - name: Group draw reveal animation tests
         run: node --test scripts/registry-group-draw-reveal.test.mjs
       - name: Registry desktop and mobile browser regressions
@@ -91,6 +91,9 @@ jobs:
         run: node --test scripts/pwa-ios-safe-area.test.mjs
       - name: Syntax check
         run: |
+          node --check assets/motion-system.js
+          node --check assets/ui-motion.js
+          node --check assets/bracket-motion.js
           node --check server/index.js
           node --check server/seed.js
           node --check assets/admin-app.js

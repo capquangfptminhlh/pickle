@@ -1,4 +1,4 @@
-const VERSION="pickleup-v83-stage-scoring-20261015";
+const VERSION="pickleup-v84-full-motion-20261019";
 const STATIC=[
   "/assets/api.js?v=59",
   "/assets/tournament-gallery.js?v=1",
@@ -24,7 +24,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-800-latin.woff2",
   "/assets/draw-flex.js?v=10",
   "/assets/draw-reveal.js?v=1",
-  "/assets/referee-courtside.js?v=18",
+  "/assets/referee-courtside.js?v=19",
   "/assets/timeout-clock.js?v=1",
   "/assets/timeout-clock.css?v=1",
   "/assets/timeout-clock.js",
@@ -38,9 +38,9 @@ const STATIC=[
   "/assets/public.js?v=55",
   "/assets/public.js?v=54",
   "/assets/vendor/gsap-3.15.0.min.js",
-  "/assets/motion-system.js?v=1",
+  "/assets/motion-system.js?v=2",
   "/assets/motion-system.js",
-  "/assets/motion-system.css?v=1",
+  "/assets/motion-system.css?v=2",
   "/assets/motion-system.css",
   // Offline templates request versioned URLs; cache those exact requests too.
   "/assets/theme.js?v=1",
@@ -49,17 +49,15 @@ const STATIC=[
   "/assets/admin-light.css?v=2",
   "/assets/site-sport.css?v=10",
   "/assets/styles.css?v=4",
-  "/assets/ui-motion.js?v=35",
-  "/assets/motion-system.css?v=1",
-  "/assets/motion-system.css",
-  "/assets/ui-motion.js?v=34",
+  "/assets/ui-motion.js?v=36",
   "/assets/tournament-detail.css?v=1",
   "/assets/tournament.js?v=57",
   "/assets/admin-sport.css?v=7",
   "/assets/player-avatar-input.js?v=1",
   "/assets/admin-app.js?v=85",
   "/assets/bracket-ui.js?v=38",
-  "/assets/admin-crud.js?v=13",
+  "/assets/bracket-motion.js?v=2",
+  "/assets/admin-crud.js?v=14",
   "/assets/player-picker.js?v=3",
   "/assets/match-format.js?v=8",
   "/assets/match-format.js",
@@ -83,6 +81,7 @@ const STATIC=[
   "/assets/admin-sport.css",
   "/assets/site-sport.css",
   "/assets/ui-motion.js",
+  "/assets/bracket-motion.js",
   "/assets/draw-flex.js",
   "/referee.html",
   "/court-board.html",
@@ -95,7 +94,6 @@ const STATIC=[
   "/assets/match-live.js",
   "/assets/pwa.js",
   "/assets/login.js?v=3",
-  "/assets/app-icon-sport-v3.svg",
   "/assets/app-icon-sport-v3.svg",
   "/assets/pickleup-logo-sport-v3.svg"
 ];

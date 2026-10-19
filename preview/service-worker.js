@@ -1,4 +1,4 @@
-const VERSION="pickleup-preview-v52-full-motion-20261013";
+const VERSION="pickleup-preview-v53-full-motion-20261019";
 const CORE=[
   "../assets/typography.css?v=1",
   "../assets/typography.css",
@@ -23,9 +23,9 @@ const CORE=[
   "../assets/pickleup-logo-sport-v3.svg",
   "../assets/app-icon-sport-v3.svg",
   "../assets/vendor/gsap-3.15.0.min.js",
-  "../assets/motion-system.js?v=1",
+  "../assets/motion-system.js?v=2",
   "../assets/motion-system.js",
-  "../assets/motion-system.css?v=1",
+  "../assets/motion-system.css?v=2",
   "../assets/motion-system.css",
   // Offline templates request versioned URLs; cache those exact requests too.
   "../assets/theme.js?v=1",
@@ -34,8 +34,7 @@ const CORE=[
   "../assets/admin-light.css?v=2",
   "../assets/site-sport.css?v=9",
   "../assets/styles.css?v=3",
-  "../assets/ui-motion.js?v=34",
-  "../assets/ui-motion.js?v=35",
+  "../assets/ui-motion.js?v=36",
   "../assets/tournament-detail.css?v=1",
   "../assets/tournament.js?v=55",
   "../assets/admin-sport.css?v=5",
@@ -43,7 +42,8 @@ const CORE=[
   "../assets/admin-app.js?v=83",
   "../assets/draw-flex.js?v=9",
   "../assets/bracket-ui.js?v=38",
-  "../assets/admin-crud.js?v=13",
+  "../assets/bracket-motion.js?v=2",
+  "../assets/admin-crud.js?v=14",
   "../assets/player-picker.js?v=3",
   "../assets/match-format.js?v=7",
   "../assets/team-lineup.js?v=8",
@@ -60,7 +60,7 @@ const CORE=[
   "./preview-api.js","./preview-public.js","./preview-pwa.js","./preview-guard.js",
   "../assets/site-sport.css","../assets/admin-sport.css",
   "../assets/login.js?v=3","../assets/styles.css","../assets/pickleup-ui.css","../assets/public.css","../assets/admin-app.js","../assets/team-lineup.js","../assets/player-avatar-input.js","../assets/admin-modules.js","../assets/admin-crud.js",
-  "../assets/bracket-ui.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
+  "../assets/bracket-ui.js","../assets/bracket-motion.js","../assets/csv-import.js","../assets/ui-motion.js","../assets/player.js","../assets/ranking.js",
   "../assets/tournament.js","../assets/checkin.js","../assets/app-icon-v2.svg","../assets/pickleup-logo-v2.svg"
 ];
 

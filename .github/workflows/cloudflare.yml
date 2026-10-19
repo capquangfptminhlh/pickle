@@ -44,6 +44,8 @@ jobs:
       - name: Courtside client syntax
         run: |
           node --check assets/ui-motion.js
+          node --check assets/motion-system.js
+          node --check assets/bracket-motion.js
           node --check assets/draw-reveal.js
           node --check assets/draw-flex.js
           node --check assets/public.js

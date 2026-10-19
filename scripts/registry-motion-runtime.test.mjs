@@ -43,10 +43,10 @@ test("every supported root and preview document loads shared motion in determini
     const source = await read(page);
     const prefix = page.startsWith("preview/") ? "../" : "";
     const headEnd = source.indexOf("</head>");
-    const css = `${prefix}assets/motion-system.css?v=1`;
+    const css = `${prefix}assets/motion-system.css?v=2`;
     const vendor = `${prefix}assets/vendor/gsap-3.15.0.min.js`;
-    const core = `${prefix}assets/motion-system.js?v=1`;
-    const ui = `${prefix}assets/ui-motion.js?v=35`;
+    const core = `${prefix}assets/motion-system.js?v=2`;
+    const ui = `${prefix}assets/ui-motion.js?v=36`;
     const positions = [css, vendor, core, ui].map(asset => source.indexOf(asset));
 
     positions.forEach((position, index) => assert.ok(position >= 0, `${page} loads ${[css, vendor, core, ui][index]}`));
@@ -67,7 +67,7 @@ test("every supported root and preview document loads shared motion in determini
 test("root and preview service workers cache versioned and unversioned shared motion", async () => {
   for (const [path, prefix] of [["service-worker.js", "/"], ["preview/service-worker.js", "../"]]) {
     const source = await read(path);
-    assert.match(source, /full-motion-20261013/, `${path} uses the phase cache version`);
+    assert.match(source, /full-motion-20261019/, `${path} uses the release cache version`);
     for (const asset of [
       "assets/vendor/gsap-3.15.0.min.js",
       "assets/motion-system.js",
@@ -76,9 +76,25 @@ test("root and preview service workers cache versioned and unversioned shared mo
     ]) {
       const url = `${prefix}${asset}`;
       assert.ok(source.includes(`"${url}"`), `${path} caches ${url}`);
-      const version = asset.endsWith("ui-motion.js") ? "35" : asset.includes("vendor/") ? null : "1";
+      const version = asset.endsWith("ui-motion.js") ? "36" : asset.includes("vendor/") ? null : "2";
       if (version) assert.ok(source.includes(`"${url}?v=${version}"`), `${path} caches ${url}?v=${version}`);
     }
+  }
+});
+
+test("bracket motion loads once after the core and is cached for public and preview PWAs", async () => {
+  for (const page of ["index.html", "admin.html", "tournament.html", "preview/index.html", "preview/admin.html", "preview/tournament.html"]) {
+    const source = await read(page);
+    const prefix = page.startsWith("preview/") ? "../" : "";
+    const core = `${prefix}assets/motion-system.js?v=2`;
+    const bracket = `${prefix}assets/bracket-motion.js?v=2`;
+    assert.equal(source.split(bracket).length - 1, 1, `${page} loads bracket motion once`);
+    assert.ok(source.indexOf(core) < source.indexOf(bracket), `${page} loads the motion core before bracket motion`);
+  }
+  for (const [path, prefix] of [["service-worker.js", "/"], ["preview/service-worker.js", "../"]]) {
+    const source = await read(path);
+    assert.ok(source.includes(`"${prefix}assets/bracket-motion.js?v=2"`), `${path} caches versioned bracket motion`);
+    assert.ok(source.includes(`"${prefix}assets/bracket-motion.js"`), `${path} caches unversioned bracket motion`);
   }
 });
 

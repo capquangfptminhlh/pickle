@@ -355,13 +355,18 @@
   }
 
   function scorePop(){
+    if(reduced)return;
+    const values=new WeakMap();
     const obs=track(new MutationObserver(ms=>ms.forEach(m=>{
       const el=m.target.closest?.("#scoreA,#scoreB")||m.target;
       if(el?.id==="scoreA"||el?.id==="scoreB"){
+        const value=el.textContent.trim();
+        if(value===values.get(el))return;
+        values.set(el,value);
         el.classList.remove("score-pop");void el.offsetWidth;el.classList.add("score-pop");
       }
     })));
-    ["scoreA","scoreB"].forEach(id=>{const e=document.getElementById(id);if(e)obs.observe(e,{childList:true,characterData:true,subtree:true})});
+    ["scoreA","scoreB"].forEach(id=>{const e=document.getElementById(id);if(e){values.set(e,e.textContent.trim());obs.observe(e,{childList:true,characterData:true,subtree:true})}});
   }
 
   function watchAdminContent(){
