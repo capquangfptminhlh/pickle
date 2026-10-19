@@ -13,7 +13,7 @@ const p=(await api("/api/players",{fullName:"Public profile regression "+stamp,r
 const opponent=(await api("/api/players",{fullName:"Public opponent "+stamp,rating:3})).data;
 const tours=[];
 for(const name of ["Visible","Private"]){
-  const t=(await api("/api/tournaments",{name:name+" privacy "+stamp,eventType:"singles",publicVisible:name==="Visible"})).data;
+  const t=(await api("/api/tournaments",{name:name+" privacy "+stamp,eventType:"singles",stageRulesEnabled:false,publicVisible:name==="Visible"})).data;
   const id=t.tournament?.id||t.id;
   await api(`/api/tournaments/${id}`,{publicVisible:name==="Visible"},"PATCH");
   const state=(await api("/api/admin/state")).data,did=state.divisions.find(d=>d.tournamentId===id).id,teams=[];

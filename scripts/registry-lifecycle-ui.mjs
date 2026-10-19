@@ -41,7 +41,13 @@ try{
   context.on('page',p=>{p.setDefaultTimeout(6000);p.on('pageerror',e=>errors.push(e.stack||e.message));p.on('dialog',d=>d.accept())});
   await context.route('**/api/**',async route=>{
     const r=route.request();
-    const response=await worker.fetch(new Request(r.url(),{method:r.method(),headers:r.headers(),...(r.postData()?{body:r.postData()}:{})}),f.env);
+    let body=r.postData();
+    // These non-MLP cases cover legacy targets, multi-set games, and deuce.
+    // Opt out only for their division fixture; production UI defaults stay enabled.
+    if(!cfg.mlp&&r.method()==='POST'&&/^\/api\/tournaments\/[^/]+\/divisions$/.test(new URL(r.url()).pathname)){
+      body=JSON.stringify({...JSON.parse(body),stageRulesEnabled:false});
+    }
+    const response=await worker.fetch(new Request(r.url(),{method:r.method(),headers:r.headers(),...(body?{body}:{})}),f.env);
     await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
   });
   const page=await context.newPage();
@@ -73,10 +79,12 @@ try{
     await page.locator('#dBest').selectOption(String(cfg.best));await page.locator('#dPoints').selectOption(String(cfg.target));
     await page.locator('#dScoring').selectOption('rally');await page.locator('#dRest').fill('0');
     if(cfg.mlp)await page.locator('[data-mlp-preset="dRule"]').click();
+    else await page.locator('#dWin2').check();
     await page.locator('#saveDivision').click();await page.locator('#genericDialog').waitFor({state:'hidden'});
     did=f.db.prepare('SELECT id FROM divisions WHERE tournament_id=? AND name=?').get(tid,'Nội dung QA').id;
     const rule=f.db.prepare('SELECT * FROM divisions WHERE id=?').get(did);
-    assert.equal(rule.points_to_win,cfg.target);assert.equal(rule.best_of,cfg.best);note('configure-rules-ui');
+    assert.equal(rule.points_to_win,cfg.target);assert.equal(rule.best_of,cfg.best);
+    assert.equal(rule.stage_rules_enabled,0);assert.equal(rule.win_by_two,cfg.mlp?0:1);note('configure-rules-ui');
     const size=cfg.type==='singles'?1:cfg.type==='team'?3:2;
     await nav('players');await page.locator('[data-action="newPlayer"]').click();await page.locator('#pName').fill('QA athlete 0');
     await page.locator('#pGender').selectOption('female');await page.locator('#savePlayer').click();await page.locator('#genericDialog').waitFor({state:'hidden'});

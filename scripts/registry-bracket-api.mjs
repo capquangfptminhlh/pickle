@@ -10,7 +10,7 @@ async function api(path,body,expected=[200,201]){
   const data=await response.json();assert.ok(expected.includes(response.status),`${path}: ${response.status} ${JSON.stringify(data)}`);return {status:response.status,data};
 }
 const stamp=Date.now();
-const tournament=(await api("/api/tournaments",{name:"Local bracket safety "+stamp,eventType:"singles",format:"pool_to_knockout"})).data;
+const tournament=(await api("/api/tournaments",{name:"Local bracket safety "+stamp,eventType:"singles",format:"pool_to_knockout",stageRulesEnabled:false})).data;
 const tid=tournament.tournament?.id||tournament.id;
 const pool=(await api("/api/admin/state")).data.divisions.find(d=>d.tournamentId===tid);
 const playerIds=[];
