@@ -63,7 +63,7 @@ test("GSAP is exact-pinned and vendored locally",async()=>{
 
 - [ ] **Step 2: Run the test and verify it fails**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs`
 Expected: FAIL because `dependencies.gsap` and the local vendor asset do not exist.
 
 - [ ] **Step 3: Pin GSAP and add a deterministic vendor sync script**
@@ -93,10 +93,10 @@ Add `"vendor:gsap": "node scripts/sync-gsap-vendor.mjs"` to `package.json` scrip
 
 - [ ] **Step 4: Run the test and dependency audit**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs`
 Expected: PASS.
 
-Run: `npm audit --audit-level=high`  
+Run: `npm audit --audit-level=high`
 Expected: no high or critical vulnerabilities.
 
 - [ ] **Step 5: Commit the pinned runtime**
@@ -134,7 +134,7 @@ Add a Playwright case to `scripts/registry-motion-ui.test.mjs` that blocks `**/g
 
 - [ ] **Step 2: Run both tests and verify they fail**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`
 Expected: FAIL because the semantic runtime and fallback do not exist.
 
 - [ ] **Step 3: Implement the motion core API**
@@ -181,10 +181,10 @@ Create `assets/motion-system.css` with the fixed `.motion-celebration` overlay, 
 
 - [ ] **Step 4: Verify core and fallback behavior**
 
-Run: `node --check assets/motion-system.js`  
+Run: `node --check assets/motion-system.js`
 Expected: exit 0.
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`
 Expected: PASS for static API and missing-library fallback cases.
 
 - [ ] **Step 5: Commit the core**
@@ -223,7 +223,7 @@ Extend the browser suite to check that clicking a normal button adds visual pres
 
 - [ ] **Step 2: Run the tests and verify they fail**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`
 Expected: FAIL on missing page references and shared GSAP interactions.
 
 - [ ] **Step 3: Add deterministic page loading and cache entries**
@@ -249,7 +249,7 @@ Use event delegation for pointer-down press feedback and create a non-layout `.m
 
 - [ ] **Step 5: Run shared UI coverage**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs`
 Expected: PASS in normal and reduced motion, at all existing responsive widths.
 
 - [ ] **Step 6: Commit shared loading and interactions**
@@ -279,7 +279,7 @@ For cards, assert dynamic public renders add stable `data-motion-key` values and
 
 - [ ] **Step 2: Run the public suites and verify they fail**
 
-Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs`  
+Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs`
 Expected: FAIL on missing stable keys, FLIP call, and confirmed numeric transition.
 
 - [ ] **Step 3: Add snapshot helpers and confirmed render hooks**
@@ -302,7 +302,7 @@ In `assets/public-refresh.css`, add team-color light sweeps, card perspective co
 
 - [ ] **Step 5: Verify public behavior**
 
-Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs scripts/registry-preview.test.mjs`  
+Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-site-design-ui.mjs scripts/registry-preview.test.mjs`
 Expected: PASS with correct final ranking order and no duplicate promotion effect.
 
 - [ ] **Step 6: Commit public motion**
@@ -331,7 +331,7 @@ Add a repeated Socket.IO fixture update with the same match version and assert s
 
 - [ ] **Step 2: Run the operational suites and verify they fail**
 
-Run: `node --test scripts/registry-realtime.test.mjs scripts/registry-checkin-ui.test.mjs scripts/registry-court-scheduling-ui.mjs`  
+Run: `node --test scripts/registry-realtime.test.mjs scripts/registry-checkin-ui.test.mjs scripts/registry-court-scheduling-ui.mjs`
 Expected: FAIL because render-version deduplication and semantic hooks are absent.
 
 - [ ] **Step 3: Add confirmed version guards and motion hooks**
@@ -355,7 +355,7 @@ Add a controlled live pulse, court-card travel shadow, checked-in identity sweep
 
 - [ ] **Step 5: Verify tournament-day flows**
 
-Run: `node --test scripts/registry-realtime.test.mjs scripts/registry-checkin-ui.test.mjs scripts/registry-court-scheduling-ui.mjs scripts/registry-network-ui.test.mjs`  
+Run: `node --test scripts/registry-realtime.test.mjs scripts/registry-checkin-ui.test.mjs scripts/registry-court-scheduling-ui.mjs scripts/registry-network-ui.test.mjs`
 Expected: PASS; repeated events do not replay, offline/error paths remain usable.
 
 - [ ] **Step 6: Commit operational motion**
@@ -384,8 +384,8 @@ Assert each round, match, team slot, and connector has a stable key derived from
 
 - [ ] **Step 2: Run bracket suites and verify they fail**
 
-Run: `node scripts/registry-draw-reset-ui.mjs`  
-Run: `node scripts/registry-mlp-championship-ui.mjs`  
+Run: `node scripts/registry-draw-reset-ui.mjs`
+Run: `node scripts/registry-mlp-championship-ui.mjs`
 Expected: at least one FAIL on absent stable connector/slot metadata and transition state.
 
 - [ ] **Step 3: Emit stable bracket metadata**
@@ -420,9 +420,9 @@ Load `bracket-motion.js` after `motion-system.js` and before page renderers on r
 
 - [ ] **Step 5: Verify advancement and reset safety**
 
-Run: `node scripts/registry-draw-reset-ui.mjs`  
-Run: `node scripts/registry-mlp-championship-ui.mjs`  
-Run: `node --test scripts/registry-tournament-progress.test.mjs`  
+Run: `node scripts/registry-draw-reset-ui.mjs`
+Run: `node scripts/registry-mlp-championship-ui.mjs`
+Run: `node --test scripts/registry-tournament-progress.test.mjs`
 Expected: PASS; group results remain preserved and knockout final DOM matches the confirmed state.
 
 - [ ] **Step 6: Commit bracket motion**
@@ -455,8 +455,8 @@ Instrument `PickleMotion` before page scripts and record calls. Assert:
 
 - [ ] **Step 2: Run the referee suites and verify they fail**
 
-Run: `node scripts/registry-referee-arena-ui.mjs`  
-Run: `node scripts/registry-scoring-ui.mjs`  
+Run: `node scripts/registry-referee-arena-ui.mjs`
+Run: `node scripts/registry-scoring-ui.mjs`
 Expected: FAIL on missing semantic calls and reverse direction metadata.
 
 - [ ] **Step 3: Replace local Web Animations calls with confirmed semantic hooks**
@@ -483,9 +483,9 @@ Add pseudo-element lanes for team-color service travel, score flash containment,
 
 - [ ] **Step 5: Verify scoring correctness and responsiveness**
 
-Run: `node scripts/registry-referee-arena-ui.mjs`  
-Run: `node scripts/registry-scoring-ui.mjs`  
-Run: `node --test scripts/registry-team-lineup.test.mjs`  
+Run: `node scripts/registry-referee-arena-ui.mjs`
+Run: `node scripts/registry-scoring-ui.mjs`
+Run: `node --test scripts/registry-team-lineup.test.mjs`
 Expected: PASS in normal and reduced motion across existing mobile and desktop viewports.
 
 - [ ] **Step 6: Commit referee motion**
@@ -514,8 +514,8 @@ Open and close `#genericDialog`; assert the card reaches visible final state, fo
 
 - [ ] **Step 2: Run celebration and admin suites and verify they fail**
 
-Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-accounts-ui.mjs`  
-Run: `node scripts/registry-referee-arena-ui.mjs`  
+Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-accounts-ui.mjs`
+Run: `node scripts/registry-referee-arena-ui.mjs`
 Expected: FAIL on absent celebration canvas lifecycle and admin semantic hooks.
 
 - [ ] **Step 3: Implement a bounded shared celebration renderer**
@@ -546,8 +546,8 @@ Replace only validation branches that already return before an API call; do not 
 
 - [ ] **Step 5: Verify cleanup, focus, and confirmed-only celebration**
 
-Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-accounts-ui.mjs`  
-Run: `node scripts/registry-referee-arena-ui.mjs`  
+Run: `node --test scripts/registry-motion-ui.test.mjs scripts/registry-accounts-ui.mjs`
+Run: `node scripts/registry-referee-arena-ui.mjs`
 Expected: PASS; no overlay survives 3 seconds or page teardown, initial completed state does not celebrate, dialog focus behavior is unchanged.
 
 - [ ] **Step 6: Commit celebrations and admin feedback**
@@ -581,7 +581,7 @@ Extend the runtime test to assert every changed asset has the same final version
 
 - [ ] **Step 2: Run the focused test and verify any version gaps fail**
 
-Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`  
+Run: `node --test scripts/registry-motion-runtime.test.mjs scripts/registry-motion-ui.test.mjs`
 Expected: FAIL until final versions and cache lists are synchronized.
 
 - [ ] **Step 3: Synchronize versions once**

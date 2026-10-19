@@ -1,6 +1,6 @@
 # Full-site animation design
 
-Date: 2026-10-13  
+Date: 2026-10-13
 Status: approved for planning
 
 ## Goal
