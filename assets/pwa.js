@@ -40,6 +40,7 @@
   addEventListener("online",showNetwork);addEventListener("offline",showNetwork);showNetwork();
 
   navigator.serviceWorker.register("/service-worker.js",{scope:"/"}).then(reg=>{
+    if(!reg)return;
     reg.update().catch(()=>{});
     if(reg.waiting)toast("Có phiên bản mới.",{label:"Cập nhật",onClick:()=>reg.waiting.postMessage({type:"SKIP_WAITING"})});
     reg.addEventListener("updatefound",()=>{

@@ -47,6 +47,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Theme preference and first offline load
         run: node --test scripts/registry-theme.test.mjs
+      - name: Blocked service-worker registration
+        run: node --test scripts/pwa-registration-ui.test.mjs
       - name: Player avatar create and retry flow
         run: node scripts/registry-player-avatar-ui.mjs
       - name: Stage scoring and live-score safety regression

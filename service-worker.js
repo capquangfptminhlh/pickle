@@ -1,4 +1,4 @@
-const VERSION="pickleup-v84-full-motion-20261019";
+const VERSION="pickleup-v85-full-motion-20261019";
 const STATIC=[
   "/assets/api.js?v=59",
   "/assets/tournament-gallery.js?v=1",
