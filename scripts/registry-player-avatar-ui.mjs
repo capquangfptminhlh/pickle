@@ -39,11 +39,19 @@ async function fixture(viewport){
   await page.locator('[data-action="newPlayer"]').waitFor();
   return page;
 }
+async function waitForDialogMotion(page){
+  await page.locator("#genericDialog").waitFor({state:"visible"});
+  await page.waitForFunction(()=>{
+    const panel=document.querySelector("#genericDialog .modal-card");
+    return panel&&(!window.gsap||(!window.gsap.isTweening(panel)&&getComputedStyle(panel).transform==="none"));
+  });
+}
 
 const tinyPng={name:"avatar.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082","hex")};
 try{
   const page=await fixture({width:1280,height:900});
   await page.locator('[data-action="newPlayer"]').click();
+  await waitForDialogMotion(page);
   await page.locator("#pName").fill("Nguyễn Minh Anh");
   assert.equal(await page.locator(".player-avatar-create-initials").textContent(),"NA");
   const preview=await page.locator(".player-avatar-create-preview").boundingBox();
@@ -77,6 +85,7 @@ try{
 
   const mobile=await fixture({width:375,height:812});
   await mobile.locator('[data-action="newPlayer"]').click();
+  await waitForDialogMotion(mobile);
   assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);
   for(const selector of [".player-avatar-create-pick","#savePlayer"]){const box=await mobile.locator(selector).boundingBox();assert.ok(box.height>=44,`${selector} is a touch target`)}
   assert.equal(await mobile.locator("html").getAttribute("data-theme"),"light");
