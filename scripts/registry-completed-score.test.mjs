@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const code=readFileSync(new URL('../assets/match-live.js',import.meta.url),'utf8');
 async function render(overrides){
-  const elements=new Map(),get=s=>{if(!elements.has(s))elements.set(s,{});return elements.get(s)};
+  const elements=new Map(),get=s=>{if(!elements.has(s))elements.set(s,{dataset:{}});return elements.get(s)};
   const match={id:'m',divisionId:'d',a:'a',b:'b',status:'done',winner:'a',current:[0,0],sets:[[27,24]],stage:'Chung kết',bracketSlot:'B-SE-R2-M1',bracketSeries:'B',...overrides};
   const state={matches:[match],teams:[{id:'a',name:'An / Bình / Chi'},{id:'b',name:'Dũng / Giang / Hà'}],divisions:[{id:'d',tournamentId:'t'}],tournaments:[{id:'t',name:'Giải thử'}],courts:[]};
   vm.runInNewContext(code,{window:{PickleAPI:{publicState:async()=>state}},document:{querySelector:get},location:{search:'?id=m'},URLSearchParams,Date,setTimeout,clearTimeout});
