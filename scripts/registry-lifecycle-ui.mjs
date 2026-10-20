@@ -169,7 +169,9 @@ try{
         if(deuce){assert.equal(await ref.locator('#finishMatchBtn').isDisabled(),true,'one-point margin must not finish a win-by-two game');await point('A')}
         if(game<Math.ceil(cfg.best/2)-1){await ref.locator('#finishSetBtn').click();await ref.waitForFunction(()=>document.querySelector('#refScoreA').textContent==='0')}
       }
-      await ref.locator('#finishMatchBtn').click();await ref.locator('#scoreHint').filter({hasText:'Thắng trận'}).waitFor();
+      const finish=ref.waitForResponse(r=>r.url().endsWith(`/api/matches/${match.id}/finish`)&&r.request().method()==='POST');
+      await ref.locator('#finishMatchBtn').click();assert.equal((await finish).status(),200);
+      await ref.locator('#scoreHint').filter({hasText:'Thắng trận'}).waitFor();
       const saved=f.db.prepare('SELECT * FROM matches WHERE id=?').get(match.id);assert.equal(saved.status,'completed');assert.equal(saved.winner_team_id,match.team_a_id);
       if(cfg.mlp)assert.deepEqual([saved.relay_order_a,saved.relay_order_b,saved.relay_drawn_at],relayOrders,'relay order survives completion');
     };
