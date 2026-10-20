@@ -93,8 +93,10 @@ async function scoringSurface(kind,width){
         assert.equal(await service(side,2).isEnabled(),true,`${eventType} rally ${side}-S2 is selectable`);
         await service(side,2).click();await page.waitForFunction(({admin,side})=>document.querySelector(admin?`[data-service-side="${side}"][data-server-number="2"]`:`[data-service="${side}"][data-server="2"]`).classList.contains('active'),{admin,side});
         assert.equal(await page.locator(admin?'[data-service-side].active':'[data-service].active').count(),1,'exactly one selected server');
-        assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),/2/,'selected server number stays visible in rally mode');
-        assert.match(await page.locator(admin?'#serveStatus':'#serveBanner').innerText(),side==='A'?/Trần Thuỳ Anh/:/Lê Thanh Hà/,'selected player name comes from persisted roster order');
+        const serveStatus=page.locator(admin?'#serveStatus':'#serveBanner');
+        await serveStatus.filter({hasText:/2/}).waitFor({state:'visible'});
+        assert.match(await serveStatus.innerText(),/2/,'selected server number stays visible in rally mode');
+        assert.match(await serveStatus.innerText(),side==='A'?/Trần Thuỳ Anh/:/Lê Thanh Hà/,'selected player name comes from persisted roster order');
       }
     }
     f.db.exec("UPDATE players SET skill_level=CASE id WHEN 'a1' THEN 'C' WHEN 'a2' THEN 'A' WHEN 'a3' THEN 'B+' WHEN 'b1' THEN 'A+' WHEN 'b2' THEN 'B' WHEN 'b3' THEN 'C' END; UPDATE divisions SET points_to_win=27,relay_segment_points=9,relay_team_size=3 WHERE id='division'; UPDATE matches SET current_score_a=9 WHERE id='match'");await refresh();
