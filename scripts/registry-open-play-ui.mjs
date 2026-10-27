@@ -91,6 +91,28 @@ try{
    await page.locator("#registrations button").first().click();
    await page.locator("#registrations").filter({hasText:"Đã hủy"}).waitFor();
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
+   // Verify the public mobile waiting list and FIFO promotion after a cancellation.
+   const waitingSession=await f.api("/api/open-play/sessions",{
+    title:"Waiting UI Test "+viewport.width,startsAt:"2026-11-01T11:00:00+07:00",
+    maxPlayers:2,maxCombinedRating:5.2,tolerance:0
+   },"POST","organizer");
+   assert.equal(waitingSession.status,201,JSON.stringify(waitingSession.data));
+   const waitingId=waitingSession.data.id;
+   f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('ui-wait-a','Wait Occupant A',2.5),('ui-wait-b','Wait Occupant B',2.5)");
+   for(const playerId of ["ui-wait-a","ui-wait-b"])
+    assert.equal((await f.api("/api/open-play/sessions/"+waitingId+"/registrations",{playerId},"POST","organizer")).status,201);
+   assert.equal((await f.api("/api/open-play/sessions/"+waitingId,{selfSignupEnabled:true},"PATCH","organizer")).status,200);
+   await page.locator("#refresh").click();
+   const waitCard=page.locator("#sessions article").filter({hasText:"Waiting UI Test "+viewport.width});
+   await waitCard.getByRole("button",{name:"Vào danh sách chờ"}).click();
+   await page.locator("#myWaitlist").filter({hasText:"Thứ tự chờ: 1"}).waitFor();
+   assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='ui-profile'").get(waitingId)?.status,"waiting");
+   const promotion=await f.api("/api/open-play/sessions/"+waitingId+"/registrations/ui-wait-a/cancel",{},"POST","organizer");
+   assert.equal(promotion.status,200,JSON.stringify(promotion.data));
+   assert.deepEqual(promotion.data.promotedPlayerIds,["ui-profile"]);
+   await page.locator("#refresh").click();
+   await page.locator("#myWaitlist").filter({hasText:"Không có lượt chờ"}).waitFor();
+   assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(waitingId)?.status,"registered");
    // Simulate complete game day on the same isolated in-memory D1 fixture.
    f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('gd1','Day Player 1',2.5),('gd2','Day Player 2',2.5),('gd3','Day Player 3',2.5),('gd4','Day Player 4',2.5)");
    f.db.exec("UPDATE players SET user_id='ui-player' WHERE id='gd1'");
