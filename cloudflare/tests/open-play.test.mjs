@@ -361,6 +361,8 @@ test("explicit referee assignment grants scoring for exactly one Open Play match
   const firstFinish=await api(f,refereeScore,"PATCH",{version:1,scoreA:11,scoreB:9,finish:true},"local");
   assert.equal(firstFinish.status,200,JSON.stringify(firstFinish.data));
   assert.equal(firstFinish.data.status,"completed");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_match' AND entity_id=? AND action IN ('SCORE','FINISH')").get(first.id).n,2,
+    "successful referee updates must atomically produce exactly one audit each");
   assert.equal((await api(f,assign,"PATCH",{refereeUserId:null},"organizer")).status,409,"cannot reassign finished match");
   assert.equal((await api(f,refereeScore,"PATCH",{version:2,scoreA:11,scoreB:8,finish:true},"local")).status,409);
   assert.equal((await api(f,base+"/matches/"+first.id+"/correction","PATCH",{version:2,scoreA:11,scoreB:8,reason:"Nhập nhầm điểm kết thúc hiệp đấu"},"local")).status,403);
