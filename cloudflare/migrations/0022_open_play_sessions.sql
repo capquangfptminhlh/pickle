@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS open_play_sessions (
   max_players INTEGER NOT NULL CHECK(max_players BETWEEN 2 AND 256),
   max_combined_rating REAL NOT NULL CHECK(max_combined_rating >= 2 AND max_combined_rating <= 16),
   tolerance REAL NOT NULL DEFAULT 0 CHECK(tolerance >= 0 AND tolerance <= 0.5),
+  self_signup_enabled INTEGER NOT NULL DEFAULT 0 CHECK(self_signup_enabled IN (0,1)),
   status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed','cancelled')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
