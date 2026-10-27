@@ -2,6 +2,7 @@ import {ok,fail,bodyJson,route,uid,nowIso,audit} from "./util.js";
 import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
+import {handleOpenPlayGameDay} from "./open-play-day.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
 const problem=(code,status=400)=>Object.assign(new Error(code),{status});
@@ -45,6 +46,7 @@ async function roster(env,id){
 }
 async function registerPlayer(env,user,session,playerId){
   if(session.status!=="open")throw problem("OPEN_PLAY_NOT_OPEN",409);
+  if(await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",session.id))throw problem("OPEN_PLAY_ROSTER_LOCKED",409);
   const id=String(playerId||"").trim();
   if(!id||id.length>128)throw problem("INVALID_PLAYER_ID");
   const player=await dbOne(env,"SELECT id,active FROM players WHERE id=?",id);
@@ -100,6 +102,7 @@ export async function handleOpenPlay(request,env){
     if(!playerId)return fail("PLAYER_ID_REQUIRED",request,env,400);
     const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=?",playerId,member.id);
     if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
+    if(await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",cancelSelf.id))return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
     const old=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",cancelSelf.id,playerId);
     if(!old)return fail("OPEN_PLAY_REGISTRATION_NOT_FOUND",request,env,404);
     if(old.status!=="cancelled"){
@@ -110,6 +113,8 @@ export async function handleOpenPlay(request,env){
     return ok({sessionId:cancelSelf.id,playerId,status:"cancelled"},request,env);
   }
   const user=await staffUser(request,env);
+  const gameDay=await handleOpenPlayGameDay(request,env,user);
+  if(gameDay)return gameDay;
   if(path==="/api/open-play/sessions"&&method==="GET"){
     const data=user.role==="super_admin"
       ?await dbRows(env,"SELECT * FROM open_play_sessions ORDER BY starts_at DESC LIMIT 100")
@@ -142,6 +147,7 @@ export async function handleOpenPlay(request,env){
       const b=await bodyJson(request),status=String(b.status??session.status);
       if(!["open","closed","cancelled"].includes(status))return fail("INVALID_OPEN_PLAY_STATUS",request,env,400);
       if(session.status==="cancelled"&&status!=="cancelled")return fail("OPEN_PLAY_CANCELLED",request,env,409);
+      if(status==="closed"&&await dbOne(env,"SELECT id FROM open_play_matches WHERE session_id=? AND status<>\'completed\' LIMIT 1",m.id))return fail("OPEN_PLAY_UNFINISHED_MATCHES",request,env,409);
       const selfSignup=b.selfSignupEnabled===undefined?(status==="open"&&Boolean(session.self_signup_enabled)):b.selfSignupEnabled;
       if(typeof selfSignup!=="boolean")return fail("INVALID_OPEN_PLAY_SELF_SIGNUP",request,env,400);
       if(status!=="open"&&selfSignup)return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
@@ -160,6 +166,7 @@ export async function handleOpenPlay(request,env){
   m=route(path,"/api/open-play/sessions/:id/registrations/:playerId/cancel");
   if(m&&method==="POST"){
     await scopedSession(env,user,m.id);
+    if(await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",m.id))return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
     const old=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,m.playerId);
     if(!old)return fail("OPEN_PLAY_REGISTRATION_NOT_FOUND",request,env,404);
     if(old.status!=="cancelled"){
