@@ -22,7 +22,7 @@
 | Tournament complaints, disciplinary flags, referee rating | `manage/complaints`, `manage/conduct-flag`, `manage/referee-ratings` routes | No end-to-end parity established | **Gap — verify scope** |
 | Tournament insights and marketing/coupon management | `manage/insights`, `manage/settings/marketing` routes | Admin reports/content exist | **Gap — evidence and QA needed** |
 | Social-play group management and scheduling | `social-play/[slug]/manage/members`, `sessions`, `schedules` | Open Play sessions, registration, role checks in PR #40 | **Partial** |
-| Open Play matchmaking modes | Markers `Balanced`, `Round Robin`, `Ladder`, waitlist | Rating-constrained deterministic pairing ≤256; not fair multi-round rotation | **Gap** |
+| Open Play matchmaking modes | Markers `Balanced`, `Round Robin`, `Ladder`, waitlist | Rating-constrained pairing ≤256 plus 1–12-round best-effort rotation preview and 1–32 virtual courts; no published Balanced/Ladder runtime modes | **Partial — substantial gap** |
 | Open Play admission/check-in, waitlist, settlement | Strings and social-play settlement route | Opt-in player join/cancel, but no waitlist, check-in or settlement | **Gap** |
 | Court/venue association and livestream | Court camera route, livestream markers and media permissions | Court boards, scheduling and live-score features; no proven Open Play per-court livestream | **Gap — verify runtime** |
 | PSS rating/delta/score | Strings `PssRating`, `PssDelta`, `PssScore` | Player ratings/ranking, authorized rating edits | **Gap — no verified scoring equivalence** |
@@ -30,7 +30,7 @@
 | Mobile UX and UI cohesion | Native Android React Native route structure | Responsive web PWA, dedicated Open Play staff and player pages in PR #40 | **Different architectures; requires device/user validation** |
 
 ## Priority implementation sequence
-1. **P0 — complete Open Play round lifecycle**: check-in, real court availability, round assignments, player readiness, safe scoreboard and session close-out. Isolate from tournament score events.
+1. **P0 — complete Open Play round lifecycle**: check-in, real court availability, persisted/confirmed round assignments, player readiness, safe scoreboard and session close-out. Virtual multi-round previews are now available on PR #40 but do not book courts or persist matches. Isolate from tournament score events.
 2. **P0 — matching quality**: selectable modes (balanced, rotation/round-robin, ladder), repeat-partner avoidance, fairness and auditable constraints; never claim current deterministic one-round matching is random.
 3. **P1 — member flow**: waitlist, arrival status, authenticated membership linking, cancellation rules, notices and roster export respecting privacy.
 4. **P1 — operator UI**: unified phone-first control center with live counts, search and context actions, loading/failure/empty states, verified 320–1280px layouts.
