@@ -3,13 +3,15 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 const root=new URL("../",import.meta.url);
 test("Open Play referee screen is isolated and does not provide organizer endpoints",async()=>{
- const [html,script,staff]=await Promise.all([
+ const [html,script,staff,css]=await Promise.all([
   readFile(new URL("open-play-referee.html",root),"utf8"),
   readFile(new URL("assets/open-play-referee.js",root),"utf8"),
-  readFile(new URL("assets/open-play-admin.js",root),"utf8")
+  readFile(new URL("assets/open-play-admin.js",root),"utf8"),
+  readFile(new URL("assets/open-play-ui.css",root),"utf8")
  ]);
  assert.match(html,/lang="vi"/);
  assert.match(html,/id="matches"/);
+ assert.match(html,/class="op-referee-page"/);
  assert.match(html,/id="loginLink"/);
  assert.match(html,/assets\/open-play-referee.js/);
  assert.match(script,/user\.role!=="referee"/);
@@ -22,4 +24,6 @@ test("Open Play referee screen is isolated and does not provide organizer endpoi
  assert.match(staff,/\/api\/open-play\/referees/);
  assert.match(staff,/\/referee"/);
  assert.match(staff,/refereeSuggestions/);
+ assert.match(css,/\.op-referee-page \.op-card \.op-actions button/);
+ assert.match(css,/white-space:nowrap/);
 });
