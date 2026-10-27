@@ -56,6 +56,11 @@ try{
    await page.locator("#selectedTitle").filter({hasText:"Open Play UI Test"}).waitFor();
    await page.locator("#openSignup").click();
    await page.locator("#details").filter({hasText:"ĐANG BẬT"}).waitFor();
+   await page.locator("#roundCount").fill("3");
+   await page.locator("#courtCount").fill("2");
+   await page.locator("#previewRounds").click();
+   await page.locator("#roundResults").filter({hasText:"BẢN XEM TRƯỚC"}).waitFor();
+   await page.locator("#roundResults").filter({hasText:"Vòng 3"}).waitFor();
    await page.screenshot({path:resolve(snapshotDir,"open-play-admin-"+viewport.width+".png"),fullPage:true});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    const id=f.db.prepare("SELECT id FROM open_play_sessions WHERE title=?").get("Open Play UI Test "+viewport.width)?.id;
