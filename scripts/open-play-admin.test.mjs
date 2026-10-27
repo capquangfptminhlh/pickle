@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+const root=new URL("../",import.meta.url);
+test("Open Play organizer page has real API controls and safe DOM rendering",async()=>{
+ const html=await readFile(new URL("open-play-admin.html",root),"utf8");
+ const script=await readFile(new URL("assets/open-play-admin.js",root),"utf8");
+ assert.match(html,/name="viewport"/);
+ assert.match(html,/role="status" aria-live="polite"/);
+ assert.match(html,/id="createSession"/);
+ assert.match(html,/id="roster"/);
+ assert.match(html,/id="openSignup"/);
+ assert.match(html,/id="previewPairs"/);
+ assert.match(html,/src="assets\/api.js"/);
+ assert.match(script,/PickleAPI/);
+ assert.match(script,/\/api\/open-play\/sessions/);
+ assert.match(script,/selfSignupEnabled:true/);
+ assert.match(script,/encodeURIComponent\(row.id\)/);
+ assert.match(script,/\.textContent=/);
+ assert.doesNotMatch(script,/\.innerHTML\s*=/);
+ assert.doesNotMatch(script,/localStorage\.setItem/);
+ assert.doesNotMatch(html,/<script>(?![\s\S]*<\/script>)/);
+});
