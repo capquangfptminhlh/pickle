@@ -89,6 +89,22 @@
           <div class="op-actions"><button id="previewRounds" class="secondary" type="button">Xem trước phân sân</button></div>
           <div id="roundResults" class="op-results" role="status" aria-live="polite">Chưa có vòng đấu mô phỏng.</div>
           <hr class="op-divider">
+          <div class="op-subhead">Đặt sân thực tế · Open Play</div>
+          <p class="op-field-note">Đăng ký sân thuộc BTC/CLB và giữ khung giờ để tránh trùng với **các đặt sân trong Open Play**. Hệ thống giải đấu hoặc lịch thuê sân bên ngoài chưa kết nối; vui lòng kiểm tra riêng trước khi xác nhận.</p>
+          <form id="createPhysicalCourt" class="op-actions">
+            <input id="physicalCourtName" maxlength="80" placeholder="Tên sân mới, ví dụ Sân Bình Lợi 1" aria-label="Tên sân mới" required>
+            <button type="submit" class="secondary">Tạo sân</button>
+          </form>
+          <div class="op-form-grid">
+            <div><label for="durationMinutes">Thời lượng giữ sân (phút)</label><input id="durationMinutes" type="number" min="30" max="480" step="15" value="120"></div>
+          </div>
+          <div class="op-actions">
+            <button id="refreshPhysicalCourts" type="button" class="secondary">Kiểm tra sân trống</button>
+            <button id="reservePhysicalCourts" type="button">Giữ sân đã chọn</button>
+          </div>
+          <div id="physicalCourtStatus" class="op-results" role="status" aria-live="polite">Chưa kiểm tra sân.</div>
+          <div id="physicalCourtCatalog" class="op-roster" aria-label="Sân có thể đặt"></div>
+          <hr class="op-divider">
           <div class="op-subhead">Ngày thi đấu · Check-in & điểm số</div>
           <p class="op-field-note">Điểm danh trước khi xác nhận. Khi lưu kế hoạch chính thức, danh sách VĐV sẽ khóa. Mỗi trận có phiên bản điểm riêng để tránh ghi đè.</p>
           <div class="op-actions">
