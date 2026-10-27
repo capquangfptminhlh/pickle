@@ -93,7 +93,16 @@ export async function handleOpenPlay(request,env){
     const p=await dbOne(env,"SELECT id,active FROM players WHERE id=?",playerId);
     if(!p||!p.active)return fail("OPEN_PLAY_PLAYER_NOT_FOUND",request,env,404);
     const existing=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,playerId);
-    if(existing)return fail("OPEN_PLAY_ALREADY_REGISTERED",request,env,409);
+    if(existing?.status==="registered")return fail("OPEN_PLAY_ALREADY_REGISTERED",request,env,409);
+    if(existing?.status==="cancelled"){
+      // Rejoin is capacity-guarded in a single statement, just like first registration.
+      await env.DB.prepare("UPDATE open_play_registrations SET status='registered',updated_at=? WHERE session_id=? AND player_id=? AND status='cancelled' AND (SELECT COUNT(*) FROM open_play_registrations WHERE session_id=? AND status='registered') < (SELECT max_players FROM open_play_sessions WHERE id=? AND status='open')")
+        .bind(nowIso(),m.id,playerId,m.id,m.id).run();
+      const joined=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,playerId);
+      if(joined?.status!=="registered")return fail("OPEN_PLAY_FULL_OR_CLOSED",request,env,409);
+      await audit(env,user,"open_play_registration",m.id+":"+playerId,"REJOIN",existing,{status:"registered"});
+      return ok({sessionId:m.id,playerId,status:"registered"},request,env);
+    }
     const ts=nowIso();
     // Single SQLite statement atomically checks the cap and inserts; concurrent requests
     // cannot both pass the capacity check and overbook the same session.
