@@ -21,11 +21,26 @@ test("tolerance is explicit, capped and not a hidden rating increase",()=>{
 test("rejects invalid or duplicated players and oversized batches",()=>{
  assert.throws(()=>buildOpenPlayPairs([{id:"a",rating:2},{id:"a",rating:2}]),/DUPLICATE_PLAYER/);
  assert.throws(()=>buildOpenPlayPairs([{id:"a",rating:"no"}]),/INVALID_PLAYER_RATING/);
- assert.throws(()=>buildOpenPlayPairs(Array.from({length:17},(_,i)=>({id:String(i),rating:2}))),/OPEN_PLAY_BATCH_TOO_LARGE/);
+ assert.throws(()=>buildOpenPlayPairs(Array.from({length:257},(_,i)=>({id:String(i),rating:2}))),/OPEN_PLAY_BATCH_TOO_LARGE/);
 });
 
 test("missing or blank ratings are rejected",()=>{
  for(const rating of [undefined,null,"", "   "]){
   assert.throws(()=>buildOpenPlayPairs([{id:"a",rating}]),/INVALID_PLAYER_RATING/);
  }
+});
+
+test("large Open Play roster pairs legally without exponential search",()=>{
+ const players=Array.from({length:200},(_,i)=>({id:"p"+String(i).padStart(3,"0"),rating:i%2?2.7:2.5}));
+ const result=buildOpenPlayPairs(players,{maxCombinedRating:5.2});
+ assert.equal(result.pairs.length,100);
+ assert.equal(result.unpairedIds.length,0);
+ assert.ok(result.pairs.every(p=>p.combinedRating<=5.2));
+ assert.deepEqual(buildOpenPlayPairs([...players].reverse(),{maxCombinedRating:5.2}),result);
+});
+test("unmatchable higher ratings do not prevent feasible low-rated pairs",()=>{
+ const players=[{id:"a",rating:2},{id:"b",rating:2},{id:"c",rating:5},{id:"d",rating:5}];
+ const result=buildOpenPlayPairs(players,{maxCombinedRating:5.2});
+ assert.equal(result.pairs.length,1);
+ assert.deepEqual(result.unpairedIds,["c","d"]);
 });
