@@ -64,6 +64,7 @@ jobs:
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
           node --check assets/open-play-admin.js
+          node --check assets/open-play-discover.js
           node --check assets/open-play-page.js
           node --check assets/match-live.js
       - name: Wrangler dry run
