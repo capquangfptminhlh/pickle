@@ -186,6 +186,10 @@ export async function handleOpenPlay(request,env){
     await scopedSession(env,user,q.id);
     return ok(await cancelOpenPlayWaitlist(env,user,q.id,q.playerId),request,env);
   }
+  if(path==="/api/open-play/referees"&&method==="GET"){
+    const refs=await dbRows(env,"SELECT id,display_name AS name FROM app_users WHERE role='referee' AND active=1 ORDER BY display_name,id LIMIT 200");
+    return ok(refs,request,env);
+  }
   if(path==="/api/open-play/sessions"&&method==="GET"){
     const data=user.role==="super_admin"
       ?await dbRows(env,"SELECT * FROM open_play_sessions ORDER BY starts_at DESC LIMIT 100")
