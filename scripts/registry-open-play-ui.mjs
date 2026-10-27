@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {createServer} from "node:http";
-import {readFile} from "node:fs/promises";
+import {readFile,mkdir} from "node:fs/promises";
 import {resolve,dirname,extname} from "node:path";
 import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
@@ -10,6 +10,8 @@ import {signSession} from "../cloudflare/src/auth.js";
 const require=createRequire(import.meta.url);
 let chromium;try{({chromium}=require("playwright"))}catch{({chromium}=require(resolve(process.env.CODEX_NODE_MODULES||resolve(dirname(process.execPath),"../node_modules"),"playwright")))}
 const root=fileURLToPath(new URL("../",import.meta.url));
+const snapshotDir=resolve(root,"ui-artifacts");
+await mkdir(snapshotDir,{recursive:true});
 const server=createServer(async(req,res)=>{
  try{
   const pathname=new URL(req.url,"http://localhost").pathname;
@@ -48,6 +50,7 @@ try{
    await page.locator("#selectedTitle").filter({hasText:"Open Play UI Test"}).waitFor();
    await page.locator("#openSignup").click();
    await page.locator("#details").filter({hasText:"ĐANG BẬT"}).waitFor();
+   await page.screenshot({path:resolve(snapshotDir,"open-play-admin-"+viewport.width+".png"),fullPage:true});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    const id=f.db.prepare("SELECT id FROM open_play_sessions WHERE title=?").get("Open Play UI Test "+viewport.width)?.id;
    assert.ok(id,"session must persist to real local D1 fixture");
@@ -64,6 +67,7 @@ try{
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    await page.locator("#sessions article button").first().click();
    await page.locator("#registrations").filter({hasText:"Open Play UI Test"}).waitFor();
+   await page.screenshot({path:resolve(snapshotDir,"open-play-player-"+viewport.width+".png"),fullPage:true});
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"registered");
    await page.locator("#registrations button").first().click();
    await page.locator("#registrations").filter({hasText:"Đã hủy"}).waitFor();
