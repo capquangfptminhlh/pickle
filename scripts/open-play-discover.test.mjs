@@ -10,6 +10,10 @@ test("Open Play discovery is linked to identity-bound self-registration APIs",as
  assert.match(page,/id="sessions"/);
  assert.match(page,/id="registrations"/);
  assert.match(page,/id="myMatches"/);
+ assert.match(page,/id="myWaitlist"/);
+ assert.match(source,/\/waitlist\/join/);
+ assert.match(source,/\/waitlist\/self-cancel/);
+ assert.match(source,/function renderWaitlist\(/);
  assert.match(page,/src="assets\/api.js"/);
  assert.match(source,/\/api\/open-play\/public\/sessions/);
  assert.match(source,/\/api\/open-play\/me/);
