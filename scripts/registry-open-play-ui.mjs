@@ -166,6 +166,12 @@ try{
    assert.equal(await page.locator("#myMatches article").count(),2,"player should only see own confirmed games");
    await page.locator("#myMatches").filter({hasText:"Đã kết thúc"}).waitFor();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   // Public discovery must stay accessible after token removal (no forced login).
+   await page.evaluate(()=>localStorage.removeItem("pickle-api-token-v1"));
+   await page.locator("#refresh").click();
+   await page.locator("#accountInfo").filter({hasText:"Bạn có thể xem lịch công khai"}).waitFor();
+   assert.equal(new URL(page.url()).pathname,"/open-play-discover.html");
+   await page.locator("#sessions").filter({hasText:"Waiting UI Test"}).waitFor();
    await page.goto(base+"/open-play.html");
    await page.locator("#generate").click();
    await page.locator("#result").filter({hasText:"Kết quả: 2 cặp"}).waitFor();
