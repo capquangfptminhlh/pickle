@@ -2,7 +2,7 @@ import {ok,fail,bodyJson,route,uid,nowIso,audit} from "./util.js";
 import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
-import {handleOpenPlayGameDay} from "./open-play-day.js";
+import {handleOpenPlayGameDay,handleOpenPlayReferee} from "./open-play-day.js";
 import {addOpenPlayWaitlist,cancelOpenPlayWaitlist,cancelOpenPlayRegistrationAndPromote} from "./open-play-waitlist.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
@@ -162,6 +162,8 @@ export async function handleOpenPlay(request,env){
     const cancelled=await cancelOpenPlayRegistrationAndPromote(env,member,cancelSelf.id,playerId,"SELF_CANCEL");
     return ok(cancelled,request,env);
   }
+  const referee=await handleOpenPlayReferee(request,env);
+  if(referee)return referee;
   const user=await staffUser(request,env);
   const gameDay=await handleOpenPlayGameDay(request,env,user);
   if(gameDay)return gameDay;
