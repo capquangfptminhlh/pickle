@@ -154,6 +154,12 @@ try{
    await page.locator("#matches article").first().getByRole("button",{name:"Lưu điểm"}).click();
    await page.locator("#notice").filter({hasText:"Đã lưu điểm"}).waitFor();
    assert.equal(f.db.prepare("SELECT score_a FROM open_play_matches WHERE session_id=? AND round_no=1").get(id).score_a,2);
+   const refereeLayout=await page.locator("#matches article .op-actions button").evaluateAll(buttons=>
+    buttons.map(button=>({nowrap:getComputedStyle(button).whiteSpace==="nowrap",
+      fits:button.scrollWidth<=button.clientWidth+2})));
+   assert.ok(refereeLayout.length>=2&&refereeLayout.every(x=>x.nowrap&&x.fits),
+     "Referee save/finalize buttons must stay on one readable line at "+viewport.width+"px");
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    await page.screenshot({path:resolve(snapshotDir,"open-play-referee-"+viewport.width+".png"),fullPage:true});
    // BTC reloads the updated match version before finishing; no stale overwrite.
    await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
