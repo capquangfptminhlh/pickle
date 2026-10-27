@@ -329,6 +329,12 @@ test("explicit referee assignment grants scoring for exactly one Open Play match
   const plan=await api(f,base+"/plan","POST",{rounds:2,courts:1,pointTarget:11,winBy:1},"organizer");
   assert.equal(plan.status,201,JSON.stringify(plan.data));
   const [first,second]=plan.data.plan.matches;
+  assert.equal((await api(f,"/api/open-play/referees","GET",undefined,null)).status,401);
+  assert.equal((await api(f,"/api/open-play/referees","GET",undefined,"local")).status,403);
+  const options=await api(f,"/api/open-play/referees","GET",undefined,"organizer");
+  assert.equal(options.status,200);
+  assert.ok(options.data.some(r=>r.id==="local"));
+  assert.equal(options.data[0].email,undefined);
   const assign=base+"/matches/"+first.id+"/referee";
   const refereeScore="/api/open-play/referee/matches/"+first.id+"/score";
   const otherScore="/api/open-play/referee/matches/"+second.id+"/score";
