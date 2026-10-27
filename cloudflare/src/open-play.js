@@ -16,7 +16,7 @@ function serializeSession(row){
   return {id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,
     courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),
     maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance),
-    status:row.status,organizerId:row.organizer_user_id,createdAt:row.created_at,
+    status:row.status,selfSignupEnabled:Boolean(row.self_signup_enabled),organizerId:row.organizer_user_id,createdAt:row.created_at,
     updatedAt:row.updated_at};
 }
 async function scopedSession(env,user,id){
@@ -61,11 +61,29 @@ async function registerPlayer(env,user,session,playerId){
   const joined=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",session.id,id);
   if(joined?.status!=="registered")throw problem("OPEN_PLAY_FULL_OR_CLOSED",409);
   await audit(env,user,"open_play_registration",session.id+":"+id,existing?"REJOIN":"REGISTER",existing,{status:"registered"});
-  return {sessionId:session.id,playerId:id,status:"registered"};
+  return {sessionId:session.id,playerId:id,status:"registered",rejoined:existing?.status==="cancelled"};
 }
 export async function handleOpenPlay(request,env){
   const path=new URL(request.url).pathname,method=request.method.toUpperCase();
   if(!path.startsWith("/api/open-play/"))return null;
+  if(path==="/api/open-play/public/sessions"&&method==="GET"){
+    const sessions=await dbRows(env,"SELECT id,title,club_id,starts_at,court_label,max_players,max_combined_rating,tolerance FROM open_play_sessions WHERE status='open' AND self_signup_enabled=1 AND starts_at>=? ORDER BY starts_at LIMIT 100",nowIso());
+    return ok(sessions.map(row=>({id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance)})),request,env);
+  }
+  const join=route(path,"/api/open-play/sessions/:id/join");
+  if(join&&method==="POST"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const session=await dbOne(env,"SELECT * FROM open_play_sessions WHERE id=?",join.id);
+    if(!session||session.status!=="open"||!session.self_signup_enabled)throw problem("OPEN_PLAY_NOT_OPEN",409);
+    const b=await bodyJson(request);
+    const playerId=String(b.playerId||"").trim();
+    if(!playerId)return fail("PLAYER_ID_REQUIRED",request,env,400);
+    const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=? AND active=1",playerId,member.id);
+    if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
+    const joined=await registerPlayer(env,member,session,playerId);
+    return ok(joined,request,env,joined.rejoined?200:201);
+  }
   const user=await staffUser(request,env);
   if(path==="/api/open-play/sessions"&&method==="GET"){
     const data=user.role==="super_admin"
@@ -96,10 +114,13 @@ export async function handleOpenPlay(request,env){
       return ok({session:serializeSession(session),registrations:players},request,env);
     }
     if(method==="PATCH"){
-      const b=await bodyJson(request),status=String(b.status||"");
+      const b=await bodyJson(request),status=String(b.status??session.status);
       if(!["open","closed","cancelled"].includes(status))return fail("INVALID_OPEN_PLAY_STATUS",request,env,400);
       if(session.status==="cancelled"&&status!=="cancelled")return fail("OPEN_PLAY_CANCELLED",request,env,409);
-      await env.DB.prepare("UPDATE open_play_sessions SET status=?,updated_at=? WHERE id=?").bind(status,nowIso(),m.id).run();
+      const selfSignup=b.selfSignupEnabled===undefined?Boolean(session.self_signup_enabled):b.selfSignupEnabled;
+      if(typeof selfSignup!=="boolean")return fail("INVALID_OPEN_PLAY_SELF_SIGNUP",request,env,400);
+      if(status!=="open"&&selfSignup)return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
+      await env.DB.prepare("UPDATE open_play_sessions SET status=?,self_signup_enabled=?,updated_at=? WHERE id=?").bind(status,selfSignup?1:0,nowIso(),m.id).run();
       const updated=serializeSession(await dbOne(env,"SELECT * FROM open_play_sessions WHERE id=?",m.id));
       await audit(env,user,"open_play_session",m.id,"STATUS",serializeSession(session),updated);
       return ok(updated,request,env);
@@ -109,7 +130,7 @@ export async function handleOpenPlay(request,env){
   if(m&&method==="POST"){
     const session=await scopedSession(env,user,m.id),b=await bodyJson(request);
     const registered=await registerPlayer(env,user,session,b.playerId);
-    return ok(registered,request,env,registered.status==="registered"?201:200);
+    return ok(registered,request,env,registered.rejoined?200:201);
   }
   m=route(path,"/api/open-play/sessions/:id/registrations/:playerId/cancel");
   if(m&&method==="POST"){
