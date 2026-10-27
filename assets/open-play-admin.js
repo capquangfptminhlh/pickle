@@ -72,6 +72,7 @@ async function loadSession(id){
  $("rosterCount").textContent=count+" / "+currentSession.maxPlayers+" VĐV";
  $("statPlayers").textContent=String(count);
  $("pairResults").textContent="Chưa ghép đôi. Bấm xem trước để tính các cặp hợp lệ.";
+ $("roundResults").textContent="Chưa có vòng đấu mô phỏng.";
  const editable=currentSession.status==="open";
  $("openSignup").disabled=!editable||currentSession.selfSignupEnabled;
  $("closeSignup").disabled=!editable||!currentSession.selfSignupEnabled;
@@ -180,6 +181,35 @@ $("previewPairs").addEventListener("click",async()=>{
   $("pairResults").textContent=[data.pairs.length+" cặp hợp lệ",...data.pairs.map((p,i)=>"Cặp "+(i+1)+": "+p.playerIds.map(id=>names.get(id)||id).join(" + ")+" · "+p.combinedRating+" điểm"),
    "Chưa ghép: "+(data.unpairedIds.map(id=>names.get(id)||id).join(", ")||"không có")].join("\n");
  }catch(e){notice("Ghép đôi thất bại: "+errorText(e),true)}finally{btn.disabled=false}
+});
+$("previewRounds").addEventListener("click",async()=>{
+ if(!currentId)return;
+ const count=Number($("roundCount").value),courts=Number($("courtCount").value);
+ if(!Number.isInteger(count)||count<1||count>12||!Number.isInteger(courts)||courts<1||courts>32){
+  notice("Số vòng phải từ 1–12 và số sân mô phỏng từ 1–32.",true);
+  return;
+ }
+ const button=$("previewRounds");button.disabled=true;
+ try{
+  const path="/api/open-play/sessions/"+encodeURIComponent(currentId)+
+   "/rounds/preview?rounds="+encodeURIComponent(count)+"&courts="+encodeURIComponent(courts);
+  const data=await API.request(path);
+  const names=new Map(roster.map(p=>[p.id,p.name||p.id]));
+  const name=id=>names.get(id)||id;
+  const lines=["BẢN XEM TRƯỚC – CHƯA XẾP SÂN THẬT"];
+  for(const round of data.rounds){
+   lines.push("Vòng "+round.round+" • "+round.courts.length+" sân mô phỏng");
+   if(!round.courts.length)lines.push("  Chưa đủ cặp hợp lệ để tạo trận đôi.");
+   for(const court of round.courts){
+    lines.push("  Sân "+court.court+": "+court.teamA.playerIds.map(name).join(" + ")+
+      "  VS  "+court.teamB.playerIds.map(name).join(" + "));
+   }
+   lines.push("  Chờ lượt: "+(round.waitingIds.map(name).join(", ")||"không có"));
+  }
+  lines.push("Chênh lệch số lượt chơi: "+data.fairGamesSpread);
+  $("roundResults").textContent=lines.join("\n");
+ }catch(e){notice("Không thể mô phỏng vòng đấu: "+errorText(e),true)}
+ finally{button.disabled=false}
 });
 init();
 })();
