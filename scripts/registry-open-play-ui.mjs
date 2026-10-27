@@ -44,6 +44,8 @@ try{
    await page.addInitScript(token=>{if(!localStorage.getItem("pickle-api-token-v1"))localStorage.setItem("pickle-api-token-v1",token)},f.tokens.organizer);
    await page.goto(base+"/open-play-admin.html");
    await page.locator("#workspace:not(.hidden)").waitFor();
+   const navTops=await page.locator(".op-nav a").evaluateAll(items=>items.map(x=>Math.round(x.getBoundingClientRect().top)));
+   assert.equal(new Set(navTops).size,1,"all Open Play tabs must remain on one row at "+viewport.width+"px");
    const adminType=await page.evaluate(()=>({
      body:getComputedStyle(document.body).fontFamily,
      hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily
@@ -138,6 +140,7 @@ try{
    page.on("dialog",dialog=>dialog.type()==="prompt"?dialog.accept("Điều chỉnh điểm sau khi đối chiếu biên bản trận"):dialog.accept());
    await page.locator("#reservePhysicalCourts").click();
    await page.locator("#physicalCourtStatus").filter({hasText:"Đã giữ 1 sân"}).waitFor();
+   await page.locator("#physicalCourtCatalog").filter({hasText:"Đã giữ cho buổi này"}).waitFor();
    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=? AND status='active'").get(id).n,1);
    await page.locator("#roundCount").fill("2");
    await page.locator("#courtCount").fill("1");
