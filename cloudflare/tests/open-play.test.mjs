@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 import {accountFixture} from "./helpers/accounts-fixture.mjs";
+import {signSession} from "../src/auth.js";
 
 async function api(f,path,method="GET",body,actor="admin"){
   const headers={"Content-Type":"application/json"};
@@ -53,5 +54,40 @@ test("Open Play validates title, date, rating and capacity",async()=>{
     assert.equal(r.status,400,JSON.stringify(r.data));
   }
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_sessions").get().n,0);
+ }finally{f.db.close()}
+});
+
+test("public discovery is opt-in and players may register/cancel only their own profile",async()=>{
+ const f=await accountFixture();
+ try{
+  f.db.exec("INSERT INTO app_users(id,email,display_name,role,password_hash) VALUES ('self1','self1@example.test','User 1','player','unused'),('self2','self2@example.test','User 2','player','unused');");
+  f.db.exec("INSERT INTO players(id,user_id,full_name,rating) VALUES ('owned1','self1','Self One',2.5),('owned2','self2','Self Two',2.7);");
+  for(const id of ["self1","self2"])f.tokens[id]=await signSession(f.env,f.db.prepare("SELECT * FROM app_users WHERE id=?").get(id));
+  const creation=await api(f,"/api/open-play/sessions","POST",{...draft,title:"Public Open Play"},"organizer");
+  assert.equal(creation.status,201);
+  const id=creation.data.id;
+  let listing=await api(f,"/api/open-play/public/sessions","GET",undefined,null);
+  assert.equal(listing.status,200);assert.equal(listing.data.some(s=>s.id===id),false,"sessions must be private by default");
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,409);
+  let update=await api(f,"/api/open-play/sessions/"+id,"PATCH",{selfSignupEnabled:true},"organizer");
+  assert.equal(update.status,200,JSON.stringify(update.data));assert.equal(update.data.selfSignupEnabled,true);
+  listing=await api(f,"/api/open-play/public/sessions","GET",undefined,null);
+  const exposed=listing.data.find(s=>s.id===id);assert.ok(exposed);
+  assert.equal(exposed.organizerId,undefined);assert.equal(exposed.registrations,undefined);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},null)).status,401);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned2"},"self1")).status,403);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self2")).status,403);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,201);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,409);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned2"},"self2")).status,201);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/self-cancel","POST",{playerId:"owned2"},"self1")).status,403);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/self-cancel","POST",{playerId:"owned2"},"self2")).status,200);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned2"},"self2")).status,200,"rejoin should be possible");
+  assert.equal((await api(f,"/api/open-play/sessions/"+id,"PATCH",{selfSignupEnabled:"yes"},"organizer")).status,400);
+  update=await api(f,"/api/open-play/sessions/"+id,"PATCH",{status:"closed"},"organizer");
+  assert.equal(update.status,200);assert.equal(update.data.selfSignupEnabled,false);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,409);
+  listing=await api(f,"/api/open-play/public/sessions","GET",undefined,null);
+  assert.equal(listing.data.some(s=>s.id===id),false);
  }finally{f.db.close()}
 });
