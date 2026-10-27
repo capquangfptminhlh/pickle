@@ -411,6 +411,13 @@
   }
 
   function init(){
+    // Legacy JSON recovery is a high-stakes operator flow. Preserve the shared
+    // script loading contract, but disable motion listeners that can intercept
+    // rapid clicks on Restore while files/credentials are being validated.
+    if(document.body.classList.contains("legacy-screen")){
+      document.documentElement.classList.add("motion-ready");
+      return;
+    }
     document.documentElement.classList.add("motion-ready");
     if(!("startViewTransition" in document))document.documentElement.classList.add("no-view-transition");
     if(!reduced&&!("startViewTransition" in document))document.body.classList.add("route-entering");
