@@ -102,6 +102,7 @@ try{
    for(const playerId of ["ui-wait-a","ui-wait-b"])
     assert.equal((await f.api("/api/open-play/sessions/"+waitingId+"/registrations",{playerId},"POST","organizer")).status,201);
    assert.equal((await f.api("/api/open-play/sessions/"+waitingId,{selfSignupEnabled:true},"PATCH","organizer")).status,200);
+   await page.locator("#sessionSearch").fill("");
    await page.locator("#refresh").click();
    const waitCard=page.locator("#sessions article").filter({hasText:"Waiting UI Test "+viewport.width});
    await waitCard.getByRole("button",{name:"Vào danh sách chờ"}).click();
