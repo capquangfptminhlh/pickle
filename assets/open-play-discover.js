@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const api=window.PickleAPI,$=id=>document.getElementById(id);
-let member=null,profiles=[],registrations=[],sessionsCache=[];
+let member=null,profiles=[],registrations=[],sessionsCache=[],myMatches=[];
 const errors={
  OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED:"Hồ sơ VĐV này chưa liên kết với tài khoản của bạn.",
  OPEN_PLAY_ALREADY_REGISTERED:"Bạn đã đăng ký buổi chơi này.",
@@ -30,12 +30,14 @@ function emptyState(title,description){
 async function reload(){
  status("Đang đồng bộ lịch Open Play…");
  const auth=await api.session();
- member=auth?.user||null;profiles=[];registrations=[];
+ member=auth?.user||null;profiles=[];registrations=[];myMatches=[];
  $("loginLink").classList.toggle("hidden",Boolean(member));
  if(member){
   const mine=await api.request("/api/open-play/me");
   profiles=Array.isArray(mine?.players)?mine.players:[];
   registrations=Array.isArray(mine?.registrations)?mine.registrations:[];
+  const games=await api.request("/api/open-play/me/matches");
+  myMatches=Array.isArray(games)?games:[];
   $("accountInfo").textContent="Xin chào "+(member.name||member.email||"VĐV")+
     (profiles.length?" · Có "+profiles.length+" hồ sơ VĐV liên kết":" · Chưa có hồ sơ VĐV liên kết");
  }else $("accountInfo").textContent="Bạn có thể xem lịch công khai. Đăng nhập để tham gia buổi chơi.";
@@ -45,6 +47,7 @@ async function reload(){
  $("myCount").textContent=String(registrations.filter(r=>r.status==="registered").length);
  renderSessions();
  renderMine();
+ renderMyMatches();
  status("Đã cập nhật. Chúc bạn tìm được buổi chơi phù hợp!");
 }
 function renderSessions(){
@@ -112,6 +115,20 @@ function renderMine(){
   ul.append(li);
  }
  box.append(ul);
+}
+function renderMyMatches(){
+ const box=$("myMatches");box.replaceChildren();
+ if(!member){box.append(emptyState("Chưa đăng nhập","Đăng nhập để xem trận đấu của anh/chị."));return}
+ if(!myMatches.length){box.append(emptyState("Chưa có trận được phân","Khi BTC xác nhận các vòng, trận của anh/chị sẽ hiển thị tại đây."));return}
+ for(const m of myMatches){
+  const card=el("article","","op-card");
+  card.append(el("strong",m.title),el("p",when(m.startsAt)+" · Vòng "+m.round+" · Sân "+m.court,"op-small"));
+  const result=el("div","Đội "+m.myTeam+" của bạn: "+m.scoreA+" – "+m.scoreB,"op-card-date");
+  const state=el("span",m.status==="completed"?"Đã kết thúc":m.status==="live"?"Đang chơi":"Chưa bắt đầu",
+    "op-chip "+(m.status==="completed"?"is-registered":"is-open"));
+  card.append(result,state);
+  box.append(card);
+ }
 }
 $("sessionSearch").addEventListener("input",renderSessions);
 $("refresh").addEventListener("click",()=>reload().catch(e=>status(msg(e),true)));
