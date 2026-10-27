@@ -85,20 +85,26 @@ export async function handleOpenPlayCourts(request,env,user){
   }
   const stamp=nowIso();
   try{
-   const results=await env.DB.batch(ids.map(id=>env.DB.prepare(`
-     INSERT INTO open_play_court_bookings(id,session_id,court_id,starts_at,ends_at,status,created_by,created_at)
-     SELECT ?,?,?,?,?, 'active',?,?
-     WHERE (SELECT status FROM open_play_sessions WHERE id=?)='open'
-       AND NOT EXISTS(SELECT 1 FROM open_play_plans WHERE session_id=?)
-       AND NOT EXISTS(SELECT 1 FROM open_play_court_bookings WHERE session_id=? AND status='active')`)
-     .bind(uid(),m.id,id,from,until,user.id,stamp,m.id,m.id,m.id)));
-   // The last guard checks only active bookings from *before* the batch:
-   // instead of relying on that to accept multiple courts, require every insert
-   // and return a conflict on any partial transaction (see trigger).
-   if(results.some(r=>count(r)!==1))return fail("OPEN_PLAY_COURT_RESERVATION_CONFLICT",request,env,409);
+   const statements=[
+     env.DB.prepare(`
+       INSERT INTO open_play_court_reservations(session_id,starts_at,ends_at,created_by,created_at)
+       SELECT ?,?,?,?,? WHERE (SELECT status FROM open_play_sessions WHERE id=?)='open'
+         AND NOT EXISTS(SELECT 1 FROM open_play_plans WHERE session_id=?)`)
+       .bind(m.id,from,until,user.id,stamp,m.id,m.id),
+     ...ids.map(id=>env.DB.prepare(`
+       INSERT INTO open_play_court_bookings(id,session_id,court_id,starts_at,ends_at,status,created_by,created_at)
+       SELECT ?,?,?,?,?, 'active',?,?
+       WHERE EXISTS(SELECT 1 FROM open_play_court_reservations WHERE session_id=? AND status='active')`)
+       .bind(uid(),m.id,id,from,until,user.id,stamp,m.id))
+   ];
+   const results=await env.DB.batch(statements);
+   if(results.some(r=>count(r)!==1))
+     return fail("OPEN_PLAY_COURT_RESERVATION_CONFLICT",request,env,409);
   }catch(e){
-   if(/OPEN_PLAY_COURT_TIME_CONFLICT|UNIQUE constraint|CHECK constraint/.test(String(e)))
+   if(String(e).includes("OPEN_PLAY_COURT_TIME_CONFLICT"))
      return fail("OPEN_PLAY_COURT_TIME_CONFLICT",request,env,409);
+   if(/UNIQUE constraint|CHECK constraint|FOREIGN KEY constraint/.test(String(e)))
+     return fail("OPEN_PLAY_COURT_RESERVATION_CONFLICT",request,env,409);
    throw e;
   }
   const bookings=await bookingList(env,m.id);
