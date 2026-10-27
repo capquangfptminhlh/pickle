@@ -2,7 +2,7 @@
 "use strict";
 const API=window.PickleAPI,$=id=>document.getElementById(id);
 let currentId=null,currentSession=null,roster=[],account=null,allSessions=[];
-let checkedInIds=new Set(),confirmedPlan=null;
+let checkedInIds=new Set(),confirmedPlan=null,physicalBookings=[];
 const labels={open:"Đang mở",closed:"Đã đóng",cancelled:"Đã hủy",registered:"Đã đăng ký"};
 const errorText=e=>({
  OPEN_PLAY_ALREADY_REGISTERED:"VĐV đã có trong danh sách.",
@@ -22,6 +22,13 @@ const errorText=e=>({
  OPEN_PLAY_REFEREE_NOT_FOUND:"Không tìm thấy tài khoản trọng tài đang hoạt động.",
  INVALID_OPEN_PLAY_REFEREE_ID:"Mã tài khoản trọng tài không hợp lệ.",
  OPEN_PLAY_SCORE_VERSION_OR_REFEREE_CONFLICT:"Điểm hoặc phân công đã thay đổi. Hãy cập nhật lịch & điểm.",
+ OPEN_PLAY_COURT_TIME_CONFLICT:"Sân đã có buổi Open Play khác trùng giờ. Hãy chọn sân hoặc giờ khác.",
+ OPEN_PLAY_COURT_RESERVATION_CONFLICT:"Khung giờ hoặc danh sách sân đã thay đổi. Hãy kiểm tra lại.",
+ OPEN_PLAY_COURTS_ALREADY_RESERVED:"Buổi chơi đã giữ sân, không thể giữ lần hai.",
+ OPEN_PLAY_COURT_ALREADY_EXISTS:"Tên sân đã tồn tại. Hãy sử dụng sân trong danh sách.",
+ OPEN_PLAY_RESERVED_COURT_COUNT_MISMATCH:"Số sân xác nhận phải đúng bằng số sân thực tế đã giữ.",
+ INVALID_OPEN_PLAY_DURATION:"Thời lượng giữ sân phải từ 30 đến 480 phút, bước 15 phút.",
+ OPEN_PLAY_COURT_NOT_ACCESSIBLE:"Tài khoản không có quyền sử dụng sân này.",
  OPEN_PLAY_CORRECTION_REQUIRES_COMPLETED_MATCH:"Chỉ sửa điểm bằng quy trình này sau khi kết thúc trận.",
  OPEN_PLAY_CORRECTION_REASON_REQUIRED:"Vui lòng ghi lý do điều chỉnh điểm từ 12–500 ký tự.",
  OPEN_PLAY_CORRECTION_NO_CHANGE:"Điểm mới phải khác điểm cũ.",
@@ -185,11 +192,37 @@ async function loadWaitlist(id){
   box.append(li);
  }
 }
+async function loadPhysicalCourts(id){
+ const duration=Number($("durationMinutes").value);
+ if(!Number.isInteger(duration)||duration<30||duration>480||duration%15!==0)
+  throw Error("Thời lượng phải từ 30–480 phút và chia hết cho 15.");
+ const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/courts?durationMinutes="+duration);
+ if(currentId!==id)return;
+ physicalBookings=data.bookings||[];
+ const list=$("physicalCourtCatalog");list.replaceChildren();
+ const locked=Boolean(confirmedPlan)||physicalBookings.length>0||currentSession?.status!=="open";
+ $("reservePhysicalCourts").disabled=locked;
+ const reserved=physicalBookings.map(b=>b.name).join(", ");
+ $("physicalCourtStatus").textContent=physicalBookings.length
+  ?"Đã giữ "+physicalBookings.length+" sân: "+reserved+" · Chờ xác nhận kế hoạch thi đấu. Hủy buổi sẽ giải phóng khung giờ."
+  :"Từ "+fmtDate(data.startsAt)+" đến "+fmtDate(data.endsAt)+". Chọn sân trống rồi bấm Giữ sân đã chọn.";
+ for(const court of data.courts||[]){
+  const line=document.createElement("label");line.className="op-session";
+  const box=document.createElement("input");box.type="checkbox";
+  box.value=court.id;box.name="opPhysicalCourt";
+  box.disabled=!court.available||locked;
+  box.checked=physicalBookings.some(b=>b.courtId===court.id);
+  const desc=item("span",court.name+(court.available?" · Có thể giữ":" · Trùng giờ Open Play"),"op-small");
+  line.append(box,desc);list.append(line);
+ }
+ if(!(data.courts||[]).length)list.append(item("p","Chưa có sân nào thuộc tài khoản hoặc CLB. Hãy tạo sân bên trên.","op-empty"));
+}
 async function loadGameDay(id){
  const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/plan");
  if(currentId!==id)return;
  checkedInIds=new Set((data.checkins||[]).map(x=>x.playerId));
  confirmedPlan=data.plan||null;
+ await loadPhysicalCourts(id);
  $("checkedInCount").textContent=checkedInIds.size+" VĐV đến sân";
  $("confirmationOptions").classList.toggle("hidden",Boolean(confirmedPlan));
  $("confirmRounds").disabled=Boolean(confirmedPlan)||checkedInIds.size<4||currentSession?.status!=="open";
@@ -207,7 +240,7 @@ async function loadGameDay(id){
  const names=new Map(roster.map(p=>[p.id,p.name||p.id]));
  for(const m of plan.matches){
   const card=item("article","","op-card");
-  const title=item("h3","Vòng "+m.round+" · Sân "+m.court);
+  const title=item("h3","Vòng "+m.round+" · "+(m.physicalCourtName||"Sân mô phỏng "+m.court));
   const teams=item("p",m.teamA.map(x=>names.get(x)||x).join(" + ")+"  VS  "+m.teamB.map(x=>names.get(x)||x).join(" + "),"op-small");
   const state=item("span",m.status==="completed"?"Đã kết thúc":m.status==="live"?"Đang đánh":"Chờ thi đấu","op-chip "+(m.status==="completed"?"is-registered":"is-open"));
   const score=item("div","","op-form-grid"),fields=[];
@@ -363,6 +396,37 @@ $("previewPairs").addEventListener("click",async()=>{
   $("pairResults").textContent=[data.pairs.length+" cặp hợp lệ",...data.pairs.map((p,i)=>"Cặp "+(i+1)+": "+p.playerIds.map(id=>names.get(id)||id).join(" + ")+" · "+p.combinedRating+" điểm"),
    "Chưa ghép: "+(data.unpairedIds.map(id=>names.get(id)||id).join(", ")||"không có")].join("\n");
  }catch(e){notice("Ghép đôi thất bại: "+errorText(e),true)}finally{btn.disabled=false}
+});
+$("createPhysicalCourt").addEventListener("submit",async event=>{
+ event.preventDefault();
+ const btn=event.currentTarget.querySelector("button[type=submit]");btn.disabled=true;
+ try{
+  const created=await API.request("/api/open-play/courts",{
+   method:"POST",body:JSON.stringify({name:$("physicalCourtName").value.trim()})
+  });
+  $("physicalCourtName").value="";
+  if(currentId)await loadPhysicalCourts(currentId);
+  notice("Đã tạo sân "+created.name+". Chọn sân để giữ khung giờ.");
+ }catch(e){notice("Không thể tạo sân: "+errorText(e),true)}
+ finally{btn.disabled=false}
+});
+$("refreshPhysicalCourts").addEventListener("click",()=>{
+ if(currentId)loadPhysicalCourts(currentId).catch(e=>notice(errorText(e),true));
+});
+$("reservePhysicalCourts").addEventListener("click",async()=>{
+ if(!currentId||physicalBookings.length||confirmedPlan)return;
+ const ids=[...document.querySelectorAll('input[name="opPhysicalCourt"]:checked')].map(x=>x.value);
+ if(!ids.length){notice("Hãy chọn ít nhất một sân còn trống.",true);return}
+ if(!window.confirm("Giữ "+ids.length+" sân cho buổi Open Play này? Hệ thống sẽ chặn lịch Open Play trùng giờ."))return;
+ const btn=$("reservePhysicalCourts");btn.disabled=true;
+ try{
+  const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(currentId)+"/courts/reserve",{
+   method:"POST",body:JSON.stringify({courtIds:ids,durationMinutes:Number($("durationMinutes").value)})
+  });
+  $("courtCount").value=String(data.bookings.length);
+  await loadPhysicalCourts(currentId);
+  notice("Đã giữ "+data.bookings.length+" sân. Vui lòng kiểm tra lịch giải đấu/đặt sân bên ngoài trước khi chốt.");
+ }catch(e){notice("Không giữ được sân: "+errorText(e),true);btn.disabled=false}
 });
 $("reloadGameDay").addEventListener("click",()=>{if(currentId)loadSession(currentId).catch(e=>notice(errorText(e),true))});
 $("confirmRounds").addEventListener("click",async()=>{
