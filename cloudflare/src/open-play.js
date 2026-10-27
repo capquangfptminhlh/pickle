@@ -105,8 +105,12 @@ export async function handleOpenPlay(request,env){
     return ok({players,registrations,waitlist},request,env);
   }
   if(path==="/api/open-play/public/sessions"&&method==="GET"){
-    const sessions=await dbRows(env,"SELECT id,title,club_id,starts_at,court_label,max_players,max_combined_rating,tolerance FROM open_play_sessions WHERE status='open' AND self_signup_enabled=1 AND starts_at>=? ORDER BY starts_at LIMIT 100",nowIso());
-    return ok(sessions.map(row=>({id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance)})),request,env);
+    const sessions=await dbRows(env,`SELECT s.id,s.title,s.club_id,s.starts_at,s.court_label,s.max_players,s.max_combined_rating,s.tolerance,
+      (SELECT COUNT(*) FROM open_play_registrations r WHERE r.session_id=s.id AND r.status='registered') AS registeredCount,
+      (SELECT COUNT(*) FROM open_play_waitlist w WHERE w.session_id=s.id AND w.status='waiting') AS waitingCount
+      FROM open_play_sessions s WHERE s.status='open' AND s.self_signup_enabled=1 AND s.starts_at>=?
+      ORDER BY s.starts_at LIMIT 100`,nowIso());
+    return ok(sessions.map(row=>({id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance),registeredCount:Number(row.registeredCount),waitingCount:Number(row.waitingCount)})),request,env);
   }
   const join=route(path,"/api/open-play/sessions/:id/join");
   if(join&&method==="POST"){
