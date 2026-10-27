@@ -314,3 +314,56 @@ test("official plan locks waitlist enrollment and registration cancellation",asy
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations WHERE session_id=? AND status='registered'").get(id).n,4);
  }finally{f.db.close()}
 });
+
+test("explicit referee assignment grants scoring for exactly one Open Play match",async()=>{
+ const f=await accountFixture();
+ try{
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Referee Per Match"},"organizer");
+  assert.equal(made.status,201,JSON.stringify(made.data));
+  const base="/api/open-play/sessions/"+made.data.id;
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('rf1','A',2.5),('rf2','B',2.5),('rf3','C',2.5),('rf4','D',2.5)");
+  for(const playerId of ["rf1","rf2","rf3","rf4"]){
+    assert.equal((await api(f,base+"/registrations","POST",{playerId},"organizer")).status,201);
+    assert.equal((await api(f,base+"/check-in/"+playerId,"POST",{checkedIn:true},"organizer")).status,200);
+  }
+  const plan=await api(f,base+"/plan","POST",{rounds:2,courts:1,pointTarget:11,winBy:1},"organizer");
+  assert.equal(plan.status,201,JSON.stringify(plan.data));
+  const [first,second]=plan.data.plan.matches;
+  const assign=base+"/matches/"+first.id+"/referee";
+  const refereeScore="/api/open-play/referee/matches/"+first.id+"/score";
+  const otherScore="/api/open-play/referee/matches/"+second.id+"/score";
+  assert.equal((await api(f,"/api/open-play/referee/matches","GET",undefined,null)).status,401);
+  assert.equal((await api(f,"/api/open-play/referee/matches","GET",undefined,"organizer")).status,403);
+  assert.equal((await api(f,assign,"PATCH",{refereeUserId:"admin"},"organizer")).status,404,"admin must never be assigned as referee");
+  assert.equal((await api(f,assign,"PATCH",{refereeUserId:"local"},"local")).status,403,"referee cannot self-assign");
+  assert.equal((await api(f,assign,"PATCH",{refereeUserId:"local"},"organizer")).status,200);
+  const list=await api(f,"/api/open-play/referee/matches","GET",undefined,"local");
+  assert.equal(list.status,200,JSON.stringify(list.data));
+  assert.equal(list.data.length,1);
+  assert.equal(list.data[0].id,first.id);
+  assert.equal(list.data[0].email,undefined);
+  assert.equal(list.data[0].phone,undefined);
+  assert.equal((await api(f,otherScore,"PATCH",{version:0,scoreA:2,scoreB:0,finish:false},"local")).status,403);
+  assert.equal((await api(f,refereeScore,"PATCH",{version:0,scoreA:2,scoreB:1,finish:false},"organizer")).status,403);
+  assert.equal((await api(f,refereeScore,"PATCH",{version:0,scoreA:11,scoreB:9,finish:false},"local")).status,422);
+  const partial=await api(f,refereeScore,"PATCH",{version:0,scoreA:2,scoreB:1,finish:false},"local");
+  assert.equal(partial.status,200,JSON.stringify(partial.data));
+  assert.equal(partial.data.version,1);
+  assert.equal((await api(f,refereeScore,"PATCH",{version:0,scoreA:3,scoreB:1,finish:false},"local")).status,409);
+  const firstFinish=await api(f,refereeScore,"PATCH",{version:1,scoreA:11,scoreB:9,finish:true},"local");
+  assert.equal(firstFinish.status,200,JSON.stringify(firstFinish.data));
+  assert.equal(firstFinish.data.status,"completed");
+  assert.equal((await api(f,assign,"PATCH",{refereeUserId:null},"organizer")).status,409,"cannot reassign finished match");
+  assert.equal((await api(f,refereeScore,"PATCH",{version:2,scoreA:11,scoreB:8,finish:true},"local")).status,409);
+  assert.equal((await api(f,base+"/matches/"+first.id+"/correction","PATCH",{version:2,scoreA:11,scoreB:8,reason:"Nhập nhầm điểm kết thúc hiệp đấu"},"local")).status,403);
+  const secondAssign=base+"/matches/"+second.id+"/referee";
+  assert.equal((await api(f,secondAssign,"PATCH",{refereeUserId:"local"},"organizer")).status,200);
+  assert.equal((await api(f,secondAssign,"PATCH",{refereeUserId:null},"organizer")).status,200);
+  assert.equal((await api(f,otherScore,"PATCH",{version:0,scoreA:2,scoreB:1,finish:false},"local")).status,403);
+  const visible=await api(f,"/api/open-play/referee/matches","GET",undefined,"local");
+  assert.deepEqual(visible.data.map(m=>m.id),[first.id]);
+  const trail=f.db.prepare("SELECT action FROM audit_logs WHERE entity_type='open_play_referee' ORDER BY id").all().map(r=>r.action);
+  assert.deepEqual(trail,["ASSIGN","ASSIGN","REVOKE"]);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+ }finally{f.db.close()}
+});
