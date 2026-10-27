@@ -3,7 +3,7 @@ Status: prototype on PR #40, **not deployed**.
 
 ## Implemented in this branch
 - Standalone `/open-play.html` simulation using `shared/open-play.js`.
-- Deterministic, rating-constrained matching (max 16 participants per calculation).
+- Deterministic, rating-constrained matching (max 256 participants per calculation).
 - Explicit rating cap and tolerance, reject duplicate IDs and invalid ratings.
 - Standalone UI does not send requests or persist roster, scores or account data.
 - Node regression tests for pairing and basic HTML/no-write safeguards.
