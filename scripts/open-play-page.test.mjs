@@ -9,5 +9,8 @@ test("Open Play entrypoint is a mobile-friendly no-write simulator",async()=>{
  assert.match(html,/role="status"/);
  assert.match(html,/type="module" src="assets\/open-play-page.js"/);
  assert.match(code,/buildOpenPlayPairs/);
+ assert.match(html,/id="exportPairs"[^>]*disabled/);
+ assert.match(code,/pickleup-open-play-pairs\.csv/);
+ assert.match(code,/latestOutcome=null;exportButton.disabled=true/);
  assert.doesNotMatch(code,/\bfetch\s*\(|localStorage|sessionStorage|XMLHttpRequest/);
 });
