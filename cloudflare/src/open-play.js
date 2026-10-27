@@ -3,6 +3,7 @@ import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
 import {handleOpenPlayGameDay} from "./open-play-day.js";
+import {addOpenPlayWaitlist,cancelOpenPlayWaitlist,cancelOpenPlayRegistrationAndPromote} from "./open-play-waitlist.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
 const problem=(code,status=400)=>Object.assign(new Error(code),{status});
@@ -94,7 +95,14 @@ export async function handleOpenPlay(request,env){
     if(!member)throw problem("AUTH_REQUIRED",401);
     const players=await dbRows(env,"SELECT id,full_name AS name,rating FROM players WHERE user_id=? AND active=1 ORDER BY full_name,id LIMIT 20",member.id);
     const registrations=await dbRows(env,"SELECT r.session_id AS sessionId,r.player_id AS playerId,r.status,s.title,s.starts_at AS startsAt FROM open_play_registrations r JOIN players p ON p.id=r.player_id JOIN open_play_sessions s ON s.id=r.session_id WHERE p.user_id=? ORDER BY s.starts_at DESC LIMIT 100",member.id);
-    return ok({players,registrations},request,env);
+    const waitlist=await dbRows(env,`SELECT w.session_id AS sessionId,w.player_id AS playerId,w.status,
+      s.title,s.starts_at AS startsAt,w.created_at AS requestedAt,
+      (SELECT COUNT(*) FROM open_play_waitlist q WHERE q.session_id=w.session_id AND q.status='waiting'
+       AND (q.created_at<w.created_at OR (q.created_at=w.created_at AND q.player_id<=w.player_id))) AS position
+      FROM open_play_waitlist w JOIN players p ON p.id=w.player_id
+      JOIN open_play_sessions s ON s.id=w.session_id
+      WHERE p.user_id=? AND w.status='waiting' ORDER BY w.created_at DESC LIMIT 100`,member.id);
+    return ok({players,registrations,waitlist},request,env);
   }
   if(path==="/api/open-play/public/sessions"&&method==="GET"){
     const sessions=await dbRows(env,"SELECT id,title,club_id,starts_at,court_label,max_players,max_combined_rating,tolerance FROM open_play_sessions WHERE status='open' AND self_signup_enabled=1 AND starts_at>=? ORDER BY starts_at LIMIT 100",nowIso());
@@ -114,6 +122,29 @@ export async function handleOpenPlay(request,env){
     const joined=await registerPlayer(env,member,session,playerId);
     return ok(joined,request,env,joined.rejoined?200:201);
   }
+  const joinQueue=route(path,"/api/open-play/sessions/:id/waitlist/join");
+  if(joinQueue&&method==="POST"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const session=await dbOne(env,"SELECT id,self_signup_enabled FROM open_play_sessions WHERE id=?",joinQueue.id);
+    if(!session||!session.self_signup_enabled)return fail("OPEN_PLAY_WAITLIST_UNAVAILABLE",request,env,409);
+    const b=await bodyJson(request),playerId=String(b.playerId||"").trim();
+    if(!playerId)return fail("PLAYER_ID_REQUIRED",request,env,400);
+    const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=? AND active=1",playerId,member.id);
+    if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
+    const queued=await addOpenPlayWaitlist(env,member,joinQueue.id,playerId);
+    return ok(queued,request,env,201);
+  }
+  const leaveQueue=route(path,"/api/open-play/sessions/:id/waitlist/self-cancel");
+  if(leaveQueue&&method==="POST"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const b=await bodyJson(request),playerId=String(b.playerId||"").trim();
+    const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=?",playerId,member.id);
+    if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
+    const cancelled=await cancelOpenPlayWaitlist(env,member,leaveQueue.id,playerId);
+    return ok(cancelled,request,env);
+  }
   const cancelSelf=route(path,"/api/open-play/sessions/:id/self-cancel");
   if(cancelSelf&&method==="POST"){
     const member=await authenticate(request,env);
@@ -123,18 +154,31 @@ export async function handleOpenPlay(request,env){
     const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=?",playerId,member.id);
     if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
     if(await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",cancelSelf.id))return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
-    const old=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",cancelSelf.id,playerId);
-    if(!old)return fail("OPEN_PLAY_REGISTRATION_NOT_FOUND",request,env,404);
-    if(old.status!=="cancelled"){
-      await env.DB.prepare("UPDATE open_play_registrations SET status='cancelled',updated_at=? WHERE session_id=? AND player_id=? AND status='registered'")
-        .bind(nowIso(),cancelSelf.id,playerId).run();
-      await audit(env,member,"open_play_registration",cancelSelf.id+":"+playerId,"SELF_CANCEL",old,{status:"cancelled"});
-    }
-    return ok({sessionId:cancelSelf.id,playerId,status:"cancelled"},request,env);
+    const cancelled=await cancelOpenPlayRegistrationAndPromote(env,member,cancelSelf.id,playerId,"SELF_CANCEL");
+    return ok(cancelled,request,env);
   }
   const user=await staffUser(request,env);
   const gameDay=await handleOpenPlayGameDay(request,env,user);
   if(gameDay)return gameDay;
+  let q=route(path,"/api/open-play/sessions/:id/waitlist");
+  if(q&&method==="GET"){
+    await scopedSession(env,user,q.id);
+    const queue=await dbRows(env,`SELECT w.player_id AS playerId,p.full_name AS name,p.rating,
+      w.status,w.created_at AS requestedAt FROM open_play_waitlist w
+      JOIN players p ON p.id=w.player_id WHERE w.session_id=? AND w.status='waiting'
+      ORDER BY w.created_at,w.player_id LIMIT 256`,q.id);
+    return ok(queue.map((p,index)=>({...p,position:index+1})),request,env);
+  }
+  if(q&&method==="POST"){
+    await scopedSession(env,user,q.id);
+    const b=await bodyJson(request);
+    return ok(await addOpenPlayWaitlist(env,user,q.id,b.playerId),request,env,201);
+  }
+  q=route(path,"/api/open-play/sessions/:id/waitlist/:playerId/cancel");
+  if(q&&method==="POST"){
+    await scopedSession(env,user,q.id);
+    return ok(await cancelOpenPlayWaitlist(env,user,q.id,q.playerId),request,env);
+  }
   if(path==="/api/open-play/sessions"&&method==="GET"){
     const data=user.role==="super_admin"
       ?await dbRows(env,"SELECT * FROM open_play_sessions ORDER BY starts_at DESC LIMIT 100")
@@ -187,14 +231,8 @@ export async function handleOpenPlay(request,env){
   if(m&&method==="POST"){
     await scopedSession(env,user,m.id);
     if(await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",m.id))return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
-    const old=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,m.playerId);
-    if(!old)return fail("OPEN_PLAY_REGISTRATION_NOT_FOUND",request,env,404);
-    if(old.status!=="cancelled"){
-      await env.DB.prepare("UPDATE open_play_registrations SET status='cancelled',updated_at=? WHERE session_id=? AND player_id=?")
-        .bind(nowIso(),m.id,m.playerId).run();
-      await audit(env,user,"open_play_registration",m.id+":"+m.playerId,"CANCEL",old,{status:"cancelled"});
-    }
-    return ok({sessionId:m.id,playerId:m.playerId,status:"cancelled"},request,env);
+    const cancelled=await cancelOpenPlayRegistrationAndPromote(env,user,m.id,m.playerId);
+    return ok(cancelled,request,env);
   }
   m=route(path,"/api/open-play/sessions/:id/rounds/preview");
   if(m&&method==="GET"){
