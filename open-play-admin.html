@@ -66,6 +66,13 @@
           </form>
           <div class="op-subhead"><span>Danh sách tham gia</span><span class="op-small" id="rosterCount">0 VĐV</span></div>
           <ol id="roster" class="op-roster"></ol>
+          <div class="op-subhead"><span>Hàng chờ khi đủ người</span><span class="op-small" id="waitingCount">0 đang chờ</span></div>
+          <p class="op-field-note">Khi một VĐV hủy trước khi chốt lịch, hệ thống tự nhận người chờ sớm nhất. Sau khi xác nhận vòng đấu, danh sách bị khóa.</p>
+          <ol id="waitingRoster" class="op-roster" aria-live="polite"></ol>
+          <form id="addWaitlist" class="op-actions">
+            <input id="waitlistPlayerId" maxlength="128" list="playerSuggestions" required placeholder="Mã VĐV muốn thêm vào hàng chờ" style="flex:2 1 155px" aria-label="Mã VĐV vào hàng chờ">
+            <button type="submit" class="secondary" style="flex:1 1 140px">Thêm hàng chờ</button>
+          </form>
           <hr class="op-divider">
           <div class="op-subhead">Ghép đôi theo trình</div>
           <p class="op-field-note">Chỉ xem trước các cặp hợp lệ; không tự ghi kết quả trận đấu hoặc sửa hồ sơ VĐV.</p>
