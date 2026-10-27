@@ -79,6 +79,7 @@ jobs:
           node scripts/registry-scoring-ui.mjs
           node scripts/registry-referee-arena-ui.mjs
           node scripts/mlp-court-control-ui.mjs
+          node scripts/registry-open-play-ui.mjs
           node scripts/registry-legacy-ui.mjs
           node scripts/registry-design-ui.mjs
           node scripts/registry-site-design-ui.mjs
