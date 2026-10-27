@@ -3,7 +3,7 @@ import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
 import {handleOpenPlayGameDay,handleOpenPlayReferee} from "./open-play-day.js";
-import {handleOpenPlayCourts} from "./open-play-courts.js";
+import {handleOpenPlayCourts,openPlayPhysicalCourtNames} from "./open-play-courts.js";
 import {addOpenPlayWaitlist,cancelOpenPlayWaitlist,cancelOpenPlayRegistrationAndPromote} from "./open-play-waitlist.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
@@ -89,7 +89,8 @@ export async function handleOpenPlay(request,env){
         status:row.status,pointTarget:row.pointTarget,version:row.version});
       if(visible.length>=100)break;
     }
-    return ok(visible,request,env);
+    const physical=await openPlayPhysicalCourtNames(env,visible.map(m=>m.sessionId));
+    return ok(visible.map(m=>({...m,physicalCourtName:physical.get(m.sessionId)?.[m.court-1]?.name||null})),request,env);
   }
   if(path==="/api/open-play/me"&&method==="GET"){
     const member=await authenticate(request,env);
