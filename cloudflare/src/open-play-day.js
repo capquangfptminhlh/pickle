@@ -86,6 +86,11 @@ export async function handleOpenPlayGameDay(request,env,user){
     const statements=[
       env.DB.prepare("INSERT INTO open_play_plans(session_id,created_at,created_by,round_count,court_count,point_target,win_by) VALUES(?,?,?,?,?,?,?)")
         .bind(m.id,ts,user.id,rounds,courts,pointTarget,winBy),
+      // Confirmation closes self-registration and expires pending waiting slots.
+      env.DB.prepare("UPDATE open_play_sessions SET self_signup_enabled=0,updated_at=? WHERE id=?")
+        .bind(ts,m.id),
+      env.DB.prepare("UPDATE open_play_waitlist SET status='cancelled',updated_at=? WHERE session_id=? AND status='waiting'")
+        .bind(ts,m.id),
       ...rows.map(row=>env.DB.prepare("INSERT INTO open_play_matches(id,session_id,round_no,court_no,team_a_json,team_b_json,updated_at) VALUES(?,?,?,?,?,?,?)")
         .bind(uid(),m.id,row.round,row.court,JSON.stringify(row.teamA.playerIds),JSON.stringify(row.teamB.playerIds),ts))
     ];
