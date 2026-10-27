@@ -19,6 +19,22 @@ async function bookingList(env,id){
   FROM open_play_court_bookings b JOIN open_play_venue_courts c ON c.id=b.court_id
   WHERE b.session_id=? AND b.status='active' ORDER BY c.name,c.id`,id);
 }
+// Active court names are returned only after the caller has already scoped
+// which match/session records its user can read.
+export async function openPlayPhysicalCourtNames(env,sessionIds){
+ const ids=[...new Set(sessionIds)].filter(Boolean).slice(0,150);
+ const result=new Map();
+ if(!ids.length)return result;
+ const found=await rows(env,`SELECT b.session_id AS sessionId,b.court_id AS courtId,c.name
+   FROM open_play_court_bookings b JOIN open_play_venue_courts c ON c.id=b.court_id
+   WHERE b.status='active' AND b.session_id IN (`+ids.map(()=>"?").join(",")+`)
+   ORDER BY b.session_id,c.name,c.id`,...ids);
+ for(const x of found){
+  if(!result.has(x.sessionId))result.set(x.sessionId,[]);
+  result.get(x.sessionId).push({courtId:x.courtId,name:x.name});
+ }
+ return result;
+}
 export async function handleOpenPlayCourts(request,env,user){
  const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
  if(path==="/api/open-play/courts"&&method==="POST"){
