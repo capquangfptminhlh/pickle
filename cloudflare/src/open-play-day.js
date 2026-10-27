@@ -54,14 +54,21 @@ async function saveOpenPlayScore(request,env,user,sessionId,matchId,assignedRefe
   const sql="UPDATE open_play_matches SET score_a=?,score_b=?,status=?,version=version+1,completed_at=?,updated_at=? WHERE id=? AND session_id=? AND version=? AND status<>'completed'";
   const refereeGuard=" AND EXISTS(SELECT 1 FROM open_play_match_referees WHERE match_id=? AND referee_user_id=?)";
   const params=[a,c,status,b.finish?ts:null,ts,matchId,sessionId,version];
-  const result=assignedRefereeId
-    ?await env.DB.prepare(sql+refereeGuard).bind(...params,matchId,assignedRefereeId).run()
-    :await env.DB.prepare(sql).bind(...params).run();
-  if(changes(result)!==1)return fail("OPEN_PLAY_SCORE_VERSION_OR_REFEREE_CONFLICT",request,env,409);
-  const next=await dbOne(env,"SELECT * FROM open_play_matches WHERE id=? AND session_id=?",matchId,sessionId);
-  const data={id:next.id,sessionId,scoreA:next.score_a,scoreB:next.score_b,status:next.status,version:next.version};
-  await audit(env,user,"open_play_match",matchId,b.finish?"FINISH":"SCORE",
-    {scoreA:old.score_a,scoreB:old.score_b,version:old.version},data);
+  const data={id:matchId,sessionId,scoreA:a,scoreB:c,status,version:version+1};
+  const before={scoreA:old.score_a,scoreB:old.score_b,version:old.version};
+  const write=assignedRefereeId
+    ?env.DB.prepare(sql+refereeGuard).bind(...params,matchId,assignedRefereeId)
+    :env.DB.prepare(sql).bind(...params);
+  // The UPDATE and audit INSERT execute in one D1 batch transaction.
+  // For a stale version/revoked assignment, UPDATE changes()=0, so no audit
+  // is inserted. An audit failure rolls back the underlying point change.
+  const results=await env.DB.batch([
+    write,
+    env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) SELECT ?,'open_play_match',?,?,?,?,NULL WHERE changes()=1")
+      .bind(user.id,matchId,b.finish?"FINISH":"SCORE",JSON.stringify(before),JSON.stringify(data))
+  ]);
+  if(changes(results?.[0])!==1)return fail("OPEN_PLAY_SCORE_VERSION_OR_REFEREE_CONFLICT",request,env,409);
+  if(changes(results?.[1])!==1)throw err("OPEN_PLAY_SCORE_AUDIT_FAILED",500);
   return ok(data,request,env);
 }
 // This handler is called before staff-only routing and recognizes ONLY the
