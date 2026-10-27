@@ -71,6 +71,15 @@
           <p class="op-field-note">Chỉ xem trước các cặp hợp lệ; không tự ghi kết quả trận đấu hoặc sửa hồ sơ VĐV.</p>
           <div class="op-actions"><button id="previewPairs" class="secondary" type="button">Xem trước cặp đấu</button></div>
           <div id="pairResults" class="op-results" role="status" aria-live="polite">Chưa ghép đôi.</div>
+          <hr class="op-divider">
+          <div class="op-subhead">Phân sân và xoay vòng VĐV</div>
+          <p class="op-field-note">Xem trước các trận đôi cho nhiều vòng, ưu tiên không lặp bạn đánh và chia lượt chờ công bằng. Sân chỉ là số thứ tự mô phỏng, chưa đặt sân hoặc tạo trận thật.</p>
+          <div class="op-form-grid">
+            <div><label for="roundCount">Số vòng</label><input id="roundCount" type="number" min="1" max="12" step="1" value="3"></div>
+            <div><label for="courtCount">Số sân mô phỏng</label><input id="courtCount" type="number" min="1" max="32" step="1" value="2"></div>
+          </div>
+          <div class="op-actions"><button id="previewRounds" class="secondary" type="button">Xem trước phân sân</button></div>
+          <div id="roundResults" class="op-results" role="status" aria-live="polite">Chưa có vòng đấu mô phỏng.</div>
         </div>
       </section>
       <section class="op-panel op-full" aria-labelledby="newHeading" id="createPanel">
