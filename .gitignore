@@ -18,3 +18,7 @@ ui-artifacts/
 .superpowers/
 .website-os/
 __pycache__/
+
+# Private club membership exports (never commit contacts to public git)
+danh_sach_hoi_vien_binh_loi.csv
+danh_sach_hoi_vien_binh_loi.json
