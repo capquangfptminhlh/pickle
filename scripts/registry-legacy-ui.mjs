@@ -62,7 +62,11 @@ try{for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
     assert.equal(await page.locator("#migrateBtn").isEnabled(),true);
     assert.equal(requests.length,0,"selecting a file must not transmit it");
     await page.locator("#email").fill("admin@test.vn");await page.locator("#password").fill("local-synthetic-password");
+    await page.locator("#migrateBtn").evaluate(btn=>{window.__legacyClicks=0;btn.addEventListener("click",()=>window.__legacyClicks++);});
+    const preClick=await page.evaluate(()=>({disabled:document.querySelector("#migrateBtn").disabled,handler:typeof document.querySelector("#migrateBtn").onclick,selectedFile:document.querySelector("#backupFile").files?.[0]?.name,status:document.querySelector("#legacyStatus").textContent,readResult:document.querySelector("#result").textContent,email:document.querySelector("#email").value,passwordLength:document.querySelector("#password").value.length}));
     await page.locator("#migrateBtn").click();
+    const postClick=await page.evaluate(()=>({clickCount:window.__legacyClicks,disabled:document.querySelector("#migrateBtn").disabled,buttonLabel:document.querySelector("#migrateBtn").textContent,result:document.querySelector("#result").textContent}));
+    console.log("LEGACY_CLICK_DIAGNOSTIC",JSON.stringify({preClick,postClick}));
     await page.waitForFunction(()=>{const text=document.querySelector("#result")?.textContent||"";return text.includes("THÀNH CÔNG")||text.includes("thất bại")||text.includes("Không có quyền")||text.includes("Sai email")},null,{timeout:12000}).catch(()=>{});
     const firstResult=await page.locator("#result").innerText();
     assert.match(firstResult,/THÀNH CÔNG/,`Legacy import failed: ${firstResult}; API responses: ${JSON.stringify(apiResponses)}; browser errors: ${JSON.stringify(errors)}`);
