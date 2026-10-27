@@ -39,7 +39,7 @@ try{
    await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
   });
   try{
-   await page.addInitScript(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
+   await page.addInitScript(token=>{if(!localStorage.getItem("pickle-api-token-v1"))localStorage.setItem("pickle-api-token-v1",token)},f.tokens.organizer);
    await page.goto(base+"/open-play-admin.html");
    await page.locator("#workspace:not(.hidden)").waitFor();
    await page.locator("#title").fill("Open Play UI Test "+viewport.width);
