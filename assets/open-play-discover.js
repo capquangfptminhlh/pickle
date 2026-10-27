@@ -19,7 +19,7 @@ const endpoint=id=>"/api/open-play/sessions/"+encodeURIComponent(id);
 // Anonymous visitors must be able to view public events. Unlike PickleAPI.session(),
 // this optional request intentionally does not redirect on a 401.
 async function optionalSession(){
- const base=String(window.PICKLE_API_BASE||localStorage.getItem("pickle-api-base")||"").replace(/\\/+$/,"");
+ const base=String(window.PICKLE_API_BASE||localStorage.getItem("pickle-api-base")||"").replace(new RegExp("/+$"),"");
  const token=localStorage.getItem("pickle-api-token-v1");
  const res=await fetch(base+"/api/auth/session",{
   credentials:base?"omit":"include",cache:"no-store",
