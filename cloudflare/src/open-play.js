@@ -109,6 +109,7 @@ export async function handleOpenPlay(request,env){
       (SELECT COUNT(*) FROM open_play_registrations r WHERE r.session_id=s.id AND r.status='registered') AS registeredCount,
       (SELECT COUNT(*) FROM open_play_waitlist w WHERE w.session_id=s.id AND w.status='waiting') AS waitingCount
       FROM open_play_sessions s WHERE s.status='open' AND s.self_signup_enabled=1 AND s.starts_at>=?
+      AND NOT EXISTS(SELECT 1 FROM open_play_plans p WHERE p.session_id=s.id)
       ORDER BY s.starts_at LIMIT 100`,nowIso());
     return ok(sessions.map(row=>({id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance),registeredCount:Number(row.registeredCount),waitingCount:Number(row.waitingCount)})),request,env);
   }
@@ -219,6 +220,8 @@ export async function handleOpenPlay(request,env){
       const selfSignup=b.selfSignupEnabled===undefined?(status==="open"&&Boolean(session.self_signup_enabled)):b.selfSignupEnabled;
       if(typeof selfSignup!=="boolean")return fail("INVALID_OPEN_PLAY_SELF_SIGNUP",request,env,400);
       if(status!=="open"&&selfSignup)return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
+      if(selfSignup&&await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",m.id))
+        return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
       await env.DB.prepare("UPDATE open_play_sessions SET status=?,self_signup_enabled=?,updated_at=? WHERE id=?").bind(status,selfSignup?1:0,nowIso(),m.id).run();
       const updated=serializeSession(await dbOne(env,"SELECT * FROM open_play_sessions WHERE id=?",m.id));
       await audit(env,user,"open_play_session",m.id,"STATUS",serializeSession(session),updated);
