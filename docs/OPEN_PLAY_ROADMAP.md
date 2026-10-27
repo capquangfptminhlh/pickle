@@ -36,11 +36,20 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - `GET /api/open-play/sessions/:id/rounds/preview?rounds=3&courts=2`: authorized BTC-only 2v2 preview, includes virtual courts, waiting lists and per-player game counts; **no DB writes**.
 
 
+## Match-day execution (feature branch, isolated data)
+- **Staff check-in:** `POST /api/open-play/sessions/:id/check-in/:playerId` with `{checkedIn:true|false}`. Only already-registered active players can check in. Must check in at least four players before plan confirmation.
+- **Get state:** `GET /api/open-play/sessions/:id/plan` returns check-ins and the confirmed schedule (if any). Staff authorization enforced.
+- **Confirm once:** `POST /api/open-play/sessions/:id/plan` with `{rounds:1..12,courts:1..32,pointTarget:11|15|21,winBy:1|2}`. Generates a deterministic doubles court plan from **checked-in** players and saves atomically in `0023_open_play_game_day.sql`. Once confirmed, registrations, cancellations and check-ins are locked, preventing the underlying teams from changing during play. Duplicate confirmations return 409; no silent rescheduling.
+- **Enter scores:** `PATCH /api/open-play/sessions/:id/matches/:matchId/score` body `{version,scoreA,scoreB,finish}`. Score version prevents overwrite on concurrent devices. Completed matches cannot be edited without a future explicit correction procedure. Finishing requires the configured target and winning margin. Each score change is audited in separate `open_play_match` records.
+- **Close session:** closing fails if any confirmed game remains unfinished. Tournament `matches` and `score_events` remain unchanged.
+- **Staff UI:** check-in buttons, official plan confirmation after operator prompt, score inputs per match, status refresh and close. E2E scenario exercises full flow with synthetic users and local D1.
+- **Not yet real-time push:** scoreboard refresh is operator-triggered; no WebSocket/SSE feed, native push notification, court booking guarantee or automated ranking changes.
+
 ## NOT yet ready for customer launch
-- Player-account linking management/consent, check-in, waitlist and booking notifications. Self-registration/discovery APIs and pages exist, but need live-device acceptance testing.
-- Verified venue/court scheduling, cancellation notifications, persisted round management, actual court allocation and stronger globally fair partner rotation. A deterministic multi-round **preview** exists, but court assignments are not saved or booked.
+- Player-account linking management/consent, waitlist, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
+- Verified venue/court booking and conflict prevention, cancellation notifications, reset/undo/reschedule flows and stronger globally fair partner rotation. A deterministic multi-round plan can be **confirmed and saved**, but court numbers are logical slots, not guaranteed physical bookings.
 - True random seeded pairing with auditable seed; current algorithm is deterministic, not random.
-- Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback.
+- Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback, GDPR-style data lifecycle and history sanitization.
 - Marketplace, ratings recalculation, communities, native app are separate later phases.
 
 ## Protection rules
