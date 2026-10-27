@@ -1,5 +1,5 @@
 // Deterministic Open Play pairing core. No tournament or production DB side effects.
-const number = value => Number.isFinite(Number(value)) ? Number(value) : NaN;
+const number = value => (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) && Number.isFinite(Number(value)) ? Number(value) : NaN;
 export function validateOpenPlayParticipant(p) {
   const id = String(p?.id ?? "").trim();
   const rating = number(p?.rating);
