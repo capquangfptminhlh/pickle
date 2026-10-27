@@ -82,7 +82,15 @@ export async function handleOpenPlayReferee(request,env){
       FROM open_play_match_referees a JOIN open_play_matches m ON m.id=a.match_id
       JOIN open_play_sessions s ON s.id=m.session_id JOIN open_play_plans p ON p.session_id=s.id
       WHERE a.referee_user_id=? ORDER BY s.starts_at DESC,m.round_no,m.court_no LIMIT 100`,user.id);
-    return ok(rows.map(x=>({...x,teamA:JSON.parse(x.teamA),teamB:JSON.parse(x.teamB)})),request,env);
+    const matches=rows.map(x=>({...x,teamA:JSON.parse(x.teamA),teamB:JSON.parse(x.teamB)}));
+    const ids=[...new Set(matches.flatMap(m=>[...m.teamA,...m.teamB]))];
+    const profiles=ids.length?await dbRows(env,
+      "SELECT id,full_name AS name FROM players WHERE id IN ("+ids.map(()=>"?").join(",")+")",...ids):[];
+    const names=new Map(profiles.map(p=>[p.id,p.name]));
+    return ok(matches.map(m=>({...m,
+      teamANames:m.teamA.map(id=>names.get(id)||id),
+      teamBNames:m.teamB.map(id=>names.get(id)||id)
+    })),request,env);
   }
   const assigned=await dbOne(env,
     "SELECT m.session_id AS sessionId FROM open_play_match_referees a JOIN open_play_matches m ON m.id=a.match_id WHERE a.match_id=? AND a.referee_user_id=?",
