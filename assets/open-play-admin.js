@@ -18,7 +18,11 @@ const errorText=e=>({
  OPEN_PLAY_SCORE_VERSION_CONFLICT:"Điểm đã được thay đổi trên thiết bị khác. Bấm Cập nhật lịch & điểm rồi thử lại.",
  OPEN_PLAY_INVALID_FINAL_SCORE:"Điểm chưa đủ điều kiện kết thúc theo luật buổi chơi.",
  OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH:"Điểm đã đủ thắng. Hãy chọn Kết thúc trận để xác nhận.",
- OPEN_PLAY_MATCH_COMPLETED:"Trận này đã kết thúc và không thể sửa điểm."
+ OPEN_PLAY_MATCH_COMPLETED:"Trận này đã kết thúc và không thể sửa điểm.",
+ OPEN_PLAY_ALREADY_WAITLISTED:"VĐV này đã nằm trong hàng chờ.",
+ OPEN_PLAY_WAITLIST_REQUIRES_FULL_SESSION:"Chưa đủ người. Vui lòng đăng ký VĐV trực tiếp trước.",
+ OPEN_PLAY_WAITLIST_UNAVAILABLE:"Buổi chơi đã đóng hoặc đã chốt lịch.",
+ OPEN_PLAY_WAITLIST_ALREADY_PROMOTED:"VĐV đã được chuyển vào danh sách tham gia."
 }[e?.message]||e?.message||"Lỗi kết nối");
 const notice=(message,isError=false)=>{const node=$("notice");node.textContent=message;node.className="op-status"+(isError?" error":"")};
 const detail=message=>{$("details").textContent=message};
@@ -89,6 +93,7 @@ async function loadSession(id){
  $("closeSession").disabled=currentSession.status!=="open";
  $("addPlayer").querySelector("button[type=submit]").disabled=!editable||count>=currentSession.maxPlayers;
  await loadGameDay(id);
+ await loadWaitlist(id);
  const list=$("roster");list.replaceChildren();
  if(!roster.length){
   list.append(item("li","Chưa có VĐV đăng ký.","op-empty"));
@@ -110,7 +115,7 @@ async function loadSession(id){
    if(row.status==="registered"&&!confirmedPlan){
     const cancel=button("Hủy",async()=>{
      await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/registrations/"+encodeURIComponent(row.id)+"/cancel",{method:"POST",body:"{}"});
-     await loadSession(id);notice("Đã hủy đăng ký "+(row.name||"VĐV")+".");
+     const result=await loadSession(id);notice("Đã hủy đăng ký "+(row.name||"VĐV")+". Hàng chờ đã được cập nhật.");
     },"danger");
     cancel.setAttribute("aria-label","Hủy đăng ký của "+(row.name||row.id));li.append(cancel);
    }else li.append(labelBadge("cancelled"));
@@ -145,6 +150,32 @@ async function loadSuggestions(){
    option.value=String(club.id);option.label=String(club.name||club.id);
    list.append(option);
   }
+ }
+}
+async function loadWaitlist(id){
+ const queue=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/waitlist");
+ if(currentId!==id)return;
+ const waiting=Array.isArray(queue)?queue:[];
+ $("waitingCount").textContent=waiting.length+" đang chờ";
+ const box=$("waitingRoster");box.replaceChildren();
+ const form=$("addWaitlist");
+ form.querySelector("button[type=submit]").disabled=Boolean(confirmedPlan)||currentSession?.status!=="open";
+ if(!waiting.length){box.append(item("li","Chưa có người đang chờ.","op-empty"));return}
+ for(const w of waiting){
+  const li=document.createElement("li"),wrap=item("div","","op-roster-person");
+  wrap.append(item("span",String(w.position),"op-avatar"));
+  const desc=document.createElement("div");
+  desc.append(item("strong",w.name||w.playerId),item("small",w.rating+" điểm · Thứ tự "+w.position));
+  wrap.append(desc);li.append(wrap);
+  if(!confirmedPlan){
+   const cancel=button("Rời hàng",async()=>{
+    await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/waitlist/"+encodeURIComponent(w.playerId)+"/cancel",{method:"POST",body:"{}"});
+    await loadSession(id);notice("Đã rời hàng chờ: "+(w.name||w.playerId)+".");
+   },"secondary");
+   cancel.setAttribute("aria-label","Rời hàng chờ "+(w.name||w.playerId));
+   li.append(cancel);
+  }
+  box.append(li);
  }
 }
 async function loadGameDay(id){
@@ -236,6 +267,18 @@ $("refresh").addEventListener("click",()=>refresh().catch(e=>notice(errorText(e)
 $("openSignup").addEventListener("click",()=>changeSession({selfSignupEnabled:true}).catch(e=>notice(errorText(e),true)));
 $("closeSignup").addEventListener("click",()=>changeSession({selfSignupEnabled:false}).catch(e=>notice(errorText(e),true)));
 $("closeSession").addEventListener("click",()=>changeSession({status:"closed"}).catch(e=>notice(errorText(e),true)));
+$("addWaitlist").addEventListener("submit",async e=>{
+ e.preventDefault();if(!currentId)return;
+ const btn=e.currentTarget.querySelector('button[type="submit"]');btn.disabled=true;
+ try{
+  await API.request("/api/open-play/sessions/"+encodeURIComponent(currentId)+"/waitlist",{
+   method:"POST",body:JSON.stringify({playerId:$("waitlistPlayerId").value.trim()})
+  });
+  $("waitlistPlayerId").value="";await loadSession(currentId);
+  notice("Đã đưa VĐV vào hàng chờ theo thứ tự.");
+ }catch(err){notice("Không thể thêm hàng chờ: "+errorText(err),true)}
+ finally{btn.disabled=Boolean(confirmedPlan)||currentSession?.status!=="open"}
+});
 $("addPlayer").addEventListener("submit",async e=>{
  e.preventDefault();if(!currentId)return;
  const btn=e.currentTarget.querySelector("button[type=submit]");btn.disabled=true;
