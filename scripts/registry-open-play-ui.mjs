@@ -109,7 +109,7 @@ try{
    await page.locator("#roundCount").fill("2");
    await page.locator("#courtCount").fill("1");
    await page.locator("#pointTarget").selectOption("11");
-   page.once("dialog",dialog=>dialog.accept());
+   page.on("dialog",dialog=>dialog.accept());
    await page.locator("#confirmRounds").click();
    await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
    assert.equal(await page.locator("#matches article").count(),2);
