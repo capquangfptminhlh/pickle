@@ -225,6 +225,7 @@ async function loadGameDay(id){
    const refereeInput=document.createElement("input");refereeInput.type="text";
    refereeInput.maxLength=128;refereeInput.value=m.refereeUserId||"";
    refereeInput.placeholder="Mã tài khoản trọng tài";
+   refereeInput.setAttribute("list","refereeSuggestions");
    refereeInput.setAttribute("aria-label","Mã trọng tài vòng "+m.round+" sân "+m.court);
    assignment.append(refereeInput);
    assignment.append(button("Phân công trọng tài",async()=>{
@@ -285,6 +286,17 @@ async function loadGameDay(id){
   root.append(card);
  }
 }
+async function loadRefereeSuggestions(){
+ const results=await API.request("/api/open-play/referees");
+ const list=$("refereeSuggestions");list.replaceChildren();
+ if(!Array.isArray(results))return;
+ for(const user of results){
+  const option=document.createElement("option");
+  option.value=String(user.id);
+  option.label=String(user.name||user.id);
+  list.append(option);
+ }
+}
 async function init(){
  try{
   const session=await API.session();
@@ -298,6 +310,7 @@ async function init(){
   notice("Xin chào "+(account.name||account.email||"BTC")+" · Trạng thái đã đồng bộ.");
   await refresh();
   loadSuggestions().catch(()=>{});
+  loadRefereeSuggestions().catch(()=>{});
  }catch(e){notice("Không thể tải Open Play: "+errorText(e),true)}
 }
 $("createSession").addEventListener("submit",async event=>{
