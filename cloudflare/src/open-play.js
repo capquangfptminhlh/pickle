@@ -69,6 +69,26 @@ async function registerPlayer(env,user,session,playerId){
 export async function handleOpenPlay(request,env){
   const path=new URL(request.url).pathname,method=request.method.toUpperCase();
   if(!path.startsWith("/api/open-play/"))return null;
+  if(path==="/api/open-play/me/matches"&&method==="GET"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const own=await dbRows(env,"SELECT id FROM players WHERE user_id=? ORDER BY id LIMIT 20",member.id);
+    if(!own.length)return ok([],request,env);
+    const ownedIds=new Set(own.map(p=>p.id));
+    const rows=await dbRows(env,"SELECT m.*,s.title,s.starts_at AS startsAt,p.point_target AS pointTarget FROM open_play_matches m JOIN open_play_plans p ON p.session_id=m.session_id JOIN open_play_sessions s ON s.id=m.session_id WHERE m.session_id IN (SELECT r.session_id FROM open_play_registrations r JOIN players pl ON pl.id=r.player_id WHERE pl.user_id=?) ORDER BY s.starts_at DESC,m.round_no,m.court_no LIMIT 1000",member.id);
+    const visible=[];
+    for(const row of rows){
+      const a=JSON.parse(row.team_a_json),b=JSON.parse(row.team_b_json);
+      const mineA=a.some(id=>ownedIds.has(id)),mineB=b.some(id=>ownedIds.has(id));
+      if(!mineA&&!mineB)continue;
+      visible.push({id:row.id,sessionId:row.session_id,title:row.title,startsAt:row.startsAt,
+        round:row.round_no,court:row.court_no,teamA:a,teamB:b,
+        myTeam:mineA?"A":"B",scoreA:row.score_a,scoreB:row.score_b,
+        status:row.status,pointTarget:row.pointTarget,version:row.version});
+      if(visible.length>=100)break;
+    }
+    return ok(visible,request,env);
+  }
   if(path==="/api/open-play/me"&&method==="GET"){
     const member=await authenticate(request,env);
     if(!member)throw problem("AUTH_REQUIRED",401);
