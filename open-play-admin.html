@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b7b50"><meta name="robots" content="noindex,nofollow"><title>PickleUp · Điều hành Open Play</title>
+<link rel="stylesheet" href="assets/site-sport.css?v=10"><link rel="stylesheet" href="assets/site-light.css?v=1">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f6f3;color:#153126;font-family:system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:20px}
+a{color:#086b45}h1,h2{margin:0 0 8px}p{color:#537061;line-height:1.5}section{background:#fff;border:1px solid #d7e6dd;border-radius:18px;margin:14px 0;padding:18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+label{display:block;font-weight:650;font-size:14px;margin:0 0 5px}input,select{font:inherit;width:100%;min-height:44px;padding:10px;border:1px solid #b6cabd;border-radius:10px;background:white;color:#17382b}
+button{font:inherit;background:#0b7b50;color:white;border:0;border-radius:10px;min-height:44px;padding:10px 16px;cursor:pointer;font-weight:700}
+button.secondary{background:#edf3ef;color:#174733}button:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.status{white-space:pre-wrap;background:#ecf6f0;border-radius:10px;padding:12px;margin-top:12px}.error{background:#fff0f0;color:#972939}
+.session{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #e7eee9;padding:12px 0}.session button{flex-shrink:0}.small{font-size:13px;color:#567562}
+li{padding:5px 0;overflow-wrap:anywhere}.hidden{display:none!important}#roster{padding-left:22px}
+@media(max-width:660px){main{padding:12px}.grid,.fields{grid-template-columns:1fr}.session{align-items:flex-start;flex-direction:column}button{width:auto}}
+</style></head><body><main>
+<nav><a href="index.html">← Trang chủ</a> · <a href="open-play.html">Mô phỏng ghép đôi</a></nav>
+<section><h1>Điều hành Open Play</h1><p>Tạo buổi chơi, quản lý VĐV, mở đăng ký công khai và xem cặp ghép theo trình. Chỉ BTC và quản lý có quyền mới được thay đổi dữ liệu.</p>
+<div id="notice" class="status" role="status" aria-live="polite">Đang kiểm tra tài khoản…</div><a id="loginLink" href="login.html?next=open-play-admin.html" class="hidden">Đăng nhập quản trị</a></section>
+<div id="workspace" class="hidden">
+<section><h2>Tạo buổi Open Play</h2>
+<form id="createSession"><div class="fields">
+<div><label for="title">Tên buổi chơi</label><input id="title" name="title" maxlength="120" required placeholder="Open Play tối thứ Hai"></div>
+<div><label for="startsAt">Thời gian bắt đầu</label><input id="startsAt" name="startsAt" type="datetime-local" required></div>
+<div><label for="clubId">Mã CLB (nếu có)</label><input id="clubId" name="clubId" maxlength="128" placeholder="club-binh-loi"></div>
+<div><label for="courtLabel">Sân / địa điểm</label><input id="courtLabel" name="courtLabel" maxlength="100" placeholder="Sân số 1"></div>
+<div><label for="maxPlayers">Số người tối đa</label><input id="maxPlayers" name="maxPlayers" type="number" min="2" max="256" step="1" value="16" required></div>
+<div><label for="maxCombinedRating">Tổng trình tối đa một cặp</label><input id="maxCombinedRating" name="maxCombinedRating" type="number" min="2" max="16" step=".1" value="5.2" required></div>
+<div><label for="tolerance">Dung sai</label><input id="tolerance" name="tolerance" type="number" min="0" max=".5" step=".1" value="0"></div>
+</div><div class="actions"><button type="submit">Tạo buổi chơi</button><button id="refresh" class="secondary" type="button">Làm mới</button></div></form></section>
+<div class="grid">
+<section><h2>Danh sách buổi chơi</h2><div id="sessions">Chưa tải dữ liệu.</div></section>
+<section><h2 id="selectedTitle">Chi tiết buổi chơi</h2><div id="details" class="small">Chọn buổi chơi ở cột bên cạnh.</div>
+<div id="sessionControls" class="hidden">
+<div class="actions"><button id="openSignup" type="button">Bật đăng ký VĐV</button><button id="closeSignup" class="secondary" type="button">Tắt đăng ký VĐV</button><button id="closeSession" class="secondary" type="button">Đóng buổi chơi</button></div>
+<form id="addPlayer" style="margin-top:14px"><label for="playerId">Mã VĐV đã có trong hệ thống</label><input id="playerId" required maxlength="128" placeholder="Nhập Player ID"><div class="actions"><button type="submit">Đăng ký VĐV</button></div></form>
+<h3>Danh sách đăng ký</h3><ol id="roster"></ol><button id="previewPairs" class="secondary" type="button">Xem cặp ghép</button><div id="pairResults" class="status" role="status" aria-live="polite">Chưa ghép đôi.</div>
+</div></section>
+</div></div></main>
+<script src="assets/api.js"></script><script defer src="assets/open-play-admin.js"></script></body></html>
