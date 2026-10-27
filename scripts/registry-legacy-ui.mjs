@@ -18,7 +18,7 @@ const server=createServer(async(req,res)=>{try{
 await new Promise(r=>server.listen(0,"127.0.0.1",r));
 const browser=await chromium.launch({headless:true});
 try{for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
-  const f=await accountFixture(),page=await browser.newPage({viewport}),errors=[],requests=[];
+  const f=await accountFixture(),page=await browser.newPage({viewport}),errors=[],requests=[],apiResponses=[];
   page.setDefaultTimeout(6000);page.on("pageerror",e=>errors.push(e.message));
   await page.addInitScript(()=>{
     const original=File.prototype.text;
@@ -33,7 +33,8 @@ try{for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
     const req=route.request();requests.push(new URL(req.url()).pathname);
     if(req.url().endsWith("/auth/login")){await route.fulfill(rejectLogin?{status:401,json:{error:"INVALID_CREDENTIALS"}}:{json:{token:f.tokens.admin,user:{role:"super_admin"}}});return}
     const response=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),body:req.postData()}),f.env);
-    await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
+    const body=await response.text();apiResponses.push({path:new URL(req.url()).pathname,status:response.status,body:body.slice(0,1200)});
+    await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body});
   });
   try{
     await page.goto(`http://127.0.0.1:${server.address().port}/legacy-migrate.html`);
@@ -61,7 +62,10 @@ try{for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
     assert.equal(await page.locator("#migrateBtn").isEnabled(),true);
     assert.equal(requests.length,0,"selecting a file must not transmit it");
     await page.locator("#email").fill("admin@test.vn");await page.locator("#password").fill("local-synthetic-password");
-    await page.locator("#migrateBtn").click();await page.locator("#result").filter({hasText:"THÀNH CÔNG"}).waitFor();
+    await page.locator("#migrateBtn").click();
+    await page.waitForFunction(()=>{const text=document.querySelector("#result")?.textContent||"";return text.includes("THÀNH CÔNG")||text.includes("thất bại")||text.includes("Không có quyền")||text.includes("Sai email")},{timeout:12000}).catch(()=>{});
+    const firstResult=await page.locator("#result").innerText();
+    assert.match(firstResult,/THÀNH CÔNG/,`Legacy import failed: ${firstResult}; API responses: ${JSON.stringify(apiResponses)}; browser errors: ${JSON.stringify(errors)}`);
     assert.equal(f.db.prepare("SELECT full_name FROM players WHERE id='restored-player'").get().full_name,"VĐV Khôi phục");
     f.db.exec("UPDATE players SET rating=4.5 WHERE id='restored-player'");
     await page.locator("#password").fill("local-synthetic-password");
