@@ -14,7 +14,7 @@ const preference=(a,b,partnerHistory)=>{
   const previous=partnerHistory.get(pairKey(a.id,b.id))||0;
   const sum=a.rating+b.rating;
   // Strongly discourage repeat partners; compare balance then stable id.
-  return [previous,Math.abs(a.rating-b.rating),-sum,b.id];
+  return [previous,-sum,Math.abs(a.rating-b.rating),b.id];
 };
 const cmpScore=(x,y)=>{
   for(let i=0;i<x.length;i++){
@@ -31,7 +31,6 @@ export function previewOpenPlayRounds(players,options={}){
   const rounds=intInRange(options.rounds??3,1,12,"INVALID_OPEN_PLAY_ROUNDS");
   const courtCount=intInRange(options.courtCount??1,1,32,"INVALID_OPEN_PLAY_COURT_COUNT");
   const participants=players.map(validateOpenPlayParticipant).sort((a,b)=>compareId(a.id,b.id));
-  const byId=new Map(participants.map(p=>[p.id,p]));
   const played=new Map(participants.map(p=>[p.id,0]));
   const lastPlayed=new Map(participants.map(p=>[p.id,-1]));
   const partnerHistory=new Map(),opponentHistory=new Map();
