@@ -57,11 +57,16 @@ try{
    await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
    await page.goto(base+"/open-play-discover.html");
    await page.locator("#sessions article").first().waitFor();
+   await page.locator("#sessionSearch").fill("khong-co-buoi-choi-nao");
+   await page.locator("#sessions").filter({hasText:"Không tìm thấy lịch phù hợp"}).waitFor();
+   await page.locator("#sessionSearch").fill("Open Play UI Test");
+   await page.locator("#sessions article").first().waitFor();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    await page.locator("#sessions article button").first().click();
    await page.locator("#registrations").filter({hasText:"Open Play UI Test"}).waitFor();
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"registered");
    await page.locator("#registrations button").first().click();
-   await page.locator("#registrations").filter({hasText:"cancelled"}).waitFor();
+   await page.locator("#registrations").filter({hasText:"Đã hủy"}).waitFor();
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
    await page.goto(base+"/open-play.html");
    await page.locator("#generate").click();
