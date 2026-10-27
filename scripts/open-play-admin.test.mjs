@@ -11,10 +11,16 @@ test("Open Play organizer page has real API controls and safe DOM rendering",asy
  assert.match(html,/id="roster"/);
  assert.match(html,/id="openSignup"/);
  assert.match(html,/id="previewPairs"/);
+ assert.match(html,/id="previewRounds"/);
+ assert.match(html,/id="roundCount"/);
+ assert.match(html,/id="courtCount"/);
+ assert.match(html,/id="roundResults"/);
  assert.match(html,/src="assets\/api.js"/);
  assert.match(script,/PickleAPI/);
  assert.match(script,/\/api\/open-play\/sessions/);
  assert.match(script,/selfSignupEnabled:true/);
+ assert.match(script,/\/rounds\/preview\?rounds=/);
+ assert.match(script,/BẢN XEM TRƯỚC/);
  assert.match(script,/encodeURIComponent\(row.id\)/);
  assert.match(script,/\.textContent=/);
  assert.doesNotMatch(script,/\.innerHTML\s*=/);
