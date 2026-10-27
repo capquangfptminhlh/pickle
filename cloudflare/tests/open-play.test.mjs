@@ -427,6 +427,17 @@ test("internal venue court reservations block overlapping times and bind physica
   assert.equal(confirmed.data.plan.physicalCourtsReserved,true);
   assert.deepEqual(confirmed.data.plan.courtBookings.map(c=>c.name),["Sân 1","Sân 2"]);
   assert.equal(confirmed.data.plan.matches[0].physicalCourtName,"Sân 1");
+  f.db.exec("UPDATE players SET user_id='organizer' WHERE id='cv1'");
+  const myGames=await api(f,"/api/open-play/me/matches","GET",undefined,"organizer");
+  assert.equal(myGames.status,200,JSON.stringify(myGames.data));
+  assert.equal(myGames.data.length,1);
+  assert.equal(myGames.data[0].physicalCourtName,"Sân 1","athlete should see confirmed real court");
+  const assigned=await api(f,base+"/matches/"+confirmed.data.plan.matches[0].id+"/referee","PATCH",{refereeUserId:"local"},"organizer");
+  assert.equal(assigned.status,200,JSON.stringify(assigned.data));
+  const refereeGames=await api(f,"/api/open-play/referee/matches","GET",undefined,"local");
+  assert.equal(refereeGames.status,200);
+  assert.equal(refereeGames.data.length,1);
+  assert.equal(refereeGames.data[0].physicalCourtName,"Sân 1","assigned referee should see real court name");
   assert.equal((await api(f,base+"/courts/reserve","POST",{courtIds:[c2],durationMinutes:120},"organizer")).status,409);
   assert.equal((await api(f,base,"PATCH",{status:"cancelled"},"organizer")).status,200);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=? AND status='active'").get(event.data.id).n,0);
