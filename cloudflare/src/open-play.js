@@ -3,6 +3,7 @@ import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
 import {handleOpenPlayGameDay,handleOpenPlayReferee} from "./open-play-day.js";
+import {handleOpenPlayCourts} from "./open-play-courts.js";
 import {addOpenPlayWaitlist,cancelOpenPlayWaitlist,cancelOpenPlayRegistrationAndPromote} from "./open-play-waitlist.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
@@ -165,6 +166,8 @@ export async function handleOpenPlay(request,env){
   const referee=await handleOpenPlayReferee(request,env);
   if(referee)return referee;
   const user=await staffUser(request,env);
+  const physicalCourts=await handleOpenPlayCourts(request,env,user);
+  if(physicalCourts)return physicalCourts;
   const gameDay=await handleOpenPlayGameDay(request,env,user);
   if(gameDay)return gameDay;
   let q=route(path,"/api/open-play/sessions/:id/waitlist");
@@ -228,7 +231,17 @@ export async function handleOpenPlay(request,env){
       if(status!=="open"&&selfSignup)return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
       if(selfSignup&&await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",m.id))
         return fail("OPEN_PLAY_ROSTER_LOCKED",request,env,409);
-      await env.DB.prepare("UPDATE open_play_sessions SET status=?,self_signup_enabled=?,updated_at=? WHERE id=?").bind(status,selfSignup?1:0,nowIso(),m.id).run();
+      if(status==="cancelled"&&session.status!=="cancelled"){
+        const ts=nowIso();
+        await env.DB.batch([
+          env.DB.prepare("UPDATE open_play_sessions SET status='cancelled',self_signup_enabled=0,updated_at=? WHERE id=?").bind(ts,m.id),
+          env.DB.prepare("UPDATE open_play_court_reservations SET status='released' WHERE session_id=?").bind(m.id),
+          env.DB.prepare("UPDATE open_play_court_bookings SET status='released' WHERE session_id=? AND status='active'").bind(m.id)
+        ]);
+      }else{
+        await env.DB.prepare("UPDATE open_play_sessions SET status=?,self_signup_enabled=?,updated_at=? WHERE id=?")
+          .bind(status,selfSignup?1:0,nowIso(),m.id).run();
+      }
       const updated=serializeSession(await dbOne(env,"SELECT * FROM open_play_sessions WHERE id=?",m.id));
       await audit(env,user,"open_play_session",m.id,"STATUS",serializeSession(session),updated);
       return ok(updated,request,env);
