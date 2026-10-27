@@ -30,7 +30,7 @@ async function reload(){
  }
  for(const m of results){
   const card=node("article","","op-card");
-  card.append(node("h3",m.title+" · Vòng "+m.round+" · Sân "+m.court));
+  card.append(node("h3",m.title+" · Vòng "+m.round+" · "+(m.physicalCourtName||"Sân mô phỏng "+m.court)));
   card.append(node("p",time(m.startsAt)+" · "+(m.teamANames||m.teamA).join(" + ")+"  VS  "+(m.teamBNames||m.teamB).join(" + "),"op-small"));
   card.append(node("p","Chạm "+m.pointTarget+(m.winBy===2?" · thắng cách biệt 2":" · chạm điểm")+
    " · "+(m.status==="completed"?"Đã kết thúc":m.status==="live"?"Đang thi đấu":"Chưa bắt đầu"),"op-small"));
