@@ -25,7 +25,7 @@ await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const browser=await chromium.launch({headless:true});
 const base="http://127.0.0.1:"+server.address().port;
 try{
- for(const viewport of [{width:390,height:844},{width:1280,height:850}]){
+ for(const viewport of [{width:320,height:760},{width:390,height:844},{width:1280,height:850}]){
   const f=await accountFixture();
   const page=await browser.newPage({viewport});
   page.setDefaultTimeout(12000);
@@ -44,6 +44,12 @@ try{
    await page.addInitScript(token=>{if(!localStorage.getItem("pickle-api-token-v1"))localStorage.setItem("pickle-api-token-v1",token)},f.tokens.organizer);
    await page.goto(base+"/open-play-admin.html");
    await page.locator("#workspace:not(.hidden)").waitFor();
+   const adminType=await page.evaluate(()=>({
+     body:getComputedStyle(document.body).fontFamily,
+     hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily
+   }));
+   assert.match(adminType.body,/Plus Jakarta Sans/);
+   assert.match(adminType.hero,/Barlow Condensed/);
    await page.locator("#title").fill("Open Play UI Test "+viewport.width);
    await page.locator("#startsAt").fill("2026-11-01T11:00");
    await page.locator("#createSession button[type=submit]").click();
@@ -60,6 +66,14 @@ try{
    await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
    await page.goto(base+"/open-play-discover.html");
    await page.locator("#sessions article").first().waitFor();
+   const playerType=await page.evaluate(()=>({
+     body:getComputedStyle(document.body).fontFamily,
+     hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily,
+     heroClipped:document.querySelector(".op-hero h1").scrollWidth>document.querySelector(".op-hero h1").clientWidth+2
+   }));
+   assert.match(playerType.body,/Plus Jakarta Sans/);
+   assert.match(playerType.hero,/Barlow Condensed/);
+   assert.equal(playerType.heroClipped,false,"Vietnamese hero heading should not clip");
    await page.locator("#sessionSearch").fill("khong-co-buoi-choi-nao");
    await page.locator("#sessions").filter({hasText:"Không tìm thấy lịch phù hợp"}).waitFor();
    await page.locator("#sessionSearch").fill("Open Play UI Test");
