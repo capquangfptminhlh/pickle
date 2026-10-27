@@ -212,7 +212,8 @@ async function loadPhysicalCourts(id){
   box.value=court.id;box.name="opPhysicalCourt";
   box.disabled=!court.available||locked;
   box.checked=physicalBookings.some(b=>b.courtId===court.id);
-  const desc=item("span",court.name+(court.available?" · Có thể giữ":" · Trùng giờ Open Play"),"op-small");
+  const bookedHere=physicalBookings.some(b=>b.courtId===court.id);
+  const desc=item("span",court.name+(bookedHere?" · Đã giữ cho buổi này":court.available?" · Có thể giữ":" · Trùng giờ Open Play"),"op-small");
   line.append(box,desc);list.append(line);
  }
  if(!(data.courts||[]).length)list.append(item("p","Chưa có sân nào thuộc tài khoản hoặc CLB. Hãy tạo sân bên trên.","op-empty"));
