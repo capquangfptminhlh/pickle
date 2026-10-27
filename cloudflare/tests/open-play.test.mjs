@@ -138,3 +138,69 @@ test("staff multi-round court preview is scoped, deterministic and read-only",as
   },before,"preview must never change tournament or Open Play persistence");
  }finally{f.db.close()}
 });
+
+test("day-of-event check-in, confirmed rounds, guarded scores and session completion",async()=>{
+ const f=await accountFixture();
+ try{
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Game Day"},"organizer");
+  assert.equal(made.status,201,JSON.stringify(made.data));
+  const id=made.data.id,base="/api/open-play/sessions/"+id;
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('d1','First',2.5),('d2','Second',2.5),('d3','Third',2.5),('d4','Fourth',2.5)");
+  for(const playerId of ["d1","d2","d3","d4"]){
+   assert.equal((await api(f,base+"/registrations","POST",{playerId},"organizer")).status,201);
+  }
+  assert.equal((await api(f,base+"/plan","GET",undefined,null)).status,401);
+  assert.equal((await api(f,base+"/plan","GET",undefined,"local")).status,403);
+  assert.equal((await api(f,base+"/check-in/d1","POST",{checkedIn:true},"local")).status,403);
+  assert.equal((await api(f,base+"/check-in/not-a-player","POST",{checkedIn:true},"organizer")).status,404);
+  assert.equal((await api(f,base+"/check-in/d1","POST",{checkedIn:"yes"},"organizer")).status,400);
+  assert.equal((await api(f,base+"/plan","POST",{rounds:2,courts:1},"organizer")).status,422);
+  for(const playerId of ["d1","d2","d3","d4"]){
+   assert.equal((await api(f,base+"/check-in/"+playerId,"POST",{checkedIn:true},"organizer")).status,200);
+  }
+  let current=await api(f,base+"/plan","GET",undefined,"organizer");
+  assert.equal(current.status,200);assert.equal(current.data.checkins.length,4);assert.equal(current.data.plan,null);
+  assert.equal((await api(f,base+"/plan","POST",{rounds:2,courts:1,pointTarget:13},"organizer")).status,400);
+  const confirmed=await api(f,base+"/plan","POST",{rounds:2,courts:1,pointTarget:21,winBy:1},"organizer");
+  assert.equal(confirmed.status,201,JSON.stringify(confirmed.data));
+  assert.equal(confirmed.data.plan.matches.length,2);
+  assert.equal(confirmed.data.previewOnly,false);
+  const match=confirmed.data.plan.matches[0];
+  assert.equal(match.status,"scheduled");
+  assert.equal(new Set([...match.teamA,...match.teamB]).size,4);
+  assert.equal((await api(f,base+"/plan","POST",{rounds:2,courts:1},"organizer")).status,409);
+  assert.equal((await api(f,base+"/check-in/d1","POST",{checkedIn:false},"organizer")).status,409);
+  assert.equal((await api(f,base+"/registrations/d1/cancel","POST",{},"organizer")).status,409);
+  assert.equal((await api(f,base,"PATCH",{status:"closed"},"organizer")).status,409);
+  const scoreRoute=base+"/matches/"+match.id+"/score";
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:0,scoreA:1,scoreB:0,finish:false},"local")).status,403);
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:0,scoreA:-1,scoreB:0,finish:false},"organizer")).status,400);
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:0,scoreA:10,scoreB:9,finish:true},"organizer")).status,422);
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:0,scoreA:21,scoreB:19,finish:false},"organizer")).status,422);
+  const live=await api(f,scoreRoute,"PATCH",{version:0,scoreA:5,scoreB:4,finish:false},"organizer");
+  assert.equal(live.status,200,JSON.stringify(live.data));assert.equal(live.data.version,1);assert.equal(live.data.status,"live");
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:0,scoreA:8,scoreB:4,finish:false},"organizer")).status,409);
+  const finished=await api(f,scoreRoute,"PATCH",{version:1,scoreA:21,scoreB:19,finish:true},"organizer");
+  assert.equal(finished.status,200);assert.equal(finished.data.status,"completed");
+  assert.equal((await api(f,scoreRoute,"PATCH",{version:2,scoreA:21,scoreB:20,finish:true},"organizer")).status,409);
+  const remaining=confirmed.data.plan.matches[1];
+  assert.equal((await api(f,base,"PATCH",{status:"closed"},"organizer")).status,409);
+  const finishLast=await api(f,base+"/matches/"+remaining.id+"/score","PATCH",{version:0,scoreA:17,scoreB:21,finish:true},"organizer");
+  assert.equal(finishLast.status,200,JSON.stringify(finishLast.data));
+  assert.equal((await api(f,base,"PATCH",{status:"closed"},"organizer")).status,200);
+  current=await api(f,base+"/plan","GET",undefined,"organizer");
+  assert.equal(current.data.plan.matches.every(m=>m.status==="completed"),true);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0,"tournament score events remain isolated");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_matches").get().n,2);
+  assert.ok(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_match'").get().n>=3);
+ }finally{f.db.close()}
+});
+test("game-day scoring cannot read or change another organizer's schedule",async()=>{
+ const f=await accountFixture();
+ try{
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,title:"Hidden Open Play"},"organizer");
+  const id=made.data.id;
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/plan","GET",undefined,"local")).status,403);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/matches/random/score","PATCH",{scoreA:21,scoreB:0,version:0,finish:true},"local")).status,403);
+ }finally{f.db.close()}
+});
