@@ -92,7 +92,7 @@ jobs:
       - name: iPhone PWA safe-area regression
         run: node --test scripts/pwa-ios-safe-area.test.mjs
       - name: Open Play pairing engine tests
-        run: node --test scripts/open-play.test.mjs scripts/open-play-page.test.mjs
+        run: node --test scripts/open-play.test.mjs scripts/open-play-page.test.mjs scripts/open-play-admin.test.mjs
       - name: Syntax check
         run: |
           node --check assets/motion-system.js
@@ -107,6 +107,8 @@ jobs:
           node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
+          node --check assets/open-play-admin.js
+          node --check assets/open-play-page.js
           node --check assets/match-live.js
           node --check assets/admin-modules.js
           node --check assets/admin-crud.js
