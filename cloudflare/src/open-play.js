@@ -1,6 +1,7 @@
 import {ok,fail,bodyJson,route,uid,nowIso,audit} from "./util.js";
 import {authenticate} from "./auth.js";
 import {buildOpenPlayPairs} from "../../shared/open-play.js";
+import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
 
 const STAFF=new Set(["super_admin","organizer","club_manager"]);
 const problem=(code,status=400)=>Object.assign(new Error(code),{status});
@@ -167,6 +168,23 @@ export async function handleOpenPlay(request,env){
       await audit(env,user,"open_play_registration",m.id+":"+m.playerId,"CANCEL",old,{status:"cancelled"});
     }
     return ok({sessionId:m.id,playerId:m.playerId,status:"cancelled"},request,env);
+  }
+  m=route(path,"/api/open-play/sessions/:id/rounds/preview");
+  if(m&&method==="GET"){
+    const session=await scopedSession(env,user,m.id);
+    const players=await dbRows(env,"SELECT p.id,p.rating FROM open_play_registrations r JOIN players p ON p.id=r.player_id WHERE r.session_id=? AND r.status='registered' AND p.active=1",m.id);
+    const params=new URL(request.url).searchParams;
+    try{
+      const result=previewOpenPlayRounds(players,{
+        rounds:params.get("rounds")??3,courtCount:params.get("courts")??1,
+        maxCombinedRating:Number(session.max_combined_rating),
+        tolerance:Number(session.tolerance)
+      });
+      // No round, court booking, opponent, referee or score is persisted.
+      return ok({sessionId:m.id,...result},request,env);
+    }catch(e){
+      return fail(e.message||"OPEN_PLAY_ROUND_PREVIEW_FAILED",request,env,422);
+    }
   }
   m=route(path,"/api/open-play/sessions/:id/pairs");
   if(m&&method==="GET"){
