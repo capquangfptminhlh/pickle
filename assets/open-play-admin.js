@@ -59,9 +59,9 @@ async function loadSession(id){
  const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id));
  currentId=id;currentSession=data.session;roster=data.registrations||[];
  $("selectedTitle").textContent=currentSession.title;
- const flag=$("sessionBadge");flag.replaceWith(labelBadge(currentSession.status));
- const badge=document.querySelector(".op-panel-header #sessionBadge");
- if(!badge){const el=document.querySelector(".op-panel-header h2#selectedTitle").nextElementSibling;el.id="sessionBadge"}
+ const flag=labelBadge(currentSession.status);
+ flag.id="sessionBadge";
+ $("sessionBadge").replaceWith(flag);
  const count=roster.filter(p=>p.status==="registered").length;
  detail(fmtDate(currentSession.startsAt)+" · "+(currentSession.courtLabel||"Chưa chọn sân")+
    " · "+labels[currentSession.status]+" · Đăng ký công khai: "+(currentSession.selfSignupEnabled?"ĐANG BẬT":"TẮT"));
