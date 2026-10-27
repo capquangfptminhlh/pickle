@@ -22,7 +22,7 @@ async function sessionForStaff(env,user,id){
 async function loadPlan(env,id){
   const plan=await dbOne(env,"SELECT * FROM open_play_plans WHERE session_id=?",id);
   if(!plan)return null;
-  const matches=await dbRows(env,"SELECT * FROM open_play_matches WHERE session_id=? ORDER BY round_no,court_no",id);
+  const matches=await dbRows(env,"SELECT m.*,a.referee_user_id FROM open_play_matches m LEFT JOIN open_play_match_referees a ON a.match_id=m.id WHERE m.session_id=? ORDER BY m.round_no,m.court_no",id);
   return {
     sessionId:id,roundCount:Number(plan.round_count),courtCount:Number(plan.court_count),
     pointTarget:Number(plan.point_target),winBy:Number(plan.win_by),createdAt:plan.created_at,
