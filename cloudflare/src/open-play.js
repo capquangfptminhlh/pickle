@@ -66,6 +66,13 @@ async function registerPlayer(env,user,session,playerId){
 export async function handleOpenPlay(request,env){
   const path=new URL(request.url).pathname,method=request.method.toUpperCase();
   if(!path.startsWith("/api/open-play/"))return null;
+  if(path==="/api/open-play/me"&&method==="GET"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const players=await dbRows(env,"SELECT id,full_name AS name,rating FROM players WHERE user_id=? AND active=1 ORDER BY full_name,id LIMIT 20",member.id);
+    const registrations=await dbRows(env,"SELECT r.session_id AS sessionId,r.player_id AS playerId,r.status,s.title,s.starts_at AS startsAt FROM open_play_registrations r JOIN players p ON p.id=r.player_id JOIN open_play_sessions s ON s.id=r.session_id WHERE p.user_id=? ORDER BY s.starts_at DESC LIMIT 100",member.id);
+    return ok({players,registrations},request,env);
+  }
   if(path==="/api/open-play/public/sessions"&&method==="GET"){
     const sessions=await dbRows(env,"SELECT id,title,club_id,starts_at,court_label,max_players,max_combined_rating,tolerance FROM open_play_sessions WHERE status='open' AND self_signup_enabled=1 AND starts_at>=? ORDER BY starts_at LIMIT 100",nowIso());
     return ok(sessions.map(row=>({id:row.id,title:row.title,clubId:row.club_id||null,startsAt:row.starts_at,courtLabel:row.court_label||"",maxPlayers:Number(row.max_players),maxCombinedRating:Number(row.max_combined_rating),tolerance:Number(row.tolerance)})),request,env);
