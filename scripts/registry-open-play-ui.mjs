@@ -130,13 +130,22 @@ try{
     await page.getByRole("button",{name:"Check-in Day Player "+i}).click();
     await page.locator("#checkedInCount").filter({hasText:i+" VĐV"}).waitFor();
    }
+   // Register and reserve a named Open Play court, then confirm official rounds.
+   await page.locator("#physicalCourtName").fill("Sân UI "+viewport.width);
+   await page.locator("#createPhysicalCourt button[type=submit]").click();
+   await page.locator("#physicalCourtCatalog").filter({hasText:"Sân UI "+viewport.width}).waitFor();
+   await page.locator('#physicalCourtCatalog input[name="opPhysicalCourt"]').first().check();
+   page.on("dialog",dialog=>dialog.type()==="prompt"?dialog.accept("Điều chỉnh điểm sau khi đối chiếu biên bản trận"):dialog.accept());
+   await page.locator("#reservePhysicalCourts").click();
+   await page.locator("#physicalCourtStatus").filter({hasText:"Đã giữ 1 sân"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=? AND status='active'").get(id).n,1);
    await page.locator("#roundCount").fill("2");
    await page.locator("#courtCount").fill("1");
    await page.locator("#pointTarget").selectOption("11");
-   page.on("dialog",dialog=>dialog.type()==="prompt"?dialog.accept("Điều chỉnh điểm sau khi đối chiếu biên bản trận"):dialog.accept());
    await page.locator("#confirmRounds").click();
    await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
    assert.equal(await page.locator("#matches article").count(),2);
+   await page.locator("#matches article").first().filter({hasText:"Sân UI "+viewport.width}).waitFor();
    await page.screenshot({path:resolve(snapshotDir,"open-play-day-"+viewport.width+".png"),fullPage:true});
    // BTC assigns a specific match; referee may ONLY score that match.
    let firstMatch=page.locator("#matches article").first();
