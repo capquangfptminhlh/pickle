@@ -11,9 +11,18 @@ CREATE TABLE IF NOT EXISTS open_play_venue_courts (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_op_club_unique_court
   ON open_play_venue_courts(club_id,name) WHERE club_id IS NOT NULL;
+-- One atomic reservation header per session prevents two simultaneous plans for the same event.
+CREATE TABLE IF NOT EXISTS open_play_court_reservations (
+  session_id TEXT PRIMARY KEY REFERENCES open_play_sessions(id) ON DELETE CASCADE,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','released')),
+  created_by TEXT NOT NULL REFERENCES app_users(id),
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS open_play_court_bookings (
   id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL REFERENCES open_play_sessions(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL REFERENCES open_play_court_reservations(session_id) ON DELETE CASCADE,
   court_id TEXT NOT NULL REFERENCES open_play_venue_courts(id),
   starts_at TEXT NOT NULL,
   ends_at TEXT NOT NULL,
