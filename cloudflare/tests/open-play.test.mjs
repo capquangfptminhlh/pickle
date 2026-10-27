@@ -377,3 +377,61 @@ test("explicit referee assignment grants scoring for exactly one Open Play match
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
  }finally{f.db.close()}
 });
+
+test("internal venue court reservations block overlapping times and bind physical labels to rounds",async()=>{
+ const f=await accountFixture();
+ try{
+  const own=await api(f,"/api/open-play/courts","POST",{name:"Sân 1"},"organizer");
+  const second=await api(f,"/api/open-play/courts","POST",{name:"Sân 2"},"organizer");
+  assert.equal(own.status,201,JSON.stringify(own.data));
+  assert.equal(second.status,201,JSON.stringify(second.data));
+  const c1=own.data.id,c2=second.data.id;
+  assert.equal((await api(f,"/api/open-play/courts","POST",{name:"Sân 1"},"organizer")).status,409);
+  assert.equal((await api(f,"/api/open-play/courts","POST",{name:"Sân 3",clubId:"someone-else"},"organizer")).status,403);
+  assert.equal((await api(f,"/api/open-play/courts","POST",{name:"Trái phép"},"local")).status,403);
+  const event=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Physical Court A"},"organizer");
+  const overlapping=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Physical Court B"},"organizer");
+  const adjacent=await api(f,"/api/open-play/sessions","POST",{...draft,startsAt:"2026-11-01T13:00:00+07:00",maxPlayers:4,title:"Physical Court C"},"organizer");
+  assert.equal(event.status,201);assert.equal(overlapping.status,201);assert.equal(adjacent.status,201);
+  const base="/api/open-play/sessions/"+event.data.id,base2="/api/open-play/sessions/"+overlapping.data.id;
+  const url=base+"/courts";
+  assert.equal((await api(f,url,"GET",undefined,null)).status,401);
+  assert.equal((await api(f,url,"GET",undefined,"local")).status,403);
+  const before=await api(f,url+"?durationMinutes=120","GET",undefined,"organizer");
+  assert.equal(before.status,200,JSON.stringify(before.data));
+  assert.equal(before.data.courts.filter(x=>x.available).length,2);
+  assert.equal((await api(f,url+"/reserve","POST",{courtIds:[c1,c1],durationMinutes:120},"organizer")).status,400);
+  assert.equal((await api(f,url+"/reserve","POST",{courtIds:[c1,c2],durationMinutes:31},"organizer")).status,400);
+  const booked=await api(f,url+"/reserve","POST",{courtIds:[c1,c2],durationMinutes:120},"organizer");
+  assert.equal(booked.status,201,JSON.stringify(booked.data));
+  assert.equal(booked.data.bookings.length,2);
+  assert.equal((await api(f,url+"/reserve","POST",{courtIds:[c1],durationMinutes:120},"organizer")).status,409);
+  const seen=await api(f,base2+"/courts?durationMinutes=120","GET",undefined,"organizer");
+  assert.equal(seen.status,200);
+  assert.equal(seen.data.courts.filter(x=>x.available).length,0);
+  assert.equal((await api(f,base2+"/courts/reserve","POST",{courtIds:[c1],durationMinutes:120},"organizer")).status,409);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=?").get(overlapping.data.id).n,0,
+    "a failed overlap must never partly reserve a court");
+  assert.equal((await api(f,"/api/open-play/sessions/"+adjacent.data.id+"/courts/reserve","POST",
+    {courtIds:[c1],durationMinutes:120},"organizer")).status,201,"adjacent bookings may meet exactly at boundary");
+  assert.equal((await api(f,base+"/plan","POST",{rounds:1,courts:2},"organizer")).status,422,"check-ins still required");
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('cv1','VĐV 1',2.5),('cv2','VĐV 2',2.5),('cv3','VĐV 3',2.5),('cv4','VĐV 4',2.5)");
+  for(const id of ["cv1","cv2","cv3","cv4"]){
+   assert.equal((await api(f,base+"/registrations","POST",{playerId:id},"organizer")).status,201);
+   assert.equal((await api(f,base+"/check-in/"+id,"POST",{checkedIn:true},"organizer")).status,200);
+  }
+  assert.equal((await api(f,base+"/plan","POST",{rounds:1,courts:1},"organizer")).status,409,
+    "a confirmed physical reservation needs the same court count as the game plan");
+  const confirmed=await api(f,base+"/plan","POST",{rounds:1,courts:2,pointTarget:21,winBy:1},"organizer");
+  assert.equal(confirmed.status,201,JSON.stringify(confirmed.data));
+  assert.equal(confirmed.data.plan.physicalCourtsReserved,true);
+  assert.deepEqual(confirmed.data.plan.courtBookings.map(c=>c.name),["Sân 1","Sân 2"]);
+  assert.equal(confirmed.data.plan.matches[0].physicalCourtName,"Sân 1");
+  assert.equal((await api(f,base+"/courts/reserve","POST",{courtIds:[c2],durationMinutes:120},"organizer")).status,409);
+  assert.equal((await api(f,base,"PATCH",{status:"cancelled"},"organizer")).status,200);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=? AND status='active'").get(event.data.id).n,0);
+  assert.equal((await api(f,base2+"/courts/reserve","POST",{courtIds:[c1],durationMinutes:120},"organizer")).status,201,
+    "cancellation releases the overlapping time slot");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+ }finally{f.db.close()}
+});
