@@ -2,6 +2,7 @@
 "use strict";
 const API=window.PickleAPI,$=id=>document.getElementById(id);
 let currentId=null,currentSession=null,roster=[],account=null,allSessions=[];
+let checkedInIds=new Set(),confirmedPlan=null;
 const labels={open:"Đang mở",closed:"Đã đóng",cancelled:"Đã hủy",registered:"Đã đăng ký"};
 const errorText=e=>({
  OPEN_PLAY_ALREADY_REGISTERED:"VĐV đã có trong danh sách.",
@@ -78,6 +79,7 @@ async function loadSession(id){
  $("closeSignup").disabled=!editable||!currentSession.selfSignupEnabled;
  $("closeSession").disabled=currentSession.status!=="open";
  $("addPlayer").querySelector("button[type=submit]").disabled=!editable||count>=currentSession.maxPlayers;
+ await loadGameDay(id);
  const list=$("roster");list.replaceChildren();
  if(!roster.length){
   list.append(item("li","Chưa có VĐV đăng ký.","op-empty"));
@@ -88,7 +90,15 @@ async function loadSession(id){
    info.append(item("strong",row.name||row.id),item("small",row.rating+" điểm · "+(labels[row.status]||row.status)));
    person.append(item("span",initials(row.name||row.id),"op-avatar"),info);
    li.append(person);
-   if(row.status==="registered"){
+   if(row.status==="registered"&&!confirmedPlan){
+    const attending=checkedInIds.has(row.id);
+    const check=button(attending?"Đã đến ✓":"Check-in",async()=>{
+     await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/check-in/"+encodeURIComponent(row.id),{method:"POST",body:JSON.stringify({checkedIn:!attending})});
+     await loadSession(id);notice((attending?"Đã rút check-in: ":"Đã check-in: ")+(row.name||row.id));
+    },attending?"secondary":"op-btn");
+    check.setAttribute("aria-label",(attending?"Rút check-in ":"Check-in ")+(row.name||row.id));li.append(check);
+   }
+   if(row.status==="registered"&&!confirmedPlan){
     const cancel=button("Hủy",async()=>{
      await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/registrations/"+encodeURIComponent(row.id)+"/cancel",{method:"POST",body:"{}"});
      await loadSession(id);notice("Đã hủy đăng ký "+(row.name||"VĐV")+".");
@@ -126,6 +136,58 @@ async function loadSuggestions(){
    option.value=String(club.id);option.label=String(club.name||club.id);
    list.append(option);
   }
+ }
+}
+async function loadGameDay(id){
+ const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/plan");
+ if(currentId!==id)return;
+ checkedInIds=new Set((data.checkins||[]).map(x=>x.playerId));
+ confirmedPlan=data.plan||null;
+ $("checkedInCount").textContent=checkedInIds.size+" VĐV đến sân";
+ $("confirmationOptions").classList.toggle("hidden",Boolean(confirmedPlan));
+ $("confirmRounds").disabled=Boolean(confirmedPlan)||checkedInIds.size<4||currentSession?.status!=="open";
+ $("confirmRounds").textContent=confirmedPlan?"Lịch đã xác nhận":"Xác nhận vòng & phân sân";
+ const root=$("matches");root.replaceChildren();
+ if(!confirmedPlan){
+  $("gameDayStatus").textContent="Chưa chốt vòng đấu. Hãy check-in ít nhất 4 VĐV rồi xác nhận.";
+  return;
+ }
+ const plan=confirmedPlan;
+ const finished=plan.matches.filter(m=>m.status==="completed").length;
+ $("gameDayStatus").textContent="Đã xác nhận "+plan.roundCount+" vòng / "+plan.courtCount+" sân • "+finished+"/"+plan.matches.length+
+  " trận hoàn thành • Chạm "+plan.pointTarget+(plan.winBy===2?" (thắng cách biệt 2)":" (chạm điểm)")+
+  ". Mỗi trận chỉ nhập điểm trên thẻ của chính trận đó.";
+ const names=new Map(roster.map(p=>[p.id,p.name||p.id]));
+ for(const m of plan.matches){
+  const card=item("article","","op-card");
+  const title=item("h3","Vòng "+m.round+" · Sân "+m.court);
+  const teams=item("p",m.teamA.map(x=>names.get(x)||x).join(" + ")+"  VS  "+m.teamB.map(x=>names.get(x)||x).join(" + "),"op-small");
+  const state=item("span",m.status==="completed"?"Đã kết thúc":m.status==="live"?"Đang đánh":"Chờ thi đấu","op-chip "+(m.status==="completed"?"is-registered":"is-open"));
+  const score=item("div","","op-form-grid"),fields=[];
+  for(const [label,id,value] of [["Đội A","a",m.scoreA],["Đội B","b",m.scoreB]]){
+   const wrap=document.createElement("div"),lab=item("label",label),input=document.createElement("input");
+   input.type="number";input.min="0";input.max="99";input.step="1";input.value=String(value);
+   input.id="op-score-"+m.id+"-"+id;lab.htmlFor=input.id;input.disabled=m.status==="completed";
+   wrap.append(lab,input);score.append(wrap);fields.push(input);
+  }
+  card.append(title,teams,state,score);
+  if(m.status!=="completed"){
+   const action=item("div","","op-actions");
+   action.append(button("Cập nhật điểm",async()=>{
+    const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/score",{
+     method:"PATCH",body:JSON.stringify({version:m.version,scoreA:Number(fields[0].value),scoreB:Number(fields[1].value),finish:false})
+    });
+    await loadGameDay(id);notice("Đã lưu điểm trận sân "+m.court+" · phiên bản "+data.version+".");
+   }));
+   action.append(button("Kết thúc trận",async()=>{
+    const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/score",{
+     method:"PATCH",body:JSON.stringify({version:m.version,scoreA:Number(fields[0].value),scoreB:Number(fields[1].value),finish:true})
+    });
+    await loadGameDay(id);notice("Đã kết thúc trận sân "+m.court+" · "+data.scoreA+"-"+data.scoreB+".");
+   },"secondary"));
+   card.append(action);
+  }
+  root.append(card);
  }
 }
 async function init(){
@@ -181,6 +243,22 @@ $("previewPairs").addEventListener("click",async()=>{
   $("pairResults").textContent=[data.pairs.length+" cặp hợp lệ",...data.pairs.map((p,i)=>"Cặp "+(i+1)+": "+p.playerIds.map(id=>names.get(id)||id).join(" + ")+" · "+p.combinedRating+" điểm"),
    "Chưa ghép: "+(data.unpairedIds.map(id=>names.get(id)||id).join(", ")||"không có")].join("\n");
  }catch(e){notice("Ghép đôi thất bại: "+errorText(e),true)}finally{btn.disabled=false}
+});
+$("reloadGameDay").addEventListener("click",()=>{if(currentId)loadSession(currentId).catch(e=>notice(errorText(e),true))});
+$("confirmRounds").addEventListener("click",async()=>{
+ if(!currentId||confirmedPlan)return;
+ const rounds=Number($("roundCount").value),courts=Number($("courtCount").value);
+ if(!Number.isInteger(rounds)||rounds<1||rounds>12||!Number.isInteger(courts)||courts<1||courts>32){
+  notice("Số vòng phải 1–12 và số sân phải 1–32.",true);return;
+ }
+ if(!window.confirm("Xác nhận lịch thi đấu chính thức? Sau khi xác nhận, danh sách VĐV sẽ khóa và không thể sửa kế hoạch này."))return;
+ const btn=$("confirmRounds");btn.disabled=true;
+ try{
+  const created=await API.request("/api/open-play/sessions/"+encodeURIComponent(currentId)+"/plan",{
+   method:"POST",body:JSON.stringify({rounds,courts,pointTarget:Number($("pointTarget").value),winBy:Number($("winBy").value)})
+  });
+  await loadSession(currentId);notice("Đã chốt "+created.plan.matches.length+" trận Open Play. Có thể nhập điểm ngay.");
+ }catch(e){notice("Không thể xác nhận lịch: "+errorText(e),true);btn.disabled=false}
 });
 $("previewRounds").addEventListener("click",async()=>{
  if(!currentId)return;
