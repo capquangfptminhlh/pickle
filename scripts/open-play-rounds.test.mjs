@@ -5,7 +5,7 @@ const roster=n=>Array.from({length:n},(_,i)=>({id:"p"+String(i).padStart(3,"0"),
 const allAssigned=round=>round.courts.flatMap(c=>[...c.teamA.playerIds,...c.teamB.playerIds]);
 
 test("four players rotate all three unique doubles partnerships",()=>{
- const result=previewOpenPlayRounds(roster(4),{rounds:3,courtCount:1,maxCombinedRating:5.2});
+ const result=previewOpenPlayRounds(roster(4).map(p=>({...p,rating:2.5})),{rounds:3,courtCount:1,maxCombinedRating:5.2});
  assert.equal(result.rounds.length,3);
  const pairs=result.rounds.flatMap(r=>r.courts.flatMap(c=>[c.teamA,c.teamB]));
  assert.equal(pairs.length,6);
