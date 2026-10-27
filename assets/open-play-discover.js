@@ -161,7 +161,7 @@ function renderMyMatches(){
  if(!myMatches.length){box.append(emptyState("Chưa có trận được phân","Khi BTC xác nhận các vòng, trận của anh/chị sẽ hiển thị tại đây."));return}
  for(const m of myMatches){
   const card=el("article","","op-card");
-  card.append(el("strong",m.title),el("p",when(m.startsAt)+" · Vòng "+m.round+" · Sân "+m.court,"op-small"));
+  card.append(el("strong",m.title),el("p",when(m.startsAt)+" · Vòng "+m.round+" · "+(m.physicalCourtName||"Sân mô phỏng "+m.court),"op-small"));
   const result=el("div","Đội "+m.myTeam+" của bạn: "+m.scoreA+" – "+m.scoreB,"op-card-date");
   const state=el("span",m.status==="completed"?"Đã kết thúc":m.status==="live"?"Đang chơi":"Chưa bắt đầu",
     "op-chip "+(m.status==="completed"?"is-registered":"is-open"));
