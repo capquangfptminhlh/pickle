@@ -1,5 +1,6 @@
 import {bodyJson,uid,nowIso,ok,fail,route,audit} from "./util.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
+import {authenticate} from "./auth.js";
 
 // Staff-only match-day operations. Never change the tournament matches/score_events tables.
 const dbOne=(env,sql,...args)=>env.DB.prepare(sql).bind(...args).first();
@@ -27,9 +28,69 @@ async function loadPlan(env,id){
     pointTarget:Number(plan.point_target),winBy:Number(plan.win_by),createdAt:plan.created_at,
     matches:matches.map(m=>({id:m.id,round:m.round_no,court:m.court_no,teamA:JSON.parse(m.team_a_json),
       teamB:JSON.parse(m.team_b_json),scoreA:m.score_a,scoreB:m.score_b,
-      status:m.status,version:m.version,completedAt:m.completed_at}))
+      status:m.status,version:m.version,completedAt:m.completed_at,refereeUserId:m.referee_user_id||null}))
   };
 }
+// Shared versioned scoring path for BTC and assigned referees. Referee scope
+// is rechecked in the UPDATE itself so a concurrent revocation cannot race a write.
+async function saveOpenPlayScore(request,env,user,sessionId,matchId,assignedRefereeId=null){
+  const session=await dbOne(env,"SELECT status FROM open_play_sessions WHERE id=?",sessionId);
+  if(!session||session.status!=="open")return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
+  const old=await dbOne(env,"SELECT * FROM open_play_matches WHERE id=? AND session_id=?",matchId,sessionId);
+  if(!old)return fail("OPEN_PLAY_MATCH_NOT_FOUND",request,env,404);
+  if(old.status==="completed")return fail("OPEN_PLAY_MATCH_COMPLETED",request,env,409);
+  const plan=await dbOne(env,"SELECT point_target,win_by FROM open_play_plans WHERE session_id=?",sessionId);
+  if(!plan)return fail("OPEN_PLAY_PLAN_NOT_FOUND",request,env,404);
+  const b=await bodyJson(request);
+  const version=asInt(b.version,0,2147483647,"INVALID_OPEN_PLAY_SCORE_VERSION");
+  const a=asInt(b.scoreA,0,99,"INVALID_OPEN_PLAY_SCORE_A");
+  const c=asInt(b.scoreB,0,99,"INVALID_OPEN_PLAY_SCORE_B");
+  if(typeof b.finish!=="boolean")return fail("INVALID_OPEN_PLAY_FINISH_FLAG",request,env,400);
+  if(b.finish&&(Math.max(a,c)<plan.point_target||Math.abs(a-c)<plan.win_by))
+    return fail("OPEN_PLAY_INVALID_FINAL_SCORE",request,env,422);
+  if(!b.finish&&(Math.max(a,c)>=plan.point_target&&Math.abs(a-c)>=plan.win_by))
+    return fail("OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH",request,env,422);
+  const ts=nowIso(),status=b.finish?"completed":"live";
+  const sql="UPDATE open_play_matches SET score_a=?,score_b=?,status=?,version=version+1,completed_at=?,updated_at=? WHERE id=? AND session_id=? AND version=? AND status<>'completed'";
+  const refereeGuard=" AND EXISTS(SELECT 1 FROM open_play_match_referees WHERE match_id=? AND referee_user_id=?)";
+  const params=[a,c,status,b.finish?ts:null,ts,matchId,sessionId,version];
+  const result=assignedRefereeId
+    ?await env.DB.prepare(sql+refereeGuard).bind(...params,matchId,assignedRefereeId).run()
+    :await env.DB.prepare(sql).bind(...params).run();
+  if(changes(result)!==1)return fail("OPEN_PLAY_SCORE_VERSION_OR_REFEREE_CONFLICT",request,env,409);
+  const next=await dbOne(env,"SELECT * FROM open_play_matches WHERE id=? AND session_id=?",matchId,sessionId);
+  const data={id:next.id,sessionId,scoreA:next.score_a,scoreB:next.score_b,status:next.status,version:next.version};
+  await audit(env,user,"open_play_match",matchId,b.finish?"FINISH":"SCORE",
+    {scoreA:old.score_a,scoreB:old.score_b,version:old.version},data);
+  return ok(data,request,env);
+}
+// This handler is called before staff-only routing and recognizes ONLY the
+// referee namespace. Unassigned referee tokens never gain organizer endpoints.
+export async function handleOpenPlayReferee(request,env){
+  const path=new URL(request.url).pathname,method=request.method.toUpperCase();
+  const list=path==="/api/open-play/referee/matches"&&method==="GET";
+  const target=route(path,"/api/open-play/referee/matches/:matchId/score");
+  if(!list&&!(target&&method==="PATCH"))return null;
+  const user=await authenticate(request,env);
+  if(!user)return fail("AUTH_REQUIRED",request,env,401);
+  if(user.role!=="referee")return fail("OPEN_PLAY_REFEREE_FORBIDDEN",request,env,403);
+  if(list){
+    const rows=await dbRows(env,`SELECT m.id,m.session_id AS sessionId,m.round_no AS round,m.court_no AS court,
+      m.team_a_json AS teamA,m.team_b_json AS teamB,m.score_a AS scoreA,m.score_b AS scoreB,
+      m.status,m.version,s.title,s.starts_at AS startsAt,s.status AS sessionStatus,
+      p.point_target AS pointTarget,p.win_by AS winBy
+      FROM open_play_match_referees a JOIN open_play_matches m ON m.id=a.match_id
+      JOIN open_play_sessions s ON s.id=m.session_id JOIN open_play_plans p ON p.session_id=s.id
+      WHERE a.referee_user_id=? ORDER BY s.starts_at DESC,m.round_no,m.court_no LIMIT 100`,user.id);
+    return ok(rows.map(x=>({...x,teamA:JSON.parse(x.teamA),teamB:JSON.parse(x.teamB)})),request,env);
+  }
+  const assigned=await dbOne(env,
+    "SELECT m.session_id AS sessionId FROM open_play_match_referees a JOIN open_play_matches m ON m.id=a.match_id WHERE a.match_id=? AND a.referee_user_id=?",
+    target.matchId,user.id);
+  if(!assigned)return fail("OPEN_PLAY_REFEREE_FORBIDDEN",request,env,403);
+  return saveOpenPlayScore(request,env,user,assigned.sessionId,target.matchId,user.id);
+}
+
 export async function handleOpenPlayGameDay(request,env,user){
   const url=new URL(request.url),path=url.pathname,method=request.method.toUpperCase();
   let m=route(path,"/api/open-play/sessions/:id/check-in/:playerId");
@@ -103,6 +164,34 @@ export async function handleOpenPlayGameDay(request,env,user){
     await audit(env,user,"open_play_plan",m.id,"CONFIRM",null,{rounds,courts,matchCount:saved.matches.length});
     return ok({plan:saved,previewOnly:false},request,env,201);
   }
+  m=route(path,"/api/open-play/sessions/:id/matches/:matchId/referee");
+  if(m&&method==="PATCH"){
+    const session=await sessionForStaff(env,user,m.id);
+    if(session.status!=="open")return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
+    const match=await dbOne(env,"SELECT id,status FROM open_play_matches WHERE id=? AND session_id=?",m.matchId,m.id);
+    if(!match)return fail("OPEN_PLAY_MATCH_NOT_FOUND",request,env,404);
+    if(match.status==="completed")return fail("OPEN_PLAY_MATCH_COMPLETED",request,env,409);
+    const b=await bodyJson(request);
+    if(typeof b.refereeUserId!=="string"&&b.refereeUserId!==null)
+      return fail("INVALID_OPEN_PLAY_REFEREE_ID",request,env,400);
+    const id=typeof b.refereeUserId==="string"?b.refereeUserId.trim():"";
+    if(id.length>128)return fail("INVALID_OPEN_PLAY_REFEREE_ID",request,env,400);
+    if(id){
+      const ref=await dbOne(env,"SELECT id FROM app_users WHERE id=? AND role='referee' AND active=1",id);
+      if(!ref)return fail("OPEN_PLAY_REFEREE_NOT_FOUND",request,env,404);
+    }
+    const before=await dbOne(env,"SELECT referee_user_id AS refereeUserId FROM open_play_match_referees WHERE match_id=?",m.matchId);
+    if(before?.refereeUserId===(id||null))return ok({matchId:m.matchId,refereeUserId:id||null},request,env);
+    if(id){
+      await env.DB.prepare("INSERT INTO open_play_match_referees(match_id,referee_user_id,assigned_by,assigned_at) VALUES(?,?,?,?) ON CONFLICT(match_id) DO UPDATE SET referee_user_id=excluded.referee_user_id,assigned_by=excluded.assigned_by,assigned_at=excluded.assigned_at")
+        .bind(m.matchId,id,user.id,nowIso()).run();
+    }else{
+      await env.DB.prepare("DELETE FROM open_play_match_referees WHERE match_id=?").bind(m.matchId).run();
+    }
+    const after={matchId:m.matchId,refereeUserId:id||null};
+    await audit(env,user,"open_play_referee",m.matchId,id?"ASSIGN":"REVOKE",before,after);
+    return ok(after,request,env);
+  }
   // Correct a FINAL score without erasing its audit trail. Correction is staff-only
   // and allowed after session closure, but never after cancellation.
   m=route(path,"/api/open-play/sessions/:id/matches/:matchId/correction");
@@ -150,30 +239,8 @@ export async function handleOpenPlayGameDay(request,env,user){
   }
   m=route(path,"/api/open-play/sessions/:id/matches/:matchId/score");
   if(m&&method==="PATCH"){
-    const session=await sessionForStaff(env,user,m.id);
-    if(session.status==="cancelled")return fail("OPEN_PLAY_CANCELLED",request,env,409);
-    const old=await dbOne(env,"SELECT * FROM open_play_matches WHERE id=? AND session_id=?",m.matchId,m.id);
-    if(!old)return fail("OPEN_PLAY_MATCH_NOT_FOUND",request,env,404);
-    if(old.status==="completed")return fail("OPEN_PLAY_MATCH_COMPLETED",request,env,409);
-    const plan=await dbOne(env,"SELECT point_target,win_by FROM open_play_plans WHERE session_id=?",m.id);
-    if(!plan)return fail("OPEN_PLAY_PLAN_NOT_FOUND",request,env,404);
-    const b=await bodyJson(request);
-    const version=asInt(b.version,0,2147483647,"INVALID_OPEN_PLAY_SCORE_VERSION");
-    const a=asInt(b.scoreA,0,99,"INVALID_OPEN_PLAY_SCORE_A");
-    const c=asInt(b.scoreB,0,99,"INVALID_OPEN_PLAY_SCORE_B");
-    if(typeof b.finish!=="boolean")return fail("INVALID_OPEN_PLAY_FINISH_FLAG",request,env,400);
-    if(b.finish&&(Math.max(a,c)<plan.point_target||Math.abs(a-c)<plan.win_by))
-      return fail("OPEN_PLAY_INVALID_FINAL_SCORE",request,env,422);
-    if(!b.finish&&(Math.max(a,c)>=plan.point_target&&Math.abs(a-c)>=plan.win_by))
-      return fail("OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH",request,env,422);
-    const ts=nowIso();
-    const result=await env.DB.prepare("UPDATE open_play_matches SET score_a=?,score_b=?,status=?,version=version+1,completed_at=?,updated_at=? WHERE id=? AND session_id=? AND version=? AND status<>'completed'")
-      .bind(a,c,b.finish?"completed":"live",b.finish?ts:null,ts,m.matchId,m.id,version).run();
-    if(changes(result)!==1)return fail("OPEN_PLAY_SCORE_VERSION_CONFLICT",request,env,409);
-    const next=await dbOne(env,"SELECT * FROM open_play_matches WHERE id=? AND session_id=?",m.matchId,m.id);
-    const data={id:next.id,sessionId:m.id,scoreA:next.score_a,scoreB:next.score_b,status:next.status,version:next.version};
-    await audit(env,user,"open_play_match",next.id,b.finish?"FINISH":"SCORE",{scoreA:old.score_a,scoreB:old.score_b,version:old.version},data);
-    return ok(data,request,env);
+    await sessionForStaff(env,user,m.id);
+    return saveOpenPlayScore(request,env,user,m.id,m.matchId);
   }
   return null;
 }
