@@ -347,6 +347,8 @@ test("explicit referee assignment grants scoring for exactly one Open Play match
   assert.equal(list.status,200,JSON.stringify(list.data));
   assert.equal(list.data.length,1);
   assert.equal(list.data[0].id,first.id);
+  assert.deepEqual([...list.data[0].teamANames,...list.data[0].teamBNames].sort(),["A","B","C","D"]);
+  assert.equal(list.data[0].contact,undefined);
   assert.equal(list.data[0].email,undefined);
   assert.equal(list.data[0].phone,undefined);
   assert.equal((await api(f,otherScore,"PATCH",{version:0,scoreA:2,scoreB:0,finish:false},"local")).status,403);
