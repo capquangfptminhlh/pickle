@@ -13,7 +13,7 @@ Status: prototype on PR #40, **not deployed**.
 2. Design Open Play tables: sessions, participants, invitations, courts, rounds, audit history.
 3. Migrate databases additively; do not alter the existing score events and brackets.
 4. Enforce authorized organizer mutations and check-in with server-side validation.
-5. Support >16 players through scalable matching; 16-player cap is not sufficient for club sessions.
+5. Support >256 players and fairness/round-robin rotation in later milestones; current matching supports 256.
 6. Create public registration page; private organizer console; waitlist and cancellation.
 7. Add race/concurrency tests and duplicate-registration protection.
 8. Add observability, rate limiting, backup/restore and explicit deploy/rollback steps.
