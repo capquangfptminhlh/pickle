@@ -23,3 +23,9 @@ test("rejects invalid or duplicated players and oversized batches",()=>{
  assert.throws(()=>buildOpenPlayPairs([{id:"a",rating:"no"}]),/INVALID_PLAYER_RATING/);
  assert.throws(()=>buildOpenPlayPairs(Array.from({length:17},(_,i)=>({id:String(i),rating:2}))),/OPEN_PLAY_BATCH_TOO_LARGE/);
 });
+
+test("missing or blank ratings are rejected",()=>{
+ for(const rating of [undefined,null,"", "   "]){
+  assert.throws(()=>buildOpenPlayPairs([{id:"a",rating}]),/INVALID_PLAYER_RATING/);
+ }
+});
