@@ -146,6 +146,9 @@ test("day-of-event check-in, confirmed rounds, guarded scores and session comple
   assert.equal(made.status,201,JSON.stringify(made.data));
   const id=made.data.id,base="/api/open-play/sessions/"+id;
   f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('d1','First',2.5),('d2','Second',2.5),('d3','Third',2.5),('d4','Fourth',2.5)");
+  f.db.exec("INSERT INTO app_users(id,email,display_name,role,password_hash) VALUES ('viewer','viewer@test.invalid','Viewer','player','unused')");
+  f.db.exec("UPDATE players SET user_id='viewer' WHERE id='d1'");
+  f.tokens.viewer=await signSession(f.env,f.db.prepare("SELECT * FROM app_users WHERE id='viewer'").get());
   for(const playerId of ["d1","d2","d3","d4"]){
    assert.equal((await api(f,base+"/registrations","POST",{playerId},"organizer")).status,201);
   }
@@ -164,6 +167,12 @@ test("day-of-event check-in, confirmed rounds, guarded scores and session comple
   const confirmed=await api(f,base+"/plan","POST",{rounds:2,courts:1,pointTarget:21,winBy:1},"organizer");
   assert.equal(confirmed.status,201,JSON.stringify(confirmed.data));
   assert.equal(confirmed.data.plan.matches.length,2);
+  const athleteGames=await api(f,"/api/open-play/me/matches","GET",undefined,"viewer");
+  assert.equal(athleteGames.status,200);
+  assert.equal(athleteGames.data.length,2,"linked player sees only their own confirmed games");
+  assert.ok(athleteGames.data.every(m=>m.myTeam==="A"||m.myTeam==="B"));
+  assert.equal(athleteGames.data[0].phone,undefined);
+  assert.equal((await api(f,"/api/open-play/me/matches","GET",undefined,null)).status,401);
   assert.equal(confirmed.data.previewOnly,false);
   const match=confirmed.data.plan.matches[0];
   assert.equal(match.status,"scheduled");
@@ -192,6 +201,10 @@ test("day-of-event check-in, confirmed rounds, guarded scores and session comple
   assert.equal(current.data.plan.matches.every(m=>m.status==="completed"),true);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0,"tournament score events remain isolated");
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_matches").get().n,2);
+  const updatedAthleteGames=await api(f,"/api/open-play/me/matches","GET",undefined,"viewer");
+  assert.equal(updatedAthleteGames.status,200);
+  assert.equal(updatedAthleteGames.data.every(m=>m.status==="completed"),true);
+  assert.ok(updatedAthleteGames.data.every(m=>m.scoreA>=0&&m.scoreB>=0));
   assert.ok(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_match'").get().n>=3);
  }finally{f.db.close()}
 });
