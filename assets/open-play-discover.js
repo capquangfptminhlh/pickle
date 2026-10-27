@@ -1,12 +1,15 @@
 (()=>{
 "use strict";
 const api=window.PickleAPI,$=id=>document.getElementById(id);
-let member=null,profiles=[],registrations=[],sessionsCache=[],myMatches=[];
+let member=null,profiles=[],registrations=[],waitlist=[],sessionsCache=[],myMatches=[];
 const errors={
  OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED:"Hồ sơ VĐV này chưa liên kết với tài khoản của bạn.",
  OPEN_PLAY_ALREADY_REGISTERED:"Bạn đã đăng ký buổi chơi này.",
  OPEN_PLAY_FULL_OR_CLOSED:"Buổi chơi đã đủ chỗ hoặc ngừng nhận đăng ký.",
- OPEN_PLAY_NOT_OPEN:"BTC chưa mở hoặc đã đóng đăng ký."
+ OPEN_PLAY_NOT_OPEN:"BTC chưa mở hoặc đã đóng đăng ký.",
+ OPEN_PLAY_WAITLIST_REQUIRES_FULL_SESSION:"Buổi chơi còn chỗ. Hãy đăng ký trực tiếp.",
+ OPEN_PLAY_WAITLIST_UNAVAILABLE:"Buổi chơi chưa mở hàng chờ hoặc đã xác nhận lịch.",
+ OPEN_PLAY_ALREADY_WAITLISTED:"Anh/chị đang có trong danh sách chờ của buổi này."
 };
 const msg=e=>errors[e?.message]||e?.message||"Lỗi mạng";
 const status=(text,error=false)=>{const node=$("notice");node.textContent=text;node.className="op-status"+(error?" error":"")};
@@ -30,12 +33,13 @@ function emptyState(title,description){
 async function reload(){
  status("Đang đồng bộ lịch Open Play…");
  const auth=await api.session();
- member=auth?.user||null;profiles=[];registrations=[];myMatches=[];
+ member=auth?.user||null;profiles=[];registrations=[];waitlist=[];myMatches=[];
  $("loginLink").classList.toggle("hidden",Boolean(member));
  if(member){
   const mine=await api.request("/api/open-play/me");
   profiles=Array.isArray(mine?.players)?mine.players:[];
   registrations=Array.isArray(mine?.registrations)?mine.registrations:[];
+  waitlist=Array.isArray(mine?.waitlist)?mine.waitlist:[];
   const games=await api.request("/api/open-play/me/matches");
   myMatches=Array.isArray(games)?games:[];
   $("accountInfo").textContent="Xin chào "+(member.name||member.email||"VĐV")+
@@ -47,6 +51,7 @@ async function reload(){
  $("myCount").textContent=String(registrations.filter(r=>r.status==="registered").length);
  renderSessions();
  renderMine();
+ renderWaitlist();
  renderMyMatches();
  status("Đã cập nhật. Chúc bạn tìm được buổi chơi phù hợp!");
 }
@@ -66,7 +71,8 @@ function renderSessions(){
   top.append(identity,active);card.append(top);
   const facts=el("div","","op-card-info");
   facts.append(el("span",session.courtLabel||"Địa điểm sẽ thông báo"),
-   el("span",session.maxPlayers+" chỗ"),
+   el("span",session.registeredCount+"/"+session.maxPlayers+" VĐV"),
+   el("span",session.waitingCount+" đang chờ"),
    el("span","Tổng trình ≤ "+session.maxCombinedRating+(session.tolerance?" + "+session.tolerance:"")));
   card.append(facts);
   if(member&&profiles.length){
@@ -80,15 +86,19 @@ function renderSessions(){
    });
    const updateJoinState=()=>{
     const hasRegistration=registrations.some(r=>r.sessionId===session.id&&r.playerId===select.value&&r.status==="registered");
-    join.disabled=hasRegistration;join.textContent=hasRegistration?"✓ Đã tham gia":"Đăng ký buổi chơi";
+    const hasQueue=waitlist.some(r=>r.sessionId===session.id&&r.playerId===select.value);
+    const isFull=Number(session.registeredCount)>=Number(session.maxPlayers);
+    join.disabled=hasRegistration||hasQueue;
+    join.textContent=hasRegistration?"✓ Đã tham gia":hasQueue?"✓ Đang chờ lượt":isFull?"Vào danh sách chờ":"Đăng ký buổi chơi";
    };
    const join=makeButton("Đăng ký buổi chơi",async()=>{
     const id=select.value;
     if(!id)throw Error("Chưa chọn hồ sơ VĐV.");
     const current=registrations.find(r=>r.sessionId===session.id&&r.playerId===id&&r.status==="registered");
     if(current)throw Error("VĐV này đã đăng ký.");
-    await api.request(endpoint(session.id)+"/join",{method:"POST",body:JSON.stringify({playerId:id})});
-    await reload();status("Đã đăng ký Open Play thành công.");
+    const isFull=Number(session.registeredCount)>=Number(session.maxPlayers);
+    await api.request(endpoint(session.id)+(isFull?"/waitlist/join":"/join"),{method:"POST",body:JSON.stringify({playerId:id})});
+    await reload();status(isFull?"Đã vào hàng chờ. Khi có chỗ trống, hệ thống sẽ tự chuyển đăng ký.":"Đã đăng ký Open Play thành công.");
    },"op-btn");
    select.addEventListener("change",updateJoinState);
    updateJoinState();card.append(label,select,join);
@@ -115,6 +125,20 @@ function renderMine(){
   ul.append(li);
  }
  box.append(ul);
+}
+function renderWaitlist(){
+ const box=$("myWaitlist");box.replaceChildren();
+ if(!member){box.append(emptyState("Chưa đăng nhập","Đăng nhập để xem thứ tự hàng chờ."));return}
+ if(!waitlist.length){box.append(emptyState("Không có lượt chờ","Khi buổi chơi đủ người, bạn có thể xếp hàng và được xét theo thứ tự."));return}
+ for(const w of waitlist){
+  const card=el("article","","op-card");
+  card.append(el("strong",w.title),el("p",when(w.startsAt)+" · Thứ tự chờ: "+w.position,"op-small"));
+  card.append(makeButton("Rời danh sách chờ",async()=>{
+   await api.request(endpoint(w.sessionId)+"/waitlist/self-cancel",{method:"POST",body:JSON.stringify({playerId:w.playerId})});
+   await reload();status("Đã rời danh sách chờ.");
+  },"secondary"));
+  box.append(card);
+ }
 }
 function renderMyMatches(){
  const box=$("myMatches");box.replaceChildren();
