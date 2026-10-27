@@ -7,6 +7,7 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - Dedicated Cloudflare D1 migration `0022_open_play_sessions.sql`: sessions and registrations, unrelated to tournament scores/brackets.
 - Authenticated staff API `/api/open-play/sessions`. Access: super admin (all), organizer/club manager (own sessions); club managers must use their permitted club ID.
 - Session creation/list/details; close/cancel; staff registration/cancellation/rejoin with single-statement capacity guard; rating-aware pair preview.
+- New read-only **multi-round doubles preview**: `shared/open-play-rounds.js` generates 1–12 rotations across 1–32 virtual courts; four unique players per court, valid rating-capped teams, priority for less-played participants, and avoidance of repeated partners/opponents where possible. Deterministic best-effort algorithm, not a guaranteed optimal tournament schedule.
 - Audit events and targeted tests of permissions, capacity, score isolation and validation.
 - Cloudflare PR validation (including D1 migration, Worker test, Wrangler build and integration smoke) added without automatic PR deployment.
 - Root dependency security fixes and Cloudflare undici security override.
@@ -32,10 +33,12 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - `POST /api/open-play/sessions/:id/registrations`: JSON `{playerId}`, requires an existing active player.
 - `POST /api/open-play/sessions/:id/registrations/:playerId/cancel`: cancel registration.
 - `GET /api/open-play/sessions/:id/pairs`: legal pair preview; does not mutate records.
+- `GET /api/open-play/sessions/:id/rounds/preview?rounds=3&courts=2`: authorized BTC-only 2v2 preview, includes virtual courts, waiting lists and per-player game counts; **no DB writes**.
+
 
 ## NOT yet ready for customer launch
 - Player-account linking management/consent, check-in, waitlist and booking notifications. Self-registration/discovery APIs and pages exist, but need live-device acceptance testing.
-- Verified venue/court scheduling, cancellation notifications, multiple rounds and fair partner rotation.
+- Verified venue/court scheduling, cancellation notifications, persisted round management, actual court allocation and stronger globally fair partner rotation. A deterministic multi-round **preview** exists, but court assignments are not saved or booked.
 - True random seeded pairing with auditable seed; current algorithm is deterministic, not random.
 - Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback.
 - Marketplace, ratings recalculation, communities, native app are separate later phases.
