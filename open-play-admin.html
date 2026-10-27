@@ -80,6 +80,20 @@
           </div>
           <div class="op-actions"><button id="previewRounds" class="secondary" type="button">Xem trước phân sân</button></div>
           <div id="roundResults" class="op-results" role="status" aria-live="polite">Chưa có vòng đấu mô phỏng.</div>
+          <hr class="op-divider">
+          <div class="op-subhead">Ngày thi đấu · Check-in & điểm số</div>
+          <p class="op-field-note">Điểm danh trước khi xác nhận. Khi lưu kế hoạch chính thức, danh sách VĐV sẽ khóa. Mỗi trận có phiên bản điểm riêng để tránh ghi đè.</p>
+          <div class="op-actions">
+            <span id="checkedInCount" class="op-chip is-open">0 VĐV đến sân</span>
+            <button id="reloadGameDay" class="secondary" type="button">Cập nhật lịch & điểm</button>
+          </div>
+          <div class="op-form-grid" id="confirmationOptions">
+            <div><label for="pointTarget">Điểm kết thúc</label><select id="pointTarget"><option value="21">Chạm 21</option><option value="15">Chạm 15</option><option value="11">Chạm 11</option></select></div>
+            <div><label for="winBy">Chênh lệch</label><select id="winBy"><option value="1">Chạm điểm (1)</option><option value="2">Thắng cách biệt 2</option></select></div>
+          </div>
+          <div class="op-actions"><button id="confirmRounds" type="button">Xác nhận vòng & phân sân</button></div>
+          <div id="gameDayStatus" class="op-results" role="status" aria-live="polite">Chưa có lịch thi đấu được xác nhận.</div>
+          <div id="matches" class="op-list" aria-label="Danh sách trận Open Play"></div>
         </div>
       </section>
       <section class="op-panel op-full" aria-labelledby="newHeading" id="createPanel">
