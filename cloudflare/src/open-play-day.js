@@ -103,6 +103,51 @@ export async function handleOpenPlayGameDay(request,env,user){
     await audit(env,user,"open_play_plan",m.id,"CONFIRM",null,{rounds,courts,matchCount:saved.matches.length});
     return ok({plan:saved,previewOnly:false},request,env,201);
   }
+  // Correct a FINAL score without erasing its audit trail. Correction is staff-only
+  // and allowed after session closure, but never after cancellation.
+  m=route(path,"/api/open-play/sessions/:id/matches/:matchId/correction");
+  if(m&&method==="PATCH"){
+    const session=await sessionForStaff(env,user,m.id);
+    if(session.status==="cancelled")return fail("OPEN_PLAY_CANCELLED",request,env,409);
+    const old=await dbOne(env,"SELECT id,score_a,score_b,status,version FROM open_play_matches WHERE id=? AND session_id=?",m.matchId,m.id);
+    if(!old)return fail("OPEN_PLAY_MATCH_NOT_FOUND",request,env,404);
+    if(old.status!=="completed")return fail("OPEN_PLAY_CORRECTION_REQUIRES_COMPLETED_MATCH",request,env,409);
+    const plan=await dbOne(env,"SELECT point_target,win_by FROM open_play_plans WHERE session_id=?",m.id);
+    if(!plan)return fail("OPEN_PLAY_PLAN_NOT_FOUND",request,env,404);
+    const b=await bodyJson(request);
+    const version=asInt(b.version,0,2147483647,"INVALID_OPEN_PLAY_SCORE_VERSION");
+    const scoreA=asInt(b.scoreA,0,99,"INVALID_OPEN_PLAY_SCORE_A");
+    const scoreB=asInt(b.scoreB,0,99,"INVALID_OPEN_PLAY_SCORE_B");
+    const reason=typeof b.reason==="string"?b.reason.trim():"";
+    if(reason.length<12||reason.length>500)return fail("OPEN_PLAY_CORRECTION_REASON_REQUIRED",request,env,400);
+    if(Math.max(scoreA,scoreB)<plan.point_target||Math.abs(scoreA-scoreB)<plan.win_by)
+      return fail("OPEN_PLAY_INVALID_FINAL_SCORE",request,env,422);
+    if(old.score_a===scoreA&&old.score_b===scoreB)return fail("OPEN_PLAY_CORRECTION_NO_CHANGE",request,env,409);
+    const stamp=nowIso();
+    const after={id:m.matchId,sessionId:m.id,scoreA,scoreB,status:"completed",version:version+1};
+    const result=await env.DB.batch([
+      env.DB.prepare("UPDATE open_play_matches SET score_a=?,score_b=?,version=version+1,updated_at=? WHERE id=? AND session_id=? AND status='completed' AND version=?")
+        .bind(scoreA,scoreB,stamp,m.matchId,m.id,version),
+      // changes() is the row count from the immediately preceding UPDATE
+      // in the same D1 batch transaction. Failed optimistic updates leave no audit.
+      env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data,reason) SELECT ?,'open_play_match',?,'CORRECTION',?,?,? WHERE changes()=1")
+        .bind(user.id,m.matchId,JSON.stringify({scoreA:old.score_a,scoreB:old.score_b,version:old.version}),JSON.stringify(after),reason)
+    ]);
+    if(changes(result?.[0])!==1)return fail("OPEN_PLAY_SCORE_VERSION_CONFLICT",request,env,409);
+    if(changes(result?.[1])!==1)throw err("OPEN_PLAY_CORRECTION_AUDIT_FAILED",500);
+    return ok(after,request,env);
+  }
+  m=route(path,"/api/open-play/sessions/:id/matches/:matchId/history");
+  if(m&&method==="GET"){
+    await sessionForStaff(env,user,m.id);
+    const exists=await dbOne(env,"SELECT id FROM open_play_matches WHERE id=? AND session_id=?",m.matchId,m.id);
+    if(!exists)return fail("OPEN_PLAY_MATCH_NOT_FOUND",request,env,404);
+    const history=await dbRows(env,"SELECT id,actor_user_id AS actorId,action,before_data AS beforeData,after_data AS afterData,reason,created_at AS createdAt FROM audit_logs WHERE entity_type='open_play_match' AND entity_id=? ORDER BY id DESC LIMIT 100",m.matchId);
+    return ok(history.map(e=>({id:e.id,actorId:e.actorId,action:e.action,
+      before:e.beforeData?JSON.parse(e.beforeData):null,
+      after:e.afterData?JSON.parse(e.afterData):null,
+      reason:e.reason||"",createdAt:e.createdAt})),request,env);
+  }
   m=route(path,"/api/open-play/sessions/:id/matches/:matchId/score");
   if(m&&method==="PATCH"){
     const session=await sessionForStaff(env,user,m.id);
