@@ -1,0 +1,54 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import worker from "../src/index.js";
+import {accountFixture} from "./helpers/accounts-fixture.mjs";
+
+async function api(f,path,method="GET",body,actor="admin"){
+  const headers={"Content-Type":"application/json"};
+  if(actor&&f.tokens[actor])headers.Authorization="Bearer "+f.tokens[actor];
+  const req=new Request("https://pickle.test"+path,{method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})});
+  const res=await worker.fetch(req,f.env);
+  return {status:res.status,data:await res.json()};
+}
+const draft={title:"Open Play Bình Lợi",startsAt:"2026-11-01T11:00:00+07:00",maxPlayers:2,maxCombinedRating:5.2,tolerance:0};
+
+test("Open Play sessions are permission scoped and isolated from match scores",async()=>{
+ const f=await accountFixture();
+ try{
+  let r=await api(f,"/api/open-play/sessions","GET",undefined,null);assert.equal(r.status,401);
+  r=await api(f,"/api/open-play/sessions","GET",undefined,"local");assert.equal(r.status,403);
+  r=await api(f,"/api/open-play/sessions","POST",draft,"organizer");
+  assert.equal(r.status,201,JSON.stringify(r.data));
+  const id=r.data.id;
+  const denied=await api(f,"/api/open-play/sessions/"+id,"GET",undefined,"local");assert.equal(denied.status,403);
+  const read=await api(f,"/api/open-play/sessions/"+id,"GET",undefined,"organizer");
+  assert.equal(read.status,200);assert.equal(read.data.registrations.length,0);
+  const adminList=await api(f,"/api/open-play/sessions","GET");assert.equal(adminList.status,200);
+  assert.ok(adminList.data.some(s=>s.id===id));
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('p1','VĐV 1',2.5),('p2','VĐV 2',2.7),('p3','VĐV 3',2.0)");
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p1"},"organizer")).status,201);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p1"},"organizer")).status,409);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p2"},"organizer")).status,201);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p3"},"organizer")).status,409);
+  const pairs=await api(f,"/api/open-play/sessions/"+id+"/pairs","GET",undefined,"organizer");
+  assert.equal(pairs.status,200);assert.equal(pairs.data.pairs.length,1);
+  assert.equal(pairs.data.pairs[0].combinedRating,5.2);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations/p2/cancel","POST",{},"organizer")).status,200);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p3"},"organizer")).status,201);
+  const updated=await api(f,"/api/open-play/sessions/"+id,"PATCH",{status:"closed"},"organizer");
+  assert.equal(updated.status,200);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p2"},"organizer")).status,409);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+  assert.ok(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type LIKE 'open_play%'").get().n>=5);
+ }finally{f.db.close()}
+});
+test("Open Play validates title, date, rating and capacity",async()=>{
+ const f=await accountFixture();
+ try{
+  for(const body of [{...draft,title:""},{...draft,maxPlayers:257},{...draft,startsAt:"not-a-date"},{...draft,tolerance:1}]){
+    const r=await api(f,"/api/open-play/sessions","POST",body);
+    assert.equal(r.status,400,JSON.stringify(r.data));
+  }
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_sessions").get().n,0);
+ }finally{f.db.close()}
+});
