@@ -63,6 +63,9 @@ try{
    await page.locator("#registrations button").first().click();
    await page.locator("#registrations").filter({hasText:"cancelled"}).waitFor();
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
+   await page.goto(base+"/open-play.html");
+   await page.locator("#generate").click();
+   await page.locator("#result").filter({hasText:"Kết quả: 2 cặp"}).waitFor();
    assert.deepEqual(errors,[],"browser errors");
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    console.log("PASS OPEN_PLAY_UI "+viewport.width);
