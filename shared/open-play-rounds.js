@@ -16,6 +16,17 @@ const preference=(a,b,partnerHistory)=>{
   // Strongly discourage repeat partners; compare balance then stable id.
   return [previous,-sum,Math.abs(a.rating-b.rating),b.id];
 };
+// Exact maximum pairing *count* for a pure upper sum limit (two-pointer).
+// Use as a look-ahead so avoiding repeat partners cannot strand all high ratings.
+function maxPossiblePairs(participants,limit){
+  const ordered=[...participants].sort((a,b)=>a.rating-b.rating||compareId(a.id,b.id));
+  let lo=0,hi=ordered.length-1,count=0;
+  while(lo<hi){
+    if(ordered[lo].rating+ordered[hi].rating<=limit+1e-9){count++;lo++;hi--}
+    else hi--;
+  }
+  return count;
+}
 const cmpScore=(x,y)=>{
   for(let i=0;i<x.length;i++){
     if(typeof x[i]==="string")return compareId(x[i],y[i]);
@@ -49,7 +60,9 @@ export function previewOpenPlayRounds(players,options={}){
       for(let i=0;i<remaining.length;i++){
         const p=remaining[i];
         if(first.rating+p.rating>ratingLimit+1e-9)continue;
-        const score=preference(first,p,partnerHistory);
+        const unused=remaining.filter((_,index)=>index!==i);
+        const possible=1+maxPossiblePairs(unused,ratingLimit);
+        const score=[-possible,...preference(first,p,partnerHistory)];
         if(!bestScore||cmpScore(score,bestScore)<0){bestScore=score;bestIndex=i}
       }
       if(bestIndex>=0){
