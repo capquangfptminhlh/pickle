@@ -60,6 +60,13 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 
 - **Not yet real-time push:** scoreboard refresh is operator/player-triggered; no WebSocket/SSE feed, native push notification, court booking guarantee or automated ranking changes.
 
+## Referee scoring delegation (feature branch)
+- Additive D1 migration `0025_open_play_match_referees.sql`: one assignment per Open Play match, with assigned-by and timestamp. It does not modify tournament officials or score tables.
+- Organizer/super admin may query `GET /api/open-play/referees` (active referee **ID + display name**, no email/phone), then `PATCH /api/open-play/sessions/:id/matches/:matchId/referee` with `{refereeUserId:"<active-referee-user-id>"}` or `{refereeUserId:null}` to revoke. The owner/organizer scope is checked; completed games cannot be reassigned.
+- Assigned referee signs in at `/open-play-referee.html`. `GET /api/open-play/referee/matches` returns only own assigned matches, not a complete staff roster. `PATCH /api/open-play/referee/matches/:matchId/score` uses the same target-score, finish and optimistic version rules as BTC; its SQL UPDATE requires an **active matching assignment at write time**.
+- A referee cannot self-assign, see other referees' matches, view private player contact information or use staff-only final score corrections.
+- Actual referee availability, tournament role scope integration, referee substitution approvals, alerts and push-score updates are not yet implemented. A match assignment is **not** a physical court booking.
+
 ## NOT yet ready for customer launch
 - Player-account linking management/consent, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
 - Verified venue/court booking and conflict prevention, cancellation notifications, confirmed-plan reset/reschedule flows and stronger globally fair partner rotation. A deterministic multi-round plan can be **confirmed and saved**, but court numbers are logical slots, not guaranteed physical bookings.
