@@ -1,6 +1,7 @@
 import {bodyJson,uid,nowIso,ok,fail,route,audit} from "./util.js";
 import {previewOpenPlayRounds} from "../../shared/open-play-rounds.js";
 import {authenticate} from "./auth.js";
+import {openPlayPhysicalCourtNames} from "./open-play-courts.js";
 
 // Staff-only match-day operations. Never change the tournament matches/score_events tables.
 const dbOne=(env,sql,...args)=>env.DB.prepare(sql).bind(...args).first();
@@ -97,9 +98,11 @@ export async function handleOpenPlayReferee(request,env){
     const profiles=ids.length?await dbRows(env,
       "SELECT id,full_name AS name FROM players WHERE id IN ("+ids.map(()=>"?").join(",")+")",...ids):[];
     const names=new Map(profiles.map(p=>[p.id,p.name]));
+    const physical=await openPlayPhysicalCourtNames(env,matches.map(m=>m.sessionId));
     return ok(matches.map(m=>({...m,
       teamANames:m.teamA.map(id=>names.get(id)||id),
-      teamBNames:m.teamB.map(id=>names.get(id)||id)
+      teamBNames:m.teamB.map(id=>names.get(id)||id),
+      physicalCourtName:physical.get(m.sessionId)?.[m.court-1]?.name||null
     })),request,env);
   }
   const assigned=await dbOne(env,
