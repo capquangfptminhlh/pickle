@@ -91,6 +91,44 @@ try{
    await page.locator("#registrations button").first().click();
    await page.locator("#registrations").filter({hasText:"Đã hủy"}).waitFor();
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
+   // Simulate complete game day on the same isolated in-memory D1 fixture.
+   f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('gd1','Day Player 1',2.5),('gd2','Day Player 2',2.5),('gd3','Day Player 3',2.5),('gd4','Day Player 4',2.5)");
+   for(const playerId of ["gd1","gd2","gd3","gd4"]){
+    const joined=await f.api("/api/open-play/sessions/"+id+"/registrations",{playerId},"POST","organizer");
+    assert.equal(joined.status,201,JSON.stringify(joined.data));
+   }
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
+   await page.goto(base+"/open-play-admin.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.getByRole("button",{name:"Quản lý Open Play UI Test "+viewport.width}).click();
+   await page.locator("#roster li").filter({hasText:"Day Player 4"}).waitFor();
+   for(let i=1;i<=4;i++){
+    await page.getByRole("button",{name:"Check-in Day Player "+i}).click();
+    await page.locator("#checkedInCount").filter({hasText:i+" VĐV"}).waitFor();
+   }
+   await page.locator("#roundCount").fill("2");
+   await page.locator("#courtCount").fill("1");
+   await page.locator("#pointTarget").selectOption("11");
+   page.once("dialog",dialog=>dialog.accept());
+   await page.locator("#confirmRounds").click();
+   await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
+   assert.equal(await page.locator("#matches article").count(),2);
+   await page.screenshot({path:resolve(snapshotDir,"open-play-day-"+viewport.width+".png"),fullPage:true});
+   const firstMatch=page.locator("#matches article").first();
+   await firstMatch.locator("input").nth(0).fill("11");
+   await firstMatch.locator("input").nth(1).fill("7");
+   await firstMatch.getByRole("button",{name:"Kết thúc trận"}).click();
+   await page.locator("#gameDayStatus").filter({hasText:"1/2 trận"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_matches WHERE session_id=? AND status='completed'").get(id).n,1);
+   const secondMatch=page.locator("#matches article").nth(1);
+   await secondMatch.locator("input").nth(0).fill("4");
+   await secondMatch.locator("input").nth(1).fill("11");
+   await secondMatch.getByRole("button",{name:"Kết thúc trận"}).click();
+   await page.locator("#gameDayStatus").filter({hasText:"2/2 trận"}).waitFor();
+   await page.locator("#closeSession").click();
+   await page.locator("#details").filter({hasText:"Đã đóng"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    await page.goto(base+"/open-play.html");
    await page.locator("#generate").click();
    await page.locator("#result").filter({hasText:"Kết quả: 2 cặp"}).waitFor();
