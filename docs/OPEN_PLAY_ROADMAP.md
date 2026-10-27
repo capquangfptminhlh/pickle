@@ -11,6 +11,19 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - Cloudflare PR validation (including D1 migration, Worker test, Wrangler build and integration smoke) added without automatic PR deployment.
 - Root dependency security fixes and Cloudflare undici security override.
 
+## User-facing entrypoints in this branch
+- `/open-play.html`: offline legal-pair simulator with CSV export.
+- `/open-play-admin.html`: authenticated mobile BTC console to create sessions, configure registration, register/cancel players, and preview pairs.
+- `/open-play-discover.html`: public upcoming-session discovery; authenticated linked player profiles may join/cancel.
+- Public sign-up **defaults OFF** on every new session. BTC opts in explicitly. Public APIs never return private roster, contact details, or payment information.
+
+## Player self-service API
+- `GET /api/open-play/public/sessions`: public upcoming sessions explicitly accepting player signup.
+- `GET /api/open-play/me`: authenticated user's own linked player profiles and their registrations only.
+- `POST /api/open-play/sessions/:id/join`: body `{playerId}`, server verifies that this profile belongs to the signed-in account.
+- `POST /api/open-play/sessions/:id/self-cancel`: same ownership check, player cancels their own registration.
+- `PATCH /api/open-play/sessions/:id`: organizers may set `selfSignupEnabled: true|false` (closed/cancelled sessions cannot accept public signup).
+
 ## Staff API (requires Bearer token)
 - `GET /api/open-play/sessions`: current user's sessions (super admin sees all).
 - `POST /api/open-play/sessions`: JSON `{title,startsAt,clubId?,courtLabel?,maxPlayers?,maxCombinedRating?,tolerance?}`. `startsAt` must be ISO datetime with timezone.
@@ -21,8 +34,8 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - `GET /api/open-play/sessions/:id/pairs`: legal pair preview; does not mutate records.
 
 ## NOT yet ready for customer launch
-- Self-service sign-up, public session discovery, player-account linking/consent, check-in, waitlist.
-- Verified venue/court scheduling, cancellation notifications, multiple rounds and fair rotation.
+- Player-account linking management/consent, check-in, waitlist and booking notifications. Self-registration/discovery APIs and pages exist, but need live-device acceptance testing.
+- Verified venue/court scheduling, cancellation notifications, multiple rounds and fair partner rotation.
 - True random seeded pairing with auditable seed; current algorithm is deterministic, not random.
 - Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback.
 - Marketplace, ratings recalculation, communities, native app are separate later phases.
