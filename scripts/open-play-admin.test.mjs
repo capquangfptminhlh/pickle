@@ -32,6 +32,10 @@ test("Open Play organizer page has real API controls and safe DOM rendering",asy
  assert.match(script,/\/check-in\//);
  assert.match(script,/\/plan"/);
  assert.match(script,/\/score"/);
+ assert.match(script,/\/correction"/);
+ assert.match(script,/\/history"/);
+ assert.match(script,/Sửa điểm đã chốt/);
+ assert.match(script,/Xem lịch sử điểm/);
  assert.match(script,/version:m\.version/);
  assert.match(script,/finished.*?length/);
 
