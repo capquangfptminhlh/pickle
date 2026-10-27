@@ -63,6 +63,11 @@ test("public discovery is opt-in and players may register/cancel only their own 
   f.db.exec("INSERT INTO app_users(id,email,display_name,role,password_hash) VALUES ('self1','self1@example.test','User 1','player','unused'),('self2','self2@example.test','User 2','player','unused');");
   f.db.exec("INSERT INTO players(id,user_id,full_name,rating) VALUES ('owned1','self1','Self One',2.5),('owned2','self2','Self Two',2.7);");
   for(const id of ["self1","self2"])f.tokens[id]=await signSession(f.env,f.db.prepare("SELECT * FROM app_users WHERE id=?").get(id));
+  const personal=await api(f,"/api/open-play/me","GET",undefined,"self1");
+  assert.equal(personal.status,200);
+  assert.deepEqual(personal.data.players.map(p=>p.id),["owned1"]);
+  assert.equal(personal.data.players[0].phone,undefined);
+  assert.equal((await api(f,"/api/open-play/me","GET",undefined,null)).status,401);
   const creation=await api(f,"/api/open-play/sessions","POST",{...draft,title:"Public Open Play"},"organizer");
   assert.equal(creation.status,201);
   const id=creation.data.id;
@@ -80,6 +85,9 @@ test("public discovery is opt-in and players may register/cancel only their own 
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,201);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned1"},"self1")).status,409);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned2"},"self2")).status,201);
+  const onlyMine=await api(f,"/api/open-play/me","GET",undefined,"self1");
+  assert.deepEqual(onlyMine.data.registrations.map(r=>r.playerId),["owned1"]);
+  assert.equal(onlyMine.data.registrations[0].phone,undefined);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/self-cancel","POST",{playerId:"owned2"},"self1")).status,403);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/self-cancel","POST",{playerId:"owned2"},"self2")).status,200);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/join","POST",{playerId:"owned2"},"self2")).status,200,"rejoin should be possible");
