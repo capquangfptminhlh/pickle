@@ -217,3 +217,74 @@ test("game-day scoring cannot read or change another organizer's schedule",async
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/matches/random/score","PATCH",{scoreA:21,scoreB:0,version:0,finish:true},"local")).status,403);
  }finally{f.db.close()}
 });
+
+test("full session waitlist auto-promotes in FIFO order without revealing other players",async()=>{
+ const f=await accountFixture();
+ try{
+  f.db.exec("INSERT INTO app_users(id,email,display_name,role,password_hash) VALUES ('wait1','wait1@local.test','Wait One','player','unused'),('wait2','wait2@local.test','Wait Two','player','unused'),('wait3','wait3@local.test','Wait Three','player','unused'),('wait4','wait4@local.test','Wait Four','player','unused')");
+  f.db.exec("INSERT INTO players(id,user_id,full_name,rating) VALUES ('w1','wait1','Wait 1',2.5),('w2','wait2','Wait 2',2.6),('w3','wait3','Wait 3',2.5),('w4','wait4','Wait 4',2.5)");
+  for(const id of ["wait1","wait2","wait3","wait4"])
+   f.tokens[id]=await signSession(f.env,f.db.prepare("SELECT * FROM app_users WHERE id=?").get(id));
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:2,title:"Full Waitlist"},"organizer");
+  assert.equal(made.status,201,JSON.stringify(made.data));
+  const id=made.data.id,p="/api/open-play/sessions/"+id;
+  assert.equal((await api(f,p+"/waitlist/join","POST",{playerId:"w3"},"wait3")).status,409,"waitlist only when full");
+  assert.equal((await api(f,p,"PATCH",{selfSignupEnabled:true},"organizer")).status,200);
+  for(const [player,actor] of [["w1","wait1"],["w2","wait2"]])
+   assert.equal((await api(f,p+"/join","POST",{playerId:player},actor)).status,201);
+  assert.equal((await api(f,p+"/join","POST",{playerId:"w3"},"wait3")).status,409);
+  assert.equal((await api(f,p+"/waitlist/join","POST",{playerId:"w4"},"wait3")).status,403,"cannot waitlist another player");
+  assert.equal((await api(f,p+"/waitlist/join","POST",{playerId:"w3"},null)).status,401);
+  const q3=await api(f,p+"/waitlist/join","POST",{playerId:"w3"},"wait3");
+  assert.equal(q3.status,201,JSON.stringify(q3.data));assert.equal(q3.data.position,1);
+  const q4=await api(f,p+"/waitlist/join","POST",{playerId:"w4"},"wait4");
+  assert.equal(q4.status,201,JSON.stringify(q4.data));assert.equal(q4.data.position,2);
+  assert.equal((await api(f,p+"/waitlist/join","POST",{playerId:"w3"},"wait3")).status,409);
+  const mine=await api(f,"/api/open-play/me","GET",undefined,"wait3");
+  assert.equal(mine.status,200);
+  assert.equal(mine.data.waitlist.length,1);
+  assert.equal(mine.data.waitlist[0].playerId,"w3");
+  assert.equal(mine.data.waitlist[0].position,1);
+  assert.equal(mine.data.waitlist[0].phone,undefined);
+  assert.equal((await api(f,p+"/waitlist","GET",undefined,null)).status,401);
+  assert.equal((await api(f,p+"/waitlist","GET",undefined,"local")).status,403);
+  const staff=await api(f,p+"/waitlist","GET",undefined,"organizer");
+  assert.equal(staff.status,200);
+  assert.deepEqual(staff.data.map(w=>w.playerId),["w3","w4"]);
+  assert.equal(staff.data[0].email,undefined);
+  const cancel=await api(f,p+"/self-cancel","POST",{playerId:"w1"},"wait1");
+  assert.equal(cancel.status,200,JSON.stringify(cancel.data));
+  assert.deepEqual(cancel.data.promotedPlayerIds,["w3"],"earliest queue slot promoted first");
+  assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='w3'").get(id).status,"registered");
+  assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='w3'").get(id).status,"promoted");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations WHERE session_id=? AND status='registered'").get(id).n,2);
+  assert.equal((await api(f,p+"/waitlist/self-cancel","POST",{playerId:"w4"},"wait3")).status,403);
+  assert.equal((await api(f,p+"/waitlist/self-cancel","POST",{playerId:"w4"},"wait4")).status,200);
+  const queue=await api(f,p+"/waitlist","GET",undefined,"organizer");
+  assert.deepEqual(queue.data,[]);
+  const again=await api(f,p+"/self-cancel","POST",{playerId:"w2"},"wait2");
+  assert.equal(again.status,200);assert.deepEqual(again.data.promotedPlayerIds,[]);
+  assert.equal((await api(f,p+"/waitlist/join","POST",{playerId:"w4"},"wait4")).status,409,"no waitlist on available slots");
+  assert.equal((await api(f,p+"/join","POST",{playerId:"w4"},"wait4")).status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_waitlist' AND action='AUTO_PROMOTE'").get().n,1);
+ }finally{f.db.close()}
+});
+test("official plan locks waitlist enrollment and registration cancellation",async()=>{
+ const f=await accountFixture();
+ try{
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Locked Queue"},"organizer");
+  const id=made.data.id,p="/api/open-play/sessions/"+id;
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('l1','L1',2.5),('l2','L2',2.5),('l3','L3',2.5),('l4','L4',2.5),('l5','L5',2.5)");
+  for(const playerId of ["l1","l2","l3","l4"]){
+   assert.equal((await api(f,p+"/registrations","POST",{playerId},"organizer")).status,201);
+   assert.equal((await api(f,p+"/check-in/"+playerId,"POST",{checkedIn:true},"organizer")).status,200);
+  }
+  assert.equal((await api(f,p+"/waitlist","POST",{playerId:"l5"},"organizer")).status,201);
+  assert.equal((await api(f,p+"/plan","POST",{rounds:1,courts:1},"organizer")).status,201);
+  assert.equal((await api(f,p+"/waitlist","POST",{playerId:"l5"},"organizer")).status,409);
+  assert.equal((await api(f,p+"/registrations/l1/cancel","POST",{},"organizer")).status,409);
+  assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='l5'").get(id).status,"waiting");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations WHERE session_id=? AND status='registered'").get(id).n,4);
+ }finally{f.db.close()}
+});
