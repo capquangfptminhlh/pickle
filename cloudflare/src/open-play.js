@@ -42,6 +42,27 @@ function parseNewSession(b){
 async function roster(env,id){
   return dbRows(env,"SELECT r.player_id AS id,p.full_name AS name,p.rating AS rating,r.status,r.created_at AS registeredAt FROM open_play_registrations r JOIN players p ON p.id=r.player_id WHERE r.session_id=? ORDER BY r.created_at,r.player_id",id);
 }
+async function registerPlayer(env,user,session,playerId){
+  if(session.status!=="open")throw problem("OPEN_PLAY_NOT_OPEN",409);
+  const id=String(playerId||"").trim();
+  if(!id||id.length>128)throw problem("INVALID_PLAYER_ID");
+  const player=await dbOne(env,"SELECT id,active FROM players WHERE id=?",id);
+  if(!player||!player.active)throw problem("OPEN_PLAY_PLAYER_NOT_FOUND",404);
+  const existing=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",session.id,id);
+  if(existing?.status==="registered")throw problem("OPEN_PLAY_ALREADY_REGISTERED",409);
+  const ts=nowIso();
+  if(existing?.status==="cancelled"){
+    await env.DB.prepare("UPDATE open_play_registrations SET status='registered',updated_at=? WHERE session_id=? AND player_id=? AND status='cancelled' AND (SELECT COUNT(*) FROM open_play_registrations WHERE session_id=? AND status='registered') < (SELECT max_players FROM open_play_sessions WHERE id=? AND status='open')")
+      .bind(ts,session.id,id,session.id,session.id).run();
+  }else{
+    await env.DB.prepare("INSERT OR IGNORE INTO open_play_registrations(session_id,player_id,registered_by_user_id,status,created_at,updated_at) SELECT ?,?,?,'registered',?,? WHERE (SELECT COUNT(*) FROM open_play_registrations WHERE session_id=? AND status='registered') < (SELECT max_players FROM open_play_sessions WHERE id=? AND status='open')")
+      .bind(session.id,id,user.id,ts,ts,session.id,session.id).run();
+  }
+  const joined=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",session.id,id);
+  if(joined?.status!=="registered")throw problem("OPEN_PLAY_FULL_OR_CLOSED",409);
+  await audit(env,user,"open_play_registration",session.id+":"+id,existing?"REJOIN":"REGISTER",existing,{status:"registered"});
+  return {sessionId:session.id,playerId:id,status:"registered"};
+}
 export async function handleOpenPlay(request,env){
   const path=new URL(request.url).pathname,method=request.method.toUpperCase();
   if(!path.startsWith("/api/open-play/"))return null;
@@ -86,32 +107,9 @@ export async function handleOpenPlay(request,env){
   }
   m=route(path,"/api/open-play/sessions/:id/registrations");
   if(m&&method==="POST"){
-    const session=await scopedSession(env,user,m.id);
-    if(session.status!=="open")return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
-    const b=await bodyJson(request),playerId=String(b.playerId||"").trim();
-    if(!playerId||playerId.length>128)return fail("INVALID_PLAYER_ID",request,env,400);
-    const p=await dbOne(env,"SELECT id,active FROM players WHERE id=?",playerId);
-    if(!p||!p.active)return fail("OPEN_PLAY_PLAYER_NOT_FOUND",request,env,404);
-    const existing=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,playerId);
-    if(existing?.status==="registered")return fail("OPEN_PLAY_ALREADY_REGISTERED",request,env,409);
-    if(existing?.status==="cancelled"){
-      // Rejoin is capacity-guarded in a single statement, just like first registration.
-      await env.DB.prepare("UPDATE open_play_registrations SET status='registered',updated_at=? WHERE session_id=? AND player_id=? AND status='cancelled' AND (SELECT COUNT(*) FROM open_play_registrations WHERE session_id=? AND status='registered') < (SELECT max_players FROM open_play_sessions WHERE id=? AND status='open')")
-        .bind(nowIso(),m.id,playerId,m.id,m.id).run();
-      const joined=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,playerId);
-      if(joined?.status!=="registered")return fail("OPEN_PLAY_FULL_OR_CLOSED",request,env,409);
-      await audit(env,user,"open_play_registration",m.id+":"+playerId,"REJOIN",existing,{status:"registered"});
-      return ok({sessionId:m.id,playerId,status:"registered"},request,env);
-    }
-    const ts=nowIso();
-    // Single SQLite statement atomically checks the cap and inserts; concurrent requests
-    // cannot both pass the capacity check and overbook the same session.
-    await env.DB.prepare("INSERT OR IGNORE INTO open_play_registrations(session_id,player_id,registered_by_user_id,status,created_at,updated_at) SELECT ?,?,?,'registered',?,? WHERE (SELECT COUNT(*) FROM open_play_registrations WHERE session_id=? AND status='registered') < (SELECT max_players FROM open_play_sessions WHERE id=? AND status='open')")
-      .bind(m.id,playerId,user.id,ts,ts,m.id,m.id).run();
-    const inserted=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",m.id,playerId);
-    if(!inserted)return fail("OPEN_PLAY_FULL_OR_CLOSED",request,env,409);
-    await audit(env,user,"open_play_registration",m.id+":"+playerId,"REGISTER",null,{sessionId:m.id,playerId});
-    return ok({sessionId:m.id,playerId,status:inserted.status},request,env,201);
+    const session=await scopedSession(env,user,m.id),b=await bodyJson(request);
+    const registered=await registerPlayer(env,user,session,b.playerId);
+    return ok(registered,request,env,registered.status==="registered"?201:200);
   }
   m=route(path,"/api/open-play/sessions/:id/registrations/:playerId/cancel");
   if(m&&method==="POST"){
