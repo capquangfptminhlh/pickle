@@ -93,6 +93,7 @@ try{
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
    // Simulate complete game day on the same isolated in-memory D1 fixture.
    f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('gd1','Day Player 1',2.5),('gd2','Day Player 2',2.5),('gd3','Day Player 3',2.5),('gd4','Day Player 4',2.5)");
+   f.db.exec("UPDATE players SET user_id='ui-player' WHERE id='gd1'");
    for(const playerId of ["gd1","gd2","gd3","gd4"]){
     const joined=await f.api("/api/open-play/sessions/"+id+"/registrations",{playerId},"POST","organizer");
     assert.equal(joined.status,201,JSON.stringify(joined.data));
@@ -128,6 +129,11 @@ try{
    await page.locator("#closeSession").click();
    await page.locator("#details").filter({hasText:"Đã đóng"}).waitFor();
    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
+   await page.goto(base+"/open-play-discover.html");
+   await page.locator("#myMatches article").first().waitFor();
+   assert.equal(await page.locator("#myMatches article").count(),2,"player should only see own confirmed games");
+   await page.locator("#myMatches").filter({hasText:"Đã kết thúc"}).waitFor();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
    await page.goto(base+"/open-play.html");
    await page.locator("#generate").click();
