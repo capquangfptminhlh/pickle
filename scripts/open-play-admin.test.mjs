@@ -9,6 +9,9 @@ test("Open Play organizer page has real API controls and safe DOM rendering",asy
  assert.match(html,/role="status" aria-live="polite"/);
  assert.match(html,/id="createSession"/);
  assert.match(html,/id="roster"/);
+ assert.match(html,/id="waitingRoster"/);
+ assert.match(html,/id="addWaitlist"/);
+ assert.match(script,/\/waitlist"/);
  assert.match(html,/id="openSignup"/);
  assert.match(html,/id="previewPairs"/);
  assert.match(html,/id="previewRounds"/);
