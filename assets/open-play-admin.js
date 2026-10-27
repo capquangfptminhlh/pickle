@@ -19,6 +19,9 @@ const errorText=e=>({
  OPEN_PLAY_INVALID_FINAL_SCORE:"Điểm chưa đủ điều kiện kết thúc theo luật buổi chơi.",
  OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH:"Điểm đã đủ thắng. Hãy chọn Kết thúc trận để xác nhận.",
  OPEN_PLAY_MATCH_COMPLETED:"Trận đã chốt. Chỉ BTC có thể sửa bằng chức năng sửa kết quả có lý do.",
+ OPEN_PLAY_REFEREE_NOT_FOUND:"Không tìm thấy tài khoản trọng tài đang hoạt động.",
+ INVALID_OPEN_PLAY_REFEREE_ID:"Mã tài khoản trọng tài không hợp lệ.",
+ OPEN_PLAY_SCORE_VERSION_OR_REFEREE_CONFLICT:"Điểm hoặc phân công đã thay đổi. Hãy cập nhật lịch & điểm.",
  OPEN_PLAY_CORRECTION_REQUIRES_COMPLETED_MATCH:"Chỉ sửa điểm bằng quy trình này sau khi kết thúc trận.",
  OPEN_PLAY_CORRECTION_REASON_REQUIRED:"Vui lòng ghi lý do điều chỉnh điểm từ 12–500 ký tự.",
  OPEN_PLAY_CORRECTION_NO_CHANGE:"Điểm mới phải khác điểm cũ.",
@@ -215,6 +218,24 @@ async function loadGameDay(id){
    wrap.append(lab,input);score.append(wrap);fields.push(input);
   }
   card.append(title,teams,state,score);
+  const assigned=item("p",m.refereeUserId?"Trọng tài: "+m.refereeUserId:"Chưa phân công trọng tài","op-small");
+  card.append(assigned);
+  if(m.status!=="completed"&&currentSession?.status==="open"){
+   const assignment=item("div","","op-actions");
+   const refereeInput=document.createElement("input");refereeInput.type="text";
+   refereeInput.maxLength=128;refereeInput.value=m.refereeUserId||"";
+   refereeInput.placeholder="Mã tài khoản trọng tài";
+   refereeInput.setAttribute("aria-label","Mã trọng tài vòng "+m.round+" sân "+m.court);
+   assignment.append(refereeInput);
+   assignment.append(button("Phân công trọng tài",async()=>{
+    const updated=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/referee",{
+     method:"PATCH",body:JSON.stringify({refereeUserId:refereeInput.value.trim()||null})
+    });
+    await loadGameDay(id);
+    notice(updated.refereeUserId?"Đã phân công trọng tài cho vòng "+m.round+", sân "+m.court+".":"Đã thu hồi phân công trọng tài.");
+   },"secondary"));
+   card.append(assignment);
+  }
   if(m.status!=="completed"){
    const action=item("div","","op-actions");
    action.append(button("Cập nhật điểm",async()=>{
