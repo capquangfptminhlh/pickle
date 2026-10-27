@@ -138,7 +138,30 @@ try{
    await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
    assert.equal(await page.locator("#matches article").count(),2);
    await page.screenshot({path:resolve(snapshotDir,"open-play-day-"+viewport.width+".png"),fullPage:true});
-   const firstMatch=page.locator("#matches article").first();
+   // BTC assigns a specific match; referee may ONLY score that match.
+   let firstMatch=page.locator("#matches article").first();
+   await firstMatch.getByLabel("Mã trọng tài vòng 1 sân 1").fill("local");
+   await firstMatch.getByRole("button",{name:"Phân công trọng tài"}).click();
+   await page.locator("#notice").filter({hasText:"Đã phân công trọng tài"}).waitFor();
+   assert.equal(f.db.prepare("SELECT referee_user_id FROM open_play_match_referees LIMIT 1").get()?.referee_user_id,"local");
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.local);
+   await page.goto(base+"/open-play-referee.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.locator("#matches article").first().waitFor();
+   assert.equal(await page.locator("#matches article").count(),1,"referee cannot see unassigned second match");
+   await page.locator("#matches article").first().locator("input").nth(0).fill("2");
+   await page.locator("#matches article").first().locator("input").nth(1).fill("1");
+   await page.locator("#matches article").first().getByRole("button",{name:"Lưu điểm"}).click();
+   await page.locator("#notice").filter({hasText:"Đã lưu điểm"}).waitFor();
+   assert.equal(f.db.prepare("SELECT score_a FROM open_play_matches WHERE session_id=? AND round_no=1").get(id).score_a,2);
+   await page.screenshot({path:resolve(snapshotDir,"open-play-referee-"+viewport.width+".png"),fullPage:true});
+   // BTC reloads the updated match version before finishing; no stale overwrite.
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
+   await page.goto(base+"/open-play-admin.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.getByRole("button",{name:"Quản lý Open Play UI Test "+viewport.width}).click();
+   await page.locator("#matches article").first().waitFor();
+   firstMatch=page.locator("#matches article").first();
    await firstMatch.locator("input").nth(0).fill("11");
    await firstMatch.locator("input").nth(1).fill("7");
    await firstMatch.getByRole("button",{name:"Kết thúc trận"}).click();
