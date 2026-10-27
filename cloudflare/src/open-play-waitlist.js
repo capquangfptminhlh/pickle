@@ -63,7 +63,7 @@ export async function cancelOpenPlayRegistrationAndPromote(env,user,sessionId,pl
   const locked=await dbOne(env,"SELECT session_id FROM open_play_plans WHERE session_id=?",sessionId);
   if(locked)throw problem("OPEN_PLAY_ROSTER_LOCKED",409);
   const ts=nowIso();
-  await env.DB.batch([
+  const results=await env.DB.batch([
     env.DB.prepare("UPDATE open_play_registrations SET status='cancelled',updated_at=? WHERE session_id=? AND player_id=? AND status='registered' AND NOT EXISTS(SELECT 1 FROM open_play_plans WHERE session_id=?)")
       .bind(ts,sessionId,playerId,sessionId),
     env.DB.prepare(`INSERT INTO open_play_registrations(session_id,player_id,registered_by_user_id,status,created_at,updated_at)
@@ -85,6 +85,8 @@ export async function cancelOpenPlayRegistrationAndPromote(env,user,sessionId,pl
                  AND r.player_id=open_play_waitlist.player_id AND r.status='registered')`)
       .bind(ts,sessionId)
   ]);
+  if(Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0)!==1)
+    throw problem("OPEN_PLAY_ROSTER_LOCKED_OR_CHANGED",409);
   const promoted=await dbRows(env,"SELECT player_id AS id FROM open_play_waitlist WHERE session_id=? AND status='promoted' AND updated_at=? ORDER BY player_id",sessionId,ts);
   const promotedPlayerIds=promoted.map(p=>p.id);
   await audit(env,user,"open_play_registration",sessionId+":"+playerId,action,before,{status:"cancelled",promotedPlayerIds});
