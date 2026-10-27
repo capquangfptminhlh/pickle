@@ -19,32 +19,23 @@ export function buildOpenPlayPairs(players, options = {}) {
     if (ids.has(p.id)) throw new Error("DUPLICATE_PLAYER");
     ids.add(p.id);
   }
-  // Deterministic by ID. Avoids depending on server clock, array order, or random seed.
-  normalized.sort((a,b) => a.id.localeCompare(b.id, "en"));
-  const limit = maxCombinedRating + tolerance;
-  const memo = new Map();
-  const solve = remaining => {
-    const key = remaining.map(p => p.id).join("|");
-    if (memo.has(key)) return memo.get(key);
-    if (!remaining.length) return {pairs:[],unpaired:[],score:0};
-    const [first,...rest] = remaining;
-    let best = solve(rest);
-    best = {pairs:best.pairs,unpaired:[first,...best.unpaired],score:best.score};
-    for (let i=0;i<rest.length;i++) {
-      const partner=rest[i];
-      if (first.rating+partner.rating > limit + 1e-9) continue;
-      const next=solve(rest.filter((_,index)=>index!==i));
-      const candidate={pairs:[[first,partner],...next.pairs],unpaired:next.unpaired,
-        score:next.score + first.rating + partner.rating};
-      if (candidate.pairs.length>best.pairs.length ||
-         (candidate.pairs.length===best.pairs.length && candidate.score>best.score+1e-9)) best=candidate;
+  // Two-pointer matching: O(n log n). The lowest-rated player partners with
+  // the highest-rated compatible one. This maximizes the number of legal pairs
+  // for a simple combined-rating cap; deterministic ID tie-break prevents drift.
+  normalized.sort((a,b)=>a.rating-b.rating||a.id.localeCompare(b.id,"en"));
+  if(normalized.length>256)throw new Error("OPEN_PLAY_BATCH_TOO_LARGE");
+  const limit=maxCombinedRating+tolerance, pairs=[],unpaired=[];
+  let low=0,high=normalized.length-1;
+  while(low<high){
+    const a=normalized[low],b=normalized[high];
+    if(a.rating+b.rating<=limit+1e-9){
+      pairs.push({playerIds:[a.id,b.id],combinedRating:+(a.rating+b.rating).toFixed(3)});
+      low++;high--;
+    }else{
+      unpaired.push(b.id);
+      high--;
     }
-    memo.set(key,best);
-    return best;
-  };
-  // Exact matching is exponential; limit is intentional to prevent resource exhaustion.
-  if(normalized.length>16) throw new Error("OPEN_PLAY_BATCH_TOO_LARGE");
-  const result=solve(normalized);
-  return {pairs:result.pairs.map(([a,b])=>({playerIds:[a.id,b.id],combinedRating:+(a.rating+b.rating).toFixed(3)})),
-    unpairedIds:result.unpaired.map(p=>p.id),maxCombinedRating,tolerance};
+  }
+  if(low===high)unpaired.push(normalized[low].id);
+  return {pairs,unpairedIds:unpaired.sort((a,b)=>a.localeCompare(b,"en")),maxCombinedRating,tolerance};
 }
