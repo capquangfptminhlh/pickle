@@ -5,6 +5,7 @@ on:
     paths:
       - "open-play*.html"
       - "assets/open-play-*.js"
+      - "assets/open-play-*.css"
       - "assets/api.js"
       - "shared/open-play.js"
       - "cloudflare/src/open-play.js"
@@ -37,3 +38,11 @@ jobs:
           node scripts/registry-legacy-ui.mjs
           TIMEOUT_UI_PHASE=service TIMEOUT_UI_KIND=admin node scripts/registry-timeout-clock-ui.mjs
           node --test scripts/registry-motion-runtime.test.mjs scripts/registry-global-motion.test.mjs
+      - name: Upload Open Play UI screenshots (synthetic data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-play-visual-check
+          path: ui-artifacts/open-play-*.png
+          if-no-files-found: ignore
+          retention-days: 3
