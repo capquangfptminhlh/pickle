@@ -91,6 +91,8 @@ jobs:
           node --test scripts/registry-network-ui.test.mjs
       - name: iPhone PWA safe-area regression
         run: node --test scripts/pwa-ios-safe-area.test.mjs
+      - name: Open Play pairing engine tests
+        run: node --test scripts/open-play.test.mjs
       - name: Syntax check
         run: |
           node --check assets/motion-system.js
