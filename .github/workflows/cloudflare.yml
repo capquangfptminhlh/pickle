@@ -70,6 +70,11 @@ jobs:
       - name: Wrangler dry run
         working-directory: cloudflare
         run: npm run check
+      - name: Verify Open Play browser module is packaged
+        working-directory: cloudflare
+        run: |
+          test -s public/shared/open-play.js
+          node --check public/shared/open-play.js
       - name: Registry and Worker regression tests
         working-directory: cloudflare
         run: npm test
