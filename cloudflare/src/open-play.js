@@ -84,6 +84,23 @@ export async function handleOpenPlay(request,env){
     const joined=await registerPlayer(env,member,session,playerId);
     return ok(joined,request,env,joined.rejoined?200:201);
   }
+  const cancelSelf=route(path,"/api/open-play/sessions/:id/self-cancel");
+  if(cancelSelf&&method==="POST"){
+    const member=await authenticate(request,env);
+    if(!member)throw problem("AUTH_REQUIRED",401);
+    const b=await bodyJson(request),playerId=String(b.playerId||"").trim();
+    if(!playerId)return fail("PLAYER_ID_REQUIRED",request,env,400);
+    const owned=await dbOne(env,"SELECT id FROM players WHERE id=? AND user_id=?",playerId,member.id);
+    if(!owned)return fail("OPEN_PLAY_PLAYER_OWNERSHIP_REQUIRED",request,env,403);
+    const old=await dbOne(env,"SELECT status FROM open_play_registrations WHERE session_id=? AND player_id=?",cancelSelf.id,playerId);
+    if(!old)return fail("OPEN_PLAY_REGISTRATION_NOT_FOUND",request,env,404);
+    if(old.status!=="cancelled"){
+      await env.DB.prepare("UPDATE open_play_registrations SET status='cancelled',updated_at=? WHERE session_id=? AND player_id=? AND status='registered'")
+        .bind(nowIso(),cancelSelf.id,playerId).run();
+      await audit(env,member,"open_play_registration",cancelSelf.id+":"+playerId,"SELF_CANCEL",old,{status:"cancelled"});
+    }
+    return ok({sessionId:cancelSelf.id,playerId,status:"cancelled"},request,env);
+  }
   const user=await staffUser(request,env);
   if(path==="/api/open-play/sessions"&&method==="GET"){
     const data=user.role==="super_admin"
@@ -117,7 +134,7 @@ export async function handleOpenPlay(request,env){
       const b=await bodyJson(request),status=String(b.status??session.status);
       if(!["open","closed","cancelled"].includes(status))return fail("INVALID_OPEN_PLAY_STATUS",request,env,400);
       if(session.status==="cancelled"&&status!=="cancelled")return fail("OPEN_PLAY_CANCELLED",request,env,409);
-      const selfSignup=b.selfSignupEnabled===undefined?Boolean(session.self_signup_enabled):b.selfSignupEnabled;
+      const selfSignup=b.selfSignupEnabled===undefined?(status==="open"&&Boolean(session.self_signup_enabled)):b.selfSignupEnabled;
       if(typeof selfSignup!=="boolean")return fail("INVALID_OPEN_PLAY_SELF_SIGNUP",request,env,400);
       if(status!=="open"&&selfSignup)return fail("OPEN_PLAY_NOT_OPEN",request,env,409);
       await env.DB.prepare("UPDATE open_play_sessions SET status=?,self_signup_enabled=?,updated_at=? WHERE id=?").bind(status,selfSignup?1:0,nowIso(),m.id).run();
