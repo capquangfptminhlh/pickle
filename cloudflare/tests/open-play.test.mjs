@@ -282,9 +282,12 @@ test("official plan locks waitlist enrollment and registration cancellation",asy
   }
   assert.equal((await api(f,p+"/waitlist","POST",{playerId:"l5"},"organizer")).status,201);
   assert.equal((await api(f,p+"/plan","POST",{rounds:1,courts:1},"organizer")).status,201);
+  assert.equal((await api(f,p,"PATCH",{selfSignupEnabled:true},"organizer")).status,409,"cannot reopen confirmed roster");
+
   assert.equal((await api(f,p+"/waitlist","POST",{playerId:"l5"},"organizer")).status,409);
   assert.equal((await api(f,p+"/registrations/l1/cancel","POST",{},"organizer")).status,409);
-  assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='l5'").get(id).status,"waiting");
+  assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='l5'").get(id).status,"cancelled");
+  assert.equal(f.db.prepare("SELECT self_signup_enabled FROM open_play_sessions WHERE id=?").get(id).self_signup_enabled,0);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations WHERE session_id=? AND status='registered'").get(id).n,4);
  }finally{f.db.close()}
 });
