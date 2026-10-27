@@ -150,3 +150,32 @@ input,select,textarea{font-size:14px;line-height:1.45}
   .op-panel h2{font-size:18px}
   .op-card h3{font-size:17px}
 }
+
+/* Referee scoring screen: clear tap targets and Vietnamese accents on narrow phones.
+   Scope all overrides to referee screen; do not change organizer/discovery layouts. */
+.op-referee-page .op-hero h1{
+ font-family:var(--op-font-body);
+ font-size:clamp(29px,5vw,42px);
+ font-weight:800;
+ line-height:1.22;
+ letter-spacing:-.035em;
+}
+.op-referee-page .op-hero p{font-size:14px;line-height:1.65}
+.op-referee-page .op-panel-header{
+ display:grid;grid-template-columns:minmax(0,1fr) auto;
+ gap:10px;align-items:center;
+}
+.op-referee-page .op-panel-header h2{font-size:clamp(16px,4vw,20px);line-height:1.25}
+.op-referee-page #refresh{white-space:nowrap;min-width:76px;padding:11px 12px;font-size:13px}
+.op-referee-page .op-card .op-actions{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+.op-referee-page .op-card .op-actions button{
+ width:100%;min-width:0;margin:0;padding:12px 5px;min-height:46px;
+ white-space:nowrap;font-size:13px;line-height:1.2;
+}
+@media(max-width:355px){
+ .op-referee-page .op-hero h1{font-size:29px}
+ .op-referee-page .op-card .op-actions button{font-size:12px}
+ .op-referee-page .op-panel-header{gap:7px}
+}
