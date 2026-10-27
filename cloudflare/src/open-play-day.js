@@ -23,12 +23,15 @@ async function loadPlan(env,id){
   const plan=await dbOne(env,"SELECT * FROM open_play_plans WHERE session_id=?",id);
   if(!plan)return null;
   const matches=await dbRows(env,"SELECT m.*,a.referee_user_id FROM open_play_matches m LEFT JOIN open_play_match_referees a ON a.match_id=m.id WHERE m.session_id=? ORDER BY m.round_no,m.court_no",id);
+  const booked=await dbRows(env,"SELECT b.court_id AS courtId,c.name FROM open_play_court_bookings b JOIN open_play_venue_courts c ON c.id=b.court_id WHERE b.session_id=? AND b.status='active' ORDER BY c.name,c.id",id);
   return {
     sessionId:id,roundCount:Number(plan.round_count),courtCount:Number(plan.court_count),
+    courtBookings:booked,physicalCourtsReserved:booked.length===Number(plan.court_count),
     pointTarget:Number(plan.point_target),winBy:Number(plan.win_by),createdAt:plan.created_at,
     matches:matches.map(m=>({id:m.id,round:m.round_no,court:m.court_no,teamA:JSON.parse(m.team_a_json),
       teamB:JSON.parse(m.team_b_json),scoreA:m.score_a,scoreB:m.score_b,
-      status:m.status,version:m.version,completedAt:m.completed_at,refereeUserId:m.referee_user_id||null}))
+      status:m.status,version:m.version,completedAt:m.completed_at,refereeUserId:m.referee_user_id||null,
+      physicalCourtName:booked[m.court_no-1]?.name||null,physicalCourtId:booked[m.court_no-1]?.courtId||null}))
   };
 }
 // Shared versioned scoring path for BTC and assigned referees. Referee scope
@@ -145,6 +148,9 @@ export async function handleOpenPlayGameDay(request,env,user){
     const b=await bodyJson(request);
     const rounds=asInt(b.rounds??3,1,12,"INVALID_OPEN_PLAY_ROUNDS");
     const courts=asInt(b.courts??1,1,32,"INVALID_OPEN_PLAY_COURT_COUNT");
+    const booked=await dbRows(env,"SELECT b.court_id FROM open_play_court_bookings b WHERE b.session_id=? AND b.status='active'",m.id);
+    if(booked.length&&booked.length!==courts)
+      return fail("OPEN_PLAY_RESERVED_COURT_COUNT_MISMATCH",request,env,409);
     const pointTarget=asInt(b.pointTarget??21,11,21,"INVALID_OPEN_PLAY_POINT_TARGET");
     if(![11,15,21].includes(pointTarget))return fail("INVALID_OPEN_PLAY_POINT_TARGET",request,env,400);
     const winBy=asInt(b.winBy??1,1,2,"INVALID_OPEN_PLAY_WIN_BY");
