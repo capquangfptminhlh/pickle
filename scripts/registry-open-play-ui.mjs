@@ -133,7 +133,7 @@ try{
    await page.locator("#roundCount").fill("2");
    await page.locator("#courtCount").fill("1");
    await page.locator("#pointTarget").selectOption("11");
-   page.on("dialog",dialog=>dialog.accept());
+   page.on("dialog",dialog=>dialog.type()==="prompt"?dialog.accept("Điều chỉnh điểm sau khi đối chiếu biên bản trận"):dialog.accept());
    await page.locator("#confirmRounds").click();
    await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
    assert.equal(await page.locator("#matches article").count(),2);
@@ -152,6 +152,14 @@ try{
    await page.locator("#closeSession").click();
    await page.locator("#details").filter({hasText:"Đã đóng"}).waitFor();
    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+   const correctionCard=page.locator("#matches article").first();
+   await correctionCard.locator("input").nth(1).fill("6");
+   await correctionCard.getByRole("button",{name:"Sửa điểm đã chốt"}).click();
+   await page.locator("#notice").filter({hasText:"Đã sửa điểm"}).waitFor();
+   assert.equal(f.db.prepare("SELECT score_b FROM open_play_matches WHERE session_id=? AND round_no=1 AND court_no=1").get(id).score_b,6);
+   await page.locator("#matches article").first().locator("summary").click();
+   await page.locator("#matches article").first().filter({hasText:"CORRECTION"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_match' AND action='CORRECTION'").get().n,1);
    await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
    await page.goto(base+"/open-play-discover.html");
    await page.locator("#myMatches article").first().waitFor();
