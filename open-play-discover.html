@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b7b50"><title>PickleUp · Tìm Open Play</title>
+<link rel="stylesheet" href="assets/site-sport.css?v=10"><link rel="stylesheet" href="assets/site-light.css?v=1">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1f6f2;color:#193629;font-family:system-ui,sans-serif}main{max-width:900px;padding:16px;margin:auto}
+a{color:#076e47}section{padding:18px;margin:12px 0;border:1px solid #d7e7db;border-radius:17px;background:white}
+h1,h2{margin:0 0 8px}p{color:#577362;line-height:1.5}button{font:inherit;font-weight:700;border:0;min-height:44px;border-radius:10px;padding:10px 16px;color:white;background:#0b7b50;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}
+button.secondary{background:#e7efe9;color:#174633}label{font-size:14px;font-weight:650;display:block;margin:10px 0 5px}
+select{width:100%;padding:10px;border:1px solid #b9cbbc;border-radius:10px;min-height:44px;font:inherit}
+#sessions article,#registrations li{border-top:1px solid #e2ede5;padding:12px 0}.session-meta{font-size:13px;color:#5c7363}
+.state{padding:12px;background:#e9f5ed;border-radius:10px;white-space:pre-wrap}.error{background:#ffecef;color:#963540}.hidden{display:none!important}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}li{overflow-wrap:anywhere}
+</style></head><body><main><nav><a href="index.html">← PickleUp</a> · <a href="open-play.html">Mô phỏng ghép đôi</a></nav>
+<section><h1>Tìm buổi Open Play</h1><p>Đăng ký chơi bằng tài khoản của chính anh/chị. Chỉ những buổi được BTC mở công khai mới xuất hiện.</p>
+<div id="notice" class="state" role="status" aria-live="polite">Đang tải…</div><div id="accountInfo"></div>
+<div class="actions"><a id="loginLink" href="login.html?next=open-play-discover.html">Đăng nhập để đăng ký</a><button type="button" class="secondary" id="refresh">Làm mới</button></div></section>
+<section><h2>Buổi chơi sắp diễn ra</h2><div id="sessions">Đang tải danh sách…</div></section>
+<section><h2>Đăng ký của tôi</h2><div id="registrations">Đăng nhập để xem các buổi đã đăng ký.</div></section></main>
+<script src="assets/api.js"></script><script defer src="assets/open-play-discover.js"></script>
+</body></html>
