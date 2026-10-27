@@ -1,0 +1,22 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+const root=new URL("../",import.meta.url);
+test("Open Play discovery is linked to identity-bound self-registration APIs",async()=>{
+ const page=await readFile(new URL("open-play-discover.html",root),"utf8");
+ const source=await readFile(new URL("assets/open-play-discover.js",root),"utf8");
+ assert.match(page,/name="viewport"/);
+ assert.match(page,/role="status" aria-live="polite"/);
+ assert.match(page,/id="sessions"/);
+ assert.match(page,/id="registrations"/);
+ assert.match(page,/src="assets\/api.js"/);
+ assert.match(source,/\/api\/open-play\/public\/sessions/);
+ assert.match(source,/\/api\/open-play\/me/);
+ assert.match(source,/\/join/);
+ assert.match(source,/\/self-cancel/);
+ assert.match(source,/playerId:id/);
+ assert.match(source,/textContent=/);
+ assert.doesNotMatch(source,/\.innerHTML\s*=/);
+ assert.doesNotMatch(source,/localStorage\.setItem/);
+ assert.doesNotMatch(page,/<script>[^]*?<\/script>/);
+});
