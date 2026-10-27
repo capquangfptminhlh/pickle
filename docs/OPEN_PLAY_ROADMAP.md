@@ -67,9 +67,19 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - A referee cannot self-assign, see other referees' matches, view private player contact information or use staff-only final score corrections.
 - Actual referee availability, tournament role scope integration, referee substitution approvals, alerts and push-score updates are not yet implemented. A match assignment is **not** a physical court booking.
 
+## Physical-court reservations within Open Play (feature branch)
+- D1 migration `0026_open_play_courts.sql` adds a staff/CLB-scoped venue-court directory, one reservation header per Open Play session, and one record per selected court. These tables do **not** overwrite the tournament `courts` table.
+- `POST /api/open-play/courts` creates a named organizer-owned court (or a shared club court if the account is authorized for that club). Unique court names are enforced per organizer and per shared club.
+- `GET /api/open-play/sessions/:id/courts?durationMinutes=120` lists organizer/club courts with overlap-aware availability and confirmed internal reservations.
+- `POST /api/open-play/sessions/:id/courts/reserve` requires `{courtIds:[...],durationMinutes:30..480}` in 15-minute increments. Starts at the exact session start, with UTC ISO `[start,end)` boundaries.
+- The one-session reservation header and multi-court entries commit in a single D1 transaction. SQL triggers reject **overlapping bookings of the same internal court** atomically, including concurrent requests; adjacent bookings with end equal to next start are allowed. Failed reservations leave no partial slots.
+- When real courts were booked, official game-day `courtCount` must match their number. Match/athlete/referee views show the names of booked courts; without bookings, the UI says **Sân mô phỏng**.
+- Cancelling an Open Play session releases its reservations in the same D1 batch transaction as the status change. Closing after play does not discard historical reservations.
+- **Integration limit:** these safeguards cover only reservations created in **this Open Play subsystem**. They do NOT yet detect existing tournament court assignments, external venue booking software, walk-in rental or third-party reservations. Do not market them as a verified global/physical court availability source. Independent facility-wide inventory/mapping and booking-provider integration are required before claiming all-source collision prevention.
+
 ## NOT yet ready for customer launch
 - Player-account linking management/consent, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
-- Verified venue/court booking and conflict prevention, cancellation notifications, confirmed-plan reset/reschedule flows and stronger globally fair partner rotation. A deterministic multi-round plan can be **confirmed and saved**, but court numbers are logical slots, not guaranteed physical bookings.
+- Verified **cross-system** venue/court booking and conflict prevention (tournaments/external booking), cancellation notifications, confirmed-plan reset/reschedule flows and stronger globally fair partner rotation. Open Play internal court bookings are implemented and collision-checked, but not guaranteed against external/tournament calendars.
 - True random seeded pairing with auditable seed; current algorithm is deterministic, not random.
 - Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback, GDPR-style data lifecycle and history sanitization.
 - Marketplace, ratings recalculation, communities, native app are separate later phases.
