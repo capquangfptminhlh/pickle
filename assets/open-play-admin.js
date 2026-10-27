@@ -9,7 +9,16 @@ const errorText=e=>({
  OPEN_PLAY_FULL_OR_CLOSED:"Buổi chơi đã đủ người hoặc ngừng đăng ký.",
  OPEN_PLAY_PLAYER_NOT_FOUND:"Không tìm thấy hồ sơ VĐV hoạt động.",
  OPEN_PLAY_FORBIDDEN:"Tài khoản không có quyền quản lý buổi này.",
- AUTH_REQUIRED:"Phiên đăng nhập đã hết hạn."
+ AUTH_REQUIRED:"Phiên đăng nhập đã hết hạn.",
+ OPEN_PLAY_NEEDS_FOUR_CHECKINS:"Cần ít nhất 4 VĐV check-in trước khi xác nhận.",
+ OPEN_PLAY_NO_VALID_COURT:"Chưa có đủ cặp hợp lệ để tạo sân thi đấu.",
+ OPEN_PLAY_PLAN_EXISTS:"Buổi chơi đã có lịch chính thức. Vui lòng tải lại.",
+ OPEN_PLAY_ROSTER_LOCKED:"Đã chốt lịch thi đấu nên không thể sửa danh sách VĐV.",
+ OPEN_PLAY_UNFINISHED_MATCHES:"Còn trận chưa kết thúc. Hãy hoàn tất trước khi đóng buổi.",
+ OPEN_PLAY_SCORE_VERSION_CONFLICT:"Điểm đã được thay đổi trên thiết bị khác. Bấm Cập nhật lịch & điểm rồi thử lại.",
+ OPEN_PLAY_INVALID_FINAL_SCORE:"Điểm chưa đủ điều kiện kết thúc theo luật buổi chơi.",
+ OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH:"Điểm đã đủ thắng. Hãy chọn Kết thúc trận để xác nhận.",
+ OPEN_PLAY_MATCH_COMPLETED:"Trận này đã kết thúc và không thể sửa điểm."
 }[e?.message]||e?.message||"Lỗi kết nối");
 const notice=(message,isError=false)=>{const node=$("notice");node.textContent=message;node.className="op-status"+(isError?" error":"")};
 const detail=message=>{$("details").textContent=message};
@@ -180,6 +189,7 @@ async function loadGameDay(id){
     await loadGameDay(id);notice("Đã lưu điểm trận sân "+m.court+" · phiên bản "+data.version+".");
    }));
    action.append(button("Kết thúc trận",async()=>{
+    if(!window.confirm("Xác nhận kết thúc trận? Điểm sau khi chốt sẽ không thể tự sửa."))return;
     const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/score",{
      method:"PATCH",body:JSON.stringify({version:m.version,scoreA:Number(fields[0].value),scoreB:Number(fields[1].value),finish:true})
     });
