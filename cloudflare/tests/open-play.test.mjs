@@ -35,6 +35,9 @@ test("Open Play sessions are permission scoped and isolated from match scores",a
   assert.equal(pairs.data.pairs[0].combinedRating,5.2);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations/p2/cancel","POST",{},"organizer")).status,200);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p3"},"organizer")).status,201);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p2"},"organizer")).status,409,"full session must reject cancelled-player rejoin");
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations/p3/cancel","POST",{},"organizer")).status,200);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p2"},"organizer")).status,200,"rejoin after cancellation should work when capacity becomes free");
   const updated=await api(f,"/api/open-play/sessions/"+id,"PATCH",{status:"closed"},"organizer");
   assert.equal(updated.status,200);
   assert.equal((await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId:"p2"},"organizer")).status,409);
