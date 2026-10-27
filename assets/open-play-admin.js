@@ -18,7 +18,11 @@ const errorText=e=>({
  OPEN_PLAY_SCORE_VERSION_CONFLICT:"Điểm đã được thay đổi trên thiết bị khác. Bấm Cập nhật lịch & điểm rồi thử lại.",
  OPEN_PLAY_INVALID_FINAL_SCORE:"Điểm chưa đủ điều kiện kết thúc theo luật buổi chơi.",
  OPEN_PLAY_FINAL_SCORE_REQUIRES_FINISH:"Điểm đã đủ thắng. Hãy chọn Kết thúc trận để xác nhận.",
- OPEN_PLAY_MATCH_COMPLETED:"Trận này đã kết thúc và không thể sửa điểm.",
+ OPEN_PLAY_MATCH_COMPLETED:"Trận đã chốt. Chỉ BTC có thể sửa bằng chức năng sửa kết quả có lý do.",
+ OPEN_PLAY_CORRECTION_REQUIRES_COMPLETED_MATCH:"Chỉ sửa điểm bằng quy trình này sau khi kết thúc trận.",
+ OPEN_PLAY_CORRECTION_REASON_REQUIRED:"Vui lòng ghi lý do điều chỉnh điểm từ 12–500 ký tự.",
+ OPEN_PLAY_CORRECTION_NO_CHANGE:"Điểm mới phải khác điểm cũ.",
+ OPEN_PLAY_CORRECTION_AUDIT_FAILED:"Không thể xác nhận nhật ký sửa điểm. Vui lòng thử lại.",
  OPEN_PLAY_ALREADY_WAITLISTED:"VĐV này đã nằm trong hàng chờ.",
  OPEN_PLAY_WAITLIST_REQUIRES_FULL_SESSION:"Chưa đủ người. Vui lòng đăng ký VĐV trực tiếp trước.",
  OPEN_PLAY_WAITLIST_UNAVAILABLE:"Buổi chơi đã đóng hoặc đã chốt lịch.",
@@ -207,7 +211,7 @@ async function loadGameDay(id){
   for(const [label,id,value] of [["Đội A","a",m.scoreA],["Đội B","b",m.scoreB]]){
    const wrap=document.createElement("div"),lab=item("label",label),input=document.createElement("input");
    input.type="number";input.min="0";input.max="99";input.step="1";input.value=String(value);
-   input.id="op-score-"+m.id+"-"+id;lab.htmlFor=input.id;input.disabled=m.status==="completed";
+   input.id="op-score-"+m.id+"-"+id;lab.htmlFor=input.id;
    wrap.append(lab,input);score.append(wrap);fields.push(input);
   }
   card.append(title,teams,state,score);
@@ -220,14 +224,43 @@ async function loadGameDay(id){
     await loadGameDay(id);notice("Đã lưu điểm trận sân "+m.court+" · phiên bản "+data.version+".");
    }));
    action.append(button("Kết thúc trận",async()=>{
-    if(!window.confirm("Xác nhận kết thúc trận? Điểm sau khi chốt sẽ không thể tự sửa."))return;
+    if(!window.confirm("Xác nhận kết thúc trận? Mọi thay đổi sau đó đều yêu cầu BTC ghi rõ lý do và được lưu nhật ký."))return;
     const data=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/score",{
      method:"PATCH",body:JSON.stringify({version:m.version,scoreA:Number(fields[0].value),scoreB:Number(fields[1].value),finish:true})
     });
     await loadGameDay(id);notice("Đã kết thúc trận sân "+m.court+" · "+data.scoreA+"-"+data.scoreB+".");
    },"secondary"));
    card.append(action);
+  }else{
+   const correction=item("div","","op-actions");
+   correction.append(button("Sửa điểm đã chốt",async()=>{
+    const reason=window.prompt("Nhập lý do sửa điểm (ít nhất 12 ký tự). Thay đổi sẽ được lưu vào nhật ký:");
+    if(reason===null)return;
+    if(!window.confirm("Xác nhận sửa điểm trận đã kết thúc? Lịch sử kết quả cũ vẫn được lưu."))return;
+    const updated=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/correction",{
+     method:"PATCH",body:JSON.stringify({version:m.version,scoreA:Number(fields[0].value),
+      scoreB:Number(fields[1].value),reason})
+    });
+    await loadGameDay(id);
+    notice("Đã sửa điểm trận sân "+m.court+" thành "+updated.scoreA+"-"+updated.scoreB+" và lưu nhật ký.");
+   },"secondary"));
+   card.append(correction);
   }
+  const history=document.createElement("details"),summary=item("summary","Xem lịch sử điểm");
+  const historyText=item("div","Đang đọc nhật ký...","op-results");
+  history.append(summary,historyText);
+  history.addEventListener("toggle",async()=>{
+   if(!history.open)return;
+   try{
+    const events=await API.request("/api/open-play/sessions/"+encodeURIComponent(id)+"/matches/"+encodeURIComponent(m.id)+"/history");
+    historyText.textContent=events.length?events.map(e=>
+     (e.createdAt||"")+" · "+e.action+" · "+(e.actorId||"BTC")+
+     (e.reason?" · Lý do: "+e.reason:"")+
+     (e.after?.scoreA===undefined?"":" · "+e.after.scoreA+"-"+e.after.scoreB)
+    ).join("\\n"):"Chưa có thay đổi được ghi nhận.";
+   }catch(e){historyText.textContent="Không tải được nhật ký: "+errorText(e)}
+  });
+  card.append(history);
   root.append(card);
  }
 }
