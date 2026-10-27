@@ -34,3 +34,4 @@ jobs:
         run: |
           node --test scripts/open-play.test.mjs scripts/open-play-page.test.mjs scripts/open-play-admin.test.mjs scripts/open-play-discover.test.mjs cloudflare/tests/open-play.test.mjs
           node scripts/registry-open-play-ui.mjs
+          node scripts/registry-legacy-ui.mjs
