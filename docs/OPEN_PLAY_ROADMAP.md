@@ -36,6 +36,17 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - `GET /api/open-play/sessions/:id/rounds/preview?rounds=3&courts=2`: authorized BTC-only 2v2 preview, includes virtual courts, waiting lists and per-player game counts; **no DB writes**.
 
 
+## Full-session waitlist and FIFO promotion
+- Additive migration `0024_open_play_waitlist.sql`, independent from tournament tables and player contact exports.
+- A public session must be **opted in, full, open and not yet confirmed** before a linked player may join its waitlist. A player cannot queue someone else's profile.
+- `POST /api/open-play/sessions/:id/waitlist/join` body `{playerId}` (self), or staff `POST /api/open-play/sessions/:id/waitlist`.
+- `GET /api/open-play/me` returns only the signed-in account's waiting positions; staff `GET /api/open-play/sessions/:id/waitlist` shows roster position/name/rating without contact data.
+- Leave via `POST /api/open-play/sessions/:id/waitlist/self-cancel` or staff `POST /api/open-play/sessions/:id/waitlist/:playerId/cancel`.
+- **Cancellation auto-promotion** happens in one D1 `DB.batch` transaction: cancel confirmed registration, admit earliest eligible active waitlisted profile to the freed slot, change waitlist status to promoted, audit both. Deterministic FIFO by created timestamp then player ID. Bypass and overbooking blocked through guarded inserts and unique constraints.
+- Public discovery shows counts (not names), a waiting button when full, and own queue position/cancel controls.
+- **Confirming a game-day plan automatically stops signup and expires remaining queue slots**, because the match roster is immutable. This does not imply a live push/notification service; refresh is manual.
+- Safety: no paid reservation, no notification promise, no fairness beyond FIFO eligibility; no changes to score_events or existing tournaments.
+
 ## Match-day execution (feature branch, isolated data)
 - **Staff check-in:** `POST /api/open-play/sessions/:id/check-in/:playerId` with `{checkedIn:true|false}`. Only already-registered active players can check in. Must check in at least four players before plan confirmation.
 - **Get state:** `GET /api/open-play/sessions/:id/plan` returns check-ins and the confirmed schedule (if any). Staff authorization enforced.
@@ -48,7 +59,7 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - **Not yet real-time push:** scoreboard refresh is operator/player-triggered; no WebSocket/SSE feed, native push notification, court booking guarantee or automated ranking changes.
 
 ## NOT yet ready for customer launch
-- Player-account linking management/consent, waitlist, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
+- Player-account linking management/consent, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
 - Verified venue/court booking and conflict prevention, cancellation notifications, reset/undo/reschedule flows and stronger globally fair partner rotation. A deterministic multi-round plan can be **confirmed and saved**, but court numbers are logical slots, not guaranteed physical bookings.
 - True random seeded pairing with auditable seed; current algorithm is deterministic, not random.
 - Production migration safety review, permission edge cases, real-device UI, concurrency/stress QA, observability/rollback, GDPR-style data lifecycle and history sanitization.
