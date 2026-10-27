@@ -43,7 +43,9 @@ Status: feature branch PR #40, **not deployed**. The existing `open-play.html` r
 - **Enter scores:** `PATCH /api/open-play/sessions/:id/matches/:matchId/score` body `{version,scoreA,scoreB,finish}`. Score version prevents overwrite on concurrent devices. Completed matches cannot be edited without a future explicit correction procedure. Finishing requires the configured target and winning margin. Each score change is audited in separate `open_play_match` records.
 - **Close session:** closing fails if any confirmed game remains unfinished. Tournament `matches` and `score_events` remain unchanged.
 - **Staff UI:** check-in buttons, official plan confirmation after operator prompt, score inputs per match, status refresh and close. E2E scenario exercises full flow with synthetic users and local D1.
-- **Not yet real-time push:** scoreboard refresh is operator-triggered; no WebSocket/SSE feed, native push notification, court booking guarantee or automated ranking changes.
+- **Player game feed:** `GET /api/open-play/me/matches` lists only matches where the signed-in account owns one of the four participant profiles. No contact information is exposed. Mobile discovery shows `Trận đấu của tôi` with court, round, scores, status and manual refresh. Cross-profile access is not supported.
+
+- **Not yet real-time push:** scoreboard refresh is operator/player-triggered; no WebSocket/SSE feed, native push notification, court booking guarantee or automated ranking changes.
 
 ## NOT yet ready for customer launch
 - Player-account linking management/consent, waitlist, self-check-in policy and booking notifications. Staff check-in and public self-registration are implemented, but need live-device acceptance testing.
