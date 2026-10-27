@@ -104,6 +104,29 @@ async function changeSession(payload){
  const updated=await API.request("/api/open-play/sessions/"+encodeURIComponent(currentId),{method:"PATCH",body:JSON.stringify(payload)});
  await loadSession(currentId);await refresh();notice("Đã cập nhật "+updated.title+".");
 }
+async function loadSuggestions(){
+ const [players,clubs]=await Promise.allSettled([
+  API.request("/api/public/players"),
+  API.request("/api/public/clubs")
+ ]);
+ if(players.status==="fulfilled"&&Array.isArray(players.value)){
+  const list=$("playerSuggestions");list.replaceChildren();
+  for(const player of players.value.slice(0,500)){
+   const option=document.createElement("option");
+   option.value=String(player.id);
+   option.label=String(player.full_name||player.name||player.id)+" · "+Number(player.rating||0)+" điểm";
+   list.append(option);
+  }
+ }
+ if(clubs.status==="fulfilled"&&Array.isArray(clubs.value)){
+  const list=$("clubSuggestions");list.replaceChildren();
+  for(const club of clubs.value.slice(0,200)){
+   const option=document.createElement("option");
+   option.value=String(club.id);option.label=String(club.name||club.id);
+   list.append(option);
+  }
+ }
+}
 async function init(){
  try{
   const session=await API.session();
@@ -116,6 +139,7 @@ async function init(){
   if(account.role==="club_manager"&&account.clubId){$("clubId").value=account.clubId;$("clubId").readOnly=true}
   notice("Xin chào "+(account.name||account.email||"BTC")+" · Trạng thái đã đồng bộ.");
   await refresh();
+  loadSuggestions().catch(()=>{});
  }catch(e){notice("Không thể tải Open Play: "+errorText(e),true)}
 }
 $("createSession").addEventListener("submit",async event=>{
