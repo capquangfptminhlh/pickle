@@ -16,6 +16,21 @@ const status=(text,error=false)=>{const node=$("notice");node.textContent=text;n
 const el=(tag,text,cls)=>{const node=document.createElement(tag);node.textContent=String(text??"");if(cls)node.className=cls;return node};
 const when=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"Chưa rõ giờ":d.toLocaleString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
 const endpoint=id=>"/api/open-play/sessions/"+encodeURIComponent(id);
+// Anonymous visitors must be able to view public events. Unlike PickleAPI.session(),
+// this optional request intentionally does not redirect on a 401.
+async function optionalSession(){
+ const base=String(window.PICKLE_API_BASE||localStorage.getItem("pickle-api-base")||"").replace(/\\/+$/,"");
+ const token=localStorage.getItem("pickle-api-token-v1");
+ const res=await fetch(base+"/api/auth/session",{
+  credentials:base?"omit":"include",cache:"no-store",
+  headers:token?{Authorization:"Bearer "+token}:{}
+ });
+ if(res.status===401)return null;
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok)throw Object.assign(new Error(data.error||"REQUEST_FAILED"),{status:res.status});
+ return data?.user?data:null;
+}
+
 function makeButton(label,action,cls){
  const button=el("button",label,cls);button.type="button";
  button.addEventListener("click",async()=>{
@@ -32,7 +47,7 @@ function emptyState(title,description){
 }
 async function reload(){
  status("Đang đồng bộ lịch Open Play…");
- const auth=await api.session();
+ const auth=await optionalSession();
  member=auth?.user||null;profiles=[];registrations=[];waitlist=[];myMatches=[];
  $("loginLink").classList.toggle("hidden",Boolean(member));
  if(member){
