@@ -99,3 +99,42 @@ test("public discovery is opt-in and players may register/cancel only their own 
   assert.equal(listing.data.some(s=>s.id===id),false);
  }finally{f.db.close()}
 });
+
+test("staff multi-round court preview is scoped, deterministic and read-only",async()=>{
+ const f=await accountFixture();
+ try{
+  const made=await api(f,"/api/open-play/sessions","POST",{...draft,maxPlayers:4,title:"Doubles Preview"},"organizer");
+  assert.equal(made.status,201,JSON.stringify(made.data));
+  const id=made.data.id;
+  f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('r1','Player 1',2.5),('r2','Player 2',2.5),('r3','Player 3',2.5),('r4','Player 4',2.5)");
+  for(const playerId of ["r1","r2","r3","r4"]){
+   const joined=await api(f,"/api/open-play/sessions/"+id+"/registrations","POST",{playerId},"organizer");
+   assert.equal(joined.status,201,JSON.stringify(joined.data));
+  }
+  const path="/api/open-play/sessions/"+id+"/rounds/preview?rounds=3&courts=1";
+  assert.equal((await api(f,path,"GET",undefined,null)).status,401);
+  assert.equal((await api(f,path,"GET",undefined,"local")).status,403);
+  const before={
+   score:f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,
+   audit:f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs").get().n,
+   registrations:f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations").get().n
+  };
+  const first=await api(f,path,"GET",undefined,"organizer");
+  assert.equal(first.status,200,JSON.stringify(first.data));
+  assert.equal(first.data.previewOnly,true);
+  assert.equal(first.data.rounds.length,3);
+  assert.equal(first.data.rounds.every(r=>r.courts.length===1),true);
+  const teams=first.data.rounds.flatMap(r=>r.courts.flatMap(c=>[c.teamA,c.teamB]));
+  assert.equal(new Set(teams.map(t=>[...t.playerIds].sort().join(":"))).size,6);
+  assert.equal(teams.every(t=>t.combinedRating<=5.2),true);
+  const second=await api(f,path,"GET",undefined,"organizer");
+  assert.deepEqual(second.data,first.data);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/rounds/preview?rounds=0&courts=1","GET",undefined,"organizer")).status,422);
+  assert.equal((await api(f,"/api/open-play/sessions/"+id+"/rounds/preview?rounds=3&courts=100","GET",undefined,"organizer")).status,422);
+  assert.deepEqual({
+   score:f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,
+   audit:f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs").get().n,
+   registrations:f.db.prepare("SELECT COUNT(*) AS n FROM open_play_registrations").get().n
+  },before,"preview must never change tournament or Open Play persistence");
+ }finally{f.db.close()}
+});
