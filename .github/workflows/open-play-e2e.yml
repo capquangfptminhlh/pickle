@@ -33,7 +33,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Open Play validation
         run: |
-          node --test scripts/open-play.test.mjs scripts/open-play-page.test.mjs scripts/open-play-admin.test.mjs scripts/open-play-discover.test.mjs scripts/open-play-font.test.mjs cloudflare/tests/open-play.test.mjs
+          node --test scripts/open-play.test.mjs scripts/open-play-rounds.test.mjs scripts/open-play-page.test.mjs scripts/open-play-admin.test.mjs scripts/open-play-discover.test.mjs scripts/open-play-font.test.mjs cloudflare/tests/open-play.test.mjs
           node scripts/registry-open-play-ui.mjs
           node scripts/registry-legacy-ui.mjs
           TIMEOUT_UI_PHASE=service TIMEOUT_UI_KIND=admin node scripts/registry-timeout-clock-ui.mjs
