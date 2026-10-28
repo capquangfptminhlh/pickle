@@ -1,4 +1,5 @@
 import {cp,mkdir,readdir,readFile,rm,writeFile} from "node:fs/promises";
+import {createHash} from "node:crypto";
 import {dirname,join,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 
@@ -30,3 +31,28 @@ await cp(join(projectDir,"assets"),join(outputDir,"assets"),{recursive:true});
 await mkdir(join(outputDir,"shared"),{recursive:true});
 await cp(join(projectDir,"shared","open-play.js"),join(outputDir,"shared","open-play.js"));
 
+
+/*
+ * Each static release must change its service worker bytes, otherwise installed
+ * PWAs keep the old cache name even if GitHub/Cloudflare have new assets.
+ * Hash published source assets rather than rely on manually bumped ?v=N values.
+ */
+const digest=createHash("sha256");
+async function hashPublishedFiles(directory,relative=""){
+  for(const entry of (await readdir(directory,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){
+    const name=relative?relative+"/"+entry.name:entry.name;
+    const full=join(directory,entry.name);
+    if(entry.isDirectory())await hashPublishedFiles(full,name);
+    else if(entry.isFile()&&entry.name!=="service-worker.js"&&/\.(?:html|css|js|webmanifest|svg)$/.test(entry.name)){
+      digest.update(name+"\0");
+      digest.update(await readFile(full));
+    }
+  }
+}
+await hashPublishedFiles(outputDir);
+const revision=digest.digest("hex").slice(0,16);
+const version="pickleup-v86-"+revision;
+const workerSource=await readFile(join(projectDir,"service-worker.js"),"utf8");
+if(!/const VERSION="pickleup-v\d+[^"]*";/.test(workerSource))throw new Error("PWA_VERSION_MARKER_MISSING");
+await writeFile(join(outputDir,"service-worker.js"),workerSource.replace(/const VERSION="pickleup-v\d+[^"]*";/, 'const VERSION="'+version+'";'));
+await writeFile(join(outputDir,"release.json"),JSON.stringify({version,revision,git_sha:process.env.GITHUB_SHA||null})+"\n");
