@@ -6,6 +6,8 @@
   const bar=document.getElementById("eventFilters");
   const count=document.getElementById("eventResultCount");
   const empty=document.getElementById("eventFilterEmpty");
+  const mobileToggle=document.getElementById("eventMobileFilter");
+  const discovery=document.getElementById("eventDiscovery");
   if(!root||!input||!bar||!count||!empty)return;
   let status="all";
   const normalize=value=>String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").toLocaleLowerCase("vi").trim();
@@ -27,6 +29,23 @@
     count.textContent=visible+"/"+cards.length+" giải phù hợp";
     empty.hidden=visible!==0||cards.length===0;
   };
+  if(mobileToggle&&discovery){
+    const setOpen=open=>{
+      discovery.dataset.open=open?"true":"false";
+      mobileToggle.setAttribute("aria-expanded",String(open));
+      if(open)input.focus();else mobileToggle.focus();
+    };
+    mobileToggle.addEventListener("click",()=>setOpen(discovery.dataset.open!=="true"));
+    document.addEventListener("keydown",event=>{
+      if(event.key==="Escape"&&discovery.dataset.open==="true"){event.preventDefault();setOpen(false)}
+    });
+    document.addEventListener("pointerdown",event=>{
+      if(discovery.dataset.open==="true"&&!discovery.contains(event.target)&&!mobileToggle.contains(event.target)){
+        discovery.dataset.open="false";
+        mobileToggle.setAttribute("aria-expanded","false");
+      }
+    });
+  }
   input.addEventListener("input",apply);
   bar.addEventListener("click",event=>{
     const button=event.target.closest("button[data-filter]");
