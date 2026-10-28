@@ -485,3 +485,55 @@ for(const width of [375,844,1440])for(const path of ["/","/preview/index.html"])
     });
   });
 }
+
+
+test("mobile competition discovery opens without pushing the first tournament behind the dock",async()=>{
+  await withPage({width:375,path:"/"},async page=>{
+    const toggle=page.locator("#eventMobileFilter");
+    await toggle.waitFor({state:"visible"});
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    const title=await page.locator("#publicTours .tour-card h3").first().boundingBox();
+    const dock=await page.locator(".public-mobile-dock").boundingBox();
+    assert.ok(title&&dock&&title.y+title.height<=dock.y,"first tournament title remains visible");
+    await toggle.click();
+    assert.equal(await toggle.getAttribute("aria-expanded"),"true");
+    const input=page.locator("#eventSearch");
+    await input.fill("unmatched-competition-test-query");
+    assert.equal(await page.locator("#publicTours .tour-card:visible").count(),0);
+    await input.fill("");
+    assert.ok(await page.locator("#publicTours .tour-card:visible").count()>0,"clearing query restores tournament cards");
+    await input.press("Escape");
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+  });
+});
+
+test("desktop competition filters change results without another API roundtrip",async()=>{
+  await withPage({width:844,path:"/"},async page=>{
+    const cards=page.locator("#publicTours .tour-card");
+    await cards.first().waitFor();
+    const total=await cards.count();
+    const input=page.locator("#eventSearch");
+    await input.fill("never-matches-any-tournament-uuid");
+    assert.equal(await page.locator("#publicTours .tour-card:visible").count(),0);
+    await input.fill("");
+    assert.equal(await page.locator("#publicTours .tour-card:visible").count(),total);
+    const filter=page.locator('#eventFilters button[data-filter="done"]');
+    await filter.click();
+    assert.equal(await filter.getAttribute("aria-pressed"),"true");
+    await page.locator('#eventFilters button[data-filter="all"]').click();
+    assert.equal(await page.locator("#publicTours .tour-card:visible").count(),total);
+  });
+});
+
+test("competition command palette only exposes role-visible internal navigation",async()=>{
+  await withPage({width:844,path:"/admin.html",admin:true},async page=>{
+    await page.keyboard.press("Control+k");
+    const dialog=page.locator("#opsLauncher");
+    await dialog.waitFor({state:"visible"});
+    const search=page.locator("#opsLauncherSearch");
+    await search.fill("Bảng xếp hạng");
+    assert.ok(await page.locator('#opsLauncherResults button').count()>0,"admin has a ranking navigation result");
+    await search.press("Escape");
+    assert.equal(await dialog.isVisible(),false,"Escape dismisses the command palette");
+  });
+});
