@@ -115,8 +115,8 @@
     </section>
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">LỊCH GIẢI</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
-        <div class="cs-discovery" role="search" aria-label="Tìm giải đấu">
+        <div class="section-title"><div><span class="eyebrow">LỊCH GIẢI</span><h2>Giải đấu</h2><button id="eventMobileFilter" type="button" class="cs-mobile-filter" aria-controls="eventDiscovery" aria-expanded="false">☷ Tìm &amp; lọc</button></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div id="eventDiscovery" class="cs-discovery" role="search" aria-label="Tìm giải đấu">
           <div class="cs-discovery-heading"><strong>Khám phá giải đấu</strong><span id="eventResultCount" role="status" aria-live="polite">Đang tải giải đấu…</span></div>
           <div class="cs-discovery-controls">
             <input id="eventSearch" type="search" autocomplete="off" placeholder="Tìm tên giải, sân, địa điểm…" aria-label="Tìm kiếm giải đấu">
