@@ -1,0 +1,58 @@
+/* PickleUp Competition Studio: original UI layer, additive to existing screens. */
+:root{--cs-green:#166a43;--cs-lime:#dcfb7f;--cs-line:#d7e5d9;--cs-ink:#10271b;--cs-muted:#587163}
+#tournaments .cs-discovery{display:grid;gap:12px;margin:18px 0 20px;padding:18px;border-radius:20px;background:#fff;border:1px solid #d7e5d9;box-shadow:0 10px 28px rgba(10,51,29,.06);color:var(--cs-ink)}
+#tournaments .cs-discovery-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#tournaments .cs-discovery-heading strong{font-size:16px;font-weight:850;color:#173f2b}
+#tournaments .cs-discovery-heading span{font-size:12px;font-weight:750;color:var(--cs-muted)}
+#tournaments .cs-discovery-controls{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:12px;align-items:center}
+#tournaments #eventSearch{display:block;width:100%;min-height:48px;border:1px solid #afc8b8;border-radius:13px;padding:10px 16px;background:#f7faf7;color:var(--cs-ink);font:600 15px/1.3 "Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif}
+#tournaments #eventSearch:focus-visible{outline:3px solid #b4e674;outline-offset:2px}
+#tournaments .cs-filters{display:flex;flex-wrap:wrap;gap:7px}
+#tournaments .cs-filters button{appearance:none;min-height:43px;padding:9px 13px;border:1px solid #bed1c1;border-radius:12px;background:#f4f8f4;color:#254c36;font-weight:800;font-size:12px;cursor:pointer}
+#tournaments .cs-filters button:hover,#tournaments .cs-filters button.is-selected{background:#133e2b;border-color:#133e2b;color:#e3ffa6}
+#tournaments .cs-filters button:focus-visible{outline:3px solid #90bf56;outline-offset:2px}
+#tournaments .cs-discovery small{font-size:12px;color:var(--cs-muted);font-weight:650}
+#tournaments #eventFilterEmpty{border:1px dashed #b0cbb7;background:#f7faf7;border-radius:15px;padding:22px;color:#355741;text-align:center}
+#tournaments #publicTours .tour-card[hidden]{display:none!important}
+html[data-theme="dark"] #tournaments .cs-discovery{background:#1c2a21;border-color:#46624b;color:#f4fff1}
+html[data-theme="dark"] #tournaments .cs-discovery-heading strong{color:#eefee9}
+html[data-theme="dark"] #tournaments .cs-discovery-heading span,html[data-theme="dark"] #tournaments .cs-discovery small{color:#bcdbc6}
+html[data-theme="dark"] #tournaments #eventSearch{background:#111b16;color:#f6fff6;border-color:#55735c}
+html[data-theme="dark"] #tournaments .cs-filters button{background:#283e30;color:#edfdeb;border-color:#5b795f}
+html[data-theme="dark"] #tournaments .cs-filters button.is-selected{background:#d9ff63;color:#13251b}
+body.admin-sport .ops-stage{display:grid;gap:16px;padding:20px;border:1px solid #c6dccb;border-radius:22px;background:linear-gradient(122deg,#f6faf4,#e3f2e8 65%,#f5fbee);box-shadow:0 16px 32px rgba(0,0,0,.12);color:#122c20}
+body.admin-sport .ops-stage *{box-sizing:border-box}
+body.admin-sport .ops-stage-head{display:flex;align-items:start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+body.admin-sport .ops-stage-overline{display:block;color:#266943;font:800 11px/1.2 "Plus Jakarta Sans",ui-sans-serif,sans-serif;letter-spacing:.14em}
+body.admin-sport .ops-stage h2{margin:5px 0;font:800 clamp(25px,3vw,35px)/1.12 "Barlow Condensed","Arial Narrow",sans-serif!important;color:#133b28!important;letter-spacing:.01em}
+body.admin-sport .ops-stage p{margin:0;color:#4a6755!important;font-size:13px!important}
+body.admin-sport .ops-stage-progress{display:grid;gap:7px;min-width:160px;font-size:13px;color:#2e6042;text-align:right}
+body.admin-sport .ops-stage-progress strong{font-size:26px;color:#153d29;font-variant-numeric:tabular-nums}
+body.admin-sport .ops-stage-progress meter{width:160px;height:9px;accent-color:#287d48}
+body.admin-sport .ops-stage-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+body.admin-sport .ops-stage-step{display:flex;flex-direction:column;min-width:0;gap:7px;min-height:129px;text-align:left;cursor:pointer;background:#fff;border:1px solid #c4d7c9;border-radius:16px;padding:14px;text-decoration:none;color:#153a28;transition:transform .18s ease,border-color .18s ease}
+body.admin-sport .ops-stage-step:hover{transform:translateY(-2px);border-color:#367950}
+body.admin-sport .ops-stage-step:focus-visible{outline:3px solid #5a9c5a;outline-offset:2px}
+body.admin-sport .ops-stage-step.is-complete{background:#eff8ec;border-color:#b9d7b4}
+body.admin-sport .ops-stage-step .ops-step-number{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#e0efe2;color:#245e3b;font-weight:900;font-size:14px}
+body.admin-sport .ops-stage-step.is-complete .ops-step-number{background:#1b7445;color:#fff}
+body.admin-sport .ops-stage-step b{color:#173d29;font-size:14px;line-height:1.2}
+body.admin-sport .ops-stage-step small{color:#557362!important;font-size:11px!important;line-height:1.4}
+body.admin-sport .ops-stage-alerts{display:flex;gap:10px;flex-wrap:wrap}
+body.admin-sport .ops-stage-alerts span{background:#e4efe5;color:#23523b;border-radius:100px;padding:7px 12px;font-size:12px;font-weight:750}
+body.admin-sport .ops-stage-alerts span.is-urgent{background:#fff0d9;color:#885516}
+body.admin-sport .ops-launch{display:inline-flex!important;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:#d9ff63;color:#16291b;border:1px solid #cbeb56;min-height:44px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}
+body.admin-sport .ops-launch:hover{background:#efffa6}
+#opsLauncher{max-width:min(620px,calc(100vw - 24px));width:100%;padding:0;border-radius:22px;border:1px solid #9ab5a1;background:#f9fcf8;box-shadow:0 28px 90px #0008;color:#142e20}
+#opsLauncher::backdrop{background:#07140caa;backdrop-filter:blur(4px)}
+#opsLauncher .ops-launch-inner{padding:22px}
+#opsLauncher h2{font-size:23px;margin:0 0 5px;color:#173d28}
+#opsLauncher p{font-size:13px;margin:0 0 14px;color:#476653}
+#opsLauncher input{width:100%;min-height:52px;border-radius:13px;border:1px solid #90b79d;padding:10px 15px;font-size:16px;background:#fff;color:#132c1b}
+#opsLauncher .ops-launch-results{display:grid;max-height:min(55vh,430px);overflow:auto;gap:5px;padding:10px 0}
+#opsLauncher .ops-launch-results :is(button,a){display:flex;justify-content:space-between;align-items:center;min-height:46px;padding:10px 13px;border:0;border-radius:10px;color:#173f29;background:transparent;text-align:left;text-decoration:none;font-weight:700;cursor:pointer}
+#opsLauncher .ops-launch-results :is(button,a):hover,#opsLauncher .ops-launch-results :is(button,a):focus-visible{background:#ddefd9;outline:none}
+#opsLauncher .ops-launch-close{padding:9px 14px;border-radius:10px;border:1px solid #b9d2bf;background:#eef6ef;color:#24452e;cursor:pointer}
+@media(max-width:920px){body.admin-sport .ops-stage-steps{grid-template-columns:repeat(3,minmax(0,1fr))}#tournaments .cs-discovery-controls{grid-template-columns:1fr}}
+@media(max-width:620px){body.admin-sport .ops-stage{padding:14px;gap:14px;border-radius:17px}body.admin-sport .ops-stage-steps{grid-template-columns:repeat(2,minmax(0,1fr))}body.admin-sport .ops-stage-step{min-height:118px;padding:12px}body.admin-sport .ops-stage-progress{text-align:left}body.admin-sport .ops-stage-steps>*:last-child{grid-column:1/-1}#tournaments .cs-discovery{padding:13px}#tournaments .cs-filters button{flex:1 1 120px}body.admin-sport .ops-launch{font-size:0!important;width:44px!important;padding:0!important;justify-content:center}body.admin-sport .ops-launch:before{content:"⌕";font-size:24px}}
+@media(prefers-reduced-motion:reduce){body.admin-sport .ops-stage-step{transition:none}body.admin-sport .ops-stage-step:hover{transform:none}}
