@@ -117,7 +117,8 @@ input:focus,select:focus{outline:2px solid rgba(48,143,86,.2);border-color:#2c98
 /* Very narrow phones keep all primary links reachable without side-scrolling. */
 @media(max-width:420px){
  .op-top-inner{flex-wrap:wrap}
- .op-nav{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+ .op-nav{width:100%;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-auto-flow:row;gap:4px;flex-wrap:nowrap;min-width:0}
+ .op-nav a{min-width:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;font-size:clamp(9px,2.8vw,11px);letter-spacing:-.025em;padding:9px 2px}
  .op-nav a{text-align:center;border-radius:9px;background:rgba(255,255,255,.035)}
  .op-nav a[aria-current="page"]{background:#31503f}
  .op-hero{margin-top:12px}
