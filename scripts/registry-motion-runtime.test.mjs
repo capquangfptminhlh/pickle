@@ -67,7 +67,8 @@ test("every supported root and preview document loads shared motion in determini
 test("root and preview service workers cache versioned and unversioned shared motion", async () => {
   for (const [path, prefix] of [["service-worker.js", "/"], ["preview/service-worker.js", "../"]]) {
     const source = await read(path);
-    assert.match(source, /full-motion-20261019/, `${path} uses the release cache version`);
+    if(path==="service-worker.js")assert.match(source, /const VERSION="pickleup-v86-source";/, "root worker uses a source marker replaced with a content hash at build time");
+    else assert.match(source, /full-motion-20261019/, "preview worker keeps its preview cache version");
     for (const asset of [
       "assets/vendor/gsap-3.15.0.min.js",
       "assets/motion-system.js",
