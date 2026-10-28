@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123c2a">
+<meta name="description" content="Timeline sân pickleball theo giải: trận đang đấu, lịch sắp tới và hàng chờ chưa xếp sân.">
+<title>Timeline sân thi đấu | PickleUp</title>
+<link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/court-timeline.css">
+<script src="assets/api.js?v=57"></script>
+<script defer type="module" src="assets/court-timeline.js"></script>
+</head>
+<body>
+<a class="skip" href="#timelineMain">Bỏ qua menu đến timeline sân</a>
+<header class="topbar">
+  <div class="identity"><a class="brand" href="/" aria-label="Trang chủ PickleUp">PICKLE<span>UP</span><small>COMPETITION OPS</small></a><div class="heading"><span>LIVE OPERATIONS</span><h1>Timeline sân thi đấu</h1></div></div>
+  <div class="top-actions"><a href="/court-board.html">Bảng gọi sân</a><a href="/admin.html">Quản trị</a></div>
+</header>
+<main id="timelineMain">
+  <section class="hero">
+    <div><span class="overline">ĐIỀU PHỐI GIẢI ĐẤU · XEM TRỰC TIẾP</span><h2 id="tournamentTitle">Đang tải giải…</h2><p id="tournamentMeta">Theo dõi tất cả sân và các trận chờ phân sân trên một màn hình.</p></div>
+    <div class="controls"><label for="tournamentTimelineSelect">Giải đấu</label><select id="tournamentTimelineSelect" aria-label="Chọn giải đấu"><option>Đang tải...</option></select><button type="button" id="timelineReload">↻ Làm mới</button></div>
+  </section>
+  <div class="connection"><span id="timelineStatus" role="status" aria-live="polite">Đang kết nối dữ liệu…</span><span id="timelineUpdated"></span><span>Tự kiểm tra mỗi 15 giây</span></div>
+  <section class="stats" aria-label="Thống kê điều phối">
+    <article><span>SÂN HOẠT ĐỘNG</span><strong id="timelineCourts">0</strong></article>
+    <article><span>TRẬN ĐANG ĐẤU</span><strong id="timelineLive">0</strong></article>
+    <article><span>ĐÃ XẾP SÂN</span><strong id="timelineAssigned">0</strong></article>
+    <article class="attention"><span>CHƯA XẾP SÂN</span><strong id="timelineUnplacedCount">0</strong></article>
+  </section>
+  <div class="section-heading"><div><span>COURT TIMELINE</span><h2>Trận theo từng sân</h2></div>
+  <div class="filters" role="group" aria-label="Lọc trận đấu"><button type="button" data-view="all" aria-pressed="true">Tất cả</button><button type="button" data-view="live" aria-pressed="false">Đang đấu</button><button type="button" data-view="pending" aria-pressed="false">Đang chờ</button></div></div>
+  <section id="courtTimeline" class="court-grid" aria-label="Timeline các sân"></section>
+  <section class="unplaced-section" aria-labelledby="unplacedHeading">
+    <div class="section-heading"><div><span>UNPLACED QUEUE</span><h2 id="unplacedHeading">Hàng chờ chưa xếp sân</h2><p>Gồm trận chưa được phân sân và trận có sân ngừng hoạt động.</p></div><a href="/admin.html">Mở quản trị để phân sân</a></div>
+    <div id="autoScheduleActions" class="schedule-actions" hidden></div>
+    <div id="scheduleMessage" class="schedule-message" role="status" aria-live="polite"></div>
+    <div id="unplacedMatches" class="unplaced-grid"></div>
+  </section>
+  <div id="timelineEmpty" class="empty" hidden role="status">Giải chưa có lịch thi đấu hoặc không có quyền xem. Hãy chọn giải khác.</div>
+</main>
+<footer>PickleUp · Timeline chỉ đọc. BTC xếp sân và thay đổi trận trong trang quản trị.</footer>
+</body>
+</html>
