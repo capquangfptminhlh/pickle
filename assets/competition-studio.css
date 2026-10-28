@@ -56,3 +56,15 @@ body.admin-sport .ops-launch:hover{background:#efffa6}
 @media(max-width:920px){body.admin-sport .ops-stage-steps{grid-template-columns:repeat(3,minmax(0,1fr))}#tournaments .cs-discovery-controls{grid-template-columns:1fr}}
 @media(max-width:620px){body.admin-sport .ops-stage{padding:14px;gap:14px;border-radius:17px}body.admin-sport .ops-stage-steps{grid-template-columns:repeat(2,minmax(0,1fr))}body.admin-sport .ops-stage-step{min-height:118px;padding:12px}body.admin-sport .ops-stage-progress{text-align:left}body.admin-sport .ops-stage-steps>*:last-child{grid-column:1/-1}#tournaments .cs-discovery{padding:13px}#tournaments .cs-filters button{flex:1 1 120px}body.admin-sport .ops-launch{font-size:0!important;width:44px!important;padding:0!important;justify-content:center}body.admin-sport .ops-launch:before{content:"⌕";font-size:24px}}
 @media(prefers-reduced-motion:reduce){body.admin-sport .ops-stage-step{transition:none}body.admin-sport .ops-stage-step:hover{transform:none}}
+
+/* Mobile discovery opens as a compact overlay, without pushing the first poster
+   below the bottom navigation. The search remains keyboard/touch accessible. */
+#tournaments .cs-mobile-filter{display:none}
+@media(max-width:620px){
+  #tournaments>.public-container{position:relative}
+  #tournaments .section-title>div:first-child{position:relative}
+  #tournaments .cs-mobile-filter{display:inline-flex!important;align-items:center;justify-content:center;position:absolute;top:0;right:0;min-height:44px;padding:8px 12px;background:#d9ff63!important;color:#17351f!important;border:1px solid #92b94a;border-radius:12px;font:800 13px/1.3 ui-sans-serif,system-ui,sans-serif;z-index:2}
+  #tournaments .cs-mobile-filter:focus-visible{outline:3px solid #83b14e;outline-offset:2px}
+  #tournaments .cs-discovery{display:none!important;position:absolute;top:85px;left:12px;right:12px;z-index:20;margin:0;padding:15px;box-shadow:0 22px 62px #0005}
+  #tournaments .cs-discovery[data-open="true"]{display:grid!important}
+}
