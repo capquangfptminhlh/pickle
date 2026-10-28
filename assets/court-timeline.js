@@ -77,6 +77,12 @@ async function load(){
   const next=internal?.tournaments?.length?internal:await api.publicState();
   if(id!==seq)return;
   state=next;
+  canSchedule=false;
+  if(internal?.tournaments?.length){
+    const session=await api.session().catch(()=>null);
+    if(id!==seq)return;
+    canSchedule=["super_admin","organizer"].includes(session?.user?.role);
+  }
   const exists=next.tournaments?.some(t=>String(t.id)===String(selected));
   if(!selected)selected=next.tournaments?.[0]?.id||"";
   else if(!exists){ // Honor explicitly requested ID; never switch to a different event.
