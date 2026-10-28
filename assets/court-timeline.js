@@ -1,7 +1,7 @@
 import {buildCourtTimeline,terminalStatus} from "./court-timeline-model.mjs";
 const $=id=>document.getElementById(id);
 const api=window.PickleAPI;
-let state=null,selected=new URLSearchParams(location.search).get("tournament")||"",view="all",seq=0;
+let state=null,selected=new URLSearchParams(location.search).get("tournament")||"",view="all",seq=0,canSchedule=false;
 const make=(tag,classes,text)=>{
  const el=document.createElement(tag);if(classes)el.className=classes;
  if(text!==undefined)el.textContent=String(text);return el;
