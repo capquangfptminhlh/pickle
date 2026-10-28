@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="assets/theme.css?v=2">
 <link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/typography.css?v=1">
+  <link rel="stylesheet" href="assets/competition-studio.css?v=1">
 <link rel="stylesheet" href="assets/timeout-clock.css?v=1">
 <link rel="stylesheet" href="assets/team-lineup.css?v=5">
   <link rel="stylesheet" href="assets/motion-system.css?v=2">
@@ -62,6 +63,7 @@
           </div>
         </div>
         <div class="top-actions">
+          <button id="opsOpenLauncher" class="ops-launch" type="button" aria-haspopup="dialog" aria-controls="opsLauncher" title="Tìm nhanh chức năng (Ctrl+K)">⌕ Tìm chức năng <kbd>Ctrl K</kbd></button>
           <a class="mini" href="/open-play-admin.html" style="text-decoration:none">🏓 Open Play</a>
           <a class="mini" href="referee.html" style="text-decoration:none">Courtside</a>
           <a class="mini" href="court-board.html" target="_blank" rel="noopener" style="text-decoration:none">TV Board</a>
@@ -75,6 +77,15 @@
     </main>
   </div>
 
+  <dialog id="opsLauncher" aria-labelledby="opsLauncherTitle">
+    <div class="ops-launch-inner">
+      <h2 id="opsLauncherTitle">Tìm nhanh chức năng</h2>
+      <p>Tìm tên màn hình, hoặc dùng Ctrl + K. Các chức năng chỉ hiển thị theo quyền tài khoản.</p>
+      <input id="opsLauncherSearch" type="search" placeholder="Nhập tên thao tác…" aria-label="Tìm chức năng" autocomplete="off">
+      <div id="opsLauncherResults" class="ops-launch-results" role="group" aria-label="Kết quả tìm kiếm"></div>
+      <button class="ops-launch-close" id="opsLauncherClose" type="button">Đóng</button>
+    </div>
+  </dialog>
   <dialog id="scoreDialog" class="score-dialog" aria-labelledby="scoreTitle">
     <form method="dialog" class="score-card" id="scoreForm">
       <div class="score-head">
@@ -189,6 +200,7 @@
   <script src="assets/player-picker.js?v=3"></script>
   <script src="assets/player-avatar-input.js?v=1"></script>
   <script src="assets/admin-app.js?v=85"></script>
+  <script defer src="assets/operator-launcher.js?v=1"></script>
   <script src="assets/draw-reveal.js?v=1"></script>
   <script src="assets/draw-flex.js?v=10"></script>
   <script src="/assets/pwa.js"></script>
