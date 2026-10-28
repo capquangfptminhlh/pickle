@@ -98,6 +98,8 @@ jobs:
           if(!index.includes(release.version)||!admin.includes(release.version))throw new Error("Published pages do not identify their release");
           console.log("STATIC_RELEASE_OK "+release.version);
           NODE
+      - name: Multi-court timeline model regressions
+        run: node --test scripts/court-timeline.test.mjs
       - name: Registry and Worker regression tests
         working-directory: cloudflare
         run: npm test
