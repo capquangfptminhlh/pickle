@@ -56,3 +56,15 @@ const workerSource=await readFile(join(projectDir,"service-worker.js"),"utf8");
 if(!/const VERSION="pickleup-v\d+[^"]*";/.test(workerSource))throw new Error("PWA_VERSION_MARKER_MISSING");
 await writeFile(join(outputDir,"service-worker.js"),workerSource.replace(/const VERSION="pickleup-v\d+[^"]*";/, 'const VERSION="'+version+'";'));
 await writeFile(join(outputDir,"release.json"),JSON.stringify({version,revision,git_sha:process.env.GITHUB_SHA||null})+"\n");
+for(const page of ["index.html","admin.html"]){
+  const target=join(outputDir,page);
+  let html=await readFile(target,"utf8");
+  html=html.replace("</head>",'  <meta name="pickleup-release" content="'+version+'">\n</head>');
+  if(page==="index.html"){
+    html=html.replace("</footer>",'<small style="font-size:11px;opacity:.65;margin-left:8px" aria-label="Phiên bản website">Bản '+revision.slice(0,8)+'</small></footer>');
+  }else{
+    html=html.replace('<div class="side-bottom">','<div class="side-bottom"><small style="display:block;font-size:11px;opacity:.65;margin-bottom:8px">Bản '+revision.slice(0,8)+'</small>');
+  }
+  await writeFile(target,html);
+}
+
