@@ -75,6 +75,20 @@ jobs:
         run: |
           test -s public/shared/open-play.js
           node --check public/shared/open-play.js
+      - name: Verify fingerprinted PWA cache and visible release identity
+        working-directory: cloudflare
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from "node:fs";
+          const release=JSON.parse(readFileSync("public/release.json","utf8"));
+          const worker=readFileSync("public/service-worker.js","utf8");
+          const index=readFileSync("public/index.html","utf8");
+          const admin=readFileSync("public/admin.html","utf8");
+          if(!/^pickleup-v86-[0-9a-f]{16}$/.test(release.version))throw new Error("Invalid generated PWA version");
+          if(!worker.includes('const VERSION="'+release.version+'";'))throw new Error("PWA script does not match release revision");
+          if(!index.includes(release.version)||!admin.includes(release.version))throw new Error("Published pages do not identify their release");
+          console.log("STATIC_RELEASE_OK "+release.version);
+          NODE
       - name: Registry and Worker regression tests
         working-directory: cloudflare
         run: npm test
