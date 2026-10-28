@@ -34,7 +34,7 @@ const commands=[
   "node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/registry-checkin-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs scripts/registry-poster-variants.test.mjs",
   "node --test scripts/registry-network-ui.test.mjs"
 ];
-const groups=[[0,1,2],[3,4,5,6],[7,8,9,10,11,12,13,14],[15,16,17,18,19,20,21],[22,23,24,25,26,27,28,29,30]];
+const groups=[[0,1,2],[3,4,5,6],[7,8,9,10,11,12,13,14],[15,16,17,18,19,20,21],[22,23,24],[25,26,27],[28,29,30]];
 const shard=Number(process.argv[2]);
 if(!Number.isInteger(shard)||shard<0||shard>=groups.length)throw Error("Expected shard 0.."+(groups.length-1));
 if(groups.flat().slice().sort((a,b)=>a-b).join(",")!==commands.map((_,i)=>i).join(","))throw Error("Registry command coverage mismatch");
