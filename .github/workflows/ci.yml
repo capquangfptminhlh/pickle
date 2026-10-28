@@ -73,6 +73,8 @@ jobs:
         run: node scripts/registry-player-avatar-ui.mjs
       - name: Multi-court timeline and unplaced queue tests
         run: node --test scripts/court-timeline.test.mjs
+      - name: Multi-court timeline browser operations and role isolation
+        run: node --test scripts/court-timeline-ui.test.mjs
       - name: Stage scoring and live-score safety regression
         run: node --test cloudflare/tests/stage-scoring.test.mjs cloudflare/tests/open-play.test.mjs
       - name: Global animation browser tests
