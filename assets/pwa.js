@@ -8,7 +8,8 @@
     el.innerHTML=`<span>${text}</span>${action?`<button type="button">${action.label}</button>`:""}`;
     document.body.appendChild(el);
     if(action)el.querySelector("button").onclick=action.onClick;
-    setTimeout(()=>{if(el.isConnected)el.remove()},9000);
+    // Keep actionable update notices visible until the user acts.
+    if(!action)setTimeout(()=>{if(el.isConnected)el.remove()},9000);
   };
 
   const installButton=()=>{
@@ -39,17 +40,33 @@
   };
   addEventListener("online",showNetwork);addEventListener("offline",showNetwork);showNetwork();
 
-  navigator.serviceWorker.register("/service-worker.js",{scope:"/"}).then(reg=>{
+  // Public browsing may refresh automatically. Never auto-reload an editor,
+  // live referee panel or an in-progress form while someone is entering data.
+  const sensitivePage=/\/(?:admin|referee|open-play-admin|open-play-referee|checkin|submit-tournament)\.html$/.test(location.pathname);
+  const editing=()=>!!document.querySelector("dialog[open], form:focus-within, [contenteditable]:focus");
+  navigator.serviceWorker.register("/service-worker.js",{scope:"/",updateViaCache:"none"}).then(reg=>{
     if(!reg)return;
+    const activate=worker=>{
+      if(!worker||!navigator.serviceWorker.controller)return;
+      if(!sensitivePage&&!editing()){
+        worker.postMessage({type:"SKIP_WAITING"});
+      }else{
+        toast("PickleUp có phiên bản mới. Lưu công việc trước khi cập nhật.",{
+          label:"Cập nhật ngay",
+          onClick:()=>worker.postMessage({type:"SKIP_WAITING"})
+        });
+      }
+    };
     reg.update().catch(()=>{});
-    if(reg.waiting)toast("Có phiên bản mới.",{label:"Cập nhật",onClick:()=>reg.waiting.postMessage({type:"SKIP_WAITING"})});
+    if(reg.waiting)activate(reg.waiting);
     reg.addEventListener("updatefound",()=>{
       const worker=reg.installing;
       worker?.addEventListener("statechange",()=>{
-        if(worker.state==="installed"&&navigator.serviceWorker.controller){
-          toast("Có phiên bản mới.",{label:"Cập nhật",onClick:()=>worker.postMessage({type:"SKIP_WAITING"})});
-        }
+        if(worker.state==="installed")activate(worker);
       });
+    });
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState==="visible")reg.update().catch(()=>{});
     });
   }).catch(console.error);
 
