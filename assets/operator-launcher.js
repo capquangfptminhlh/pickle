@@ -61,6 +61,13 @@
       if(first){event.preventDefault();first.click()}
     }
   });
+  dialog.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){
+      event.preventDefault();
+      event.stopPropagation();
+      dialog.close();
+    }
+  });
   dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close()});
   document.addEventListener("keydown",event=>{
     const el=event.target;
