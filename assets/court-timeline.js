@@ -122,6 +122,28 @@ $("tournamentTimelineSelect").addEventListener("change",e=>{
  url.searchParams.set("tournament",selected);history.replaceState(null,"",url);render();
 });
 $("timelineReload").addEventListener("click",load);
+$("autoScheduleActions").addEventListener("click",async event=>{
+  const button=event.target.closest("button[data-schedule-division]");
+  if(!button||button.disabled||!canSchedule)return;
+  const id=button.dataset.scheduleDivision;
+  const division=state.divisions.find(x=>String(x.id)===id);
+  if(!division)return;
+  if(!window.confirm("Xếp sân tự động cho "+division.name+"? Hệ thống sẽ kiểm tra xung đột trước khi ghi lịch."))return;
+  button.disabled=true;
+  const message=$("scheduleMessage");
+  message.classList.remove("is-error");
+  message.textContent="Đang kiểm tra và xếp sân…";
+  try{
+    const res=await api.autoScheduleCourts(id);
+    message.textContent="Đã xếp "+Number(res.updated||0)+" trận. Lịch mới đã được lưu.";
+  }catch(error){
+    message.classList.add("is-error");
+    message.textContent=error.status===409?"Lịch đã thay đổi. Vui lòng kiểm tra lại.":"Không thể xếp sân: "+error.message;
+  }finally{
+    button.disabled=false;
+    await load();
+  }
+});
 document.querySelectorAll("[data-view]").forEach(button=>button.addEventListener("click",()=>{
  view=button.dataset.view;
  document.querySelectorAll("[data-view]").forEach(el=>el.setAttribute("aria-pressed",String(el===button)));
