@@ -251,6 +251,9 @@ body.admin-sport .draw-reset-dialog .draw-setup-card { width:min(680px,100%); }
 body.admin-sport .draw-reset-dialog p { font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
 body.admin-sport .draw-reset-dialog .field { display:block; }
 body.admin-sport .draw-reset-dialog .field input { display:block; margin-top:8px; width:100%; }
+/* Keep dangerous reset confirmation a reliable 44px touch target on small phones. */
+body.admin-sport .draw-reset-dialog [data-reset-submit] { min-width:44px; min-height:44px; padding:11px 16px; }
+
 body.admin-sport .draw-reset-warning { padding:14px; border-left:4px solid #db7360; background:var(--surface-2); border-radius:8px; }
 body.admin-sport .draw-reset-warning p { margin:8px 0 0; }
 body.admin-sport .draw-reset-dialog [data-reset-error] { color:var(--text); padding:12px; border:1px solid #db7360; border-radius:8px; }

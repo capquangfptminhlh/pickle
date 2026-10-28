@@ -4,6 +4,7 @@ import {loadState,loadAdminState,listPublicPlayers,loadPublicPlayer} from "./sta
 import {TournamentRoom,broadcast} from "./realtime.js";
 import {handleOperations} from "./operations.js";
 import {handleTournamentPhotos} from "./tournament-photos.js";
+import {handleOpenPlay} from "./open-play.js";
 import {handleScoring} from "./scoring.js";
 import {handleRelayDraw} from "./relay-draw.js";
 import {parseRelayOrder} from "../../shared/relay-draw.js";
@@ -218,6 +219,8 @@ async function handleApi(request,env,ctx){
   if(relayDraw)return relayDraw;
   const score=await handleScoring(request,env,ctx);
   if(score)return score;
+  const openPlay=await handleOpenPlay(request,env);
+  if(openPlay)return openPlay;
   const extra=await handleOperations(request,env);
   if(extra)return extra;
   const photos=await handleTournamentPhotos(request,env);

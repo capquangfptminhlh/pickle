@@ -1,0 +1,225 @@
+import assert from "node:assert/strict";
+import {createServer} from "node:http";
+import {readFile,mkdir} from "node:fs/promises";
+import {resolve,dirname,extname} from "node:path";
+import {fileURLToPath} from "node:url";
+import {createRequire} from "node:module";
+import worker from "../cloudflare/src/index.js";
+import {accountFixture} from "../cloudflare/tests/helpers/accounts-fixture.mjs";
+import {signSession} from "../cloudflare/src/auth.js";
+const require=createRequire(import.meta.url);
+let chromium;try{({chromium}=require("playwright"))}catch{({chromium}=require(resolve(process.env.CODEX_NODE_MODULES||resolve(dirname(process.execPath),"../node_modules"),"playwright")))}
+const root=fileURLToPath(new URL("../",import.meta.url));
+const snapshotDir=resolve(root,"ui-artifacts");
+await mkdir(snapshotDir,{recursive:true});
+const server=createServer(async(req,res)=>{
+ try{
+  const pathname=new URL(req.url,"http://localhost").pathname;
+  const full=resolve(root,"."+pathname);
+  if(!full.startsWith(root)){res.writeHead(403).end();return}
+  res.setHeader("Content-Type",({".html":"text/html",".js":"application/javascript",".css":"text/css",".svg":"image/svg+xml",".woff2":"font/woff2"})[extname(full)]||"application/octet-stream");
+  res.end(await readFile(full));
+ }catch{res.writeHead(404).end()}
+});
+await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+const browser=await chromium.launch({headless:true});
+const base="http://127.0.0.1:"+server.address().port;
+try{
+ for(const viewport of [{width:320,height:760},{width:390,height:844},{width:1280,height:850}]){
+  const f=await accountFixture();
+  const page=await browser.newPage({viewport});
+  page.setDefaultTimeout(12000);
+  const errors=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.route("**/api/**",async route=>{
+   const original=route.request();
+   const req=new Request("https://pickle.test"+new URL(original.url()).pathname+new URL(original.url()).search,{
+    method:original.method(),headers:original.headers(),
+    ...(original.postData()?{body:original.postData()}: {})
+   });
+   const response=await worker.fetch(req,f.env);
+   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
+  });
+  try{
+   await page.addInitScript(token=>{if(!localStorage.getItem("pickle-api-token-v1"))localStorage.setItem("pickle-api-token-v1",token)},f.tokens.organizer);
+   await page.goto(base+"/open-play-admin.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   const navTops=await page.locator(".op-nav a").evaluateAll(items=>items.map(x=>Math.round(x.getBoundingClientRect().top)));
+   assert.equal(new Set(navTops).size,1,"all Open Play tabs must remain on one row at "+viewport.width+"px");
+   const adminType=await page.evaluate(()=>({
+     body:getComputedStyle(document.body).fontFamily,
+     hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily
+   }));
+   assert.match(adminType.body,/Plus Jakarta Sans/);
+   assert.match(adminType.hero,/Barlow Condensed/);
+   await page.locator("#title").fill("Open Play UI Test "+viewport.width);
+   await page.locator("#startsAt").fill("2026-11-01T11:00");
+   await page.locator("#createSession button[type=submit]").click();
+   await page.locator("#selectedTitle").filter({hasText:"Open Play UI Test"}).waitFor();
+   await page.locator("#openSignup").click();
+   await page.locator("#details").filter({hasText:"ĐANG BẬT"}).waitFor();
+   await page.locator("#roundCount").fill("3");
+   await page.locator("#courtCount").fill("2");
+   await page.locator("#previewRounds").click();
+   await page.locator("#roundResults").filter({hasText:"BẢN XEM TRƯỚC"}).waitFor();
+   await page.locator("#roundResults").filter({hasText:"Vòng 3"}).waitFor();
+   await page.screenshot({path:resolve(snapshotDir,"open-play-admin-"+viewport.width+".png"),fullPage:true});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   const id=f.db.prepare("SELECT id FROM open_play_sessions WHERE title=?").get("Open Play UI Test "+viewport.width)?.id;
+   assert.ok(id,"session must persist to real local D1 fixture");
+   f.db.exec("INSERT INTO app_users(id,email,display_name,role,password_hash) VALUES ('ui-player','ui-player@test.invalid','Người chơi','player','unused')");
+   f.db.exec("INSERT INTO players(id,user_id,full_name,rating) VALUES ('ui-profile','ui-player','VĐV Local',2.5)");
+   const token=await signSession(f.env,f.db.prepare("SELECT * FROM app_users WHERE id='ui-player'").get());
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
+   await page.goto(base+"/open-play-discover.html");
+   await page.locator("#sessions article").first().waitFor();
+   const playerType=await page.evaluate(()=>({
+     body:getComputedStyle(document.body).fontFamily,
+     hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily,
+     heroClipped:document.querySelector(".op-hero h1").scrollWidth>document.querySelector(".op-hero h1").clientWidth+2
+   }));
+   assert.match(playerType.body,/Plus Jakarta Sans/);
+   assert.match(playerType.hero,/Barlow Condensed/);
+   assert.equal(playerType.heroClipped,false,"Vietnamese hero heading should not clip");
+   await page.locator("#sessionSearch").fill("khong-co-buoi-choi-nao");
+   await page.locator("#sessions").filter({hasText:"Không tìm thấy lịch phù hợp"}).waitFor();
+   await page.locator("#sessionSearch").fill("Open Play UI Test");
+   await page.locator("#sessions article").first().waitFor();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   await page.locator("#sessions article button").first().click();
+   await page.locator("#registrations").filter({hasText:"Open Play UI Test"}).waitFor();
+   await page.screenshot({path:resolve(snapshotDir,"open-play-player-"+viewport.width+".png"),fullPage:true});
+   assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"registered");
+   await page.locator("#registrations button").first().click();
+   await page.locator("#registrations").filter({hasText:"Đã hủy"}).waitFor();
+   assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
+   // Verify the public mobile waiting list and FIFO promotion after a cancellation.
+   const waitingSession=await f.api("/api/open-play/sessions",{
+    title:"Waiting UI Test "+viewport.width,startsAt:"2026-11-01T11:00:00+07:00",
+    maxPlayers:2,maxCombinedRating:5.2,tolerance:0
+   },"POST","organizer");
+   assert.equal(waitingSession.status,201,JSON.stringify(waitingSession.data));
+   const waitingId=waitingSession.data.id;
+   f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('ui-wait-a','Wait Occupant A',2.5),('ui-wait-b','Wait Occupant B',2.5)");
+   for(const playerId of ["ui-wait-a","ui-wait-b"])
+    assert.equal((await f.api("/api/open-play/sessions/"+waitingId+"/registrations",{playerId},"POST","organizer")).status,201);
+   assert.equal((await f.api("/api/open-play/sessions/"+waitingId,{selfSignupEnabled:true},"PATCH","organizer")).status,200);
+   await page.locator("#sessionSearch").fill("");
+   await page.locator("#refresh").click();
+   const waitCard=page.locator("#sessions article").filter({hasText:"Waiting UI Test "+viewport.width});
+   await waitCard.getByRole("button",{name:"Vào danh sách chờ"}).click();
+   await page.locator("#myWaitlist").filter({hasText:"Thứ tự chờ: 1"}).waitFor();
+   assert.equal(f.db.prepare("SELECT status FROM open_play_waitlist WHERE session_id=? AND player_id='ui-profile'").get(waitingId)?.status,"waiting");
+   const promotion=await f.api("/api/open-play/sessions/"+waitingId+"/registrations/ui-wait-a/cancel",{},"POST","organizer");
+   assert.equal(promotion.status,200,JSON.stringify(promotion.data));
+   assert.deepEqual(promotion.data.promotedPlayerIds,["ui-profile"]);
+   await page.locator("#refresh").click();
+   await page.locator("#myWaitlist").filter({hasText:"Không có lượt chờ"}).waitFor();
+   assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(waitingId)?.status,"registered");
+   // Simulate complete game day on the same isolated in-memory D1 fixture.
+   f.db.exec("INSERT INTO players(id,full_name,rating) VALUES ('gd1','Day Player 1',2.5),('gd2','Day Player 2',2.5),('gd3','Day Player 3',2.5),('gd4','Day Player 4',2.5)");
+   f.db.exec("UPDATE players SET user_id='ui-player' WHERE id='gd1'");
+   for(const playerId of ["gd1","gd2","gd3","gd4"]){
+    const joined=await f.api("/api/open-play/sessions/"+id+"/registrations",{playerId},"POST","organizer");
+    assert.equal(joined.status,201,JSON.stringify(joined.data));
+   }
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
+   await page.goto(base+"/open-play-admin.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.getByRole("button",{name:"Quản lý Open Play UI Test "+viewport.width}).click();
+   await page.locator("#roster li").filter({hasText:"Day Player 4"}).waitFor();
+   for(let i=1;i<=4;i++){
+    await page.getByRole("button",{name:"Check-in Day Player "+i}).click();
+    await page.locator("#checkedInCount").filter({hasText:i+" VĐV"}).waitFor();
+   }
+   // Register and reserve a named Open Play court, then confirm official rounds.
+   await page.locator("#physicalCourtName").fill("Sân UI "+viewport.width);
+   await page.locator("#createPhysicalCourt button[type=submit]").click();
+   await page.locator("#physicalCourtCatalog").filter({hasText:"Sân UI "+viewport.width}).waitFor();
+   await page.locator('#physicalCourtCatalog input[name="opPhysicalCourt"]').first().check();
+   page.on("dialog",dialog=>dialog.type()==="prompt"?dialog.accept("Điều chỉnh điểm sau khi đối chiếu biên bản trận"):dialog.accept());
+   await page.locator("#reservePhysicalCourts").click();
+   await page.locator("#physicalCourtStatus").filter({hasText:"Đã giữ 1 sân"}).waitFor();
+   await page.locator("#physicalCourtCatalog").filter({hasText:"Đã giữ cho buổi này"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_court_bookings WHERE session_id=? AND status='active'").get(id).n,1);
+   await page.locator("#roundCount").fill("2");
+   await page.locator("#courtCount").fill("1");
+   await page.locator("#pointTarget").selectOption("11");
+   await page.locator("#confirmRounds").click();
+   await page.locator("#gameDayStatus").filter({hasText:"2 trận"}).waitFor();
+   assert.equal(await page.locator("#matches article").count(),2);
+   await page.locator("#matches article").first().filter({hasText:"Sân UI "+viewport.width}).waitFor();
+   await page.screenshot({path:resolve(snapshotDir,"open-play-day-"+viewport.width+".png"),fullPage:true});
+   // BTC assigns a specific match; referee may ONLY score that match.
+   let firstMatch=page.locator("#matches article").first();
+   await firstMatch.getByLabel("Mã trọng tài vòng 1 sân 1").fill("local");
+   await firstMatch.getByRole("button",{name:"Phân công trọng tài"}).click();
+   await page.locator("#notice").filter({hasText:"Đã phân công trọng tài"}).waitFor();
+   assert.equal(f.db.prepare("SELECT referee_user_id FROM open_play_match_referees LIMIT 1").get()?.referee_user_id,"local");
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.local);
+   await page.goto(base+"/open-play-referee.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.locator("#matches article").first().waitFor();
+   assert.equal(await page.locator("#matches article").count(),1,"referee cannot see unassigned second match");
+   await page.locator("#matches article").first().locator("input").nth(0).fill("2");
+   await page.locator("#matches article").first().locator("input").nth(1).fill("1");
+   await page.locator("#matches article").first().getByRole("button",{name:"Lưu điểm"}).click();
+   await page.locator("#notice").filter({hasText:"Đã lưu điểm"}).waitFor();
+   assert.equal(f.db.prepare("SELECT score_a FROM open_play_matches WHERE session_id=? AND round_no=1").get(id).score_a,2);
+   const refereeLayout=await page.locator("#matches article .op-actions button").evaluateAll(buttons=>
+    buttons.map(button=>({nowrap:getComputedStyle(button).whiteSpace==="nowrap",
+      fits:button.scrollWidth<=button.clientWidth+2})));
+   assert.ok(refereeLayout.length>=2&&refereeLayout.every(x=>x.nowrap&&x.fits),
+     "Referee save/finalize buttons must stay on one readable line at "+viewport.width+"px");
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   await page.screenshot({path:resolve(snapshotDir,"open-play-referee-"+viewport.width+".png"),fullPage:true});
+   // BTC reloads the updated match version before finishing; no stale overwrite.
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),f.tokens.organizer);
+   await page.goto(base+"/open-play-admin.html");
+   await page.locator("#workspace:not(.hidden)").waitFor();
+   await page.getByRole("button",{name:"Quản lý Open Play UI Test "+viewport.width}).click();
+   await page.locator("#matches article").first().waitFor();
+   firstMatch=page.locator("#matches article").first();
+   await firstMatch.locator("input").nth(0).fill("11");
+   await firstMatch.locator("input").nth(1).fill("7");
+   await firstMatch.getByRole("button",{name:"Kết thúc trận"}).click();
+   await page.locator("#gameDayStatus").filter({hasText:"1/2 trận"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM open_play_matches WHERE session_id=? AND status='completed'").get(id).n,1);
+   const secondMatch=page.locator("#matches article").nth(1);
+   await secondMatch.locator("input").nth(0).fill("4");
+   await secondMatch.locator("input").nth(1).fill("11");
+   await secondMatch.getByRole("button",{name:"Kết thúc trận"}).click();
+   await page.locator("#gameDayStatus").filter({hasText:"2/2 trận"}).waitFor();
+   await page.locator("#closeSession").click();
+   await page.locator("#details").filter({hasText:"Đã đóng"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM score_events").get().n,0);
+   const correctionCard=page.locator("#matches article").first();
+   await correctionCard.locator("input").nth(1).fill("6");
+   await correctionCard.getByRole("button",{name:"Sửa điểm đã chốt"}).click();
+   await page.locator("#notice").filter({hasText:"Đã sửa điểm"}).waitFor();
+   assert.equal(f.db.prepare("SELECT score_b FROM open_play_matches WHERE session_id=? AND round_no=1 AND court_no=1").get(id).score_b,6);
+   await page.locator("#matches article").first().locator("summary").click();
+   await page.locator("#matches article").first().filter({hasText:"CORRECTION"}).waitFor();
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_type='open_play_match' AND action='CORRECTION'").get().n,1);
+   await page.evaluate(token=>localStorage.setItem("pickle-api-token-v1",token),token);
+   await page.goto(base+"/open-play-discover.html");
+   await page.locator("#myMatches article").first().waitFor();
+   assert.equal(await page.locator("#myMatches article").count(),2,"player should only see own confirmed games");
+   await page.locator("#myMatches").filter({hasText:"Đã kết thúc"}).waitFor();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   // Public discovery must stay accessible after token removal (no forced login).
+   await page.evaluate(()=>localStorage.removeItem("pickle-api-token-v1"));
+   await page.locator("#refresh").click();
+   await page.locator("#accountInfo").filter({hasText:"Bạn có thể xem lịch công khai"}).waitFor();
+   assert.equal(new URL(page.url()).pathname,"/open-play-discover.html");
+   await page.locator("#sessions").filter({hasText:"Waiting UI Test"}).waitFor();
+   await page.goto(base+"/open-play.html");
+   await page.locator("#generate").click();
+   await page.locator("#result").filter({hasText:"Kết quả: 2 cặp"}).waitFor();
+   assert.deepEqual(errors,[],"browser errors");
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+   console.log("PASS OPEN_PLAY_UI "+viewport.width);
+  }finally{await page.close();f.db.close()}
+ }
+}finally{await browser.close();await new Promise(r=>server.close(r))}
+console.log("OPEN_PLAY_UI_OK");

@@ -15,6 +15,13 @@ on:
       - "scripts/registry-*.mjs"
       - "preview/preview-api.js"
       - ".github/workflows/cloudflare.yml"
+  pull_request:
+    paths:
+      - "cloudflare/**"
+      - "shared/**"
+      - "assets/**"
+      - "*.html"
+      - ".github/workflows/cloudflare.yml"
   workflow_dispatch:
 
 permissions:
@@ -56,10 +63,18 @@ jobs:
           node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
+          node --check assets/open-play-admin.js
+          node --check assets/open-play-discover.js
+          node --check assets/open-play-page.js
           node --check assets/match-live.js
       - name: Wrangler dry run
         working-directory: cloudflare
         run: npm run check
+      - name: Verify Open Play browser module is packaged
+        working-directory: cloudflare
+        run: |
+          test -s public/shared/open-play.js
+          node --check public/shared/open-play.js
       - name: Registry and Worker regression tests
         working-directory: cloudflare
         run: npm test
@@ -106,7 +121,9 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    # Production schema migrations need a reviewed backup and explicit release action.
+    # A merge to main runs validation only; manual workflow_dispatch performs deployment.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:

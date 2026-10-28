@@ -23,3 +23,10 @@ for(const name of ["manifest.webmanifest","service-worker.js"]){
 }
 
 await cp(join(projectDir,"assets"),join(outputDir,"assets"),{recursive:true});
+
+// The Open Play browser entry imports this audited shared ESM module at
+// /shared/open-play.js. Publish only the client-safe matcher, not the entire
+// server-side shared directory.
+await mkdir(join(outputDir,"shared"),{recursive:true});
+await cp(join(projectDir,"shared","open-play.js"),join(outputDir,"shared","open-play.js"));
+

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10291f">
+<meta name="robots" content="noindex,nofollow">
+<title>Open Play Studio · PickleUp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+</head>
+<body>
+<header class="op-top">
+  <div class="op-top-inner">
+    <a class="op-brand" href="index.html" aria-label="PickleUp, về trang chủ"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>OPEN PLAY STUDIO</small></span></a>
+    <nav class="op-nav" aria-label="Điều hướng Open Play">
+      <a href="open-play-discover.html">Tìm buổi chơi</a>
+      <a href="open-play.html">Ghép đôi</a>
+      <a href="open-play-admin.html" aria-current="page">BTC</a>
+      <a href="open-play-referee.html">Trọng tài</a>
+    </nav>
+  </div>
+</header>
+<main class="op-shell">
+  <section class="op-hero" aria-labelledby="pageTitle">
+    <span class="op-eyebrow">Trung tâm điều hành</span>
+    <h1 id="pageTitle">Open Play Studio</h1>
+    <p>Buổi chơi, vận động viên và ghép cặp theo trình — tập trung trong một màn hình để BTC thao tác nhanh trên điện thoại.</p>
+    <div class="op-hero-bar">
+      <div class="op-stat"><strong id="statSessions">—</strong><span>Buổi chơi</span></div>
+      <div class="op-stat"><strong id="statOpen">—</strong><span>Đang mở</span></div>
+      <div class="op-stat"><strong id="statPlayers">—</strong><span>VĐV đã đăng ký</span></div>
+    </div>
+  </section>
+  <div id="notice" class="op-status" role="status" aria-live="polite">Đang kiểm tra tài khoản…</div>
+  <a id="loginLink" href="login.html?next=open-play-admin.html" class="op-btn hidden">Đăng nhập quản trị</a>
+  <div id="workspace" class="hidden">
+    <div class="op-layout">
+      <section class="op-panel" aria-labelledby="sessionHeading">
+        <div class="op-panel-header"><h2 id="sessionHeading">Buổi chơi của tôi</h2><button class="secondary" id="refresh" type="button">Làm mới</button></div>
+        <div id="sessions" aria-live="polite"><div class="op-empty">Đang tải lịch Open Play…</div></div>
+      </section>
+      <section class="op-panel" aria-labelledby="selectedTitle">
+        <div class="op-panel-header"><h2 id="selectedTitle">Chi tiết buổi chơi</h2><span class="op-chip is-closed" id="sessionBadge">Chưa chọn</span></div>
+        <div id="details" class="op-detail-summary">Chọn một buổi chơi ở bên trái để xem VĐV và điều hành đăng ký.</div>
+        <div id="sessionControls" class="hidden">
+          <div class="op-kpis" aria-label="Tình trạng buổi chơi">
+            <div><strong id="registeredCount">0</strong><span>Đã đăng ký</span></div>
+            <div><strong id="freeSlots">0</strong><span>Chỗ còn lại</span></div>
+            <div><strong id="ratingLimit">5.2</strong><span>Tổng trình tối đa</span></div>
+          </div>
+          <div class="op-actions">
+            <button id="openSignup" type="button">Mở đăng ký</button>
+            <button id="closeSignup" class="secondary" type="button">Ẩn đăng ký</button>
+            <button id="closeSession" class="danger" type="button">Đóng buổi</button>
+          </div>
+          <hr class="op-divider">
+          <form id="addPlayer">
+            <label for="playerId">Đăng ký thủ công bằng mã VĐV</label>
+            <div class="op-actions" style="margin-top:0">
+              <input id="playerId" required maxlength="128" placeholder="Tìm mã hoặc chọn gợi ý VĐV" list="playerSuggestions" style="flex:2 1 155px">
+              <datalist id="playerSuggestions"></datalist>
+              <button type="submit" style="flex:1 1 140px">Thêm VĐV</button>
+            </div>
+            <p class="op-field-note">Có thể chọn VĐV trong gợi ý theo tên và điểm trình. Hệ thống vẫn kiểm tra quyền, mã và sức chứa.</p>
+          </form>
+          <div class="op-subhead"><span>Danh sách tham gia</span><span class="op-small" id="rosterCount">0 VĐV</span></div>
+          <ol id="roster" class="op-roster"></ol>
+          <div class="op-subhead"><span>Hàng chờ khi đủ người</span><span class="op-small" id="waitingCount">0 đang chờ</span></div>
+          <p class="op-field-note">Khi một VĐV hủy trước khi chốt lịch, hệ thống tự nhận người chờ sớm nhất. Sau khi xác nhận vòng đấu, danh sách bị khóa.</p>
+          <ol id="waitingRoster" class="op-roster" aria-live="polite"></ol>
+          <form id="addWaitlist" class="op-actions">
+            <input id="waitlistPlayerId" maxlength="128" list="playerSuggestions" required placeholder="Mã VĐV muốn thêm vào hàng chờ" style="flex:2 1 155px" aria-label="Mã VĐV vào hàng chờ">
+            <button type="submit" class="secondary" style="flex:1 1 140px">Thêm hàng chờ</button>
+          </form>
+          <hr class="op-divider">
+          <div class="op-subhead">Ghép đôi theo trình</div>
+          <p class="op-field-note">Chỉ xem trước các cặp hợp lệ; không tự ghi kết quả trận đấu hoặc sửa hồ sơ VĐV.</p>
+          <div class="op-actions"><button id="previewPairs" class="secondary" type="button">Xem trước cặp đấu</button></div>
+          <div id="pairResults" class="op-results" role="status" aria-live="polite">Chưa ghép đôi.</div>
+          <hr class="op-divider">
+          <div class="op-subhead">Phân sân và xoay vòng VĐV</div>
+          <p class="op-field-note">Xem trước các trận đôi cho nhiều vòng, ưu tiên không lặp bạn đánh và chia lượt chờ công bằng. Sân chỉ là số thứ tự mô phỏng, chưa đặt sân hoặc tạo trận thật.</p>
+          <div class="op-form-grid">
+            <div><label for="roundCount">Số vòng</label><input id="roundCount" type="number" min="1" max="12" step="1" value="3"></div>
+            <div><label for="courtCount">Số sân mô phỏng</label><input id="courtCount" type="number" min="1" max="32" step="1" value="2"></div>
+          </div>
+          <div class="op-actions"><button id="previewRounds" class="secondary" type="button">Xem trước phân sân</button></div>
+          <div id="roundResults" class="op-results" role="status" aria-live="polite">Chưa có vòng đấu mô phỏng.</div>
+          <hr class="op-divider">
+          <div class="op-subhead">Đặt sân thực tế · Open Play</div>
+          <p class="op-field-note">Đăng ký sân thuộc BTC/CLB và giữ khung giờ để tránh trùng với **các đặt sân trong Open Play**. Hệ thống giải đấu hoặc lịch thuê sân bên ngoài chưa kết nối; vui lòng kiểm tra riêng trước khi xác nhận.</p>
+          <form id="createPhysicalCourt" class="op-actions">
+            <input id="physicalCourtName" maxlength="80" placeholder="Tên sân mới, ví dụ Sân Bình Lợi 1" aria-label="Tên sân mới" required>
+            <button type="submit" class="secondary">Tạo sân</button>
+          </form>
+          <div class="op-form-grid">
+            <div><label for="durationMinutes">Thời lượng giữ sân (phút)</label><input id="durationMinutes" type="number" min="30" max="480" step="15" value="120"></div>
+          </div>
+          <div class="op-actions">
+            <button id="refreshPhysicalCourts" type="button" class="secondary">Kiểm tra sân trống</button>
+            <button id="reservePhysicalCourts" type="button">Giữ sân đã chọn</button>
+          </div>
+          <div id="physicalCourtStatus" class="op-results" role="status" aria-live="polite">Chưa kiểm tra sân.</div>
+          <div id="physicalCourtCatalog" class="op-roster" aria-label="Sân có thể đặt"></div>
+          <hr class="op-divider">
+          <div class="op-subhead">Ngày thi đấu · Check-in & điểm số</div>
+          <p class="op-field-note">Điểm danh trước khi xác nhận. Khi lưu kế hoạch chính thức, danh sách VĐV sẽ khóa. Mỗi trận có phiên bản điểm riêng để tránh ghi đè.</p>
+          <div class="op-actions">
+            <span id="checkedInCount" class="op-chip is-open">0 VĐV đến sân</span>
+            <button id="reloadGameDay" class="secondary" type="button">Cập nhật lịch & điểm</button>
+          </div>
+          <div class="op-form-grid" id="confirmationOptions">
+            <div><label for="pointTarget">Điểm kết thúc</label><select id="pointTarget"><option value="21">Chạm 21</option><option value="15">Chạm 15</option><option value="11">Chạm 11</option></select></div>
+            <div><label for="winBy">Chênh lệch</label><select id="winBy"><option value="1">Chạm điểm (1)</option><option value="2">Thắng cách biệt 2</option></select></div>
+          </div>
+          <div class="op-actions"><button id="confirmRounds" type="button">Xác nhận vòng & phân sân</button></div>
+          <div id="gameDayStatus" class="op-results" role="status" aria-live="polite">Chưa có lịch thi đấu được xác nhận.</div>
+          <datalist id="refereeSuggestions"></datalist>
+          <div id="matches" class="op-list" aria-label="Danh sách trận Open Play"></div>
+        </div>
+      </section>
+      <section class="op-panel op-full" aria-labelledby="newHeading" id="createPanel">
+        <div class="op-panel-header"><div><h2 id="newHeading">Tạo buổi Open Play mới</h2><p class="op-field-note">Buổi mới luôn ở chế độ riêng tư, BTC có thể bật đăng ký sau.</p></div></div>
+        <form id="createSession">
+          <div class="op-form-grid">
+            <div><label for="title">Tên buổi chơi *</label><input id="title" name="title" maxlength="120" required placeholder="Open Play tối thứ Hai"></div>
+            <div><label for="startsAt">Ngày và giờ bắt đầu *</label><input id="startsAt" name="startsAt" type="datetime-local" required></div>
+            <div><label for="clubId">Mã CLB</label><input id="clubId" name="clubId" maxlength="128" placeholder="Chọn hoặc nhập mã CLB" list="clubSuggestions"><datalist id="clubSuggestions"></datalist></div>
+            <div><label for="courtLabel">Sân / địa điểm</label><input id="courtLabel" name="courtLabel" maxlength="100" placeholder="Sân 1 - Bình Lợi"></div>
+            <div><label for="maxPlayers">Số người tối đa</label><input id="maxPlayers" name="maxPlayers" type="number" min="2" max="256" step="1" value="16" required></div>
+            <div><label for="maxCombinedRating">Tổng trình tối đa một cặp</label><input id="maxCombinedRating" name="maxCombinedRating" type="number" min="2" max="16" step=".1" value="5.2" required></div>
+            <div><label for="tolerance">Dung sai</label><input id="tolerance" name="tolerance" type="number" min="0" max=".5" step=".1" value="0"></div>
+          </div>
+          <div class="op-actions"><button class="op-btn lime" type="submit">+ Tạo buổi chơi</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+  <footer class="op-footer">PickleUp Open Play · Bảng điều hành dành cho tài khoản được phân quyền</footer>
+</main>
+<script src="assets/api.js"></script>
+<script defer src="assets/open-play-admin.js"></script>
+</body>
+</html>

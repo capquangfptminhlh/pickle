@@ -91,7 +91,15 @@ async function scoringSurface(kind,width){
       f.db.prepare("UPDATE divisions SET event_type=? WHERE id='division'").run(eventType);await refresh();
       for(const side of ['A','B']){
         assert.equal(await service(side,2).isEnabled(),true,`${eventType} rally ${side}-S2 is selectable`);
-        await service(side,2).click();await page.waitForFunction(({admin,side})=>document.querySelector(admin?`[data-service-side="${side}"][data-server-number="2"]`:`[data-service="${side}"][data-server="2"]`).classList.contains('active'),{admin,side});
+        // UI handlers serialize service writes. Wait for the previous write to settle
+        // and for the actual Worker response before asserting the next selection.
+        // Without this, rapid clicks can be ignored by the intentional busy guard.
+        if(admin)await page.waitForFunction(()=>!busy,null,{timeout:12000});
+        const serviceResponse=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/service'),{timeout:12000});
+        await service(side,2).click();
+        const committed=await serviceResponse;
+        assert.equal(committed.status(),200,`${eventType} ${side} server selection must persist`);
+        await page.waitForFunction(({admin,side})=>document.querySelector(admin?`[data-service-side="${side}"][data-server-number="2"]`:`[data-service="${side}"][data-server="2"]`)?.classList.contains('active'),{admin,side},{timeout:12000});
         assert.equal(await page.locator(admin?'[data-service-side].active':'[data-service].active').count(),1,'exactly one selected server');
         const serveStatus=page.locator(admin?'#serveStatus':'#serveBanner');
         await serveStatus.filter({hasText:/2/}).waitFor({state:'visible'});

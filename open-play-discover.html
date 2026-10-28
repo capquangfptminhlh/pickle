@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10291f">
+<title>Tìm buổi Open Play · PickleUp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+</head>
+<body>
+<header class="op-top">
+  <div class="op-top-inner">
+    <a class="op-brand" href="index.html" aria-label="PickleUp, về trang chủ"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>CHƠI CÙNG NHAU</small></span></a>
+    <nav class="op-nav" aria-label="Điều hướng Open Play">
+      <a href="open-play-discover.html" aria-current="page">Tìm buổi</a>
+      <a href="open-play.html">Ghép đôi</a>
+      <a href="open-play-admin.html">BTC</a>
+      <a href="open-play-referee.html">Trọng tài</a>
+    </nav>
+  </div>
+</header>
+<main class="op-shell">
+  <section class="op-hero" aria-labelledby="pageTitle">
+    <span class="op-eyebrow">Cộng đồng PickleUp</span>
+    <h1 id="pageTitle">Hẹn sân. Ghép bạn.<br>Vào chơi ngay.</h1>
+    <p>Tìm những buổi Open Play được BTC mở đăng ký, chọn hồ sơ của anh/chị và tham gia chỉ với vài thao tác.</p>
+    <div class="op-hero-bar">
+      <div class="op-stat"><strong id="publicCount">—</strong><span>Buổi đang mở</span></div>
+      <div class="op-stat"><strong id="myCount">—</strong><span>Lượt đăng ký của tôi</span></div>
+      <a class="op-top-action" href="#sessionsPanel">Khám phá buổi chơi</a>
+    </div>
+  </section>
+  <div id="notice" class="op-status" role="status" aria-live="polite">Đang tải lịch Open Play…</div>
+  <section class="op-panel" aria-labelledby="accountTitle" style="margin-bottom:18px">
+    <div class="op-panel-header"><h2 id="accountTitle">Tài khoản của bạn</h2><button class="secondary" id="refresh" type="button">Làm mới</button></div>
+    <div id="accountInfo" class="op-muted">Đang kiểm tra trạng thái đăng nhập…</div>
+    <div class="op-actions"><a id="loginLink" href="login.html?next=open-play-discover.html" class="op-btn lime">Đăng nhập để đăng ký</a></div>
+  </section>
+  <div class="op-discover-layout">
+    <section class="op-panel" id="sessionsPanel" aria-labelledby="sessionHeading">
+      <div class="op-panel-header"><div><h2 id="sessionHeading">Buổi chơi sắp diễn ra</h2><p class="op-field-note">Chỉ hiển thị lịch đã được BTC mở đăng ký.</p></div><span class="op-chip is-open">ĐANG MỞ</span></div>
+      <label for="sessionSearch">Tìm theo tên buổi chơi hoặc địa điểm</label>
+      <input id="sessionSearch" type="search" placeholder="Ví dụ: Bình Lợi, tối thứ Hai…" autocomplete="off">
+      <div id="sessions" class="op-list" aria-live="polite" style="margin-top:16px"><div class="op-empty">Đang tải buổi chơi…</div></div>
+    </section>
+    <section class="op-panel" aria-labelledby="mineHeading">
+      <div class="op-panel-header"><h2 id="mineHeading">Lịch của tôi</h2><span class="op-chip is-registered">ĐÃ ĐĂNG KÝ</span></div>
+      <div id="registrations" aria-live="polite" class="op-small">Đăng nhập để xem các buổi đã đăng ký.</div>
+      <div class="op-subhead">Danh sách chờ của tôi</div>
+      <div id="myWaitlist" aria-live="polite" class="op-list">Chưa có buổi đang chờ.</div>
+      <hr class="op-divider">
+      <div class="op-subhead">Trận đấu của tôi</div>
+      <p class="op-field-note">Chỉ hiển thị những trận có hồ sơ VĐV liên kết với tài khoản. Điểm được đồng bộ khi anh/chị làm mới.</p>
+      <div id="myMatches" aria-live="polite" class="op-list">Đăng nhập để xem các trận đã xếp.</div>
+      <hr class="op-divider">
+      <p class="op-small">Mỗi hồ sơ VĐV phải được liên kết với đúng tài khoản. BTC quản lý số chỗ và việc đóng/mở đăng ký.</p>
+    </section>
+  </div>
+  <footer class="op-footer">PickleUp Open Play · Kết nối người chơi, giữ đúng điểm trình và sức chứa buổi chơi</footer>
+</main>
+<script src="assets/api.js"></script>
+<script defer src="assets/open-play-discover.js"></script>
+</body>
+</html>

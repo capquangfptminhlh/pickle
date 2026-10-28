@@ -10,9 +10,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  registry-browser:
+    name: Registry browser shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser regressions (full coverage)
+        run: node scripts/registry-ci-shard.mjs ${{ matrix.shard }}
+
   integration:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
     services:
       postgres:
         image: postgres:17-alpine
@@ -52,45 +72,15 @@ jobs:
       - name: Player avatar create and retry flow
         run: node scripts/registry-player-avatar-ui.mjs
       - name: Stage scoring and live-score safety regression
-        run: node --test cloudflare/tests/stage-scoring.test.mjs
+        run: node --test cloudflare/tests/stage-scoring.test.mjs cloudflare/tests/open-play.test.mjs
       - name: Global animation browser tests
         run: node --test scripts/registry-motion-runtime.test.mjs scripts/registry-global-motion.test.mjs
       - name: Group draw reveal animation tests
         run: node --test scripts/registry-group-draw-reveal.test.mjs
-      - name: Registry desktop and mobile browser regressions
-        run: |
-          node scripts/registry-ui.mjs
-          node scripts/registry-accounts-ui.mjs
-          node scripts/registry-operator-center-ui.mjs
-          node scripts/registry-draw-reset-ui.mjs
-          node scripts/registry-gallery-ui.mjs
-          node scripts/registry-court-scheduling-ui.mjs
-          node scripts/registry-timeout-clock-ui.mjs
-          node scripts/registry-relay-draw-ui.mjs
-          node scripts/registry-lifecycle-ui.mjs
-          node scripts/registry-role-pages-ui.mjs
-          node --test scripts/registry-tournament-progress.test.mjs scripts/registry-tournament-recovery-ui.mjs
-          node --test scripts/registry-api-client.test.mjs
-          node --test scripts/registry-team-lineup.test.mjs
-          node --test scripts/registry-series-ui.test.mjs
-          node --test scripts/registry-completed-score.test.mjs
-          node scripts/registry-series-browser.mjs
-          node scripts/registry-mlp-championship-ui.mjs
-          node scripts/registry-scoring-ui.mjs
-          node scripts/registry-referee-arena-ui.mjs
-          node scripts/mlp-court-control-ui.mjs
-          node scripts/registry-legacy-ui.mjs
-          node scripts/registry-design-ui.mjs
-          node scripts/registry-site-design-ui.mjs
-          SITE_THEME=light node scripts/registry-site-design-ui.mjs
-          DESIGN_THEME=light node scripts/registry-design-ui.mjs
-          SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
-          SITE_THEME=light SITE_MOTION=no-preference SITE_WIDTH=375 node scripts/registry-site-design-ui.mjs
-          DESIGN_MOTION=no-preference node scripts/registry-design-ui.mjs
-          node --test scripts/registry-motion-ui.test.mjs scripts/registry-realtime.test.mjs scripts/registry-draw-ui.test.mjs scripts/registry-checkin-ui.test.mjs scripts/ui-smoke-readiness.test.mjs scripts/registry-image-shrink.test.mjs scripts/registry-poster-variants.test.mjs
-          node --test scripts/registry-network-ui.test.mjs
       - name: iPhone PWA safe-area regression
         run: node --test scripts/pwa-ios-safe-area.test.mjs
+      - name: Open Play pairing engine tests
+        run: node --test scripts/open-play.test.mjs scripts/open-play-rounds.test.mjs scripts/open-play-page.test.mjs scripts/open-play-admin.test.mjs scripts/open-play-discover.test.mjs scripts/open-play-referee.test.mjs scripts/open-play-font.test.mjs
       - name: Syntax check
         run: |
           node --check assets/motion-system.js
@@ -105,6 +95,9 @@ jobs:
           node --check assets/team-lineup.js
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
+          node --check assets/open-play-admin.js
+          node --check assets/open-play-discover.js
+          node --check assets/open-play-page.js
           node --check assets/match-live.js
           node --check assets/admin-modules.js
           node --check assets/admin-crud.js

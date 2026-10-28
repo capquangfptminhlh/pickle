@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10291f">
+<meta name="robots" content="noindex,nofollow">
+<title>Open Play · Bảng điểm trọng tài · PickleUp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+</head>
+<body class="op-referee-page">
+<header class="op-top"><div class="op-top-inner">
+<a class="op-brand" href="index.html" aria-label="PickleUp"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>TRỌNG TÀI OPEN PLAY</small></span></a>
+<nav class="op-nav" aria-label="Điều hướng">
+<a href="open-play-discover.html">Tìm buổi chơi</a>
+<a href="open-play-admin.html">BTC</a>
+<a href="open-play-referee.html" aria-current="page">Trọng tài</a>
+</nav></div></header>
+<main class="op-shell">
+<section class="op-hero" aria-labelledby="title">
+<span class="op-eyebrow">Điểm số từng sân</span>
+<h1 id="title">Bảng điểm trọng tài</h1>
+<p>Chỉ những trận BTC đã phân công cho tài khoản này mới hiển thị. Kết quả cập nhật theo phiên bản để chống ghi đè khi nhiều thiết bị nhập điểm.</p>
+</section>
+<div id="notice" class="op-status" role="status" aria-live="polite">Đang xác thực tài khoản trọng tài…</div>
+<a id="loginLink" href="login.html?next=open-play-referee.html" class="op-btn hidden">Đăng nhập trọng tài</a>
+<div id="workspace" class="hidden">
+<section class="op-panel">
+<div class="op-panel-header"><h2>Trận được phân công</h2><button id="refresh" class="secondary" type="button">Làm mới</button></div>
+<p class="op-field-note">Điểm kết thúc: 11, 15 hoặc 21 tùy buổi. Nếu ghi sai, tải lại điểm mới nhất trước khi nhập tiếp. Sau khi chốt trận, chỉ BTC mới được sửa có lý do.</p>
+<div id="matches" class="op-list" aria-live="polite"></div>
+</section></div>
+<footer class="op-footer">PickleUp Open Play · Trọng tài chỉ có quyền nhập điểm trận được giao</footer>
+</main>
+<script src="assets/api.js"></script>
+<script defer src="assets/open-play-referee.js"></script>
+</body></html>
