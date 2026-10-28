@@ -71,6 +71,8 @@ jobs:
         run: node --test scripts/pwa-registration-ui.test.mjs
       - name: Player avatar create and retry flow
         run: node scripts/registry-player-avatar-ui.mjs
+      - name: Multi-court timeline and unplaced queue tests
+        run: node --test scripts/court-timeline.test.mjs
       - name: Stage scoring and live-score safety regression
         run: node --test cloudflare/tests/stage-scoring.test.mjs cloudflare/tests/open-play.test.mjs
       - name: Global animation browser tests
@@ -93,6 +95,8 @@ jobs:
           node --check assets/referee-courtside.js
           node --check assets/timeout-clock.js
           node --check assets/team-lineup.js
+          node --check assets/court-timeline.js
+          node --check assets/court-timeline-model.mjs
           node --check assets/court-board.js
           node --check assets/legacy-migrate.js
           node --check assets/open-play-admin.js
