@@ -23,6 +23,15 @@ on:
       - "*.html"
       - ".github/workflows/cloudflare.yml"
   workflow_dispatch:
+    inputs:
+      backup_reference:
+        description: "Verified external production D1 backup reference"
+        required: true
+        type: string
+      confirmation:
+        description: "Type DEPLOY_PICKLEUP_PRODUCTION to authorize remote migration"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -137,7 +146,7 @@ jobs:
     needs: validate
     # Production schema migrations need a reviewed backup and explicit release action.
     # A merge to main runs validation only; manual workflow_dispatch performs deployment.
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.confirmation == 'DEPLOY_PICKLEUP_PRODUCTION' && inputs.backup_reference != ''
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
@@ -162,6 +171,14 @@ jobs:
       - name: Ensure media bucket exists
         working-directory: cloudflare
         run: npx wrangler r2 bucket create pickleup-media || true
+      - name: Verify manually confirmed D1 backup reference
+        env:
+          BACKUP_REFERENCE: ${{ inputs.backup_reference }}
+          DEPLOY_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$DEPLOY_CONFIRMATION" = "DEPLOY_PICKLEUP_PRODUCTION"
+          test -n "${BACKUP_REFERENCE//[[:space:]]/}"
+          echo "Backup reference provided by operator; independently verify that it is restorable."
       - name: Apply D1 migrations
         working-directory: cloudflare
         run: npx wrangler d1 migrations apply DB --remote
