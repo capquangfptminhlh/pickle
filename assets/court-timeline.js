@@ -50,6 +50,24 @@ function render(){
  }
  empty.hidden=true;
  const {summary,columns,unplaced,tournament}=payload;
+ const actions=$("autoScheduleActions");
+ actions.replaceChildren();
+ if(canSchedule&&unplaced.length){
+   const counts=new Map();
+   for(const m of unplaced){
+     const id=String(m.divisionId??m.division_id??"");
+     if(id)counts.set(id,(counts.get(id)||0)+1);
+   }
+   for(const [id,count] of counts){
+     const division=state.divisions.find(d=>String(d.id)===id);
+     if(!division)continue;
+     const button=make("button","","Xếp sân tự động: "+division.name+" ("+count+" trận)");
+     button.type="button";
+     button.dataset.scheduleDivision=id;
+     actions.append(button);
+   }
+ }
+ actions.hidden=!actions.childElementCount;
  $("tournamentTitle").textContent=tournament.name;
  $("tournamentMeta").textContent=[tournament.venue,tournament.date].filter(Boolean).join(" • ")||"Giải đang được theo dõi";
  for(const [id,value] of [["timelineCourts",summary.activeCourts],["timelineLive",summary.live],["timelineAssigned",summary.assigned],["timelineUnplacedCount",summary.unplaced]])$(id).textContent=String(value);
