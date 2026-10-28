@@ -180,7 +180,17 @@ try{
       await confirm.locator('[data-reset-confirmation]').waitFor();assert.equal(await confirm.locator('[data-reset-confirmation]').inputValue(),'');
       await confirm.locator('[data-reset-confirmation]').fill('QUAY LAI');
       await page.screenshot({path:resolve(root,`ui-artifacts/draw-reset/${actor}-${width}-confirmation.png`)});
-      assert.ok(await confirm.locator('[data-reset-submit]').evaluate(button=>{const r=button.getBoundingClientRect();return r.width>=44&&r.height>=44}));
+      // Reload re-renders the dialog asynchronously; wait for a stable size.
+      await confirm.locator('[data-reset-submit]').waitFor({state:'visible'});
+      await page.waitForFunction(()=>{
+        const button=document.querySelector('.draw-reset-dialog [data-reset-submit]');
+        if(!button)return false;
+        const r=button.getBoundingClientRect();
+        return r.width>=44&&r.height>=44;
+      },null,{timeout:5000});
+      assert.ok(await confirm.locator('[data-reset-submit]').evaluate(button=>{
+        const r=button.getBoundingClientRect();return r.width>=44&&r.height>=44;
+      }),"reset confirmation must remain at least 44px in both directions");
       await confirm.locator('[data-reset-submit]').click();
       await page.waitForFunction(()=>!document.querySelector('.draw-reset-dialog'),null,{timeout:12000});
       await page.locator('[data-flex-run]').waitFor();assert.equal(count(),0);
