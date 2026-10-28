@@ -1,4 +1,5 @@
-const VERSION="pickleup-v85-full-motion-20261019";
+// The Cloudflare asset builder replaces this source version with a content hash.
+const VERSION="pickleup-v86-source";
 const STATIC=[
   "/assets/api.js?v=59",
   "/assets/tournament-gallery.js?v=1",
@@ -133,7 +134,7 @@ self.addEventListener("fetch",event=>{
 
   if(req.mode==="navigate"){
     event.respondWith(
-      fetch(new Request(req.url,{headers:req.headers,credentials:req.credentials,redirect:"follow"})).then(async res=>{
+      fetch(new Request(req.url,{headers:req.headers,credentials:req.credentials,redirect:"follow",cache:"no-store"})).then(async res=>{
         if(res.ok){
           let finalRes=res;
           if(res.redirected){
