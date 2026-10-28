@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="assets/public-refresh.css?v=2">
 <link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/typography.css?v=1">
+  <link rel="stylesheet" href="assets/competition-studio.css?v=1">
   <link rel="stylesheet" href="assets/motion-system.css?v=2">
   <script src="assets/vendor/gsap-3.15.0.min.js"></script>
   <script src="assets/motion-system.js?v=2"></script>
@@ -114,7 +115,21 @@
     </section>
     <section id="tournaments" class="public-section">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">LỊCH GIẢI</span><h2>Giải đấu</h2></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div class="section-title"><div><span class="eyebrow">LỊCH GIẢI</span><h2>Giải đấu</h2><button id="eventMobileFilter" type="button" class="cs-mobile-filter" aria-controls="eventDiscovery" aria-expanded="false">☷ Tìm &amp; lọc</button></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p style="margin:0">Đang diễn ra, sắp mở và đã kết thúc.</p><a href="/submit-tournament.html" class="btn primary mini" style="text-decoration:none">+ Đăng giải đấu</a></div></div>
+        <div id="eventDiscovery" class="cs-discovery" role="search" aria-label="Tìm giải đấu">
+          <div class="cs-discovery-heading"><strong>Khám phá giải đấu</strong><span id="eventResultCount" role="status" aria-live="polite">Đang tải giải đấu…</span></div>
+          <div class="cs-discovery-controls">
+            <input id="eventSearch" type="search" autocomplete="off" placeholder="Tìm tên giải, sân, địa điểm…" aria-label="Tìm kiếm giải đấu">
+            <div id="eventFilters" class="cs-filters" role="group" aria-label="Trạng thái giải đấu">
+              <button type="button" data-filter="all" aria-pressed="true" class="is-selected">Tất cả</button>
+              <button type="button" data-filter="open" aria-pressed="false">Đang mở</button>
+              <button type="button" data-filter="live" aria-pressed="false">Đang đấu</button>
+              <button type="button" data-filter="done" aria-pressed="false">Đã kết thúc</button>
+            </div>
+          </div>
+          <small>Chỉ hiển thị giải đấu đã công khai. Kết quả được lọc trực tiếp, không cần tải lại trang.</small>
+        </div>
+        <div id="eventFilterEmpty" hidden role="status">Không có giải phù hợp. Thử đổi từ khóa hoặc trạng thái.</div>
         <div id="publicTours" class="page-grid"></div>
       </div>
     </section>
@@ -169,6 +184,7 @@
   <script src="assets/bracket-ui.js?v=38"></script>
   <script src="assets/draw-reveal.js?v=1"></script>
   <script src="assets/public.js?v=55"></script>
+  <script defer src="assets/tournament-discovery.js?v=1"></script>
   <script src="/assets/pwa.js"></script>
   <script src="assets/ui-motion.js?v=36"></script>
 </body>

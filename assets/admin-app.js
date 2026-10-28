@@ -243,9 +243,28 @@ function operationsDashboard(){
     ["live","score","ĐANG THI ĐẤU",live,"Trận cần theo dõi"],
     ["completed","standings","ĐÃ HOÀN TẤT",state.matches.filter(m=>["done","completed"].includes(m.status)).length,"Trận đã chốt kết quả"]
   ];
+  const stageMatches=activeStats?.matches||[];
+  const stageCourtless=stageMatches.filter(m=>!TOURNAMENT_TERMINAL.has(m.status)&&m.status!=="cancelled"&&!m.courtId).length;
+  const stageDivisionCount=activeTournament?state.divisions.filter(d=>d.tournamentId===activeTournament.id).length:0;
+  const stages=[
+    {title:"Thiết lập giải",detail:activeTournament?"Đã tạo giải":"Tạo giải đầu tiên",done:!!activeTournament,nav:"tournaments"},
+    {title:"Hạng mục & đội",detail:activeStats?`${stageDivisionCount} hạng mục · ${activeStats.teamCount} đội`:"Cấu hình hạng mục và danh sách",done:stageDivisionCount>0&&!!activeStats?.teamCount,nav:"registrations"},
+    {title:"Bốc thăm",detail:activeStats?`${activeStats.matchCount} trận đã tạo`:"Chia bảng, dựng cây đấu",done:stageMatches.length>0,nav:"bracket"},
+    {title:"Điều phối sân",detail:stageMatches.length?`${stageCourtless} trận chưa xếp sân`:"Khai sân và phân trận",done:stageMatches.length>0&&stageCourtless===0,nav:"courts"},
+    {title:"Chấm & chốt",detail:activeStats?`${activeStats.completedCount}/${activeStats.matchCount} trận hoàn tất`:"Nhập điểm, kiểm tra kết quả",done:stageMatches.length>0&&stageMatches.every(m=>TOURNAMENT_TERMINAL.has(m.status)||m.status==="cancelled"),nav:"scores"}
+  ].filter(s=>allowed.has(s.nav));
+  const stageFinished=stages.filter(s=>s.done).length;
+  const stagePercent=stages.length?Math.round(100*stageFinished/stages.length):0;
+  const stageMarkup=`<section class="ops-stage" aria-label="Trung tâm sẵn sàng thi đấu">
+    <div class="ops-stage-head">
+      <div><span class="ops-stage-overline">COMPETITION STUDIO • SẴN SÀNG THI ĐẤU</span><h2>Điều hành trong một màn hình</h2><p>Chọn từng bước để mở công cụ thật, không phải màn mô phỏng.</p></div>
+      <div class="ops-stage-progress"><strong>${stagePercent}%</strong><meter min="0" max="100" value="${stagePercent}" aria-label="Tiến độ sẵn sàng thi đấu"></meter><span>${stageFinished}/${stages.length} bước đạt</span></div>
+    </div>
+    <div class="ops-stage-steps">${stages.map((item,index)=>`<button type="button" class="ops-stage-step ${item.done?"is-complete":""}" data-goto="${item.nav}"><span class="ops-step-number">${item.done?"✓":index+1}</span><b>${escHtml(item.title)}</b><small>${escHtml(item.detail)}</small></button>`).join("")}</div>
+    <div class="ops-stage-alerts">${activeTournament?`<span>${escHtml(activeTournament.name)}</span>`:"<span>Chưa chọn được giải đang vận hành</span>"}<span class="${stageCourtless?"is-urgent":""}">${stageCourtless?`${stageCourtless} trận cần phân sân`:"Không có cảnh báo phân sân"}</span><span>${live} trận đang live</span></div>
+  </section>`;
   setHeader("Điều hành giải đấu","Tạo giải → thêm VĐV → bốc thăm → thi đấu → lưu lịch sử");
-  return `<div class="sport-dashboard">
-    <section class="club-home-hero"><div class="sport-hero-content"><span class="admin-app-overline">PICKLEUP • ORGANIZER OS</span><h2>${activeTournament?escHtml(activeTournament.name):"Sẵn sàng tạo giải mới."}</h2><p>${activeTournament?`${escHtml(activeTournament.date||"")} · ${escHtml(activeTournament.venue||"")} · ${activeStats.progress}% hoàn tất`:next?`${escHtml(next.stage)} · ${escHtml(next.time)} · ${escHtml(courtLabel(next.court))}`:"Tạo và vận hành toàn bộ giải trong một luồng"}</p></div><div class="club-home-live"><i></i><strong>${live}</strong><span>ĐANG ĐẤU</span></div></section>
+  return `<div class="sport-dashboard">\n    ${stageMarkup}\n    <section class="club-home-hero"><div class="sport-hero-content"><span class="admin-app-overline">PICKLEUP • ORGANIZER OS</span><h2>${activeTournament?escHtml(activeTournament.name):"Sẵn sàng tạo giải mới."}</h2><p>${activeTournament?`${escHtml(activeTournament.date||"")} · ${escHtml(activeTournament.venue||"")} · ${activeStats.progress}% hoàn tất`:next?`${escHtml(next.stage)} · ${escHtml(next.time)} · ${escHtml(courtLabel(next.court))}`:"Tạo và vận hành toàn bộ giải trong một luồng"}</p></div><div class="club-home-live"><i></i><strong>${live}</strong><span>ĐANG ĐẤU</span></div></section>
     <section class="organizer-flow panel">
       <div class="organizer-flow-head"><div><span class="admin-app-overline">QUY TRÌNH ORGANIZER</span><h2>${activeTournament?"Tiếp tục giải đang vận hành":"Bắt đầu một giải mới"}</h2><p>Mỗi bước mở đúng công cụ cần dùng, không phải đi tìm trong menu.</p></div>${activeTournament?`<button class="mini" data-open-tournament="${escHtml(activeTournament.id)}">Mở trung tâm điều hành →</button>`:""}</div>
       <div class="organizer-flow-track">${steps.map(s=>`<article class="organizer-step ${s.done?"is-done":""}"><span class="organizer-step-no">${s.done?"✓":s.n}</span><div><b>${s.title}</b><small>${escHtml(s.sub)}</small></div><button type="button" class="mini" data-organizer-step="${s.action}" ${activeTournament?`data-tournament-id="${escHtml(activeTournament.id)}"`:""}>${s.cta}</button></article>`).join("")}</div>
