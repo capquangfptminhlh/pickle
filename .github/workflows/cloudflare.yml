@@ -121,7 +121,9 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    # Production schema migrations need a reviewed backup and explicit release action.
+    # A merge to main runs validation only; manual workflow_dispatch performs deployment.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
