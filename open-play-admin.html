@@ -9,8 +9,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+<link rel="stylesheet" href="assets/typography.css?v=1">
+  <link rel="stylesheet" href="assets/arena-suite-2026.css?v=1">
 </head>
-<body>
+<body class="arena-360 arena-op">
 <header class="op-top">
   <div class="op-top-inner">
     <a class="op-brand" href="index.html" aria-label="PickleUp, về trang chủ"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>OPEN PLAY STUDIO</small></span></a>
@@ -18,7 +20,7 @@
       <a href="open-play-discover.html">Tìm buổi chơi</a>
       <a href="open-play.html">Ghép đôi</a>
       <a href="open-play-admin.html" aria-current="page">BTC</a>
-      <a href="open-play-referee.html">Trọng tài</a>
+      <a href="open-play-referee.html">Trọng tài</a><a href="/admin.html">Quản lý giải</a>
     </nav>
   </div>
 </header>
@@ -36,6 +38,16 @@
   <div id="notice" class="op-status" role="status" aria-live="polite">Đang kiểm tra tài khoản…</div>
   <a id="loginLink" href="login.html?next=open-play-admin.html" class="op-btn hidden">Đăng nhập quản trị</a>
   <div id="workspace" class="hidden">
+    <nav class="arena-flow-nav" aria-label="Các bước điều hành Open Play">
+      <a href="#sessions"><strong>01</strong> Buổi chơi</a>
+      <a href="#sessionControls"><strong>02</strong> Điều hành</a>
+      <a href="#roster"><strong>03</strong> VĐV &amp; check-in</a>
+      <a href="#pairResults"><strong>04</strong> Ghép cặp</a>
+      <a href="#roundResults"><strong>05</strong> Chia vòng</a>
+      <a href="#physicalCourtCatalog"><strong>06</strong> Giữ sân</a>
+      <a href="#gameDayStatus"><strong>07</strong> Bảng điểm</a>
+      <a href="#createPanel"><strong>＋</strong> Tạo buổi</a>
+    </nav>
     <div class="op-layout">
       <section class="op-panel" aria-labelledby="sessionHeading">
         <div class="op-panel-header"><h2 id="sessionHeading">Buổi chơi của tôi</h2><button class="secondary" id="refresh" type="button">Làm mới</button></div>
@@ -142,5 +154,13 @@
 </main>
 <script src="assets/api.js"></script>
 <script defer src="assets/open-play-admin.js"></script>
+
+<nav class="arena-mobile-dock" aria-label="Điều hướng ứng dụng PickleUp">
+  <a href="/"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v11H3z"/><path d="M9 21v-7h6v7"/></svg><span>Trang chủ</span></a>
+  <a href="/open-play-discover.html"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M8 8c3 1 5 4 8 8M16 8c-3 1-5 4-8 8"/></svg><span>Open Play</span></a>
+  <a href="/#tournaments"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 3h10v6a5 5 0 0 1-10 0z"/><path d="M7 5H3v3a4 4 0 0 0 4 4M17 5h4v3a4 4 0 0 1-4 4"/></svg><span>Giải đấu</span></a>
+  <a href="/ranking.html"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 18v-6h4v6M10 18V8h4v10M15 18V4h4v14"/></svg><span>BXH</span></a>
+  <a href="/open-play-admin.html" aria-current="page"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span>Điều hành</span></a>
+</nav>
 </body>
 </html>
