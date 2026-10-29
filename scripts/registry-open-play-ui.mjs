@@ -50,7 +50,7 @@ try{
      body:getComputedStyle(document.body).fontFamily,
      hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily
    }));
-   assert.match(adminType.body,/Plus Jakarta Sans/);
+   assert.match(adminType.body,/Barlow/);
    assert.match(adminType.hero,/Barlow Condensed/);
    await page.locator("#title").fill("Open Play UI Test "+viewport.width);
    await page.locator("#startsAt").fill("2026-11-01T11:00");
@@ -78,7 +78,7 @@ try{
      hero:getComputedStyle(document.querySelector(".op-hero h1")).fontFamily,
      heroClipped:document.querySelector(".op-hero h1").scrollWidth>document.querySelector(".op-hero h1").clientWidth+2
    }));
-   assert.match(playerType.body,/Plus Jakarta Sans/);
+   assert.match(playerType.body,/Barlow/);
    assert.match(playerType.hero,/Barlow Condensed/);
    assert.equal(playerType.heroClipped,false,"Vietnamese hero heading should not clip");
    await page.locator("#sessionSearch").fill("khong-co-buoi-choi-nao");
