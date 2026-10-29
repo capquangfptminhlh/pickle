@@ -67,3 +67,18 @@ test("Existing app hooks remain unique, preserving API/score flows",()=>{
   assert.match(read("referee.html"),/data-rally="B"/);
   assert.match(read("court-board.html"),/id="courtGrid"/);
 });
+
+test("Public Arena mobile dock has working destinations and correct active state",()=>{
+  for(const page of ["tournament.html","ranking.html","player.html","about.html"]){
+    const html=read(page);
+    const dock=html.match(/<nav class="arena-public-dock"[\s\S]*?<\/nav>/);
+    assert.ok(dock,page+" is missing navigation");
+    for(const href of ["/","/open-play-discover.html","/#tournaments","/ranking.html","/login"]){
+      assert.ok(dock[0].includes('href="'+href+'"'),page+" does not link to "+href);
+    }
+    assert.equal((dock[0].match(/<a\b/g)||[]).length,5,page+" needs five navigable tabs");
+  }
+  assert.match(read("tournament.html"),/href="\/#tournaments" aria-current="page"/);
+  assert.match(read("ranking.html"),/href="\/ranking.html" aria-current="page"/);
+  assert.match(css,/\.arena-public-dock/);
+});
