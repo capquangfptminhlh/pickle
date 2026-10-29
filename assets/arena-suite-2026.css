@@ -1,0 +1,497 @@
+/* PickleUp Arena 360 — product-wide visual contract.
+ * Shared palette/spacing only; game rules, APIs, scoring and visibility remain owned by each page.
+ * All overrides scoped to .arena-360 to avoid changing embedded preview/legacy views.
+ */
+:root{
+  --arena360-lime:#d9ff63;--arena360-ink:#172620;--arena360-green:#166442;
+  --arena360-dark:#13251e;--arena360-canvas:#f4f7f4;--arena360-paper:#fff;
+  --arena360-muted:#586e61;--arena360-border:#cfddd4;--arena360-radius:18px;
+  --arena360-shadow:0 16px 45px rgba(12,45,26,.055);
+}
+html{scroll-padding-top:90px}
+body.arena-360{font-family:Barlow,system-ui,-apple-system,sans-serif}
+body.arena-360 :where(h1,h2,h3){text-wrap:balance}
+body.arena-360 :where(button,a,input,select,textarea){touch-action:manipulation}
+body.arena-360 :where(input,select,textarea){font-size:max(14px,1rem)}
+body.arena-360 :where(button,a,input,select,textarea,[tabindex]):focus-visible{
+  outline:3px solid #77a338!important;outline-offset:3px
+}
+body.arena-360 :where([hidden]){display:none!important}
+body.arena-360 :where(.op-panel,.op-card,.op-session,.app-empty-card,.news-card,.top-player-card,.card,.panel){
+  min-width:0
+}
+body.arena-360 :where(p,small,label){overflow-wrap:break-word}
+body.arena-360 :where(.arena-flow-nav,.arena-quick-nav){scrollbar-width:thin}
+body.arena-360 .arena360-kicker{font:800 11px/1.25 Barlow,sans-serif;letter-spacing:.13em;text-transform:uppercase}
+body.arena-360 .arena360-display{font:800 clamp(34px,4vw,60px)/1.02 "Barlow Condensed",Barlow,sans-serif;letter-spacing:-.012em}
+body.arena-360 .arena360-eyebrow{font:800 11px/1.4 Barlow,sans-serif;letter-spacing:.13em}
+body.arena-360 .arena360-openlink{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-weight:800}
+body.arena-360 .arena360-openlink::after{content:"↗"}
+
+/* Public competition surfaces retain the proven color/contrast tokens,
+   while the typography and layout are brought into one Arena language. */
+body.arena-360.arena-public:not(.arena-home-2026) .public-header{
+  box-shadow:0 8px 25px rgba(10,32,23,.045)!important;
+  border-bottom:1px solid var(--pu-line)!important;
+}
+body.arena-360.arena-public:not(.arena-home-2026) .public-container{
+  width:min(1280px,calc(100% - 40px))
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.tournament-app-kicker,.ranking-app-title span,.app-section-head span,.eyebrow){
+  font-family:Barlow,sans-serif!important;font-weight:800!important;letter-spacing:.11em
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-app-title h1,.tournament-event-summary h1,.player-main h1,.submit-hero h1){
+  font-family:"Barlow Condensed",Barlow,sans-serif!important;
+  font-weight:800!important;letter-spacing:-.014em!important;
+  font-size:clamp(32px,4vw,56px)!important;line-height:1.05!important
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-app-shell,.player-layout,.tournament-app-main,.submit-layout){
+  min-width:0
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.public-section,.ranking-app-shell,.tournament-tabs){
+  scroll-margin-top:95px
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-list-card,.ranking-search-panel,.player-stat,.player-match,.tournament-event-facts article,.tournament-prize-card,.tournament-contact-card){
+  border-radius:16px!important;
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-app-player,.ranking-app-row,.player-match){
+  min-height:64px
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-search-panel,.player-stat-grid,.tournament-event-facts,.tournament-hero-stats){
+  gap:12px!important
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.ranking-search-panel,.ranking-list-card,.player-stat-grid,.tournament-prize-contact-grid,.tournament-tabs){
+  max-width:100%
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.public-login,.tournament-register-cta,.tournament-secondary-cta){
+  min-height:44px!important;display:inline-flex;align-items:center;justify-content:center
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.public-nav nav a,.tournament-tabs a){
+  font-size:14px!important;font-weight:750!important
+}
+body.arena-360.arena-public:not(.arena-home-2026) .tournament-tabs{
+  border-bottom:1px solid var(--pu-line)!important;
+  backdrop-filter:blur(14px);isolation:isolate
+}
+body.arena-360.arena-public:not(.arena-home-2026) .tournament-tabs a{
+  position:relative;border-radius:10px!important;white-space:nowrap
+}
+body.arena-360.arena-public:not(.arena-home-2026) .tour-poster-image,
+body.arena-360.arena-public:not(.arena-home-2026) #tourBannerImage{
+  object-fit:contain!important;filter:none!important
+}
+body.arena-360.arena-public:not(.arena-home-2026) :where(.tournament-event-banner-wrap){
+  background:var(--pu-surface-2);overflow:hidden
+}
+body.arena-360.arena-public:not(.arena-home-2026) .tournament-event-hero{
+  gap:clamp(14px,3vw,35px)!important
+}
+body.arena-360.arena-public:not(.arena-home-2026) :is(.standings-row,.bracket-match,.bracket-plan-match,.live-match-card){
+  overflow-wrap:anywhere
+}
+
+/* Operator application: same visual brand as the public Arena, without modifying
+   the stateful navigation, score editor or quick-action selectors. */
+body.arena-360.arena-admin .sidebar{border-right:1px solid rgba(255,255,255,.13)!important}
+body.arena-360.arena-admin .sidebar .brand{padding:23px 18px!important;gap:13px!important}
+body.arena-360.arena-admin .sidebar .brand strong{
+  font-family:"Barlow Condensed",Barlow,sans-serif!important;
+  font-weight:800!important;font-size:25px!important;letter-spacing:.01em!important
+}
+body.arena-360.arena-admin .sidebar .brand span{
+  text-transform:uppercase;letter-spacing:.12em!important;font-size:10px!important;font-weight:800
+}
+body.arena-360.arena-admin .nav-btn{
+  border-radius:12px!important;margin:2px 8px!important;
+  min-height:44px!important;font-weight:750!important;transition:background .16s ease
+}
+body.arena-360.arena-admin .main{min-width:0}
+body.arena-360.arena-admin .topbar{
+  min-height:78px!important;
+  padding:12px clamp(14px,2vw,30px)!important;
+  border-bottom:1px solid var(--line)!important;
+  backdrop-filter:blur(18px)
+}
+body.arena-360.arena-admin #pageTitle{
+  font:800 clamp(26px,2.5vw,37px)/1.02 "Barlow Condensed",Barlow,sans-serif!important;letter-spacing:-.01em
+}
+body.arena-360.arena-admin #pageSub{font:600 13px/1.4 Barlow,sans-serif!important}
+body.arena-360.arena-admin .top-actions{gap:8px!important;flex-wrap:wrap}
+body.arena-360.arena-admin .top-actions :is(a,button){
+  min-height:43px!important;border-radius:11px!important
+}
+body.arena-360.arena-admin .top-actions #quickTournament{
+  background:var(--arena360-lime)!important;color:#173020!important;
+  border:1px solid #9fbe4d!important;font-weight:800!important
+}
+body.arena-360.arena-admin .ops-launch{border-radius:11px!important}
+body.arena-360.arena-admin .content{min-width:0;padding:clamp(14px,2.2vw,28px)!important}
+body.arena-360.arena-admin :is(.club-home-hero,.ops-stage,.operator-center,.metric-card,.kpi,.card,.panel){
+  border-radius:16px!important
+}
+body.arena-360.arena-admin :is(.ops-stage-steps,.club-home-actions,.club-home-metrics){
+  gap:12px!important
+}
+body.arena-360.arena-admin :is(.club-home-actions button,.ops-stage-step,.operator-step){
+  min-height:70px!important;border-radius:14px!important
+}
+body.arena-360.arena-admin :is(.score-dialog,.generic-dialog){
+  max-width:min(980px,calc(100vw - 20px))
+}
+body.arena-360.arena-admin :is(.score-dialog[open],.generic-dialog[open]){
+  max-height:calc(100dvh - 24px);overflow:auto
+}
+body.arena-360.arena-admin :is(.score-control button,.rally-controls button,.score-options select){
+  min-height:44px!important
+}
+
+/* OPEN PLAY — the biggest visual difference: a consistent, light match-day
+   workspace with strong hierarchy and an action navigator instead of long
+   undifferentiated panels. No fake stats or client-only registration claims. */
+body.arena-360.arena-op{
+  --op-font-body:Barlow,system-ui,-apple-system,sans-serif;
+  --op-font-display:"Barlow Condensed",Barlow,sans-serif;
+  --op-paper:#f2f6f3;--op-card:#fff;--op-ink:#182e22;
+  --op-line:#d1dfd5;--op-dark:#13271e;--op-green:#14663f;
+  --op-muted:#536c5d;--op-lime:var(--arena360-lime);
+  background:linear-gradient(180deg,#edf3ee 0,#f7f9f7 420px)!important
+}
+body.arena-360.arena-op .op-top{
+  position:sticky;top:0;z-index:45;
+  background:rgba(18,39,29,.97)!important;backdrop-filter:blur(18px);
+  border-bottom:1px solid #3c5a46!important
+}
+body.arena-360.arena-op .op-top-inner{
+  max-width:1380px;min-height:76px;padding:12px 24px
+}
+body.arena-360.arena-op .op-brand{
+  font:800 26px/1 "Barlow Condensed",Barlow,sans-serif!important;letter-spacing:.03em!important
+}
+body.arena-360.arena-op .op-brand-mark{
+  width:42px;height:42px;border-radius:13px!important;
+  background:#d9ff63!important;transform:none!important;
+  font:900 25px/1 "Barlow Condensed",Barlow,sans-serif
+}
+body.arena-360.arena-op .op-brand small{
+  color:#cadbd0!important;font:800 10px/1.45 Barlow,sans-serif;letter-spacing:.13em!important
+}
+body.arena-360.arena-op .op-nav{gap:5px}
+body.arena-360.arena-op .op-nav a{
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+  color:#e0ede5!important;border:1px solid transparent;border-radius:10px;
+  padding:10px 14px!important;font:750 13px/1.2 Barlow,sans-serif!important
+}
+body.arena-360.arena-op .op-nav a[aria-current="page"]{
+  border-color:#71875c;background:#385338!important;color:#e5ffa9!important
+}
+body.arena-360.arena-op .op-shell{max-width:1380px;padding:0 24px 100px}
+body.arena-360.arena-op .op-hero{
+  border-radius:25px!important;padding:clamp(25px,3.3vw,46px)!important;
+  margin:24px 0 19px;min-height:225px!important;
+  background:
+    radial-gradient(circle at 92% 28%,rgba(217,255,99,.17),transparent 36%),
+    linear-gradient(119deg,#152c21 8%,#1f4934 67%,#123323)!important;
+  border:1px solid #376247;box-shadow:0 25px 50px rgba(18,54,31,.12)!important
+}
+body.arena-360.arena-op .op-hero:after{right:-50px;top:-210px;width:480px;height:480px;border-radius:50%}
+body.arena-360.arena-op .op-eyebrow{color:#d9ff63!important;font-size:11px!important}
+body.arena-360.arena-op .op-hero h1{
+  font:800 clamp(40px,5.7vw,70px)/1.01 "Barlow Condensed",Barlow,sans-serif!important;
+  max-width:840px;letter-spacing:0!important;margin:16px 0 13px!important;
+  color:#f8fff9!important
+}
+body.arena-360.arena-op .op-hero p{
+  color:#daebdf!important;font:500 15px/1.55 Barlow,sans-serif!important;max-width:730px
+}
+body.arena-360.arena-op .op-hero-bar{margin-top:24px!important;gap:9px!important}
+body.arena-360.arena-op .op-stat{
+  min-height:64px;min-width:130px;padding:10px 16px!important;
+  border-radius:14px!important;background:rgba(11,32,21,.5)!important
+}
+body.arena-360.arena-op .op-stat strong{
+  font:800 31px/1 "Barlow Condensed",Barlow,sans-serif!important;color:#d9ff63
+}
+body.arena-360.arena-op .op-stat span{color:#e6f1e5!important;font-size:12px!important}
+body.arena-360.arena-op .op-top-action{
+  min-height:49px;padding:11px 21px!important;border-radius:12px!important;
+  background:#d9ff63!important;color:#172a1b!important
+}
+body.arena-360.arena-op .op-panel{
+  padding:clamp(19px,2vw,29px)!important;border-radius:21px!important;
+  border:1px solid #cbdace!important;
+  box-shadow:0 15px 40px rgba(27,58,37,.04)!important;
+}
+body.arena-360.arena-op .op-panel h2{
+  font:800 29px/1.1 "Barlow Condensed",Barlow,sans-serif!important;
+  letter-spacing:0!important;color:#183528!important
+}
+body.arena-360.arena-op .op-panel-header{
+  min-height:52px;padding-bottom:13px;margin-bottom:16px;
+  border-bottom:1px solid #e5ece5
+}
+body.arena-360.arena-op .op-layout{
+  grid-template-columns:minmax(285px,.74fr) minmax(0,1.26fr)!important;gap:17px!important
+}
+body.arena-360.arena-op .op-discover-layout{
+  grid-template-columns:minmax(0,1.45fr) minmax(285px,.75fr)!important;gap:17px!important
+}
+body.arena-360.arena-op .op-status{
+  font-size:13px!important;min-height:48px!important;border-radius:13px!important;
+  border-color:#b2d3b9!important
+}
+body.arena-360.arena-op .op-kpis{gap:10px!important}
+body.arena-360.arena-op .op-kpis>div{
+  border-radius:14px!important;background:#edf5ee!important;border:1px solid #d0e1d3!important;
+  padding:14px!important
+}
+body.arena-360.arena-op .op-kpis strong{font:800 31px/1 "Barlow Condensed",Barlow,sans-serif!important}
+body.arena-360.arena-op .op-subhead{
+  font:800 22px/1.15 "Barlow Condensed",Barlow,sans-serif!important;
+  color:#1a3827!important;margin:25px 0 12px!important;
+}
+body.arena-360.arena-op .op-divider{border-color:#d9e5dc!important;margin:25px 0!important}
+body.arena-360.arena-op :is(.op-session,.op-card,.op-roster li){
+  background:#fff!important;border:1px solid #d4e1d7!important;
+  border-radius:16px!important;
+}
+body.arena-360.arena-op :is(.op-session:hover,.op-session.is-active){
+  border-color:#5c9c71!important;background:#eff8ef!important
+}
+body.arena-360.arena-op .op-card{
+  box-shadow:0 8px 22px rgba(13,50,29,.045)!important;padding:20px!important
+}
+body.arena-360.arena-op .op-card h3{
+  font:800 23px/1.12 "Barlow Condensed",Barlow,sans-serif!important;letter-spacing:0!important
+}
+body.arena-360.arena-op .op-card-date{color:#2b6844!important}
+body.arena-360.arena-op :is(input,select,textarea){
+  font:600 15px/1.45 Barlow,sans-serif!important;
+  min-height:46px!important;border-radius:11px!important;
+  background:#fff!important;color:#1c3527!important;border:1px solid #afc6b6!important
+}
+body.arena-360.arena-op :is(input,select,textarea)::placeholder{color:#5d7265!important;opacity:1}
+body.arena-360.arena-op :is(button,.op-btn){
+  border-radius:11px!important;font:750 14px/1.3 Barlow,sans-serif!important;
+  min-height:44px!important
+}
+body.arena-360.arena-op .op-actions{gap:10px!important}
+body.arena-360.arena-op .op-card-info span{
+  background:#eef5ec!important;color:#3a6847!important;border-radius:9px!important
+}
+body.arena-360.arena-op .op-detail-summary{
+  background:#eaf4ed!important;border:1px solid #c8dfce!important;
+  border-radius:14px!important
+}
+body.arena-360.arena-op .op-results{
+  background:#eef6ee!important;color:#214e32!important;border:1px solid #bbd6c1!important
+}
+body.arena-360.arena-op .op-footer{color:#557363!important;border-top:1px solid #d5e0d5;margin-top:24px}
+
+/* Studio work stages: functionally useful anchor navigation — not cosmetic tabs. */
+body.arena-360.arena-op .arena-flow-nav{
+  display:flex;gap:7px;padding:10px;overflow-x:auto;scroll-snap-type:x proximity;
+  margin:-2px 0 19px;border:1px solid #d4e2d4;
+  background:rgba(255,255,255,.95);border-radius:16px;
+  box-shadow:0 8px 26px rgba(27,58,37,.035)
+}
+body.arena-360.arena-op .arena-flow-nav a{
+  flex:0 0 auto;min-height:44px;scroll-snap-align:start;
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:9px 15px;text-decoration:none;color:#294f39!important;
+  font:800 13px/1.3 Barlow,sans-serif!important;
+  border-radius:11px;border:1px solid transparent
+}
+body.arena-360.arena-op .arena-flow-nav a:hover,
+body.arena-360.arena-op .arena-flow-nav a:focus-visible{
+  background:#e9f5df!important;border-color:#b8d8ab!important
+}
+body.arena-360.arena-op .arena-flow-nav a[aria-current="step"]{
+  background:#d9ff63!important;border-color:#a6c456!important
+}
+body.arena-360.arena-op .arena-flow-nav a strong{
+  display:grid;place-items:center;width:25px;height:25px;border-radius:8px;
+  background:#dfeee0;color:#2b6540;font-size:12px
+}
+body.arena-360.arena-op .arena-flow-nav a[aria-current="step"] strong{
+  background:#173b27;color:#d9ff63
+}
+body.arena-360.arena-op :is(.op-panel,.op-subhead,#createPanel,#sessionsPanel){
+  scroll-margin-top:110px
+}
+body.arena-360.arena-op #createPanel{
+  background:linear-gradient(180deg,#fff 0,#f5faf5 100%)!important;border-color:#b8d6ba!important
+}
+body.arena-360.arena-op #createPanel .op-panel-header{
+  border-bottom:1px solid #dbe6dc!important
+}
+
+/* Referee inside Open Play: bigger score, unambiguous team controls. */
+body.arena-360.arena-op.op-referee-page .op-panel{
+  max-width:1100px;margin-inline:auto
+}
+body.arena-360.arena-op.op-referee-page .op-card{
+  border-top:3px solid #83c86d!important
+}
+body.arena-360.arena-op.op-referee-page .op-card :is(strong,[data-score-value],.score){
+  font-variant-numeric:tabular-nums
+}
+body.arena-360.arena-op.op-referee-page .op-card .op-actions button{
+  min-height:52px!important;font-size:15px!important
+}
+
+/* Courtside referee / television board: preserve team-color differentiation and
+   44+px rally controls; only enlarge touch affordances and polish framing. */
+body.arena-360.arena-score .courtside-top{
+  backdrop-filter:blur(16px);box-shadow:0 4px 18px rgba(24,38,29,.045)!important
+}
+body.arena-360.arena-score .courtside-brand strong{
+  font-family:"Barlow Condensed",Barlow,sans-serif!important;font-size:28px!important
+}
+body.arena-360.arena-score .score-context{gap:14px!important}
+body.arena-360.arena-score .ref-team-card{border-radius:16px!important}
+body.arena-360.arena-score .ref-score{
+  font-variant-numeric:tabular-nums!important;letter-spacing:-.035em!important
+}
+body.arena-360.arena-score :is(.rally-hit,.ref-bottom-actions button){
+  min-height:60px!important;font-weight:900!important
+}
+body.arena-360.arena-score .ref-control-card{border-radius:14px!important}
+body.arena-360.arena-score .service-buttons button{min-height:45px!important}
+body.arena-360.arena-score .ref-bottom-actions{
+  padding-bottom:max(10px,env(safe-area-inset-bottom,0px))!important
+}
+body.arena-360.arena-board .tv-court{
+  border-radius:18px!important;border-color:#315442!important;
+  box-shadow:0 12px 35px rgba(0,0,0,.12)
+}
+body.arena-360.arena-board .tv-court.live{
+  outline:2px solid rgba(217,255,99,.4);outline-offset:-3px
+}
+body.arena-360.arena-board .tv-court-head h2{
+  font:800 26px/1 "Barlow Condensed",Barlow,sans-serif!important
+}
+body.arena-360.arena-board .tv-score b{
+  font-family:"Barlow Condensed",Barlow,sans-serif!important;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em!important
+}
+
+/* Court timeline / live match — better surface density without changing the
+   ordering, selectors or data update cycle. */
+body.arena-360.arena-utility{
+  background:#f2f6f3!important;color:#1b3526!important;
+}
+body.arena-360.arena-utility .topbar{
+  background:#132c20!important;border-bottom:1px solid #41634c
+}
+body.arena-360.arena-utility .topbar :is(.brand,.heading h1){
+  font-family:"Barlow Condensed",Barlow,sans-serif!important
+}
+body.arena-360.arena-utility :is(.hero,.match-app-hero){
+  border-radius:22px!important;background:linear-gradient(110deg,#133324,#1c6943)!important;
+  box-shadow:0 16px 39px rgba(20,60,33,.11)!important
+}
+body.arena-360.arena-utility .hero h2{
+  font:800 clamp(28px,3.6vw,46px)/1.02 "Barlow Condensed",Barlow,sans-serif!important
+}
+body.arena-360.arena-utility .stats article{
+  border-radius:16px!important;border-color:#d0ddcf!important;
+  background:#fff!important;padding:20px!important
+}
+body.arena-360.arena-utility .stats strong{
+  font:800 38px/1.05 "Barlow Condensed",Barlow,sans-serif!important
+}
+body.arena-360.arena-utility .court-column{
+  border-radius:18px!important;border-color:#cfdfd2!important;
+  box-shadow:0 8px 25px rgba(20,58,33,.04)!important
+}
+body.arena-360.arena-utility .court-head{
+  background:#1a4430!important;padding:17px!important
+}
+body.arena-360.arena-utility .court-head h3{
+  font:800 23px/1.1 "Barlow Condensed",Barlow,sans-serif!important
+}
+body.arena-360.arena-utility .match{
+  border-radius:13px!important;background:#f8fbf7!important;border-color:#d4e3d4!important
+}
+body.arena-360.arena-utility .match.is-live{
+  background:#edf9ed!important;border-color:#79b883!important
+}
+body.arena-360.arena-utility :is(.top-actions a,.filters button,.controls button){
+  min-height:44px!important;border-radius:10px!important
+}
+
+/* Screen-size specific compositions. */
+@media(max-width:1050px){
+  body.arena-360.arena-op .op-layout,
+  body.arena-360.arena-op .op-discover-layout{grid-template-columns:1fr!important}
+  body.arena-360.arena-op .op-layout>.op-panel:first-child{order:0}
+  body.arena-360.arena-op .op-layout>.op-panel:nth-child(2){order:1}
+  body.arena-360.arena-op .op-layout>#createPanel{order:2}
+}
+@media(max-width:760px){
+  body.arena-360.arena-public:not(.arena-home-2026) .public-container{width:calc(100% - 28px)!important}
+  body.arena-360.arena-admin .topbar{padding:10px 13px!important}
+  body.arena-360.arena-admin .content{padding:12px!important}
+  body.arena-360.arena-admin .top-actions{
+    max-width:100%;overflow-x:auto;scrollbar-width:thin;flex-wrap:nowrap!important;
+    padding-bottom:5px
+  }
+  body.arena-360.arena-admin .top-actions :is(a,button){white-space:nowrap;flex:none}
+  body.arena-360.arena-op .op-top-inner{flex-wrap:wrap;gap:5px;padding:10px 14px}
+  body.arena-360.arena-op .op-brand{font-size:22px!important}
+  body.arena-360.arena-op .op-brand-mark{width:37px;height:37px}
+  body.arena-360.arena-op .op-nav{
+    width:100%;display:flex!important;flex-wrap:nowrap!important;
+    gap:4px;overflow-x:auto;scrollbar-width:thin
+  }
+  body.arena-360.arena-op .op-nav a{
+    flex:0 0 auto!important;min-height:42px!important;padding:9px 11px!important;
+    white-space:nowrap;font-size:12px!important
+  }
+  body.arena-360.arena-op .op-shell{
+    padding:0 14px calc(100px + env(safe-area-inset-bottom,0px))
+  }
+  body.arena-360.arena-op .op-hero{
+    min-height:0!important;padding:24px 20px!important;
+    margin:12px 0 15px;border-radius:19px!important
+  }
+  body.arena-360.arena-op .op-hero h1{font-size:clamp(36px,10vw,51px)!important}
+  body.arena-360.arena-op .op-hero p{font-size:13px!important}
+  body.arena-360.arena-op .op-hero-bar{gap:7px!important;margin-top:16px!important}
+  body.arena-360.arena-op .op-stat{min-height:55px;min-width:0;padding:8px 12px!important}
+  body.arena-360.arena-op .op-stat strong{font-size:26px!important}
+  body.arena-360.arena-op .op-stat span{font-size:11px!important}
+  body.arena-360.arena-op .op-panel{padding:16px!important;border-radius:17px!important}
+  body.arena-360.arena-op .op-panel h2{font-size:25px!important}
+  body.arena-360.arena-op .op-form-grid{grid-template-columns:1fr!important}
+  body.arena-360.arena-op .op-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body.arena-360.arena-op .op-kpis>div{padding:10px!important}
+  body.arena-360.arena-op .op-kpis strong{font-size:25px!important}
+  body.arena-360.arena-op .arena-flow-nav{margin-top:0;padding:7px;gap:3px}
+  body.arena-360.arena-op .arena-flow-nav a{padding:7px 11px;font-size:12px!important}
+  body.arena-360.arena-score .ref-team-card{padding:14px!important}
+  body.arena-360.arena-utility .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.arena-360.arena-utility .stats article{padding:13px!important}
+}
+@media(max-width:390px){
+  body.arena-360.arena-op .op-hero h1{font-size:34px!important}
+  body.arena-360.arena-op .op-stat{padding:8px!important}
+  body.arena-360.arena-op .op-stat strong{font-size:24px!important}
+  body.arena-360.arena-op .op-nav a{font-size:11px!important;padding:9px 8px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  body.arena-360 :where(.op-session,.op-card,.arena-flow-nav a,.nav-btn){
+    animation:none!important;transition:none!important;scroll-behavior:auto!important
+  }
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+  body.arena-360.arena-op .op-card,
+  body.arena-360.arena-op .op-session,
+  body.arena-360.arena-op .arena-flow-nav a{
+    transition:box-shadow .2s ease,transform .2s ease,border-color .2s ease
+  }
+  body.arena-360.arena-op .op-card:hover,
+  body.arena-360.arena-op .op-session:hover{
+    box-shadow:0 15px 34px rgba(22,58,29,.09)!important;transform:translateY(-2px)
+  }
+}
