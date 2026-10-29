@@ -139,7 +139,8 @@ try{
           f.db.exec("UPDATE tournaments SET public_visible=0 WHERE id='tour'");
           const hiddenState=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
           assert.equal(hiddenState.tournaments.some(x=>x.id==="tour"),false,"fixture hides tournament from public state");
-          await page.evaluate(()=>load());
+          await page.evaluate(()=>{void load().catch(console.error)});
+          await page.waitForFunction(()=>!state?.tournaments?.some(x=>x.id==="tour"),{timeout:5000}).catch(()=>{});
           const hiddenUi=await page.evaluate(()=>({ids:state?.tournaments?.map(x=>x.id),unavailable:!!document.querySelector("#tourUnavailable"),hidden:document.querySelector("#tourDivisions")?.hidden}));
           assert.equal(hiddenUi.unavailable,true,"hidden tournament renders an unavailable notice: "+JSON.stringify(hiddenUi));
           await page.locator("#tourUnavailable h1").waitFor({state:"visible",timeout:7000});
@@ -147,7 +148,7 @@ try{
           f.db.exec("UPDATE tournaments SET public_visible=1 WHERE id='tour'");
           const restoredState=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
           assert.equal(restoredState.tournaments.some(x=>x.id==="tour"),true,"fixture restores tournament to public state");
-          await page.evaluate(()=>load());
+          await page.evaluate(()=>{void load().catch(console.error)});
           await page.locator("#tourName").waitFor({state:"visible"});assert.equal(await page.locator("#tourUnavailable").count(),0);
           await expectPoster(page.locator("#tourBannerImage"));
           assert.ok(await page.locator("#tourDivisions").isVisible());assert.equal(await page.locator("#tourBannerImage").evaluate(el=>getComputedStyle(el).filter),"none","poster colors retained");
