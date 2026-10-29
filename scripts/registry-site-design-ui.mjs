@@ -136,9 +136,19 @@ try{
         }
         if(path==="preview/tournament.html?id=tour"){await expectPoster(page.locator("#tourBannerImage"));const ratio=await page.locator(".tournament-event-banner-wrap").evaluate(el=>el.clientWidth/el.clientHeight);assert.ok(Math.abs(ratio-2/3)<.02,"preview portrait poster ratio")}
         if(!process.env.SITE_BASELINE&&path==="tournament.html?id=tour"){
-          f.db.exec("UPDATE tournaments SET public_visible=0 WHERE id='tour'");await page.evaluate(()=>load());await page.locator("#tourUnavailable h1").waitFor({state:"visible"});
+          f.db.exec("UPDATE tournaments SET public_visible=0 WHERE id='tour'");
+          const hiddenState=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
+          assert.equal(hiddenState.tournaments.some(x=>x.id==="tour"),false,"fixture hides tournament from public state");
+          await page.evaluate(()=>load());
+          const hiddenUi=await page.evaluate(()=>({ids:state?.tournaments?.map(x=>x.id),unavailable:!!document.querySelector("#tourUnavailable"),hidden:document.querySelector("#tourDivisions")?.hidden}));
+          assert.equal(hiddenUi.unavailable,true,"hidden tournament renders an unavailable notice: "+JSON.stringify(hiddenUi));
+          await page.locator("#tourUnavailable h1").waitFor({state:"visible",timeout:7000});
           assert.match(await page.locator("#tourUnavailable").innerText(),/chưa được công khai/);assert.ok(await page.locator("#tourDivisions").isHidden());
-          f.db.exec("UPDATE tournaments SET public_visible=1 WHERE id='tour'");await page.evaluate(()=>load());await page.locator("#tourName").waitFor({state:"visible"});assert.equal(await page.locator("#tourUnavailable").count(),0);
+          f.db.exec("UPDATE tournaments SET public_visible=1 WHERE id='tour'");
+          const restoredState=await (await worker.fetch(new Request(base+"/api/public/state"),f.env)).json();
+          assert.equal(restoredState.tournaments.some(x=>x.id==="tour"),true,"fixture restores tournament to public state");
+          await page.evaluate(()=>load());
+          await page.locator("#tourName").waitFor({state:"visible"});assert.equal(await page.locator("#tourUnavailable").count(),0);
           await expectPoster(page.locator("#tourBannerImage"));
           assert.ok(await page.locator("#tourDivisions").isVisible());assert.equal(await page.locator("#tourBannerImage").evaluate(el=>getComputedStyle(el).filter),"none","poster colors retained");
           assert.equal(await page.locator("#tourBannerImage").evaluate(el=>getComputedStyle(el).objectFit),"contain","full original poster remains uncropped");
@@ -191,7 +201,15 @@ try{
           assert.ok(await page.locator("#email").isVisible()&&await page.locator("#password").isVisible(),"header login opens the real login form");
         }
         console.log(failures.length===previousFailures?"PASS site UI":"CHECKED site UI",label);
-      }catch(e){failures.push(label+": "+e.message);console.error("FAIL",failures.at(-1));console.error("DIAGNOSTIC",JSON.stringify(await page.evaluate(()=>({url:location.href,main:[...document.querySelectorAll("main")].map(el=>({cls:el.className,display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility,rect:el.getBoundingClientRect().toJSON()}))}))))}
+      }catch(e){
+        failures.push(label+": "+e.message);console.error("FAIL",failures.at(-1));
+        // Diagnostics must not hang a full 35-minute CI shard when the page is stuck.
+        const diagnostic=await Promise.race([
+          page.evaluate(()=>({url:location.href,main:[...document.querySelectorAll("main")].map(el=>({cls:el.className,display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility,rect:el.getBoundingClientRect().toJSON()})),publicTournamentIds:typeof state!=="undefined"?state?.tournaments?.map(x=>x.id):null,unavailable:!!document.querySelector("#tourUnavailable")})).catch(error=>({error:String(error)})),
+          new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),1500))
+        ]);
+        console.error("DIAGNOSTIC",JSON.stringify(diagnostic));
+      }
       finally{await context.close()}
     }
     f.db.close();

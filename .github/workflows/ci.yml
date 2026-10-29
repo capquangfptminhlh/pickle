@@ -30,6 +30,33 @@ jobs:
       - name: Browser regressions (full coverage)
         run: node scripts/registry-ci-shard.mjs ${{ matrix.shard }}
 
+  tournament-visibility-smoke:
+    name: Tournament visibility mobile regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install test dependencies
+        run: npm ci --ignore-scripts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test tournament public visibility in mobile dark mode
+        env:
+          SITE_WIDTH: "375"
+          SITE_PAGE: "tournament.html?id=tour"
+          SITE_MOTION: "no-preference"
+        run: node scripts/registry-site-design-ui.mjs
+      - name: Test tournament public visibility in mobile light mode
+        env:
+          SITE_WIDTH: "375"
+          SITE_PAGE: "tournament.html?id=tour"
+          SITE_MOTION: "no-preference"
+          SITE_THEME: "light"
+        run: node scripts/registry-site-design-ui.mjs
+
   integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 50
