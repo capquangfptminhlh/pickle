@@ -469,3 +469,92 @@ html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-s
     font-size:21px!important;margin:4px 0 9px!important
   }
 }
+
+/* QA 2026-10-29: dark page cards must separate clearly from the canvas. */
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  background:#2d4b3a!important;
+  border-color:#62806c!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body :is(h3,b,small),
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-copy :is(b,span){
+  color:#edf9ed!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .cs-discovery-controls input{
+  background:#243d30!important;
+  color:#f0faef!important;
+  border-color:#6d8b74!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .cs-discovery-controls input::placeholder{
+  color:#c1d4c3!important;opacity:1
+}
+
+/* Matchday mobile: the tournament title must be readable in the first viewport.
+   Reorder the public section stack rather than hiding tournament data offscreen. */
+@media(max-width:760px){
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main{
+    display:flex!important;flex-direction:column!important;align-items:stretch!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>.desktop-app-hub{order:0}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#tournaments{order:1}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#open-play{order:2}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>.public-hero{order:3}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#top-players{order:4}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#live{order:5}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#ranking{order:6}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#bracket{order:7}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#news{order:8}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #site-main>#sponsors{order:9}
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-app-hub{
+    padding:9px 0 0!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-card{
+    min-height:0!important;padding:17px 19px!important;border-radius:16px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-card h1{
+    font-size:34px!important;line-height:1!important;margin:12px 0!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-card p,
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .arena-hero-foot{
+    display:none!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-actions{
+    margin-top:8px!important;gap:8px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-actions a{
+    font-size:12px!important;min-height:42px!important;padding:8px 12px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-actions a:nth-child(3){
+    display:none!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-today-card{
+    display:none!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments{
+    padding:12px 0 24px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .section-title{
+    margin-bottom:10px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .section-title h2{
+    font-size:25px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments #publicTours .tour-card{
+    align-items:start!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments #publicTours .tour-card .tour-body{
+    justify-content:flex-start!important
+  }
+}
+
+
+/* Both themes: tournament & player cards need clearly perceptible outlines. */
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  border:1px solid #b5c4bb!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  border-color:#83a38a!important;
+}
