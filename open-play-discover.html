@@ -8,8 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+<link rel="stylesheet" href="assets/typography.css?v=1">
+  <link rel="stylesheet" href="assets/arena-suite-2026.css?v=1">
 </head>
-<body>
+<body class="arena-360 arena-op">
 <header class="op-top">
   <div class="op-top-inner">
     <a class="op-brand" href="index.html" aria-label="PickleUp, về trang chủ"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>CHƠI CÙNG NHAU</small></span></a>
@@ -17,7 +19,7 @@
       <a href="open-play-discover.html" aria-current="page">Tìm buổi</a>
       <a href="open-play.html">Ghép đôi</a>
       <a href="open-play-admin.html">BTC</a>
-      <a href="open-play-referee.html">Trọng tài</a>
+      <a href="open-play-referee.html">Trọng tài</a><a href="/#tournaments">Giải đấu</a><a href="/ranking.html">BXH</a>
     </nav>
   </div>
 </header>
@@ -38,7 +40,12 @@
     <div id="accountInfo" class="op-muted">Đang kiểm tra trạng thái đăng nhập…</div>
     <div class="op-actions"><a id="loginLink" href="login.html?next=open-play-discover.html" class="op-btn lime">Đăng nhập để đăng ký</a></div>
   </section>
-  <div class="op-discover-layout">
+  <nav class="arena-flow-nav" aria-label="Đi nhanh đến nội dung">
+      <a href="#sessionsPanel"><strong>01</strong> Tìm buổi chơi</a>
+      <a href="#registrations"><strong>02</strong> Lịch đã đăng ký</a>
+      <a href="#myWaitlist"><strong>03</strong> Hàng chờ</a>
+      <a href="#myMatches"><strong>04</strong> Trận của tôi</a>
+    </nav><div class="op-discover-layout">
     <section class="op-panel" id="sessionsPanel" aria-labelledby="sessionHeading">
       <div class="op-panel-header"><div><h2 id="sessionHeading">Buổi chơi sắp diễn ra</h2><p class="op-field-note">Chỉ hiển thị lịch đã được BTC mở đăng ký.</p></div><span class="op-chip is-open">ĐANG MỞ</span></div>
       <label for="sessionSearch">Tìm theo tên buổi chơi hoặc địa điểm</label>

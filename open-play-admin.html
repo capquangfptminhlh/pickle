@@ -9,8 +9,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/open-play-ui.css?v=1">
+<link rel="stylesheet" href="assets/typography.css?v=1">
+  <link rel="stylesheet" href="assets/arena-suite-2026.css?v=1">
 </head>
-<body>
+<body class="arena-360 arena-op">
 <header class="op-top">
   <div class="op-top-inner">
     <a class="op-brand" href="index.html" aria-label="PickleUp, về trang chủ"><span class="op-brand-mark" aria-hidden="true">P</span><span>PICKLEUP<small>OPEN PLAY STUDIO</small></span></a>
@@ -18,7 +20,7 @@
       <a href="open-play-discover.html">Tìm buổi chơi</a>
       <a href="open-play.html">Ghép đôi</a>
       <a href="open-play-admin.html" aria-current="page">BTC</a>
-      <a href="open-play-referee.html">Trọng tài</a>
+      <a href="open-play-referee.html">Trọng tài</a><a href="/admin.html">Quản lý giải</a>
     </nav>
   </div>
 </header>
@@ -36,6 +38,16 @@
   <div id="notice" class="op-status" role="status" aria-live="polite">Đang kiểm tra tài khoản…</div>
   <a id="loginLink" href="login.html?next=open-play-admin.html" class="op-btn hidden">Đăng nhập quản trị</a>
   <div id="workspace" class="hidden">
+    <nav class="arena-flow-nav" aria-label="Các bước điều hành Open Play">
+      <a href="#sessions"><strong>01</strong> Buổi chơi</a>
+      <a href="#sessionControls"><strong>02</strong> Điều hành</a>
+      <a href="#roster"><strong>03</strong> VĐV &amp; check-in</a>
+      <a href="#pairResults"><strong>04</strong> Ghép cặp</a>
+      <a href="#roundResults"><strong>05</strong> Chia vòng</a>
+      <a href="#physicalCourtCatalog"><strong>06</strong> Giữ sân</a>
+      <a href="#gameDayStatus"><strong>07</strong> Bảng điểm</a>
+      <a href="#createPanel"><strong>＋</strong> Tạo buổi</a>
+    </nav>
     <div class="op-layout">
       <section class="op-panel" aria-labelledby="sessionHeading">
         <div class="op-panel-header"><h2 id="sessionHeading">Buổi chơi của tôi</h2><button class="secondary" id="refresh" type="button">Làm mới</button></div>
