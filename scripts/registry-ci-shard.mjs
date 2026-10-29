@@ -42,8 +42,14 @@ if(groups.flat().slice().sort((a,b)=>a-b).join(",")!==commands.map((_,i)=>i).joi
 for(const idx of groups[shard]){
   const cmd=commands[idx];
   process.stdout.write("\n=== Registry shard "+shard+": ["+idx+"] "+cmd+" ===\n");
-  const res=spawnSync("bash",["-e","-c",cmd],{stdio:"inherit",env:process.env});
-  if(res.error)throw res.error;
+  // A broken browser page must fail its own command, never consume the entire
+  // 35-minute shard allocation. Full desktop suites have a separate longer cap.
+  const timeoutMs=idx===26||idx===27?150_000:900_000;
+  const res=spawnSync("bash",["-e","-c",cmd],{stdio:"inherit",env:process.env,timeout:timeoutMs,killSignal:"SIGTERM"});
+  if(res.error){
+    console.error("REGISTRY_COMMAND_FAILED",JSON.stringify({shard,index:idx,cmd,timeoutMs,code:res.error.code}));
+    throw res.error;
+  }
   if(res.status!==0)process.exit(res.status||1);
 }
 console.log("REGISTRY_SHARD_"+shard+"_OK");
