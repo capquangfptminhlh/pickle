@@ -422,3 +422,50 @@ html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-r
 html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-meta-premium b{
   color:#f4f8ef!important
 }
+
+/* Legacy public-refresh carries !important rules on identical home components.
+   These explicit overrides are intentional, not generic !important cascade growth. */
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px!important;margin-top:0!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid a{
+  border:1px solid #e3ebe7!important;border-radius:15px!important;
+  padding:16px!important;background:#f5f8f6!important;
+  min-height:92px!important;box-shadow:none!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid strong{
+  font-size:34px!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-featured-row{
+  border:1px solid #d4e5d9!important;border-radius:14px!important;
+  margin-top:0!important;padding:14px!important;background:#eaf3ec!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-today-head h2{
+  font-size:26px!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body h3{
+  font-size:clamp(20px,2vw,27px)!important;line-height:1.12!important;
+  margin:4px 0 16px!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-meta-premium{
+  grid-template-columns:1fr!important;gap:8px!important
+}
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-hero-actions a:last-child{
+  color:#fff!important;border:1px solid rgba(255,255,255,.26)!important;
+  background:rgba(255,255,255,.08)!important
+}
+@media(max-width:760px){
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid a{
+    padding:10px 5px!important;min-height:76px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) .desktop-stat-grid strong{
+    font-size:27px!important
+  }
+  html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body h3{
+    font-size:21px!important;margin:4px 0 9px!important
+  }
+}
