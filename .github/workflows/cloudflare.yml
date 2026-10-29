@@ -57,6 +57,8 @@ jobs:
         run: npm audit --audit-level=high
       - name: iPhone PWA safe-area regression
         run: node --test scripts/pwa-ios-safe-area.test.mjs
+      - name: Arena homepage structure and rollout guard
+        run: node --test scripts/arena-home-2026.test.mjs
       - name: Courtside client syntax
         run: |
           node --check assets/ui-motion.js
