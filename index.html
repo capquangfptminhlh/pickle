@@ -24,17 +24,18 @@
 <link rel="stylesheet" href="assets/typography.css?v=1">
   <link rel="stylesheet" href="assets/competition-studio.css?v=1">
   <link rel="stylesheet" href="assets/motion-system.css?v=2">
+  <link rel="stylesheet" href="assets/arena-home-2026.css?v=1">
   <script src="assets/vendor/gsap-3.15.0.min.js"></script>
   <script src="assets/motion-system.js?v=2"></script>
   <script src="assets/bracket-motion.js?v=2"></script>
 </head>
-<body class="public-body site-sport public-refresh">
+<body class="public-body site-sport public-refresh arena-home-2026">
 <a class="site-skip-link" href="#site-main">Đến nội dung chính</a>
   <header class="public-header">
     <div class="public-container public-nav">
       <a class="public-brand" href="/" aria-label="Pickleup.vn"><img class="brand-logo" src="assets/pickleup-logo-sport-v3.svg" alt="Pickleup.vn"></a>
-      <nav aria-label="Điều hướng chính"><a href="#tournaments">Giải đấu</a><a href="#live">Live</a><a href="/ranking.html">BXH</a><a href="/open-play-discover.html">Open Play</a><a href="/submit-tournament.html">Đăng giải</a><a href="/about.html">Giới thiệu</a></nav>
-      <a class="btn primary" href="#tournaments">Đăng ký giải</a><a class="public-login" href="/login">Đăng nhập</a>
+      <nav aria-label="Điều hướng chính"><a href="/open-play-discover.html">Open Play</a><a href="#tournaments">Giải đấu</a><a href="#live">Trực tiếp</a><a href="/ranking.html">BXH</a><a href="/submit-tournament.html">Đăng giải</a></nav>
+      <a class="btn primary" href="/open-play-discover.html">Tìm buổi chơi</a><a class="public-login" href="/login">Đăng nhập</a>
     </div>
   </header>
 
@@ -42,22 +43,23 @@
     <section class="desktop-app-hub" aria-label="Tổng quan Pickleup.vn">
       <div class="public-container">
         <div class="desktop-commandbar">
-          <div class="desktop-command-title"><span class="desktop-online-dot"></span><b>Pickleup.vn</b><span>Cộng đồng pickleball</span></div>
+          <div class="desktop-command-title"><span class="desktop-online-dot"></span><b>PICKLEUP ARENA</b><span>Điểm hẹn của người chơi pickleball</span></div>
           <div class="desktop-command-actions">
-            <a href="#news">Bài viết</a><a href="#tournaments">Giải đấu</a><a href="/ranking.html">Bảng xếp hạng</a><a href="/open-play-discover.html">🏓 Open Play</a><a class="desktop-submit" href="/submit-tournament.html">＋ Đăng giải</a>
+            <a href="/open-play-discover.html">Buổi chơi</a><a href="#tournaments">Giải đấu</a><a href="#live">Live Score</a><a href="/ranking.html">Bảng xếp hạng</a><a class="desktop-submit" href="/submit-tournament.html">＋ Tổ chức giải</a>
           </div>
         </div>
         <div class="desktop-bento">
           <article class="desktop-hero-card">
             <div class="desktop-hero-copy">
-              <span class="desktop-kicker">CỘNG ĐỒNG PICKLEBALL</span>
-              <h1>Kết nối. Thi đấu.<br><em>Chơi cùng cộng đồng.</em></h1>
-              <p>Tìm giải đấu, theo dõi tỷ số trực tiếp và kết nối cùng người chơi pickleball.</p>
-              <div class="desktop-hero-actions"><a href="#tournaments">Khám phá giải đấu</a><a href="#news">Vào cộng đồng</a><a href="/open-play-discover.html">Tìm Open Play</a></div>
+              <span class="desktop-kicker">PICKLEUP • YOUR GAME STARTS HERE</span>
+              <h1>Ra sân hôm nay.<br><em>Chơi hết mình.</em></h1>
+              <p>Tìm buổi chơi, đăng ký giải và theo dõi từng điểm số. Một ứng dụng cho cộng đồng và người tổ chức pickleball.</p>
+              <div class="desktop-hero-actions"><a href="/open-play-discover.html">Tìm Open Play →</a><a href="#tournaments">Khám phá giải</a><a href="#live">Xem Live Score</a></div>
+              <div class="arena-hero-foot"><span>Check-in nhanh</span><span>Ghép cặp nhiều vòng</span><span>Tỷ số trực tiếp</span></div>
             </div>
           </article>
           <aside class="desktop-today-card">
-            <div class="desktop-today-head"><div><small>HÔM NAY</small><h2>Hoạt động nổi bật</h2></div><span class="desktop-live-badge" id="desktopLiveBadge" hidden><i></i> LIVE</span></div>
+            <div class="desktop-today-head"><div><small>PICKLEUP INSIGHTS</small><h2>Nhịp sân hôm nay</h2></div><span class="desktop-live-badge" id="desktopLiveBadge" hidden><i></i> LIVE</span></div>
             <div class="desktop-stat-grid">
               <a href="#live"><span>Đang live</span><strong id="desktopLiveCount">0</strong><small>trận</small></a>
               <a href="#tournaments"><span>Giải đấu</span><strong id="desktopTournamentCount">0</strong><small>giải</small></a>
@@ -86,10 +88,10 @@
     <section class="public-hero">
       <div class="public-container public-hero-grid">
         <div>
-          <span class="eyebrow">PICKLEBALL • LIVE TOURNAMENT</span>
-          <h1>Mọi trận đấu.<br><em>Một nơi theo dõi.</em></h1>
-          <p>Giải đấu, lịch sân, tỷ số trực tiếp, bảng xếp hạng và nhánh loại trực tiếp được cập nhật từ bàn điều hành.</p>
-          <div class="hero-actions"><a class="btn primary" href="#live">Xem trận đang live</a><a class="btn secondary" href="#tournaments">Xem giải đấu</a></div>
+          <span class="eyebrow">MATCHDAY • LIVE CENTER</span>
+          <h1>Không bỏ lỡ<br><em>một điểm số.</em></h1>
+          <p>Theo dõi diễn biến trên sân, lịch thi đấu và kết quả ngay khi trọng tài cập nhật.</p>
+          <div class="hero-actions"><a class="btn primary" href="/court-timeline.html">Bảng sân trực tiếp</a><a class="btn secondary" href="#live">Tất cả trận đấu</a></div>
         </div>
         <div class="hero-media-stage">
           <div class="hero-pickle-visual" aria-hidden="true"><span class="hero-ball"></span><span class="hero-paddle">P</span><span class="hero-court-line"></span></div>
@@ -103,13 +105,16 @@
       </div>
     </section>
 
-    <section id="open-play" class="public-section" aria-labelledby="openPlayHeading">
+    <section id="open-play" class="public-section arena-quickplay" aria-labelledby="openPlayHeading">
       <div class="public-container">
-        <div class="section-title"><div><span class="eyebrow">RA SÂN CÙNG NHAU</span><h2 id="openPlayHeading">Open Play · Ghép cặp &amp; phân sân</h2></div><p>Đăng ký buổi chơi, check-in, ghép nhiều vòng và chấm điểm ngay trên điện thoại.</p></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px">
-          <a class="btn secondary" href="/open-play-discover.html" style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:7px;min-height:106px;text-decoration:none"><strong>Tìm buổi chơi</strong><small>Đăng ký và xem hàng chờ</small></a>
-          <a class="btn secondary" href="/open-play-admin.html" style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:7px;min-height:106px;text-decoration:none"><strong>Open Play Studio</strong><small>BTC tạo buổi, phân sân, ghép cặp</small></a>
-          <a class="btn secondary" href="/open-play-referee.html" style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:7px;min-height:106px;text-decoration:none"><strong>Bảng điểm trọng tài</strong><small>Nhập điểm và xem các trận được giao</small></a>
+        <div class="arena-section-title">
+          <div><span class="eyebrow">VÀO SÂN CHỈ VÀI CHẠM</span><h2 id="openPlayHeading">Anh muốn chơi gì hôm nay?</h2></div>
+          <p>Từ tìm buổi chơi đến điều hành nhiều sân — mỗi tác vụ đều có lối đi riêng.</p>
+        </div>
+        <div class="arena-action-grid">
+          <a class="arena-action" href="/open-play-discover.html"><span class="arena-action-number">01 / NGƯỜI CHƠI</span><span><strong>Tìm buổi Open Play</strong><small>Đăng ký, check-in và theo dõi lượt chơi của bạn.</small></span><span class="arena-action-arrow" aria-hidden="true">↗</span></a>
+          <a class="arena-action" href="/open-play-admin.html"><span class="arena-action-number">02 / BAN TỔ CHỨC</span><span><strong>Điều hành buổi chơi</strong><small>Ghép cặp, chia sân và quản lý nhiều vòng.</small></span><span class="arena-action-arrow" aria-hidden="true">↗</span></a>
+          <a class="arena-action" href="/open-play-referee.html"><span class="arena-action-number">03 / TRỌNG TÀI</span><span><strong>Chấm điểm trận đấu</strong><small>Điều khiển bảng điểm và xem trận được phân công.</small></span><span class="arena-action-arrow" aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>
