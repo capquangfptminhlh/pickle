@@ -107,8 +107,6 @@ body.arena-360.arena-admin .nav-btn{
 }
 body.arena-360.arena-admin .main{min-width:0}
 body.arena-360.arena-admin .topbar{
-  min-height:78px!important;
-  padding:12px clamp(14px,2vw,30px)!important;
   border-bottom:1px solid var(--line)!important;
   backdrop-filter:blur(18px)
 }
@@ -116,10 +114,6 @@ body.arena-360.arena-admin #pageTitle{
   font:800 clamp(26px,2.5vw,37px)/1.02 "Barlow Condensed",Barlow,sans-serif!important;letter-spacing:-.01em
 }
 body.arena-360.arena-admin #pageSub{font:600 13px/1.4 Barlow,sans-serif!important}
-body.arena-360.arena-admin .top-actions{gap:8px!important;flex-wrap:wrap}
-body.arena-360.arena-admin .top-actions :is(a,button){
-  min-height:43px!important;border-radius:11px!important
-}
 body.arena-360.arena-admin .top-actions #quickTournament{
   background:var(--arena360-lime)!important;color:#173020!important;
   border:1px solid #9fbe4d!important;font-weight:800!important
@@ -432,13 +426,7 @@ body.arena-360.arena-utility :is(.top-actions a,.filters button,.controls button
 }
 @media(max-width:760px){
   body.arena-360.arena-public:not(.arena-home-2026) .public-container{width:calc(100% - 28px)!important}
-  body.arena-360.arena-admin .topbar{padding:10px 13px!important}
   body.arena-360.arena-admin .content{padding:12px!important}
-  body.arena-360.arena-admin .top-actions{
-    max-width:100%;overflow-x:auto;scrollbar-width:thin;flex-wrap:nowrap!important;
-    padding-bottom:5px
-  }
-  body.arena-360.arena-admin .top-actions :is(a,button){white-space:nowrap;flex:none}
   body.arena-360.arena-op .op-top-inner{flex-wrap:wrap;gap:5px;padding:10px 14px}
   body.arena-360.arena-op .op-brand{font-size:22px!important}
   body.arena-360.arena-op .op-brand-mark{width:37px;height:37px}
