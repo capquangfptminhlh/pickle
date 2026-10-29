@@ -11,7 +11,7 @@ function unlockTournamentScroll(){
 unlockTournamentScroll();
 addEventListener("pageshow",unlockTournamentScroll);
 addEventListener("visibilitychange",()=>{if(!document.hidden)unlockTournamentScroll()});
-let state=null,sponsors=[],realtimeConnected=false,realtimeRefreshBusy=false;const enteredTournamentCards=new Set();const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
+let state=null,sponsors=[],realtimeConnected=false,realtimeRefreshPromise=null;const enteredTournamentCards=new Set();const $=s=>document.querySelector(s);const id=new URLSearchParams(location.search).get("id");
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const team=x=>state?.teams.find(t=>t.id===x)?.name||"Chưa xác định";
 const teamPlayers=id=>(state?.teamPlayers?.[id]||[]).map(pid=>state?.players?.find(p=>p.id===pid)).filter(Boolean);
@@ -221,13 +221,20 @@ function showTournamentDraw(payload,done=false){
   el.classList.add("show");
   if(done)window.__tourDrawTimer=setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),280)},3800);
 }
-async function load(){
-  if(realtimeRefreshBusy){realtimeRefreshAgain=true;return}
-  realtimeRefreshBusy=true;
-  try{do{realtimeRefreshAgain=false;[state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);render()}while(realtimeRefreshAgain)}
-  finally{realtimeRefreshBusy=false}
-}
 let realtimeRefreshAgain=false;
+function load(){
+  // A caller waiting for refreshed public visibility must await the queued rerender,
+  // not return before an overlapping refresh finishes.
+  if(realtimeRefreshPromise){realtimeRefreshAgain=true;return realtimeRefreshPromise}
+  realtimeRefreshPromise=(async()=>{
+    do{
+      realtimeRefreshAgain=false;
+      [state,sponsors]=await Promise.all([PickleAPI.publicState(),PickleAPI.publicSponsors().catch(()=>[])]);
+      render();
+    }while(realtimeRefreshAgain)
+  })().finally(()=>{realtimeRefreshPromise=null});
+  return realtimeRefreshPromise;
+}
 load().catch(console.error);
 if(window.io){
   const socket=io();
