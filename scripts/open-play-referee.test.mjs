@@ -11,7 +11,7 @@ test("Open Play referee screen is isolated and does not provide organizer endpoi
  ]);
  assert.match(html,/lang="vi"/);
  assert.match(html,/id="matches"/);
- assert.match(html,/class="op-referee-page"/);
+ assert.match(html,/<body[^>]*class="[^"]*\bop-referee-page\b[^"]*"/);
  assert.match(html,/id="loginLink"/);
  assert.match(html,/assets\/open-play-referee.js/);
  assert.match(script,/user\.role!=="referee"/);
