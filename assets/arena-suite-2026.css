@@ -497,3 +497,34 @@ body.arena-360.arena-utility :is(.top-actions a,.filters button,.controls button
     box-shadow:0 15px 34px rgba(22,58,29,.09)!important;transform:translateY(-2px)
   }
 }
+
+/* Consistent five-tab PWA navigation for all Open Play roles on narrow screens. */
+body.arena-360.arena-op .arena-mobile-dock{display:none}
+@media(max-width:760px){
+ body.arena-360.arena-op .arena-mobile-dock{
+  display:grid!important;position:fixed;z-index:90;
+  grid-template-columns:repeat(5,minmax(0,1fr));gap:0;
+  left:0;right:0;bottom:0;min-height:calc(66px + env(safe-area-inset-bottom,0px));
+  padding:4px 6px calc(6px + env(safe-area-inset-bottom,0px));
+  background:rgba(255,255,255,.97);border-top:1px solid #bed2c4;
+  box-shadow:0 -9px 30px rgba(11,37,23,.09);backdrop-filter:blur(18px)
+ }
+ body.arena-360.arena-op .arena-mobile-dock a{
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  min-width:0;min-height:54px;gap:3px;padding:5px 1px;
+  border:1px solid transparent;border-radius:10px;
+  text-decoration:none;color:#627b6b!important;
+  font:750 10px/1.15 Barlow,system-ui,sans-serif!important;white-space:nowrap
+ }
+ body.arena-360.arena-op .arena-mobile-dock a svg{width:22px;height:22px;flex:none}
+ body.arena-360.arena-op .arena-mobile-dock a[aria-current="page"]{
+  background:#e5f8d1;color:#185b38!important;border-color:#d4eabb!important
+ }
+ body.arena-360.arena-op .arena-mobile-dock a:focus-visible{
+  outline:3px solid #78aa4a!important;outline-offset:-3px
+ }
+}
+@media(max-width:360px){
+ body.arena-360.arena-op .arena-mobile-dock a{font-size:9px!important}
+ body.arena-360.arena-op .arena-mobile-dock a svg{width:20px;height:20px}
+}
