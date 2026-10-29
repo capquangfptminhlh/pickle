@@ -162,6 +162,7 @@ body.arena-360.arena-op .op-top{
   border-bottom:1px solid #3c5a46!important
 }
 body.arena-360.arena-op .op-top-inner{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
   max-width:1380px;min-height:76px;padding:12px 24px
 }
 body.arena-360.arena-op .op-brand{
@@ -175,7 +176,8 @@ body.arena-360.arena-op .op-brand-mark{
 body.arena-360.arena-op .op-brand small{
   color:#cadbd0!important;font:800 10px/1.45 Barlow,sans-serif;letter-spacing:.13em!important
 }
-body.arena-360.arena-op .op-nav{gap:5px}
+body.arena-360.arena-op .op-nav{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+body.arena-360.arena-op .op-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
 body.arena-360.arena-op .op-nav a{
   min-height:44px;display:inline-flex;align-items:center;justify-content:center;
   color:#e0ede5!important;border:1px solid transparent;border-radius:10px;
@@ -377,7 +379,7 @@ body.arena-360.arena-board .tv-score b{
 
 /* Court timeline / live match — better surface density without changing the
    ordering, selectors or data update cycle. */
-body.arena-360.arena-utility{
+body.arena-360.arena-utility:not(.match-screen){
   background:#f2f6f3!important;color:#1b3526!important;
 }
 body.arena-360.arena-utility .topbar{
