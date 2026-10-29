@@ -469,3 +469,23 @@ html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-s
     font-size:21px!important;margin:4px 0 9px!important
   }
 }
+
+/* QA 2026-10-29: dark page cards must separate clearly from the canvas. */
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  background:#2d4b3a!important;
+  border-color:#62806c!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-body :is(h3,b,small),
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-copy :is(b,span){
+  color:#edf9ed!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .cs-discovery-controls input{
+  background:#243d30!important;
+  color:#f0faef!important;
+  border-color:#6d8b74!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #tournaments .cs-discovery-controls input::placeholder{
+  color:#c1d4c3!important;opacity:1
+}
