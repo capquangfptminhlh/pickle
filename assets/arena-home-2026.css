@@ -547,3 +547,14 @@ html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-r
     justify-content:flex-start!important
   }
 }
+
+
+/* Both themes: tournament & player cards need clearly perceptible outlines. */
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  border:1px solid #b5c4bb!important;
+}
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTours .tour-card,
+html[data-theme="dark"]:root body.arena-home-2026.site-sport.site-sport.public-refresh:not(.admin-sport) #publicTopPlayers .top-player-card{
+  border-color:#83a38a!important;
+}
