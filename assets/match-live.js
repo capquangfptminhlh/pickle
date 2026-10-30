@@ -1,7 +1,14 @@
 (()=>{
   const API=window.PickleAPI,$=s=>document.querySelector(s);
   const id=new URLSearchParams(location.search).get("id")||"";
-  let state=null,refreshTimer=null,refreshVersion=0;
+  let state=null,refreshTimer=null,refreshVersion=0,socketConnected=false;
+  // Keep spectator scores fresh when WebSockets are blocked or the phone resumes.
+  const POLL_INTERVAL_MS=15000;
+  function connectionStatus(ok){
+    const el=$("#matchConnection");
+    el.className=ok?"live-pill":"live-pill offline";
+    el.textContent=!ok?"● Không kết nối được":socketConnected?"● Trực tiếp":"● Tự cập nhật 15 giây";
+  }
   const renderedMatches=new Map();
   const team=x=>state?.teams?.find(t=>t.id===x)?.name||(x==="TBD"||!x?"Chưa xác định":x);
   const qMeta=s=>({live:["ĐANG ĐẤU","live"],warming_up:["KHỞI ĐỘNG","warming_up"],on_deck:["ON DECK","on_deck"],called:["ĐANG GỌI","called"],scheduled:["CHỜ","scheduled"],done:["HOÀN TẤT","done"]}[s]||["CHỜ","scheduled"]);
@@ -48,13 +55,30 @@
   }
   async function refresh(){
     const version=++refreshVersion;
-    try{const next=await API.publicState();if(version!==refreshVersion)return;state=next;render();$("#matchConnection").textContent="● Cập nhật trực tiếp";$("#matchConnection").className="live-pill"}
-    catch{if(version===refreshVersion){$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"}}
+    try{const next=await API.publicState();if(version!==refreshVersion)return;state=next;render();connectionStatus(true)}
+    catch{if(version===refreshVersion)connectionStatus(false)}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
   // A link without ?id is a broken QR/link, not a private match.
-  if(!id){$("#matchLoading").hidden=true;$("#matchNotFound").hidden=false;$("#matchNotFound strong").textContent="Thiếu mã trận";$("#matchNotFound span").textContent="Hãy quét lại mã QR trên bảng gọi sân hoặc mở trận từ trang giải.";$("#matchConnection").hidden=true}else refresh().then(()=>{
-    const socket=window.io?.();socket?.on("public:state",schedule);socket?.on("match:update",e=>{if(!e?.id||e.id===id)schedule()});
-    socket?.on("disconnect",()=>{$("#matchConnection").textContent="● Mất kết nối";$("#matchConnection").className="live-pill offline"});
-  });
+  if(!id){
+    $("#matchLoading").hidden=true;$("#matchNotFound").hidden=false;
+    $("#matchNotFound strong").textContent="Thiếu mã trận";
+    $("#matchNotFound span").textContent="Hãy quét lại mã QR trên bảng gọi sân hoặc mở trận từ trang giải.";
+    $("#matchConnection").hidden=true;
+  }else{
+    refresh().then(()=>{
+      const socket=window.io?.();
+      socket?.on("connect",()=>{socketConnected=true;connectionStatus(true);schedule()});
+      socket?.on("disconnect",()=>{socketConnected=false;connectionStatus(Boolean(state))});
+      socket?.on("public:state",schedule);
+      socket?.on("match:update",e=>{if(!e?.id||e.id===id)schedule()});
+    });
+    // Do not consume bandwidth on hidden tabs. Recheck immediately on resume.
+    if(typeof setInterval==="function")setInterval(()=>{
+      if(document.visibilityState==="visible")refresh();
+    },POLL_INTERVAL_MS);
+    document.addEventListener?.("visibilitychange",()=>{
+      if(document.visibilityState==="visible")refresh();
+    });
+  }
 })();
