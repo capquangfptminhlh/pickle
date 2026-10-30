@@ -38,6 +38,9 @@ test("PWA updates wait for user acceptance and never cache authentication or sco
       assert.ok(precache.includes('/'+url),`missing exact offline asset ${url}`);
     }
   }
+  const liveMatchJs=source("match.html").match(/src="(assets\\/match-live\\.js\\?v=\\d+)"/)?.[1];
+  assert.ok(liveMatchJs,"spectator screen must load a versioned live match script");
+  assert.ok(precache.includes("/"+liveMatchJs),"spectator script URL must match PWA precache after changes");
   handlers.activate({waitUntil:p=>wait=p});await wait;assert.ok(!deleted.includes("other-app"));
   for(const url of ["/api/auth/session","/api/public/state","/socket.io/socket.io.js","/uploads/receipts/a.pdf"]){let cached=false;handlers.fetch({request:{method:"GET",url:"https://test.invalid"+url},respondWith:()=>cached=true});assert.equal(cached,false)}
   handlers.message({data:{type:"SKIP_WAITING"}});assert.equal(calls.skip,1);
