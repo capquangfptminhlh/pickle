@@ -1,32 +1,57 @@
 import { readFileSync } from "node:fs";
+
 const expected = JSON.parse(readFileSync(new URL("../cloudflare/public/release.json", import.meta.url), "utf8")).version;
 const site = process.env.PICKLEUP_SITE || "https://pickleup.vn";
 const base = new URL(site);
 if (base.protocol !== "https:") throw Error("HTTPS required");
-let last = "";
+
+async function fetchText(path, attempt) {
+  const url = new URL(path, base);
+  url.searchParams.set("release_audit", String(attempt));
+  const response = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(10000),
+    headers: { "Cache-Control": "no-cache" },
+  });
+  if (!response.ok) throw Error(path + " HTTP " + response.status);
+  return response.text();
+}
+
+let lastError = "";
 for (let attempt = 1; attempt <= 6; attempt++) {
   try {
-    const url = new URL("/release.json", base);
-    url.searchParams.set("audit", String(attempt));
-    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10000), headers: { "Cache-Control": "no-cache" } });
-    if (!response.ok) throw Error("HTTP " + response.status);
-    const payload = await response.json();
-    const live = payload.version;
-    if (typeof live !== "string") throw Error("Missing live version");
-    console.log("EXPECTED=" + expected + " LIVE=" + live);
-    if (live !== expected) throw Error("Production version mismatch");
-    const home = await fetch(new URL("/?audit=" + encodeURIComponent(expected), base), { cache: "no-store", signal: AbortSignal.timeout(10000), headers: { "Cache-Control": "no-cache" } });
-    if (!home.ok) throw Error("Homepage HTTP " + home.status);
-    const html = await home.text();
-    if (!html.includes(expected)) throw Error("Homepage missing current release identity");
-    if (!html.includes("arena-home-2026.css")) throw Error("Arena stylesheet not referenced on live homepage");
+    const release = JSON.parse(await fetchText("/release.json", attempt));
+    console.log("EXPECTED=" + expected + " LIVE=" + release.version);
+    if (release.version !== expected) throw Error("Production release mismatch");
+
+    const html = await fetchText("/", attempt);
+    if (!html.includes('name="pickleup-release" content="' + expected + '"')) {
+      throw Error("Homepage release meta tag is outdated");
+    }
+
+    for (const [path, marker] of [
+      ["/assets/arena-home-2026.css", "body.arena-home-2026"],
+      ["/assets/arena-suite-2026.css", ".arena-360"],
+    ]) {
+      if (!html.includes(path.slice(1))) throw Error("Homepage does not load " + path);
+      const css = await fetchText(path, attempt);
+      if (!css.includes(marker)) throw Error("Arena CSS is empty or unexpected: " + path);
+      console.log("LIVE_ASSET_OK " + path);
+    }
+
+    const worker = await fetchText("/service-worker.js", attempt);
+    if (!worker.includes('const VERSION="' + expected + '";')) {
+      throw Error("Service worker version differs from deployed release");
+    }
+    console.log("LIVE_PWA_OK " + expected);
     console.log("PRODUCTION_RELEASE_AUDIT_OK " + expected);
     process.exit(0);
   } catch (error) {
-    last = String(error);
-    console.error("Attempt " + attempt + "/6: " + last);
+    lastError = String(error);
+    console.error("Attempt " + attempt + "/6: " + lastError);
     if (attempt < 6) await new Promise(resolve => setTimeout(resolve, 3000));
   }
 }
-console.error("PRODUCTION_RELEASE_AUDIT_FAILED expected=" + expected + " reason=" + last);
+
+console.error("PRODUCTION_RELEASE_AUDIT_FAILED expected=" + expected + " reason=" + lastError);
 process.exit(1);
