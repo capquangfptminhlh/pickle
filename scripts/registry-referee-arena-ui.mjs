@@ -30,6 +30,8 @@ try{
   await page.addInitScript(token=>{localStorage.setItem('pickle-api-token-v1',token);localStorage.setItem('pickleup-theme-v2','light');window.motionCalls=[];const animate=Element.prototype.animate;Element.prototype.animate=function(frames,options){window.motionCalls.push({id:this.id,cls:this.className,frames});return animate.call(this,frames,options)}},f.tokens.ref);
   // Capture referee-only fallback polling without creating 15-second timers in CI.
   await page.addInitScript(()=>{
+    window.__refereeSockets={};
+    window.io=()=>({on(name,handler){window.__refereeSockets[name]=handler}});
     window.__refereeSyncTicks=[];
     const original=window.setInterval.bind(window);
     window.setInterval=(fn,ms,...args)=>{
@@ -37,9 +39,16 @@ try{
       return original(fn,ms,...args);
     };
   });
-  let rejectPoint=false,slowState=false;
+  let rejectPoint=false,slowState=false,pausePoint=false,releasePausedPoint=null,pointRequestSeen=null,adminStateReads=0;
   await page.route('**/api/**',async route=>{
-   const req=route.request();if(rejectPoint&&req.url().endsWith('/point')){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TEST_UNAVAILABLE'})});return}
+   const req=route.request();
+   if(req.url().endsWith('/api/admin/state'))adminStateReads++;
+   if(pausePoint&&req.url().endsWith('/point')){
+     await new Promise(resolve=>{releasePausedPoint=resolve;pointRequestSeen?.()});
+     await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TEST_UNAVAILABLE'})});
+     return;
+   }
+   if(rejectPoint&&req.url().endsWith('/point')){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TEST_UNAVAILABLE'})});return}
    if(slowState&&req.url().endsWith('/api/admin/state'))await new Promise(r=>setTimeout(r,1400));
    const r=await worker.fetch(new Request(req.url(),{method:req.method(),headers:req.headers(),...(req.postData()?{body:req.postData()}:{})}),f.env);await route.fulfill({status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()});
   });
@@ -86,6 +95,23 @@ try{
   f.db.exec("UPDATE matches SET current_score_b=0, version=version+1 WHERE id='match'");
   await page.evaluate(()=>window.__refereeSyncTicks[0]());
   await page.waitForFunction(()=>document.querySelector('#refScoreB')?.textContent==='0');
+
+  // A socket invalidation arriving while a point is still being submitted
+  // must not overwrite the score with a pre-commit state response.
+  pausePoint=true;
+  const pointEntered=new Promise(resolve=>{pointRequestSeen=resolve});
+  await page.locator('[data-correct="A"][data-delta="1"]').click();
+  await pointEntered;
+  const beforeBusySync=adminStateReads;
+  await page.evaluate(()=>window.__refereeSockets['match:update']?.({id:'match'}));
+  await page.waitForTimeout(250);
+  assert.equal(adminStateReads,beforeBusySync,'no background GET while score mutation is pending');
+  releasePausedPoint();pausePoint=false;
+  await page.locator('#refToast').filter({hasText:'Không thể thực hiện'}).waitFor();
+  await page.waitForTimeout(280);
+  assert.ok(adminStateReads>beforeBusySync,'deferred socket update runs after pending mutation resolves');
+  assert.equal(f.match().current_score_a,0,'failed point was never saved');
+  assert.equal(await page.locator('#refScoreA').innerText(),'0');
 
   if(process.env.REFEREE_VIDEO)await page.waitForTimeout(400);
   await page.evaluate(()=>window.motionCalls=[]);
