@@ -32,7 +32,7 @@ const STATIC=[
   "/assets/timeout-clock.css",
   "/assets/court-board.js?v=9",
   "/assets/court-board.css?v=3",
-  "/assets/match-live.js?v=5",
+  "/assets/match-live.js?v=6",
   "/assets/public-refresh.css?v=2",
   "/assets/public-refresh.css",
   "/assets/ranking.js?v=3",
