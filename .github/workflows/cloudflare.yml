@@ -220,6 +220,8 @@ jobs:
       - name: Redeploy with authentication secrets
         working-directory: cloudflare
         run: npx wrangler deploy
+      - name: Verify production UI assets and PWA cache after manual deployment
+        run: node scripts/audit-production-release.mjs
 
   # Publish code and static UI after every main merge, but never mutate remote D1.
   # Verify the existing production schema before switching the Worker version.
@@ -273,3 +275,5 @@ jobs:
           }
           throw new Error("Deployment could not be verified: "+lastError);
           NODE
+      - name: Verify production UI assets and PWA cache after static deployment
+        run: node scripts/audit-production-release.mjs
