@@ -28,6 +28,15 @@ try{
   const context=await browser.newContext({viewport:{width:375,height:900},reducedMotion,serviceWorkers:'block',...(process.env.REFEREE_VIDEO&&reducedMotion==='no-preference'?{recordVideo:{dir:resolve(out,'video'),size:{width:375,height:900}}}:{})}),page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(token=>{localStorage.setItem('pickle-api-token-v1',token);localStorage.setItem('pickleup-theme-v2','light');window.motionCalls=[];const animate=Element.prototype.animate;Element.prototype.animate=function(frames,options){window.motionCalls.push({id:this.id,cls:this.className,frames});return animate.call(this,frames,options)}},f.tokens.ref);
+  // Capture referee-only fallback polling without creating 15-second timers in CI.
+  await page.addInitScript(()=>{
+    window.__refereeSyncTicks=[];
+    const original=window.setInterval.bind(window);
+    window.setInterval=(fn,ms,...args)=>{
+      if(ms===15000){window.__refereeSyncTicks.push(fn);return 9001}
+      return original(fn,ms,...args);
+    };
+  });
   let rejectPoint=false,slowState=false;
   await page.route('**/api/**',async route=>{
    const req=route.request();if(rejectPoint&&req.url().endsWith('/point')){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TEST_UNAVAILABLE'})});return}
@@ -56,6 +65,28 @@ try{
   await page.waitForFunction(()=>document.querySelector('#refRosterA [data-server-number="2"]')?.getAttribute('aria-pressed')==='true');
   assert.match(await page.locator('#refRules').innerText(),/15/);assert.match(await page.locator('#refRules').innerText(),/Cách 2/);assert.match(await page.locator('#refRules').innerText(),/Thắng 2\/3/);
   assert.equal(await page.locator('#refScoreA').innerText(),'0');
+  assert.equal(await page.evaluate(()=>window.__refereeSyncTicks.length),1,'referee keeps one fallback poll for long sessions');
+  // Two devices can update a match while the referee's phone is asleep.
+  // On visibility resume the current persisted score AND version must return.
+  f.db.exec("UPDATE matches SET current_score_a=2, version=version+1 WHERE id='match'");
+  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForFunction(()=>document.querySelector('#refScoreA')?.textContent==='2');
+  assert.equal(await page.locator('#connectionState').innerText(),'Tự đồng bộ 15 giây','no socket must not claim realtime');
+  f.db.exec("UPDATE matches SET current_score_a=0, version=version+1 WHERE id='match'");
+  await page.evaluate(()=>window.__refereeSyncTicks[0]());
+  await page.waitForFunction(()=>document.querySelector('#refScoreA')?.textContent==='0');
+  // Polling pauses while backgrounded; no hidden tab should race a mutation.
+  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'}));
+  f.db.exec("UPDATE matches SET current_score_b=3, version=version+1 WHERE id='match'");
+  await page.evaluate(()=>window.__refereeSyncTicks[0]());
+  await page.waitForTimeout(80);
+  assert.equal(await page.locator('#refScoreB').innerText(),'0','hidden referee screen does not poll');
+  await page.evaluate(()=>{delete document.visibilityState;document.dispatchEvent(new Event('visibilitychange'))});
+  await page.waitForFunction(()=>document.querySelector('#refScoreB')?.textContent==='3');
+  f.db.exec("UPDATE matches SET current_score_b=0, version=version+1 WHERE id='match'");
+  await page.evaluate(()=>window.__refereeSyncTicks[0]());
+  await page.waitForFunction(()=>document.querySelector('#refScoreB')?.textContent==='0');
+
   if(process.env.REFEREE_VIDEO)await page.waitForTimeout(400);
   await page.evaluate(()=>window.motionCalls=[]);
   slowState=true;const pointStarted=Date.now();
