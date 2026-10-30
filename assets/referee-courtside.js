@@ -2,6 +2,14 @@
   const API=window.PickleAPI;
   const $=s=>document.querySelector(s);
   let state={tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
+  let socketConnected=false,lastRefreshOk=false;
+  const REFEREE_SYNC_INTERVAL_MS=15000;
+  function updateConnectionStatus(){
+    const label=$("#connectionState");
+    if(!lastRefreshOk){label.textContent="Mất kết nối";label.className="connection-pill offline"}
+    else if(socketConnected){label.textContent="Realtime";label.className="connection-pill live"}
+    else {label.textContent="Tự đồng bộ 15 giây";label.className="connection-pill"}
+  }
   let lastScore=null;
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
@@ -185,14 +193,17 @@
     try{
       const next=await API.adminState();
       if(version!==refreshVersion)return;
-      state=next;
+      state=next;lastRefreshOk=true;
       renderSummary();renderPicker();
       if(activeId){
         if(activeMatch())renderScore();else showPicker();
       }
-      if(!quiet)$("#connectionState").textContent="Đã cập nhật";
+      updateConnectionStatus();
     }catch(e){
-      if(version===refreshVersion&&e.message!=="AUTH_REQUIRED")toast("Không thể tải dữ liệu.");
+      if(version===refreshVersion&&e.message!=="AUTH_REQUIRED"){
+        lastRefreshOk=false;updateConnectionStatus();
+        if(!quiet)toast("Không thể tải dữ liệu. Giữ điểm xác nhận gần nhất.");
+      }
     }
   }
   function scheduleRefresh(delay=180){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh({quiet:true}),delay)}
@@ -214,6 +225,7 @@
     try{
       const updated=await fn();
       if(applyMatchUpdate(updated))scheduleRefresh(650);else await refresh({quiet:true});
+      lastRefreshOk=true;updateConnectionStatus();
       if(success)toast(success);
     }
     catch(e){
@@ -260,9 +272,15 @@
       const requested=new URLSearchParams(location.search).get("match");
       if(requested&&state.matches.some(m=>m.id===requested))showScore(requested);else showPicker();
       const socket=window.io?.();
-      socket?.on("connect",()=>{$("#connectionState").textContent="Realtime";$("#connectionState").className="connection-pill live"});
-      socket?.on("disconnect",()=>{$("#connectionState").textContent="Mất kết nối";$("#connectionState").className="connection-pill offline"});
+      socket?.on("connect",()=>{socketConnected=true;updateConnectionStatus();scheduleRefresh()});
+      socket?.on("disconnect",()=>{socketConnected=false;updateConnectionStatus()});
       socket?.on("public:state",scheduleRefresh);socket?.on("match:update",scheduleRefresh);
+      // The referee screen can stay open for an entire tournament. Socket
+      // disconnects and mobile sleep must not leave a stale scoring version.
+      // Never fetch while a point/service/Undo mutation is in flight.
+      const syncIfIdle=()=>{if(!busy&&document.visibilityState==="visible")refresh({quiet:true})};
+      setInterval(syncIfIdle,REFEREE_SYNC_INTERVAL_MS);
+      document.addEventListener("visibilitychange",syncIfIdle);
     }catch(e){
       if(e.message!=="AUTH_REQUIRED")location.href="login.html?next=referee.html";
     }
