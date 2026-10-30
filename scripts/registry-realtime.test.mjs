@@ -86,3 +86,53 @@ test("live match derives a stable persisted signature when the response has no v
   listeners["match:update"]({id:"legacy"});await timers.at(-1)();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(calls.length,1,"identical unversioned snapshots do not replay");
 });
+
+test("spectator live match polls visible tab and refreshes immediately after mobile resume",async()=>{
+  const callbacks={},events={},intervals=[],scheduled=[];
+  const match={id:"court-1",version:1,status:"live",a:"a",b:"b",current:[4,3],sets:[],divisionId:"division"};
+  let fetches=0;
+  const live=()=>({matches:[{...match,current:[...match.current]}],teams:[{id:"a",name:"A"},{id:"b",name:"B"}],
+    divisions:[{id:"division",tournamentId:"event"}],tournaments:[{id:"event",name:"Giải kiểm thử"}],courts:[]});
+  const nodes=new Map(),node=()=>({hidden:false,textContent:"",innerHTML:"",className:"",href:"",dataset:{},classList:{add(){},remove(){}}});
+  const document={title:"",visibilityState:"visible",querySelector(selector){if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector)},
+    addEventListener(name,fn){events[name]=fn}};
+  const context={console,URLSearchParams,location:{search:"?id=court-1"},document,
+    window:{PickleAPI:{publicState:async()=>{fetches++;return live()}},io:()=>({on(name,fn){callbacks[name]=fn}})},
+    setTimeout:fn=>{scheduled.push(fn);return scheduled.length},clearTimeout(){},setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length},
+    Date,Number,Boolean,String};
+  vm.runInNewContext(source("assets/match-live.js"),context);
+  const tick=()=>new Promise(resolve=>setImmediate(resolve));
+  await tick();
+  assert.equal(fetches,1);
+  assert.equal(nodes.get("#matchScoreA").textContent,"4");
+  assert.match(nodes.get("#matchConnection").textContent,/Tự cập nhật/,"no WebSocket confirmation is not labelled realtime");
+  assert.equal(intervals.length,1);
+  assert.equal(intervals[0].ms,15000);
+  callbacks.connect();assert.match(nodes.get("#matchConnection").textContent,/Trực tiếp/);
+  callbacks.disconnect();assert.match(nodes.get("#matchConnection").textContent,/Tự cập nhật/);
+  match.current[0]=5;match.version++;
+  intervals[0].fn();await tick();
+  assert.equal(fetches,2);
+  assert.equal(nodes.get("#matchScoreA").textContent,"5","score updates without any socket message");
+  document.visibilityState="hidden";intervals[0].fn();await tick();
+  assert.equal(fetches,2,"background polling is suspended");
+  match.current[1]=6;match.version++;
+  document.visibilityState="visible";events.visibilitychange();await tick();
+  assert.equal(fetches,3);
+  assert.equal(nodes.get("#matchScoreB").textContent,"6","resume immediately fetches current score");
+  const before=scheduled.length;
+  callbacks["match:update"]({id:"another-match"});
+  assert.equal(scheduled.length,before,"unrelated matches do not trigger refresh");
+});
+
+test("spectator link missing match ID never polls or starts a socket",async()=>{
+  let polls=0,starts=0;
+  const intervals=[],nodes=new Map(),node=()=>({hidden:false,textContent:"",className:"",dataset:{},classList:{add(){},remove(){}}});
+  const context={console,URLSearchParams,location:{search:""},document:{querySelector(selector){
+    if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector)
+  }},window:{PickleAPI:{publicState:async()=>{polls++;return {}}},io:()=>{starts++;return {on(){}}}},
+    setTimeout(){},clearTimeout(){},setInterval:fn=>intervals.push(fn)};
+  vm.runInNewContext(source("assets/match-live.js"),context);
+  assert.equal(polls,0);assert.equal(starts,0);assert.equal(intervals.length,0);
+  assert.equal(nodes.get("#matchNotFound strong").textContent,"Thiếu mã trận");
+});
