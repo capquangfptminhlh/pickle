@@ -25,7 +25,7 @@ const STATIC=[
   "/assets/fonts/barlow-condensed-800-latin.woff2",
   "/assets/draw-flex.js?v=10",
   "/assets/draw-reveal.js?v=1",
-  "/assets/referee-courtside.js?v=19",
+  "/assets/referee-courtside.js?v=20",
   "/assets/timeout-clock.js?v=1",
   "/assets/timeout-clock.css?v=1",
   "/assets/timeout-clock.js",
