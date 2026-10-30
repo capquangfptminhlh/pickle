@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
+import { verifyReleaseIdentity } from "./release-identity.mjs";
 
-const expected = JSON.parse(readFileSync(new URL("../cloudflare/public/release.json", import.meta.url), "utf8")).version;
+const expectedRelease = JSON.parse(readFileSync(new URL("../cloudflare/public/release.json", import.meta.url), "utf8"));
+const expected = expectedRelease.version;
 const site = process.env.PICKLEUP_SITE || "https://pickleup.vn";
 const base = new URL(site);
 if (base.protocol !== "https:") throw Error("HTTPS required");
@@ -44,7 +46,10 @@ for (let attempt = 1; attempt <= 6; attempt++) {
   try {
     const release = JSON.parse(await fetchText("/release.json", attempt));
     console.log("EXPECTED=" + expected + " LIVE=" + release.version);
-    if (release.version !== expected) throw Error("Production release mismatch");
+    verifyReleaseIdentity(expectedRelease, release, {
+      requireGitSha: process.env.GITHUB_ACTIONS === "true" || Boolean(expectedRelease.git_sha),
+    });
+    if (expectedRelease.git_sha) console.log("LIVE_COMMIT_VERIFIED " + release.git_sha);
 
     const html = await fetchText("/", attempt);
     if (!html.includes('name="pickleup-release" content="' + expected + '"')) {
