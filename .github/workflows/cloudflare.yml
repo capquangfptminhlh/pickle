@@ -49,6 +49,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Regression-test exact commit identity checks
+        run: node --test scripts/release-identity.test.mjs
       - name: Install Worker dependencies
         working-directory: cloudflare
         run: npm ci --ignore-scripts
