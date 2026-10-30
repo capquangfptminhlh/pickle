@@ -1,0 +1,33 @@
+name: Production release audit
+
+on:
+  pull_request:
+    paths:
+      - "scripts/audit-production-release.mjs"
+      - ".github/workflows/production-release-audit.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 1 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install exact build toolchain
+        working-directory: cloudflare
+        run: npm ci --ignore-scripts
+      - name: Rebuild expected release from checked out source
+        working-directory: cloudflare
+        run: npm run build:assets
+      - name: Validate PR build locally or compare deployed release with main
+        env:
+          PICKLEUP_AUDIT_MODE: ${{ github.event_name == 'pull_request' && 'local' || 'production' }}
+        run: node scripts/audit-production-release.mjs
