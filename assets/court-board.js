@@ -1,6 +1,12 @@
 (()=>{
   const API=window.PickleAPI,$=s=>document.querySelector(s);
-  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false,refreshVersion=0;
+  let state={tournaments:[],divisions:[],courts:[],teams:[],matches:[]},tournamentId="",refreshTimer=null,internalMode=false,initializedCalls=false,refreshVersion=0,socketConnected=false,hasFreshState=false;
+  const POLL_INTERVAL_MS=15000;
+  function connectionStatus(ok){
+    const el=$("#boardConnection");
+    el.textContent=!ok?"● Mất kết nối":socketConnected?"● Trực tiếp":"● Tự cập nhật 15 giây";
+    el.classList.toggle("offline",!ok);
+  }
   const announced=new Set();
   const renderedPlacements=new Map();
   let voiceEnabled=localStorage.getItem("pickle-board-voice")==="1";
@@ -140,11 +146,11 @@
     try{
       const next=await loadState();
       if(version!==refreshVersion)return;
-      state=next.state;internalMode=next.internal;
+      state=next.state;internalMode=next.internal;hasFreshState=true;
       if(!tournamentId||!state.tournaments.some(t=>t.id===tournamentId))tournamentId=chooseTournament();
       render();
-      $("#boardConnection").textContent="● Trực tiếp";$("#boardConnection").classList.remove("offline");
-    }catch(e){if(version===refreshVersion){$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")}}
+      connectionStatus(true);
+    }catch(e){if(version===refreshVersion)connectionStatus(false)}
   }
   function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,180)}
 
@@ -178,8 +184,14 @@
 
   refresh().then(()=>{
     const socket=window.io?.();
-    socket?.on("connect",()=>{$("#boardConnection").textContent="● Trực tiếp";$("#boardConnection").classList.remove("offline")});
-    socket?.on("disconnect",()=>{$("#boardConnection").textContent="● Mất kết nối";$("#boardConnection").classList.add("offline")});
+    socket?.on("connect",()=>{socketConnected=true;connectionStatus(hasFreshState);schedule()});
+    socket?.on("disconnect",()=>{socketConnected=false;connectionStatus(hasFreshState)});
     socket?.on("public:state",schedule);socket?.on("match:update",schedule);
   });
+  // Court screens can run for hours without a page reload. A socket may be
+  // blocked or silently stall; recheck the authoritative state periodically.
+  // Pausing on hidden tabs avoids unnecessary reads, while returning to the
+  // display fetches changes missed during sleep.
+  setInterval(()=>{if(document.visibilityState==="visible")refresh()},POLL_INTERVAL_MS);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refresh()});
 })();

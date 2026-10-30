@@ -139,3 +139,62 @@ test("spectator link missing match ID never polls or starts a socket",async()=>{
   assert.equal(polls,0);assert.equal(starts,0);assert.equal(intervals.length,0);
   assert.equal(nodes.get("#matchNotFound strong").textContent,"Thiếu mã trận");
 });
+
+test("court TV board refreshes without socket hints, pauses while hidden, and resumes with current scores",async()=>{
+  const listeners={},events={},intervals=[],timers=[],nodes=new Map();
+  const mockNode=()=>({
+    textContent:"",innerHTML:"",hidden:false,dataset:{},options:[],
+    classList:{toggle(){},add(){},remove(){}},
+    querySelectorAll(){return []},getBoundingClientRect(){return {x:0,y:0,width:0,height:0}}
+  });
+  const document={visibilityState:"visible",querySelector(sel){
+    if(!nodes.has(sel))nodes.set(sel,mockNode());return nodes.get(sel)
+  },addEventListener(name,handler){events[name]=handler}};
+  const match={id:"tv-match",divisionId:"division",courtId:"court",a:"a",b:"b",
+    status:"live",current:[4,3],scheduledAt:"2026-10-30T10:00:00Z",version:1};
+  let reads=0,fail=false;
+  const snapshot=()=>({
+    tournaments:[{id:"tour",name:"Giải thử nghiệm",publicVisible:true}],
+    divisions:[{id:"division",name:"Đôi",tournamentId:"tour"}],
+    courts:[{id:"court",tournamentId:"tour",name:"Sân 1"}],
+    teams:[{id:"a",name:"Đội A"},{id:"b",name:"Đội B"}],
+    matches:[{...match,current:[...match.current]}]
+  });
+  const context={console,document,URL,URLSearchParams,Date,
+    location:{search:"",href:"https://test.invalid/court-board.html"},
+    localStorage:{getItem:()=>null,setItem(){}},history:{replaceState(){}},
+    window:{PickleAPI:{optionalAdminState:async()=>null,publicState:async()=>{
+      reads++;if(fail)throw Error("NETWORK_OFFLINE");return snapshot()
+    }},io:()=>({on(name,handler){listeners[name]=handler}})},
+    setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length},
+    setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length},clearTimeout(){}};
+  vm.runInNewContext(source("assets/court-board.js"),context);
+  const tick=()=>new Promise(resolve=>setImmediate(resolve));
+  await tick();
+  assert.equal(reads,1,"initial public state is fetched");
+  assert.match(nodes.get("#courtGrid").innerHTML,/tv-score/,"live court shows a scoreboard");
+  assert.match(nodes.get("#courtGrid").innerHTML,/>4</,"initial score shown");
+  assert.match(nodes.get("#boardConnection").textContent,/Tự cập nhật 15 giây/,"HTTP success alone is not realtime");
+  const poll=intervals.find(item=>item.ms===15000);
+  assert.ok(poll,"TV board has a 15-second fallback poll");
+  listeners.connect();
+  assert.match(nodes.get("#boardConnection").textContent,/Trực tiếp/);
+  listeners.disconnect();
+  assert.match(nodes.get("#boardConnection").textContent,/Tự cập nhật/,"socket loss keeps HTTP fallback active");
+  match.current[0]=5;match.version++;
+  poll.fn();await tick();
+  assert.equal(reads,2);
+  assert.match(nodes.get("#courtGrid").innerHTML,/>5</,"scoreboard updates without socket messages");
+  document.visibilityState="hidden";poll.fn();await tick();
+  assert.equal(reads,2,"poll stops while display is hidden");
+  match.current[1]=6;match.version++;
+  document.visibilityState="visible";events.visibilitychange();await tick();
+  assert.equal(reads,3);
+  assert.match(nodes.get("#courtGrid").innerHTML,/>6</,"display resumes with current score");
+  fail=true;poll.fn();await tick();
+  assert.match(nodes.get("#boardConnection").textContent,/Mất kết nối/,"failed HTTP fallback must not say realtime");
+  assert.match(nodes.get("#courtGrid").innerHTML,/>6</,"keep last confirmed data during network loss");
+  fail=false;poll.fn();await tick();
+  assert.match(nodes.get("#boardConnection").textContent,/Tự cập nhật/,"connection recovers through HTTP polling");
+  assert.equal(reads,5);
+});
