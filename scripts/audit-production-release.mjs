@@ -17,6 +17,28 @@ async function fetchText(path, attempt) {
   return response.text();
 }
 
+// Pull requests have not been deployed: validate the generated release locally
+// rather than comparing their changed assets against the current production site.
+if (process.env.PICKLEUP_AUDIT_MODE === "local") {
+  const localFile = path => readFileSync(new URL("../cloudflare/public/" + path, import.meta.url), "utf8");
+  const html = localFile("index.html");
+  if (!html.includes('name="pickleup-release" content="' + expected + '"')) {
+    throw Error("Locally built homepage has an outdated release marker");
+  }
+  for (const [asset, marker] of [
+    ["assets/arena-home-2026.css", "body.arena-home-2026"],
+    ["assets/arena-suite-2026.css", ".arena-360"],
+  ]) {
+    if (!html.includes(asset)) throw Error("Locally built homepage does not include " + asset);
+    if (!localFile(asset).includes(marker)) throw Error("Locally built Arena CSS invalid: " + asset);
+  }
+  if (!localFile("service-worker.js").includes('const VERSION="' + expected + '";')) {
+    throw Error("Locally built service worker revision mismatch");
+  }
+  console.log("LOCAL_RELEASE_AUDIT_OK " + expected);
+  process.exit(0);
+}
+
 let lastError = "";
 for (let attempt = 1; attempt <= 6; attempt++) {
   try {
