@@ -29,14 +29,14 @@ before(async()=>{
  browser=await chromium.launch({headless:true});
 });
 after(async()=>{await browser?.close();await new Promise(done=>server.close(done))});
-async function makePage(organizer){
+async function makePage(organizer,fixture=data){
  const context=await browser.newContext({viewport:{width:390,height:844}});
  const page=await context.newPage(),errors=[];
  page.on("pageerror",e=>errors.push(e.message));
  await page.addInitScript(({data,organizer})=>{
    window.__fixture=data;window.__organizer=organizer;window.__scheduled=[];
    window.confirm=()=>true;
- },{data,organizer});
+ },{data:fixture,organizer});
  await page.route("**/assets/api.js*",route=>route.fulfill({contentType:"text/javascript",body:`
 window.PickleAPI={
  optionalAdminState:async()=>window.__organizer?window.__fixture:null,
@@ -72,5 +72,38 @@ test("organizer can confirm scheduling existing division through authenticated A
    assert.deepEqual(await page.evaluate(()=>window.__scheduled),["d"]);
    assert.equal(await page.locator("#timelineStatus").textContent(),"● Đã kết nối");
    assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("snake_case court_state live stays visible and correctly labeled in both filters",async()=>{
+ const fixture=structuredClone(data);
+ fixture.matches=[
+  {id:"snake-live",divisionId:"d",courtId:"c",status:"wait",court_state:"live",a:"a",b:"b",version:1},
+  {id:"waiting",divisionId:"d",courtId:null,status:"wait",court_state:"scheduled",a:"a",b:"b",version:1}
+ ];
+ const {page,context,errors}=await makePage(false,fixture);
+ try{
+  assert.equal(await page.locator("#timelineLive").textContent(),"1");
+  await page.locator('[data-view="live"]').click();
+  assert.equal(await page.locator("#courtTimeline .match.is-live").count(),1);
+  assert.equal(await page.locator("#courtTimeline .match-status").textContent(),"ĐANG ĐẤU");
+  assert.equal(await page.locator("#unplacedMatches .match").count(),0);
+  await page.locator('[data-view="pending"]').click();
+  assert.equal(await page.locator("#courtTimeline .match").count(),0);
+  assert.equal(await page.locator("#unplacedMatches .match").count(),1);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+test("removed tournament immediately clears old organizer auto-schedule buttons",async()=>{
+ const {page,context,errors}=await makePage(true);
+ try{
+  await page.locator('button[data-schedule-division="d"]').waitFor({state:"visible"});
+  await page.evaluate(()=>{window.__fixture.tournaments=[]});
+  await page.locator("#timelineReload").click();
+  await page.locator("#tournamentTitle").getByText("Không tìm thấy giải đấu").waitFor();
+  assert.equal(await page.locator("#autoScheduleActions button").count(),0);
+  assert.equal(await page.locator("#autoScheduleActions").isHidden(),true);
+  assert.deepEqual(await page.evaluate(()=>window.__scheduled),[]);
+  assert.deepEqual(errors,[]);
  }finally{await context.close()}
 });
