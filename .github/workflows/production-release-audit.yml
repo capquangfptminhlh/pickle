@@ -1,6 +1,10 @@
 name: Production release audit
 
 on:
+  pull_request:
+    paths:
+      - "scripts/audit-production-release.mjs"
+      - ".github/workflows/production-release-audit.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 1 * * *"
@@ -20,8 +24,8 @@ jobs:
       - name: Install exact build toolchain
         working-directory: cloudflare
         run: npm ci --ignore-scripts
-      - name: Rebuild expected release from main
+      - name: Rebuild expected release from checked out source
         working-directory: cloudflare
         run: npm run build:assets
-      - name: Compare production release and homepage with main
+      - name: Compare release, homepage, styles and PWA with production
         run: node scripts/audit-production-release.mjs
