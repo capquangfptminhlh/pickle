@@ -27,5 +27,7 @@ jobs:
       - name: Rebuild expected release from checked out source
         working-directory: cloudflare
         run: npm run build:assets
-      - name: Compare release, homepage, styles and PWA with production
+      - name: Validate PR build locally or compare deployed release with main
+        env:
+          PICKLEUP_AUDIT_MODE: ${{ github.event_name == 'pull_request' && 'local' || 'production' }}
         run: node scripts/audit-production-release.mjs
