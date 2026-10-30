@@ -2,6 +2,14 @@
   const API=window.PickleAPI;
   const $=s=>document.querySelector(s);
   let state={tournaments:[],divisions:[],courts:[],teams:[],players:[],teamPlayers:{},teamLineupSources:{},matches:[]},user=null,activeId=null,busy=false,refreshTimer=null,refreshVersion=0;
+  let socketConnected=false,lastRefreshOk=false,pendingRefreshDelay=null;
+  const REFEREE_SYNC_INTERVAL_MS=15000;
+  function updateConnectionStatus(){
+    const label=$("#connectionState");
+    if(!lastRefreshOk){label.textContent="Mất kết nối";label.className="connection-pill offline"}
+    else if(socketConnected){label.textContent="Realtime";label.className="connection-pill live"}
+    else {label.textContent="Tự đồng bộ 15 giây";label.className="connection-pill"}
+  }
   let lastScore=null;
   const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const team=id=>state.teams.find(t=>t.id===id)?.name||(id==="TBD"||!id?"Chưa xác định":id);
@@ -179,23 +187,38 @@
     renderSummary();renderPicker();scrollTo({top:0,behavior:"instant"});
   }
 
-  async function refresh({quiet=false}={}){
+  async function refresh({quiet=false,allowBusy=false}={}){
+    if(busy&&!allowBusy)return;
     if(refreshTimer){clearTimeout(refreshTimer);refreshTimer=null}
     const version=++refreshVersion;
     try{
       const next=await API.adminState();
       if(version!==refreshVersion)return;
-      state=next;
+      state=next;lastRefreshOk=true;
       renderSummary();renderPicker();
       if(activeId){
         if(activeMatch())renderScore();else showPicker();
       }
-      if(!quiet)$("#connectionState").textContent="Đã cập nhật";
+      updateConnectionStatus();
     }catch(e){
-      if(version===refreshVersion&&e.message!=="AUTH_REQUIRED")toast("Không thể tải dữ liệu.");
+      if(version===refreshVersion&&e.message!=="AUTH_REQUIRED"){
+        lastRefreshOk=false;updateConnectionStatus();
+        if(!quiet)toast("Không thể tải dữ liệu. Giữ điểm xác nhận gần nhất.");
+      }
     }
   }
-  function scheduleRefresh(delay=180){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh({quiet:true}),delay)}
+  function scheduleRefresh(delay=180){
+    if(busy){
+      pendingRefreshDelay=pendingRefreshDelay===null?delay:Math.min(pendingRefreshDelay,delay);
+      return;
+    }
+    clearTimeout(refreshTimer);
+    refreshTimer=setTimeout(()=>{
+      refreshTimer=null;
+      if(busy){scheduleRefresh(delay);return}
+      refresh({quiet:true});
+    },delay);
+  }
 
   function applyMatchUpdate(updated){
     const index=state.matches.findIndex(match=>match.id===updated?.id);
@@ -213,13 +236,23 @@
     refreshVersion++;
     try{
       const updated=await fn();
-      if(applyMatchUpdate(updated))scheduleRefresh(650);else await refresh({quiet:true});
+      if(applyMatchUpdate(updated)){
+        lastRefreshOk=true;updateConnectionStatus();
+        scheduleRefresh(650);
+      }else await refresh({quiet:true,allowBusy:true});
       if(success)toast(success);
     }
     catch(e){
-      if(e.message==="VERSION_CONFLICT"){await refresh({quiet:true});toast("Điểm đã đổi từ thiết bị khác. Đã đồng bộ lại.");}
+      if(e.message==="VERSION_CONFLICT"){await refresh({quiet:true,allowBusy:true});toast("Điểm đã đổi từ thiết bị khác. Đã đồng bộ lại.");}
       else toast({RELAY_LINEUP_REQUIRED:"Chưa xác định vị trí A/B/C. BTC cần xác nhận thứ tự thành viên hoặc nhập đúng Trình trước khi bốc thăm.",RELAY_PARTICIPANTS_REQUIRED:"Mỗi đội cần đúng 3 VĐV đang hoạt động trước khi bốc thăm.",RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Chờ sân trống hoặc báo BTC đổi sân.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Báo BTC kiểm tra lịch.",SET_ALREADY_WON:"Set đã đủ điểm thắng. Hãy chốt set.",TIMEOUT_LIMIT:"Đội đã dùng đủ timeout.",MEDICAL_TIMEOUT_LIMIT:"Đội đã dùng medical timeout.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",NOTHING_TO_RESET:"Trận chưa có dữ liệu để đặt lại.",RESET_HISTORY_UNAVAILABLE:"Lịch sử trận không đủ để đặt lại an toàn.",DOWNSTREAM_MATCH_LOCKED:"Trận nhánh sau đã bắt đầu nên không thể đặt lại kết quả."}[e.message]||"Không thể thực hiện: "+e.message);
-    }finally{busy=false;delete $("#scoreSurface").dataset.motionDirection}
+    }finally{
+      busy=false;
+      delete $("#scoreSurface").dataset.motionDirection;
+      if(pendingRefreshDelay!==null){
+        const delay=pendingRefreshDelay;pendingRefreshDelay=null;
+        scheduleRefresh(delay);
+      }
+    }
   }
 
   document.addEventListener("click",e=>{
@@ -260,9 +293,15 @@
       const requested=new URLSearchParams(location.search).get("match");
       if(requested&&state.matches.some(m=>m.id===requested))showScore(requested);else showPicker();
       const socket=window.io?.();
-      socket?.on("connect",()=>{$("#connectionState").textContent="Realtime";$("#connectionState").className="connection-pill live"});
-      socket?.on("disconnect",()=>{$("#connectionState").textContent="Mất kết nối";$("#connectionState").className="connection-pill offline"});
+      socket?.on("connect",()=>{socketConnected=true;updateConnectionStatus();scheduleRefresh()});
+      socket?.on("disconnect",()=>{socketConnected=false;updateConnectionStatus()});
       socket?.on("public:state",scheduleRefresh);socket?.on("match:update",scheduleRefresh);
+      // The referee screen can stay open for an entire tournament. Socket
+      // disconnects and mobile sleep must not leave a stale scoring version.
+      // Never fetch while a point/service/Undo mutation is in flight.
+      const syncIfIdle=()=>{if(!busy&&document.visibilityState==="visible")refresh({quiet:true})};
+      setInterval(syncIfIdle,REFEREE_SYNC_INTERVAL_MS);
+      document.addEventListener("visibilitychange",syncIfIdle);
     }catch(e){
       if(e.message!=="AUTH_REQUIRED")location.href="login.html?next=referee.html";
     }
