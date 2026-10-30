@@ -1,4 +1,4 @@
-import {buildCourtTimeline,terminalStatus} from "./court-timeline-model.mjs";
+import {buildCourtTimeline,isLiveTimelineMatch,filterTimelineMatches} from "./court-timeline-model.mjs";
 const $=id=>document.getElementById(id);
 const api=window.PickleAPI;
 let state=null,selected=new URLSearchParams(location.search).get("tournament")||"",view="all",seq=0,canSchedule=false;
@@ -7,7 +7,7 @@ const make=(tag,classes,text)=>{
  if(text!==undefined)el.textContent=String(text);return el;
 };
 const label=(m)=>{
- if(m.status==="live")return "ĐANG ĐẤU";
+ if(isLiveTimelineMatch(m))return "ĐANG ĐẤU";
  return ({warming_up:"KHỞI ĐỘNG",on_deck:"SẮP VÀO",called:"GỌI VĐV",scheduled:"CHỜ ĐẤU"})[m.courtState||m.court_state]||"CHỜ";
 };
 const time=m=>{
@@ -16,7 +16,7 @@ const time=m=>{
 };
 const team=id=>state?.teams?.find(x=>String(x.id)===String(id))?.name||"Chưa xác định";
 function matchCard(m){
- const isLive=m.status==="live"||m.courtState==="live"||m.court_state==="live";
+ const isLive=isLiveTimelineMatch(m);
  const el=make("article","match"+(isLive?" is-live":""));
  el.dataset.matchId=m.id;
  const top=make("div","match-top");
@@ -41,17 +41,18 @@ function render(){
  updateSelect();
  const grid=$("courtTimeline"),queue=$("unplacedMatches");
  grid.replaceChildren();queue.replaceChildren();
+ const actions=$("autoScheduleActions");
+ actions.replaceChildren();actions.hidden=true;
  const empty=$("timelineEmpty");
  if(!payload){
   $("tournamentTitle").textContent="Không tìm thấy giải đấu";
   $("tournamentMeta").textContent="Giải có thể không công khai hoặc tài khoản chưa được cấp quyền.";
   for(const k of ["timelineCourts","timelineLive","timelineAssigned","timelineUnplacedCount"])$(k).textContent="0";
+  $("scheduleMessage").textContent="";
   empty.hidden=false;return;
  }
  empty.hidden=true;
  const {summary,columns,unplaced,tournament}=payload;
- const actions=$("autoScheduleActions");
- actions.replaceChildren();
  if(canSchedule&&unplaced.length){
    const counts=new Map();
    for(const m of unplaced){
@@ -72,7 +73,7 @@ function render(){
  $("tournamentMeta").textContent=[tournament.venue,tournament.date].filter(Boolean).join(" • ")||"Giải đang được theo dõi";
  for(const [id,value] of [["timelineCourts",summary.activeCourts],["timelineLive",summary.live],["timelineAssigned",summary.assigned],["timelineUnplacedCount",summary.unplaced]])$(id).textContent=String(value);
  for(const {court,matches} of columns){
-  const filtered=matches.filter(m=>view==="all"||(view==="live"?(m.status==="live"||m.courtState==="live"):(m.status!=="live"&&m.courtState!=="live")));
+  const filtered=filterTimelineMatches(matches,view);
   const column=make("section","court-column");
   const head=make("header","court-head");const title=make("h3","",court.name||"Sân");
   head.append(title,make("b","",filtered.length+" trận"));column.append(head);
@@ -82,7 +83,7 @@ function render(){
   column.append(body);grid.append(column);
  }
  if(!columns.length)grid.append(make("div","empty","Chưa khai báo sân hoạt động. BTC có thể tạo sân trong trang quản trị."));
- const shown=unplaced.filter(m=>view==="all"||(view==="live"?(m.status==="live"||m.courtState==="live"):(m.status!=="live"&&m.courtState!=="live")));
+ const shown=filterTimelineMatches(unplaced,view);
  if(shown.length){for(const m of shown)queue.append(matchCard(m))}
  else queue.append(make("div","unplaced-empty",unplaced.length?"Không có trận chưa xếp sân phù hợp bộ lọc.":"Tất cả các trận đang chờ đều đã được phân sân."));
 }
@@ -118,7 +119,7 @@ async function load(){
  }
 }
 $("tournamentTimelineSelect").addEventListener("change",e=>{
- selected=e.target.value;const url=new URL(location.href);
+ selected=e.target.value;$("scheduleMessage").textContent="";const url=new URL(location.href);
  url.searchParams.set("tournament",selected);history.replaceState(null,"",url);render();
 });
 $("timelineReload").addEventListener("click",load);

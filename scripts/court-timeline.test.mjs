@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {buildCourtTimeline,sortTimelineMatches} from "../assets/court-timeline-model.mjs";
+import {buildCourtTimeline,sortTimelineMatches,isLiveTimelineMatch,filterTimelineMatches} from "../assets/court-timeline-model.mjs";
 const fixture={
  tournaments:[{id:"a",name:"Giải A"},{id:"b",name:"Giải riêng"}],
  divisions:[{id:"d",tournamentId:"a"},{id:"private",tournamentId:"b"}],
@@ -34,4 +34,28 @@ test("no courts is a real unplaced queue rather than a synthetic court",()=>{
  assert.equal(a.columns.length,0);
  assert.equal(a.unplaced.length,4);
  assert.equal(a.summary.assigned,0);
+});
+
+test("snake_case live state matches summary, filter, priority and pending complement",()=>{
+ const s={
+  tournaments:[{id:"t",name:"Đôi tự do"}],
+  divisions:[{id:"d",tournament_id:"t"}],
+  courts:[{id:"court",tournament_id:"t",name:"Sân 1"}],
+  matches:[
+   {id:"waiting",division_id:"d",court_id:"court",status:"wait",court_state:"scheduled"},
+   {id:"snake-live",division_id:"d",court_id:"court",status:"wait",court_state:"live"},
+   {id:"camel-live",division_id:"d",court_id:"court",status:"wait",courtState:"live"},
+   {id:"status-live",division_id:"d",court_id:"court",status:"live"},
+   {id:"unplaced-live",division_id:"d",court_id:null,status:"wait",court_state:"live"},
+  ]
+ };
+ const timeline=buildCourtTimeline(s,"t");
+ assert.equal(timeline.summary.live,4);
+ assert.equal(timeline.summary.unplaced,1);
+ assert.deepEqual(timeline.columns[0].matches.map(m=>m.id),["camel-live","snake-live","status-live","waiting"]);
+ assert.deepEqual(filterTimelineMatches(timeline.columns[0].matches,"live").map(m=>m.id),["camel-live","snake-live","status-live"]);
+ assert.deepEqual(filterTimelineMatches(timeline.columns[0].matches,"pending").map(m=>m.id),["waiting"]);
+ assert.deepEqual(filterTimelineMatches(timeline.unplaced,"live").map(m=>m.id),["unplaced-live"]);
+ assert.equal(isLiveTimelineMatch({status:"wait",court_state:"live"}),true);
+ assert.equal(isLiveTimelineMatch({status:"wait",court_state:"scheduled"}),false);
 });

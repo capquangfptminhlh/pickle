@@ -2,7 +2,15 @@
 export const terminalStatus=new Set(["done","completed","walkover","cancelled"]);
 const val=x=>String(x??"");
 const time=m=>Date.parse(m.scheduledAt||m.scheduled_at||"");
-const qRank=m=>m.status==="live"?0:({live:0,warming_up:1,on_deck:2,called:3,scheduled:4}[m.courtState||m.court_state]??5);
+// Use the same live predicate for counters, filters, queue order and badges.
+// D1/legacy snapshots can expose court_state while browser data uses courtState.
+export const isLiveTimelineMatch=m=>m?.status==="live"||m?.courtState==="live"||m?.court_state==="live";
+export function filterTimelineMatches(items,view="all"){
+  if(view==="live")return items.filter(isLiveTimelineMatch);
+  if(view==="pending")return items.filter(m=>!isLiveTimelineMatch(m));
+  return [...items];
+}
+const qRank=m=>isLiveTimelineMatch(m)?0:({warming_up:1,on_deck:2,called:3,scheduled:4}[m.courtState??m.court_state]??5);
 export function sortTimelineMatches(items){
   return [...items].sort((a,b)=>{
     const ar=qRank(a),br=qRank(b);
@@ -28,6 +36,6 @@ export function buildCourtTimeline(state,tournamentId){
     total:matches.length,
     assigned:matches.length-unplaced.length,
     unplaced:unplaced.length,
-    live:matches.filter(m=>m.status==="live"||m.courtState==="live"||m.court_state==="live").length
+    live:matches.filter(isLiveTimelineMatch).length
   }};
 }
