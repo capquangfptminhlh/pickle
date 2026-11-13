@@ -28,7 +28,7 @@ try{
     const page=await browser.newPage({viewport:{width,height:900}});page.setDefaultTimeout(6000);page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(token=>localStorage.setItem('pickle-api-token-v1',token),f.tokens[actor]);
     await page.route('**/api/**',async route=>{
-      const r=route.request();if(r.method()==='POST')writes.push(new URL(r.url()).pathname);
+      const r=route.request();if(['POST','PATCH'].includes(r.method()))writes.push(new URL(r.url()).pathname);
       const response=await worker.fetch(new Request(r.url(),{method:r.method(),headers:r.headers(),...(r.postData()?{body:r.postData()}:{})}),f.env);
       await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
     });
@@ -45,6 +45,30 @@ try{
       assert.equal(writes.filter(x=>x.endsWith('/generate-round-robin')).length,mode==='new-pools'?1:0,'an existing knockout must never generate pool matches');
       assert.equal(writes.filter(x=>x.endsWith('/auto-schedule-courts')).length,1);
       for(let i=1;i<matches.length;i++)assert.ok(Date.parse(matches[i].scheduled_at)-Date.parse(matches[i-1].scheduled_at)>=20*60000);
+      if(actor==='admin'&&width===1440&&mode==='new-pools'){
+        // Real browser => real Worker => in-memory D1: a cancelled confirmation
+        // makes no write; an accepted conflicting assignment returns 409
+        // without changing the court, time, or audit history.
+        const target=matches[1],occupied=matches[0];
+        const before=f.db.prepare("SELECT * FROM matches WHERE id=?").get(target.id);
+        await page.locator('[data-match-detail="'+target.id+'"]').first().click();
+        await page.locator('#detailTime').fill(occupied.scheduled_at.slice(0,16));
+        const assignments=()=>writes.filter(x=>x.endsWith('/assignment')).length;
+        const initial=assignments();
+        page.once('dialog',dialog=>dialog.dismiss());
+        await page.locator('#saveAssignment').click();
+        assert.equal(assignments(),initial,'dismissing confirmation must not call assignment API');
+        page.once('dialog',dialog=>{
+          assert.match(dialog.message(),/Xác nhận đổi lịch trận này/);
+          return dialog.accept();
+        });
+        await page.locator('#saveAssignment').click();
+        await page.locator('.toast').filter({hasText:'Sân đã có trận'}).waitFor();
+        assert.equal(assignments(),initial+1,'confirmed assignment reaches Worker once');
+        assert.deepEqual(f.db.prepare("SELECT * FROM matches WHERE id=?").get(target.id),before,'conflict preserves match');
+        assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(target.id).n,0);
+        await page.locator('#genericDialog').evaluate(dialog=>dialog.close());
+      }
       assert.deepEqual(errors,[]);console.log('PASS',actor,width,mode,'real Worker scheduling');
     }finally{await page.close();f.db.close()}
   }

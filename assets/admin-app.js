@@ -1047,6 +1047,10 @@ $("#relayDrawButton")?.addEventListener("click",async()=>{
 function scoreError(e){
   return {RELAY_LINEUP_REQUIRED:"Chưa xác định vị trí A/B/C. BTC cần xác nhận thứ tự thành viên hoặc nhập đúng Trình trước khi bốc thăm.",RELAY_PARTICIPANTS_REQUIRED:"Mỗi đội cần đúng 3 VĐV đang hoạt động trước khi bốc thăm.",RELAY_DRAW_REQUIRED:"Bốc thăm cặp của hai đội trước khi nhập điểm.",RELAY_DRAW_LOCKED:"Trận đã có lịch sử thi đấu, không thể bốc thăm lại.",RELAY_DRAW_UNSUPPORTED:"Chỉ bốc thăm cặp cho MLP 3 người chạy điểm.",VERSION_CONFLICT:"Điểm đã thay đổi từ máy khác. Đã tải dữ liệu mới; hãy kiểm tra lại trước khi lưu.",
     COURT_BUSY:"Sân đang có trận thi đấu hoặc khởi động. Kết thúc trận trên sân hoặc chọn sân khác.",PLAYER_BUSY:"Có VĐV đang thi đấu ở trận khác. Kiểm tra lại lịch trước khi bắt đầu.",
+    COURT_SCHEDULE_CONFLICT:"Sân đã có trận trong khung giờ này, hoặc lịch vừa thay đổi. Kiểm tra lại và chọn thời gian/sân khác.",
+    PLAYER_SCHEDULE_CONFLICT:"VĐV đang có trận khác hoặc chưa đủ thời gian nghỉ. Kiểm tra lịch của VĐV trước khi phân trận.",
+    MATCH_ASSIGNMENT_LOCKED:"Trận đã bắt đầu hoặc đã có lịch sử điểm, không thể đổi sân, giờ hay đội. Chỉ được điều chỉnh trọng tài.",
+    INVALID_SCHEDULE_TIME:"Giờ đấu không hợp lệ. Hãy chọn lại ngày và giờ.",
     DOWNSTREAM_MATCH_LOCKED:"Trận ở nhánh sau đã có lịch sử thi đấu, không thể sửa kết quả này.",DOWNSTREAM_MATCH_STARTED:"Trận ở nhánh sau đã bắt đầu, không thể sửa kết quả này.",
     UNDO_HISTORY_UNAVAILABLE:"Lịch sử cũ không đủ dữ liệu để Undo an toàn. Hãy kiểm tra nhật ký trận.",NOTHING_TO_UNDO:"Không còn thao tác để Undo.",
     MATCH_NOT_FINISHED:"Chưa đủ số set thắng để kết thúc trận.",NOT_ENOUGH_SET_WINS:"Chưa đủ số set thắng để kết thúc trận.",
@@ -1190,7 +1194,7 @@ async function openMatchModal(){
     const teamAId=$("#mTeamA").value,teamBId=$("#mTeamB").value;
     if(!teamAId||!teamBId)return toast("Cần chọn đủ hai đội.");
     if(teamAId===teamBId)return toast("Hai bên thi đấu phải là hai đội khác nhau.");
-    try{await API.createMatch($("#mDivision").value,{teamAId,teamBId,courtId:$("#mCourt").value||null,refereeUserId:$("#mRef").value||null,stage:$("#mStage").value||"Vòng bảng",scheduledAt:$("#mTime").value||null});$("#genericDialog").close();await refresh();toast("Đã tạo trận.")}catch(e){toast("Không thể tạo trận: "+e.message)}
+    try{await API.createMatch($("#mDivision").value,{teamAId,teamBId,courtId:$("#mCourt").value||null,refereeUserId:$("#mRef").value||null,stage:$("#mStage").value||"Vòng bảng",scheduledAt:$("#mTime").value||null});$("#genericDialog").close();await refresh();toast("Đã tạo trận.")}catch(e){toast(scoreError(e))}
   };
 }
 async function openMatchDetail(id){
@@ -1221,10 +1225,27 @@ async function openMatchDetail(id){
   $("#genericDialog").showModal();
 
   const btn=$("#saveAssignment");
-  if(btn)btn.onclick=async()=>{try{
-    await API.assignMatch(m.id,{courtId:$("#detailCourt").value||null,refereeUserId:$("#detailRef").value||null,...($("#detailTime").value?{scheduledAt:$("#detailTime").value}:{}),expectedVersion:m.version});
-    $("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.");
-  }catch(e){await showMatchDraftError(e,m)}};
+  if(btn)btn.onclick=async()=>{
+    if(btn.disabled)return;
+    const courtId=$("#detailCourt").value||null;
+    const refereeUserId=$("#detailRef").value||null;
+    const scheduledAt=$("#detailTime").value||"";
+    const oldStart=m.scheduledAt?Date.parse(m.scheduledAt):null;
+    const newStart=scheduledAt?Date.parse(scheduledAt):oldStart;
+    const moveCourtOrTime=courtId!==(m.courtId||null)||
+      (scheduledAt!==""&&(oldStart===null||!Number.isFinite(oldStart)||newStart!==oldStart));
+    if(moveCourtOrTime){
+      const courtName=$("#detailCourt").selectedOptions[0]?.textContent||"Chưa gán";
+      const timeName=scheduledAt?scheduledAt.replace("T"," "):(m.time||"Chưa xếp giờ");
+      if(!confirm("Xác nhận đổi lịch trận này?\\nSân: "+courtName+"\\nGiờ: "+timeName+"\\nHệ thống sẽ kiểm tra trùng sân và VĐV trước khi lưu."))return;
+    }
+    btn.disabled=true;
+    try{
+      await API.assignMatch(m.id,{courtId,refereeUserId,...(scheduledAt?{scheduledAt}:{}),expectedVersion:m.version});
+      $("#genericDialog").close();await refresh();toast("Đã cập nhật điều phối.");
+    }catch(e){await showMatchDraftError(e,m)}
+    finally{btn.disabled=false}
+  };
 
   const specialBtn=$("#saveSpecialResult");
   if(specialBtn)specialBtn.onclick=async()=>{
