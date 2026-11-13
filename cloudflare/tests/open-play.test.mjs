@@ -11,7 +11,8 @@ async function api(f,path,method="GET",body,actor="admin"){
   const res=await worker.fetch(req,f.env);
   return {status:res.status,data:await res.json()};
 }
-const draft={title:"Open Play Bình Lợi",startsAt:"2026-11-01T11:00:00+07:00",maxPlayers:2,maxCombinedRating:5.2,tolerance:0};
+// Public discovery intentionally omits past sessions; keep this fixture upcoming across calendar years.
+const draft={title:"Open Play Bình Lợi",startsAt:new Date(Date.now()+7*24*60*60*1000).toISOString(),maxPlayers:2,maxCombinedRating:5.2,tolerance:0};
 
 test("Open Play sessions are permission scoped and isolated from match scores",async()=>{
  const f=await accountFixture();

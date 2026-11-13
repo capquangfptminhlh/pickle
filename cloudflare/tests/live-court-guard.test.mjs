@@ -122,12 +122,12 @@ test('undoing completion cannot reopen a live match on an occupied court',async 
   assert.deepEqual(f.saved('match'),before,'completion and its undo history remain intact');
 });
 
-test('a live match cannot be moved to another occupied court',async t=>{
+test('a live match assignment stays locked while another court is occupied',async t=>{
   const f=await fixture(t,{differentCourts:true});
   assert.equal((await f.api('rally',{side:'A'},'ref')).status,200);
   assert.equal((await f.api('rally',{side:'A'},'ref2','second')).status,200);
   const before=f.saved('second');
-  busy(await f.request('/api/matches/second/assignment',{courtId:'court'}));
+  busy(await f.request('/api/matches/second/assignment',{courtId:'court'}),'MATCH_ASSIGNMENT_LOCKED');
   assert.deepEqual(f.saved('second'),before,'the rejected assignment audit rolls back');
 });
 

@@ -10,6 +10,7 @@ import {handleRelayDraw} from "./relay-draw.js";
 import {parseRelayOrder} from "../../shared/relay-draw.js";
 import {drawResetSnapshot,resetGroupDraw,guardedDivisionBatch,knockoutResetSnapshot,resetKnockout} from "./draw-reset.js";
 import {scheduleDivisionCourts} from "./court-scheduling.js";
+import {manualAssignmentGuard,manualFieldsChanged} from "./manual-assignment.js";
 import {divisionMatchRules,divisionBracketRules,assertScoringRulesEditable,assertBracketRulesEditable} from "./division-rules.js";
 import {FINAL_FORMATS,stageScoringRules,inspectExistingMatch} from "../../shared/stage-scoring-rules.js";
 import {playerCountRange,validatePlayerIds,registryNameKey} from "../../shared/team-player-selection.js";
@@ -133,6 +134,14 @@ async function validateMatchAssignment(env,user,divisionId,tournamentId,b,m=null
 function matchAudit(env,user,m,action,after){
   return env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,before_data,after_data) VALUES(?,'match',?,?,?,?)")
     .bind(user.id,m.id,action,JSON.stringify(m),after?JSON.stringify(after):null);
+}
+async function writeManualAssignment(env,statements,guard){
+  try{
+    await env.DB.batch(guard?[guard.before,...statements,guard.after]:statements);
+  }catch(error){
+    if(String(error?.message||"").includes("DRAW_RESET_CONFLICT"))throw httpError("COURT_SCHEDULE_CONFLICT",409);
+    throw error;
+  }
 }
 async function emitUpdate(env,tournamentId,matchId=null){
   if(!env?.ROOMS)return;
@@ -656,11 +665,13 @@ async function handleApi(request,env,ctx){
     if(!b.teamAId||!b.teamBId||b.teamAId===b.teamBId)return fail("INVALID_TEAMS",request,env,400);
     await validateMatchAssignment(env,user,p.id,tid,b);
     const id=uid();
-    await env.DB.batch([
+    const candidate={id,division_id:p.id,team_a_id:b.teamAId,team_b_id:b.teamBId,court_id:b.courtId||null,scheduled_at:b.scheduledAt||null,status:"scheduled"};
+    const guard=await manualAssignmentGuard(env,tid,p.id,candidate);
+    await writeManualAssignment(env,[
       env.DB.prepare("INSERT INTO matches(id,division_id,court_id,referee_user_id,team_a_id,team_b_id,stage,scheduled_at,status,version,created_at) VALUES(?,?,?,?,?,?,?,?,?,1,?)")
         .bind(id,p.id,b.courtId||null,b.refereeUserId||null,b.teamAId,b.teamBId,String(b.stage||"Vòng bảng"),b.scheduledAt||null,"scheduled",nowIso()),
       env.DB.prepare("INSERT INTO audit_logs(actor_user_id,entity_type,entity_id,action,after_data) VALUES(?,'match',?,'CREATE_MATCH',?)").bind(user.id,id,JSON.stringify({divisionId:p.id,...b}))
-    ]);
+    ],guard);
     const row=await matchJson(env,id);await emitUpdate(env,tid,id);return ok(row,request,env,201);
   }
   p=route(path,"/api/matches/:id");
@@ -671,8 +682,11 @@ async function handleApi(request,env,ctx){
     if(b.status!==undefined&&b.status!==m.status)return fail("USE_SCORE_ACTION",request,env,400);
     if(b.stage!==undefined&&String(b.stage)!==String(m.stage)&&Number(m.stage_rules_enabled)&&await matchHasHistory(env,m))return fail("MATCH_STAGE_LOCKED",request,env,409);
     const after={...m,stage:String(b.stage??m.stage),scheduled_at:b.scheduledAt===undefined?m.scheduled_at:b.scheduledAt,court_id:b.courtId===undefined?m.court_id:b.courtId,referee_user_id:b.refereeUserId===undefined?m.referee_user_id:b.refereeUserId,team_a_id:pair.a,team_b_id:pair.b,version:Number(m.version)+1};
-    await env.DB.batch([matchAudit(env,user,m,"UPDATE_MATCH",after),env.DB.prepare("UPDATE matches SET stage=?,scheduled_at=?,court_id=?,referee_user_id=?,team_a_id=?,team_b_id=?,version=version+1 WHERE id=?")
-      .bind(after.stage,after.scheduled_at,after.court_id,after.referee_user_id,pair.a,pair.b,p.id)]);
+    const scheduleChanged=manualFieldsChanged(m,after);
+    if(scheduleChanged&&await matchHasHistory(env,m))return fail("MATCH_ASSIGNMENT_LOCKED",request,env,409);
+    const guard=scheduleChanged?await manualAssignmentGuard(env,m.tournament_id,m.division_id,after):null;
+    await writeManualAssignment(env,[matchAudit(env,user,m,"UPDATE_MATCH",after),env.DB.prepare("UPDATE matches SET stage=?,scheduled_at=?,court_id=?,referee_user_id=?,team_a_id=?,team_b_id=?,version=version+1 WHERE id=?")
+      .bind(after.stage,after.scheduled_at,after.court_id,after.referee_user_id,pair.a,pair.b,p.id)],guard);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
   if(p&&method==="DELETE"){
@@ -688,8 +702,11 @@ async function handleApi(request,env,ctx){
     const b=await bodyJson(request);
     await validateMatchAssignment(env,user,m.division_id,m.tournament_id,b,m);
     const after={...m,court_id:b.courtId===undefined?m.court_id:b.courtId,referee_user_id:b.refereeUserId===undefined?m.referee_user_id:b.refereeUserId,scheduled_at:b.scheduledAt===undefined?m.scheduled_at:b.scheduledAt,version:Number(m.version)+1};
-    await env.DB.batch([matchAudit(env,user,m,"ASSIGN_MATCH",after),env.DB.prepare("UPDATE matches SET court_id=?,referee_user_id=?,scheduled_at=?,version=version+1 WHERE id=?")
-      .bind(after.court_id,after.referee_user_id,after.scheduled_at,p.id)]);
+    const scheduleChanged=manualFieldsChanged(m,after);
+    if(scheduleChanged&&await matchHasHistory(env,m))return fail("MATCH_ASSIGNMENT_LOCKED",request,env,409);
+    const guard=scheduleChanged?await manualAssignmentGuard(env,m.tournament_id,m.division_id,after):null;
+    await writeManualAssignment(env,[matchAudit(env,user,m,"ASSIGN_MATCH",after),env.DB.prepare("UPDATE matches SET court_id=?,referee_user_id=?,scheduled_at=?,version=version+1 WHERE id=?")
+      .bind(after.court_id,after.referee_user_id,after.scheduled_at,p.id)],guard);
     await emitUpdate(env,m.tournament_id,p.id);return ok(await matchJson(env,p.id),request,env);
   }
   p=route(path,"/api/matches/:id/court-state");
