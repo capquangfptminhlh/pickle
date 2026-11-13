@@ -24,6 +24,9 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const browser=await chromium.launch({headless:true});
 const base="http://127.0.0.1:"+server.address().port;
+// Discovery only lists upcoming sessions; use a future session in long-lived browser regressions.
+const sessionStartsAt=new Date(Date.now()+7*24*60*60*1000);
+const sessionLocalStart=new Date(sessionStartsAt.getTime()-sessionStartsAt.getTimezoneOffset()*60_000).toISOString().slice(0,16);
 try{
  for(const viewport of [{width:320,height:760},{width:390,height:844},{width:1280,height:850}]){
   const f=await accountFixture();
@@ -53,7 +56,7 @@ try{
    assert.match(adminType.body,/Barlow/);
    assert.match(adminType.hero,/Barlow Condensed/);
    await page.locator("#title").fill("Open Play UI Test "+viewport.width);
-   await page.locator("#startsAt").fill("2026-11-01T11:00");
+   await page.locator("#startsAt").fill(sessionLocalStart);
    await page.locator("#createSession button[type=submit]").click();
    await page.locator("#selectedTitle").filter({hasText:"Open Play UI Test"}).waitFor();
    await page.locator("#openSignup").click();
@@ -95,7 +98,7 @@ try{
    assert.equal(f.db.prepare("SELECT status FROM open_play_registrations WHERE session_id=? AND player_id='ui-profile'").get(id)?.status,"cancelled");
    // Verify the public mobile waiting list and FIFO promotion after a cancellation.
    const waitingSession=await f.api("/api/open-play/sessions",{
-    title:"Waiting UI Test "+viewport.width,startsAt:"2026-11-01T11:00:00+07:00",
+    title:"Waiting UI Test "+viewport.width,startsAt:sessionStartsAt.toISOString(),
     maxPlayers:2,maxCombinedRating:5.2,tolerance:0
    },"POST","organizer");
    assert.equal(waitingSession.status,201,JSON.stringify(waitingSession.data));
