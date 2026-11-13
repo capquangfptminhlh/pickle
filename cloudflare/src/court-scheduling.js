@@ -171,3 +171,6 @@ export async function scheduleDivisionCourts(env,user,divisionId,tournamentId){
   }
   return {ok:true,updated:plan.length,assigned:plan.length,courts:courts.length,minRestMinutes:minRest,matchSlotMinutes:slot};
 }
+
+// Reuse the exact scheduling reservation semantics for manual assignments.
+export {tournamentStateSql,participantKeys,reservation};
