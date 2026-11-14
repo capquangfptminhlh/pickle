@@ -31,6 +31,18 @@ async function fixture(t){
   return {f,matches,create};
 }
 
+test("manual scheduling blocks an athlete reused on a different free court during rest",async t=>{
+  const {f}=await fixture(t);
+  f.db.exec("INSERT INTO divisions(id,tournament_id,name,minimum_rest_minutes,match_slot_minutes) VALUES('shared-player-division','own','Shared player',15,20); INSERT INTO teams(id,division_id,name) VALUES('shared-a','shared-player-division','Shared A'),('shared-b','shared-player-division','Shared B'); INSERT INTO team_players(team_id,player_id) VALUES('shared-a','player-a1'),('shared-b','player-b7')");
+  const request=scheduledAt=>f.api("/api/divisions/shared-player-division/matches",
+    {teamAId:"shared-a",teamBId:"shared-b",courtId:"court2",scheduledAt},"POST");
+  const conflict=await request(at(20));
+  assert.equal(conflict.status,409);
+  assert.equal(conflict.data.error,"PLAYER_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,6);
+  assert.equal((await request(at(35))).status,201);
+});
+
 test("six courts run simultaneously without allowing a double booking",async t=>{
   const {f,matches,create}=await fixture(t);
   assert.equal(new Set(matches.map(m=>m.courtId)).size,6);
