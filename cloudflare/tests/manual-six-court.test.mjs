@@ -43,6 +43,21 @@ test("manual scheduling blocks an athlete reused on a different free court durin
   assert.equal((await request(at(35))).status,201);
 });
 
+test("shared athlete rest boundary is exclusive and rejected assignments leave no match",async t=>{
+  const {f}=await fixture(t);
+  f.db.exec("INSERT INTO divisions(id,tournament_id,name,minimum_rest_minutes,match_slot_minutes) VALUES('boundary-division','own','Rest boundary',15,20); INSERT INTO teams(id,division_id,name) VALUES('boundary-a','boundary-division','Boundary A'),('boundary-b','boundary-division','Boundary B'); INSERT INTO team_players(team_id,player_id) VALUES('boundary-a','player-a1'),('boundary-b','player-b7')");
+  const book=scheduledAt=>f.api("/api/divisions/boundary-division/matches",
+    {teamAId:"boundary-a",teamBId:"boundary-b",courtId:"court2",scheduledAt},"POST");
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const tooEarly=await book(at(34));
+  assert.equal(tooEarly.status,409);
+  assert.equal(tooEarly.data.error,"PLAYER_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const boundary=await book(at(35));
+  assert.equal(boundary.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
+
 test("six courts run simultaneously without allowing a double booking",async t=>{
   const {f,matches,create}=await fixture(t);
   assert.equal(new Set(matches.map(m=>m.courtId)).size,6);
