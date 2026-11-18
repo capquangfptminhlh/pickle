@@ -1,5 +1,10 @@
 # AGENTS.md — Pickle Tour
 
+## Mandatory SEO Alpha Research Gate (2026-11-18)
+
+Before any SEO, GEO, AEO, organic content, schema, canonical, metadata or internal-link task, resolve the current `capquangfptminhlh/seo-web@main` commit SHA and follow the complete `governance/website-os.manifest.yml#mandatory_read_order`. This includes `standards/Website_OS_SEO_Alpha_Research_Gate_v1.0.0.md`, `governance/seo-alpha-policy.yml`, `alpha-engine/README.md`; additionally read `alpha-engine/lab/README.md`. Record observed_at, source SHA, policy SHA-256 and PASS/HOLD in `.website-os/evidence/seo-alpha-bootstrap.yml` for this SEO run. Missing/stale normative rule => **HOLD — SEO ALPHA RESEARCH GATE NOT LOADED**. Review lab findings as research only: no auto-publish, production changes require two human reviewers and owner approval. Existing Website OS/local gates stay in effect. 
+
+
 This project is governed by the central Website OS.
 
 - source repo: capquangfptminhlh/seo-web
