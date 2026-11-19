@@ -148,3 +148,15 @@ test("manual schedule refuses invalid timestamps",async t=>{
   assert.equal(bad.data.error,"INVALID_SCHEDULE_TIME");
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,6);
 });
+
+test("manual six-court assignment rejects a one-minute court overlap and permits the exact slot boundary",async t=>{
+  const {f,create}=await fixture(t);
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const overlapping=await create(7,"court1",at(19));
+  assert.equal(overlapping.status,409);
+  assert.equal(overlapping.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const adjacent=await create(7,"court1",at(20));
+  assert.equal(adjacent.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
