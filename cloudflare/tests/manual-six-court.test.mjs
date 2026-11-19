@@ -92,6 +92,24 @@ test("manual reassignment rejects an occupied court and does not write an audit"
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(id).n,0);
 });
 
+test("stale assignment version cannot overwrite another operator or create an audit",async t=>{
+  const {f,matches}=await fixture(t);
+  const id=matches[0].id;
+  const before=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  const first=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court1",scheduledAt:at(40),expectedVersion:before.version},"PATCH");
+  assert.equal(first.status,200);
+  const committed=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  assert.equal(committed.scheduled_at,at(40));
+  const auditBefore=f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(id).n;
+  const stale=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court2",scheduledAt:at(80),expectedVersion:before.version},"PATCH");
+  assert.equal(stale.status,409);
+  assert.equal(stale.data.error,"VERSION_CONFLICT");
+  assert.deepEqual(f.db.prepare("SELECT * FROM matches WHERE id=?").get(id),committed);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(id).n,auditBefore);
+});
+
 test("stale tournament snapshot aborts a concurrent manual scheduling write",async t=>{
   const {f,create}=await fixture(t);
   const original=f.env.DB.batch.bind(f.env.DB);
