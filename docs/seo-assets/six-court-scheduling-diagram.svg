@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+<title id="title">Sơ đồ kiểm tra lịch thi đấu pickleball sáu sân</title>
+<desc id="desc">Sáu sân xếp thành hai hàng, một trận đang chiếm sân số một và cảnh báo kiểm tra trùng vận động viên giữa các sân.</desc>
+<rect width="1200" height="675" fill="#f5f8fb"/>
+<text x="64" y="73" fill="#17324d" font-family="Arial,sans-serif" font-weight="bold" font-size="37">XẾP LỊCH PICKLEBALL 6 SÂN</text>
+<text x="64" y="112" fill="#476178" font-family="Arial,sans-serif" font-size="23">Kiểm tra sân • vận động viên • nghỉ giữa trận • phiên bản lịch</text>
+<g font-family="Arial,sans-serif" font-size="22" font-weight="bold" text-anchor="middle">
+<rect x="64" y="155" width="335" height="170" rx="18" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+<rect x="432" y="155" width="335" height="170" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<rect x="800" y="155" width="335" height="170" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<rect x="64" y="349" width="335" height="170" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<rect x="432" y="349" width="335" height="170" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<rect x="800" y="349" width="335" height="170" rx="18" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<g fill="#17324d"><text x="231" y="202">SÂN 1</text><text x="599" y="202">SÂN 2</text><text x="967" y="202">SÂN 3</text><text x="231" y="396">SÂN 4</text><text x="599" y="396">SÂN 5</text><text x="967" y="396">SÂN 6</text></g>
+<g font-size="18" font-weight="normal" fill="#35546e"><text x="231" y="250">09:00 – 09:20</text><text x="599" y="250">Kiểm tra VĐV</text><text x="967" y="250">Kiểm tra nghỉ</text><text x="231" y="444">Chờ xác nhận</text><text x="599" y="444">Chờ xác nhận</text><text x="967" y="444">Chờ xác nhận</text></g>
+</g>
+<rect x="64" y="552" width="1071" height="74" rx="16" fill="#17324d"/>
+<text x="88" y="596" font-family="Arial,sans-serif" font-size="24" fill="#ffffff">Không trùng sân ≠ không trùng VĐV. Luôn xác nhận trước khi lưu.</text>
+<text x="1118" y="654" text-anchor="end" font-family="Arial,sans-serif" font-size="15" fill="#476178">Minh họa gốc • PickleUp • 21/11/2026</text>
+</svg>
