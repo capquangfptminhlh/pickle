@@ -13,7 +13,7 @@ assert.ok(existsSync(imagePath),"Original SVG must exist");
 const draft=readFileSync(draftPath,"utf8");
 const svg=readFileSync(imagePath,"utf8");
 assert.match(draft,/BẢN THẢO CHỜ DUYỆT/);
-assert.match(draft,/Canonical owner:\s*UNASSIGNED\s*\/\s*HOLD/);
+assert.match(draft,/\*\*Canonical owner:\*\*\s*UNASSIGNED\s*\/\s*HOLD/);
 assert.match(draft,/SEO title dự kiến:/);
 assert.match(draft,/Meta description dự kiến:/);
 assert.match(draft,/## Câu hỏi thường gặp/);
