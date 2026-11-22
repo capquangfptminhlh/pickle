@@ -160,3 +160,15 @@ test("manual six-court assignment rejects a one-minute court overlap and permits
   assert.equal(adjacent.status,201);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
 });
+
+test("manual scheduling rejects overlap at the beginning of an occupied slot and accepts exact preceding boundary",async t=>{
+  const {f,create}=await fixture(t);
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const overlapping=await create(7,"court1",at(-19));
+  assert.equal(overlapping.status,409);
+  assert.equal(overlapping.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const preceding=await create(7,"court1",at(-20));
+  assert.equal(preceding.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
