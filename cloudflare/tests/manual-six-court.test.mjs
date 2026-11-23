@@ -188,3 +188,25 @@ test("shared athlete cannot be booked immediately before an existing match acros
   assert.equal(boundary.status,201);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
 });
+
+test("manual reassignment enforces one-minute overlap and preserves version and audit on rejection",async t=>{
+  const {f,matches}=await fixture(t);
+  const id=matches[1].id;
+  const before=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  const auditCount=()=>f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(id).n;
+  const initialAudit=auditCount();
+  const overlap=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court1",scheduledAt:at(19),expectedVersion:before.version},"PATCH");
+  assert.equal(overlap.status,409);
+  assert.equal(overlap.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.deepEqual(f.db.prepare("SELECT * FROM matches WHERE id=?").get(id),before);
+  assert.equal(auditCount(),initialAudit,"failed reassignment must not record a successful audit");
+  const adjacent=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court1",scheduledAt:at(20),expectedVersion:before.version},"PATCH");
+  assert.equal(adjacent.status,200);
+  const committed=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  assert.equal(committed.court_id,"court1");
+  assert.equal(committed.scheduled_at,at(20));
+  assert.ok(committed.version>before.version,"successful reassignment advances optimistic lock");
+  assert.equal(auditCount(),initialAudit+1);
+});
