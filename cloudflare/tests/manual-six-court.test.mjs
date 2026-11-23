@@ -173,3 +173,18 @@ test("manual scheduling rejects overlap at the beginning of an occupied slot and
   assert.equal(preceding.status,201);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
 });
+
+test("shared athlete cannot be booked immediately before an existing match across divisions",async t=>{
+  const {f}=await fixture(t);
+  f.db.exec("INSERT INTO divisions(id,tournament_id,name,minimum_rest_minutes,match_slot_minutes) VALUES('earlier-division','own','Earlier match',15,20); INSERT INTO teams(id,division_id,name) VALUES('earlier-a','earlier-division','Earlier A'),('earlier-b','earlier-division','Earlier B'); INSERT INTO team_players(team_id,player_id) VALUES('earlier-a','player-a1'),('earlier-b','player-b7')");
+  const book=scheduledAt=>f.api("/api/divisions/earlier-division/matches",
+    {teamAId:"earlier-a",teamBId:"earlier-b",courtId:"court2",scheduledAt},"POST");
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const tooClose=await book(at(-34));
+  assert.equal(tooClose.status,409);
+  assert.equal(tooClose.data.error,"PLAYER_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const boundary=await book(at(-35));
+  assert.equal(boundary.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
