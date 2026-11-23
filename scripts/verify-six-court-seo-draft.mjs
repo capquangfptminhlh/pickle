@@ -28,6 +28,9 @@ assert.deepEqual([...courtLabels].sort((a,b)=>a-b),[1,2,3,4,5,6],"exactly one la
 assert.doesNotMatch(draft,/\b(?:https?:\/\/pickleup\.vn\/(?:blog|bai-viet|huong-dan)\/[^\s)]+)\b/i,"draft must not assert an unapproved public article URL");
 assert.match(draft,/không phải quy định pickleball chính thức/i,"illustrative rest time must be explicitly non-official");
 assert.doesNotMatch(draft,/!\[[^\]]*\]\(https?:\/\//i,"draft must not hotlink remote images");
+assert.doesNotMatch(draft,/<\s*(?:script|iframe|object|embed|form|video|audio|img)\b/i,"draft must not embed active HTML or unreviewed media");
+assert.doesNotMatch(draft,/\]\(\s*(?:javascript:|data:)/i,"draft links must not use executable or inline-data schemes");
+assert.doesNotMatch(svg,/\b(?:data|javascript):/i,"SVG must not embed data URLs or executable URL schemes");
 assert.doesNotMatch(svg,/@import\b|url\s*\(/i,"SVG must not import remote styles or resources");
 assert.doesNotMatch(svg,/<(?:script|foreignObject|image|iframe|audio|video|animate|animateMotion|animateTransform|set)\b/i,"no executable, animated or externally linked SVG elements");
 assert.doesNotMatch(svg,/\bon[a-z]+\s*=/i,"SVG must not contain event-handler attributes");
