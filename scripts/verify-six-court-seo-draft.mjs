@@ -29,6 +29,7 @@ assert.doesNotMatch(draft,/\b(?:https?:\/\/pickleup\.vn\/(?:blog|bai-viet|huong-
 assert.match(draft,/không phải quy định pickleball chính thức/i,"illustrative rest time must be explicitly non-official");
 assert.doesNotMatch(draft,/!\[[^\]]*\]\(https?:\/\//i,"draft must not hotlink remote images");
 assert.doesNotMatch(svg,/@import\b|url\s*\(/i,"SVG must not import remote styles or resources");
-assert.doesNotMatch(svg,/<(?:script|foreignObject|image)\b/i,"no active or externally linked SVG elements");
+assert.doesNotMatch(svg,/<(?:script|foreignObject|image|iframe|audio|video|animate|animateMotion|animateTransform|set)\b/i,"no executable, animated or externally linked SVG elements");
+assert.doesNotMatch(svg,/\bon[a-z]+\s*=/i,"SVG must not contain event-handler attributes");
 assert.doesNotMatch(svg,/\b(?:href|xlink:href)\s*=/i,"no external SVG resources");
 console.log("PASS: six-court SEO draft and original SVG source invariants (NOT publication approval)");
