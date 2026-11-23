@@ -168,6 +168,7 @@ test("manual scheduling rejects overlap at the beginning of an occupied slot and
   assert.equal(overlapping.status,409);
   assert.equal(overlapping.data.error,"COURT_SCHEDULE_CONFLICT");
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='ASSIGN_MATCH'").get().n,0,"rejected pre-slot overlap must not create assignment audit");
   const preceding=await create(7,"court1",at(-20));
   assert.equal(preceding.status,201);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
