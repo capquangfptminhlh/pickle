@@ -27,6 +27,8 @@ const courtLabels=[...svg.matchAll(/>SÂN ([1-6])</g)].map(match=>Number(match[1
 assert.deepEqual([...courtLabels].sort((a,b)=>a-b),[1,2,3,4,5,6],"exactly one label for each of six courts");
 assert.doesNotMatch(draft,/\b(?:https?:\/\/pickleup\.vn\/(?:blog|bai-viet|huong-dan)\/[^\s)]+)\b/i,"draft must not assert an unapproved public article URL");
 assert.match(draft,/không phải quy định pickleball chính thức/i,"illustrative rest time must be explicitly non-official");
+assert.doesNotMatch(draft,/!\[[^\]]*\]\(https?:\/\//i,"draft must not hotlink remote images");
+assert.doesNotMatch(svg,/@import\b|url\s*\(/i,"SVG must not import remote styles or resources");
 assert.doesNotMatch(svg,/<(?:script|foreignObject|image)\b/i,"no active or externally linked SVG elements");
 assert.doesNotMatch(svg,/\b(?:href|xlink:href)\s*=/i,"no external SVG resources");
 console.log("PASS: six-court SEO draft and original SVG source invariants (NOT publication approval)");
