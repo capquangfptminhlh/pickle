@@ -68,6 +68,8 @@ test("public timeline shows courts and waitlist but never organizer actions",asy
    assert.equal(await page.locator(".match[draggable=true]").count(),0,"public matches are not draggable");
    assert.equal(await page.locator("[data-drop-court]").count(),0,"public court columns are not drop targets");
    assert.equal(await page.locator("#dragHelp").isHidden(),true);
+   assert.equal(await page.locator("#courtTimeline .match[data-assign-match]").count(),0);
+   assert.equal(await page.locator("#courtTimeline .assign-match").count(),0);
    await page.locator('[data-view="live"]').click();
    assert.equal(await page.locator("#courtTimeline .match").count(),1);
    assert.equal(await page.locator("#unplacedMatches .match").count(),0);
@@ -233,6 +235,107 @@ test("drag onto occupied court only stages an assignment; server 409 leaves it i
   assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"1");
   assert.equal(await page.locator("#assignSave").isEnabled(),true);
   assert.deepEqual(await page.evaluate(()=>window.__assignments.map(x=>x.payload.expectedVersion)),[1]);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+
+test("organizer can drag an already scheduled match between courts, with explicit approval and original version",async()=>{
+ const fixture=structuredClone(data);
+ fixture.courts=[1,2,3,4,5,6].map(i=>({id:"c"+i,tournamentId:"t",name:"Sân "+i,active:true}));
+ fixture.matches[0].courtId="c1";
+ fixture.matches.push({
+  id:"scheduled-move",divisionId:"d",courtId:"c2",status:"wait",courtState:"scheduled",
+  a:"a",b:"b",version:5,scheduledAt:"2030-01-01T02:00:00.000Z",hasHistory:false
+ });
+ const {page,context,errors}=await makePage(true,fixture,1440);
+ try{
+  const source=page.locator('#courtTimeline .court-column[data-drop-court="c2"] .match[data-drag-match="scheduled-move"]');
+  const target=page.locator('#courtTimeline .court-column[data-drop-court="c4"]');
+  assert.equal(await source.count(),1);
+  await source.dragTo(target);
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  assert.equal(await page.locator("#assignCourt").inputValue(),"c4");
+  assert.equal(await page.locator("#assignTime").inputValue(),"2030-01-01T09:00");
+  assert.match(await page.locator("#assignTitle").textContent(),/Đổi sân/);
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[],"drop must not write");
+  await page.locator("#assignCancel").click();
+  assert.equal(await source.count(),1,"cancel keeps match on original court");
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[]);
+  await source.dragTo(target);
+  await page.locator("#assignSave").click();
+  await page.locator("#assignDialog").waitFor({state:"hidden"});
+  await page.locator('#courtTimeline .court-column[data-drop-court="c4"] .match[data-match-id="scheduled-move"]').waitFor();
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[{
+   id:"scheduled-move",payload:{courtId:"c4",scheduledAt:"2030-01-01T02:00:00.000Z",expectedVersion:5}
+  }],"only one audit-worthy API change should be submitted");
+  assert.equal(await page.locator('#courtTimeline .court-column[data-drop-court="c2"] [data-match-id="scheduled-move"]').count(),0);
+  assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"1","existing unplaced queue remains untouched");
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("scheduled court move can be made via the accessible button without dragging on mobile",async()=>{
+ const fixture=structuredClone(data);
+ fixture.courts=[{id:"c1",tournamentId:"t",name:"Sân 1",active:true},{id:"c2",tournamentId:"t",name:"Sân 2",active:true}];
+ fixture.matches[0].courtId="c1";
+ fixture.matches.push({
+  id:"mobile-move",divisionId:"d",courtId:"c2",status:"wait",courtState:"scheduled",
+  a:"a",b:"b",version:3,scheduledAt:"2030-01-01T02:00:00.000Z",hasHistory:false
+ });
+ const {page,context,errors}=await makePage(true,fixture,390);
+ try{
+  const button=page.locator('#courtTimeline .match[data-match-id="mobile-move"] button[data-assign-match="mobile-move"]');
+  assert.equal(await button.textContent(),"Đổi sân / giờ");
+  await button.click();
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  assert.equal(await page.locator("#assignCourt").inputValue(),"c2","current court stays selected by default");
+  await page.locator("#assignCourt").selectOption("c1");
+  await page.locator("#assignCancel").click();
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[]);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("court moves are unavailable for live, warmup, scored or completed matches",async()=>{
+ const fixture=structuredClone(data);
+ fixture.courts=[1,2,3,4,5,6].map(i=>({id:"c"+i,tournamentId:"t",name:"Sân "+i,active:true}));
+ fixture.matches=[
+  {id:"live",divisionId:"d",courtId:"c1",status:"live",courtState:"live",a:"a",b:"b",version:2},
+  {id:"warmup",divisionId:"d",courtId:"c2",status:"wait",courtState:"warming_up",a:"a",b:"b",version:2},
+  {id:"scored",divisionId:"d",courtId:"c3",status:"wait",courtState:"scheduled",hasHistory:true,a:"a",b:"b",version:2},
+  {id:"completed",divisionId:"d",courtId:"c4",status:"done",courtState:"done",a:"a",b:"b",version:2},
+  {id:"safe",divisionId:"d",courtId:"c5",status:"wait",courtState:"scheduled",a:"a",b:"b",version:2}
+ ];
+ const {page,context,errors}=await makePage(true,fixture,1280);
+ try{
+  for(const id of ["live","warmup","scored","completed"]){
+   assert.equal(await page.locator('[data-drag-match="'+id+'"]').count(),0,id+" cannot be dragged");
+   assert.equal(await page.locator('button[data-assign-match="'+id+'"]').count(),0,id+" cannot be manually moved");
+  }
+  assert.equal(await page.locator('[data-drag-match="safe"]').count(),1);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("reassignment declined by server keeps original court and shows error",async()=>{
+ const fixture=structuredClone(data);
+ fixture.courts=[{id:"c1",tournamentId:"t",name:"Sân 1",active:true},{id:"c2",tournamentId:"t",name:"Sân 2",active:true}];
+ fixture.matches[0].courtId="c1";
+ fixture.matches.push({id:"move-conflict",divisionId:"d",courtId:"c2",status:"wait",courtState:"scheduled",
+  a:"a",b:"b",version:9,scheduledAt:"2030-01-01T02:00:00.000Z",hasHistory:false});
+ const {page,context,errors}=await makePage(true,fixture,1280);
+ try{
+  const original=page.locator('#courtTimeline .court-column[data-drop-court="c2"] [data-match-id="move-conflict"]');
+  await original.dragTo(page.locator('#courtTimeline .court-column[data-drop-court="c1"]'));
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  await page.evaluate(()=>window.__assignError="PLAYER_SCHEDULE_CONFLICT");
+  await page.locator("#assignSave").click();
+  await page.locator("#assignFeedback").getByText(/VĐV trùng lịch/).waitFor();
+  assert.equal(await original.count(),1);
+  assert.equal(await page.locator('#courtTimeline .court-column[data-drop-court="c1"] [data-match-id="move-conflict"]').count(),0);
+  assert.deepEqual(await page.evaluate(()=>window.__assignments.map(x=>x.payload.expectedVersion)),[9]);
   assert.deepEqual(errors,[]);
  }finally{await context.close()}
 });
