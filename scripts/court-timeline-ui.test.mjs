@@ -120,6 +120,7 @@ test("removed tournament immediately clears old organizer auto-schedule buttons"
 test("organizer confirms a six-court queue assignment only once, with explicit HCMC time and version",async()=>{
  const fixture=structuredClone(data);
  fixture.courts=[1,2,3,4,5,6].map(i=>({id:"c"+i,tournamentId:"t",name:"Sân "+i,active:true}));
+ fixture.matches[0].courtId="c1"; // The live match must use a court in the six-court fixture.
  const {page,context,errors}=await makePage(true,fixture,390);
  try{
   await page.locator('[data-assign-match="m2"]').click();
