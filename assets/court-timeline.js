@@ -16,14 +16,26 @@ const time=m=>{
  return Number.isFinite(date.getTime())?date.toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh"}):"Chưa có giờ";
 };
 const team=id=>state?.teams?.find(x=>String(x.id)===String(id))?.name||"Chưa xác định";
+// Court moves are only offered for matches that have not entered the
+// tournament-day call/warmup/scoring flow. The Worker independently rejects
+// stale versions, scored matches and conflicting court/player reservations.
+function movableMatch(m){
+ if(!canSchedule||!m)return false;
+ if(!["wait","scheduled","ready"].includes(String(m.status||"")))return false;
+ if(isLiveTimelineMatch(m)||(m.courtState??m.court_state??"scheduled")!=="scheduled")return false;
+ if(m.hasHistory||m.startedAt||m.started_at||m.winner)return false;
+ if(Array.isArray(m.sets)&&m.sets.length)return false;
+ if(Array.isArray(m.current)&&m.current.some(v=>Number(v)>0))return false;
+ return true;
+}
 function matchCard(m,unplaced=false){
  const isLive=isLiveTimelineMatch(m);
  const el=make("article","match"+(isLive?" is-live":""));
  el.dataset.matchId=m.id;
- if(unplaced&&canSchedule&&!isLive){
+ if(movableMatch(m)){
   el.draggable=true;
   el.dataset.dragMatch=String(m.id);
-  el.title="Kéo trận này vào sân, hoặc dùng nút Phân sân thủ công";
+  el.title=unplaced?"Kéo trận vào sân hoặc dùng nút Phân sân thủ công":"Kéo sang sân khác hoặc dùng nút Đổi sân / giờ";
  }
  const top=make("div","match-top");
  top.append(make("span","",time(m)),make("span","match-status",label(m)));
@@ -33,8 +45,8 @@ function matchCard(m,unplaced=false){
  bottom.append(make("span","",division?.name||m.stage||"Trận thi đấu"));
  const a=make("a","","Chi tiết trận →");a.href="/match.html?id="+encodeURIComponent(m.id);
  bottom.append(a);
- if(unplaced&&canSchedule&&!isLive){
-  const button=make("button","assign-match","Phân sân thủ công");
+ if(movableMatch(m)){
+  const button=make("button","assign-match",unplaced?"Phân sân thủ công":"Đổi sân / giờ");
   button.type="button";button.dataset.assignMatch=String(m.id);
   bottom.append(button);
  }
@@ -124,8 +136,9 @@ function vietnamTimeIso(value){
 function availableAssignment(id){
   if(!canSchedule||!state)return null;
   const timeline=buildCourtTimeline(state,selected);
-  const match=timeline?.unplaced.find(m=>String(m.id)===String(id));
-  if(!match||isLiveTimelineMatch(match))return null;
+  const candidates=[...(timeline?.unplaced||[]),...(timeline?.columns||[]).flatMap(col=>col.matches)];
+  const match=candidates.find(m=>String(m.id)===String(id));
+  if(!movableMatch(match))return null;
   return {match,timeline};
 }
 function openAssignment(id,requestedCourtId=null){
@@ -136,14 +149,18 @@ function openAssignment(id,requestedCourtId=null){
   const version=Number(match.version);
   if(!division||!Number.isSafeInteger(version)||version<1)return;
   assignment={id:String(match.id),version,tournamentId:String(selected)};
+  const sourceCourt=String(match.courtId??match.court_id??"");
+  const assigned=timeline.columns.some(col=>String(col.court.id)===sourceCourt);
+  $("assignTitle").textContent=assigned?"Đổi sân / giờ thi đấu":"Phân trận vào sân";
   const select=$("assignCourt");
   select.replaceChildren();
   for(const column of timeline.columns){
     const option=make("option","",column.court.name);option.value=String(column.court.id);
     select.append(option);
   }
-  if(requestedCourtId&&timeline.columns.some(x=>String(x.court.id)===String(requestedCourtId))){
-    select.value=String(requestedCourtId);
+  const selectedCourt=requestedCourtId||sourceCourt;
+  if(selectedCourt&&timeline.columns.some(x=>String(x.court.id)===String(selectedCourt))){
+    select.value=String(selectedCourt);
   }
   $("assignMatchName").textContent=team(match.a??match.teamAId??match.team_a_id)+" vs "+
     team(match.b??match.teamBId??match.team_b_id)+" • "+division.name;
@@ -161,9 +178,9 @@ function clearDrag(){
    element.classList.remove("is-drop-target");
  }
 }
-$("unplacedMatches").addEventListener("dragstart",event=>{
+function beginMatchDrag(event){
  const card=event.target.closest(".match[data-drag-match]");
- if(!card||!availableAssignment(card.dataset.dragMatch)){
+ if(!card||savingAssignment||!availableAssignment(card.dataset.dragMatch)){
    event.preventDefault();return;
  }
  draggingMatchId=card.dataset.dragMatch;
@@ -171,11 +188,15 @@ $("unplacedMatches").addEventListener("dragstart",event=>{
    event.dataTransfer.effectAllowed="move";
    event.dataTransfer.setData("text/plain",draggingMatchId);
  }
-});
-$("unplacedMatches").addEventListener("dragend",clearDrag);
+}
+for(const container of [$("unplacedMatches"),$("courtTimeline")]){
+ container.addEventListener("dragstart",beginMatchDrag);
+ container.addEventListener("dragend",clearDrag);
+}
 $("courtTimeline").addEventListener("dragover",event=>{
  const column=event.target.closest(".court-column[data-drop-court]");
- if(!column||!draggingMatchId||!availableAssignment(draggingMatchId))return;
+ const current=draggingMatchId&&availableAssignment(draggingMatchId);
+ if(!column||!current||String(current.match.courtId??current.match.court_id??"")===column.dataset.dropCourt)return;
  event.preventDefault();
  if(event.dataTransfer)event.dataTransfer.dropEffect="move";
  for(const other of document.querySelectorAll(".court-column.is-drop-target")){
@@ -192,13 +213,16 @@ $("courtTimeline").addEventListener("drop",event=>{
  if(!column||!draggingMatchId)return;
  event.preventDefault();
  const matchId=draggingMatchId,courtId=column.dataset.dropCourt;
+ const current=availableAssignment(matchId);
  clearDrag();
- if(availableAssignment(matchId))openAssignment(matchId,courtId);
+ if(current&&String(current.match.courtId??current.match.court_id??"")!==courtId)openAssignment(matchId,courtId);
 });
-$("unplacedMatches").addEventListener("click",event=>{
+for(const container of [$("unplacedMatches"),$("courtTimeline")]){
+ container.addEventListener("click",event=>{
   const target=event.target.closest("button[data-assign-match]");
   if(target)openAssignment(target.dataset.assignMatch);
-});
+ });
+}
 $("assignCancel").addEventListener("click",()=>{
   if(savingAssignment)return;
   $("assignDialog").close();assignment=null;
