@@ -18,3 +18,13 @@
 .assignment-buttons button{min-height:48px;border-radius:10px;padding:10px 14px;border:1px solid #bbd0c1;background:#f4f8f3;color:var(--ink);font-weight:850;cursor:pointer}
 .assignment-buttons #assignSave{background:#164b35;border-color:#164b35;color:#fff}
 .assignment-buttons button:disabled{opacity:.6;cursor:not-allowed}
+
+/* Drag-to-court is a progressive enhancement for BTC using a pointer.
+   It only selects a target; a separate confirmation is required before write. */
+#dragHelp{margin:8px 0 0;font-size:12px;color:#2b6747;font-weight:700}
+.match[data-drag-match]{cursor:grab;touch-action:auto}
+.match[data-drag-match]:active{cursor:grabbing}
+.court-column[data-drop-court]{transition:border-color .14s,box-shadow .14s,background-color .14s}
+.court-column.is-drop-target{border:3px solid #69b744;box-shadow:0 0 0 4px #bafa8855,0 8px 24px #19493026}
+.court-column.is-drop-target .court-head{background:#276f3e}
+@media(prefers-reduced-motion:reduce){.court-column[data-drop-court]{transition:none}}
