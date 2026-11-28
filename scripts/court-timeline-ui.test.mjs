@@ -141,7 +141,7 @@ test("organizer confirms a six-court queue assignment only once, with explicit H
   assert.deepEqual(await page.evaluate(()=>window.__assignments),[{
     id:"m2",payload:{courtId:"c6",scheduledAt:"2030-01-01T02:00:00.000Z",expectedVersion:1}
   }],"the stored instant is 09:00 Vietnam time even if runner browser is in another timezone");
-  assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"0");
+  await page.waitForFunction(()=>document.querySelector("#timelineUnplacedCount")?.textContent==="0");
   assert.equal(await page.locator("#courtTimeline .court-column").count(),6);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
   assert.deepEqual(errors,[]);
@@ -171,8 +171,8 @@ test("manual assignment rejects stale timeline data before writing and public ac
  try{
   await page.locator('[data-assign-match="m2"]').click();
   await page.locator("#assignTime").fill("2030-01-01T09:00");
+  // Simulate another BTC writing before confirmation; background reload is inert under a modal.
   await page.evaluate(()=>{window.__fixture.matches[1].version=2});
-  await page.locator("#timelineReload").click();
   await page.locator("#assignSave").click();
   await page.locator("#assignFeedback").getByText(/Lịch đã thay đổi/).waitFor();
   assert.deepEqual(await page.evaluate(()=>window.__assignments),[]);
