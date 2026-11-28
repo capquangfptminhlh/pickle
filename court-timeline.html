@@ -8,9 +8,9 @@
 <title>Timeline sân thi đấu | PickleUp</title>
 <link rel="icon" href="assets/app-icon-v2.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="assets/court-timeline.css">
+<link rel="stylesheet" href="assets/court-timeline.css?v=2">
 <script src="assets/api.js?v=57"></script>
-<script defer type="module" src="assets/court-timeline.js"></script>
+<script defer type="module" src="assets/court-timeline.js?v=2"></script>
 <link rel="stylesheet" href="assets/typography.css?v=1">
   <link rel="stylesheet" href="assets/arena-suite-2026.css?v=1">
 </head>
@@ -42,7 +42,24 @@
     <div id="unplacedMatches" class="unplaced-grid"></div>
   </section>
   <div id="timelineEmpty" class="empty" hidden role="status">Giải chưa có lịch thi đấu hoặc không có quyền xem. Hãy chọn giải khác.</div>
+  <dialog id="assignDialog" class="assignment-dialog" aria-labelledby="assignTitle">
+    <form id="assignForm" class="assignment-form">
+      <span class="overline">ĐIỀU PHỐI BTC · XÁC NHẬN TRƯỚC KHI GHI</span>
+      <h2 id="assignTitle">Phân trận vào sân</h2>
+      <p id="assignMatchName"></p>
+      <label for="assignCourt">Sân thi đấu</label>
+      <select id="assignCourt" required></select>
+      <label for="assignTime">Giờ bắt đầu (giờ Việt Nam)</label>
+      <input id="assignTime" type="datetime-local" required>
+      <p class="assignment-note">Hệ thống kiểm tra trùng sân, VĐV, thời gian nghỉ và phiên bản lịch. Trận đã bắt đầu không thể đổi lịch.</p>
+      <div id="assignFeedback" class="schedule-message" role="alert" aria-live="assertive"></div>
+      <div class="assignment-buttons">
+        <button type="button" id="assignCancel">Hủy</button>
+        <button type="submit" id="assignSave">Kiểm tra &amp; lưu lịch</button>
+      </div>
+    </form>
+  </dialog>
 </main>
-<footer>PickleUp · Timeline chỉ đọc. BTC xếp sân và thay đổi trận trong trang quản trị.</footer>
+<footer>PickleUp · Timeline công khai chỉ xem. BTC đã đăng nhập có thể phân trận chờ, các thay đổi phải xác nhận và kiểm tra quyền trên máy chủ.</footer>
 </body>
 </html>
