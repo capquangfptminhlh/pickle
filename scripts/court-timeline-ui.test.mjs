@@ -251,11 +251,13 @@ test("organizer can drag an already scheduled match between courts, with explici
  const {page,context,errors}=await makePage(true,fixture,1440);
  try{
   const source=page.locator('#courtTimeline .court-column[data-drop-court="c2"] .match[data-drag-match="scheduled-move"]');
-  const target=page.locator('#courtTimeline .court-column[data-drop-court="c4"]');
+  // Keep source and target in the same visible row for native Playwright HTML5 dragging;
+ // cross-row court selection is also available through the accessible button.
+ const target=page.locator('#courtTimeline .court-column[data-drop-court="c3"]');
   assert.equal(await source.count(),1);
   await source.dragTo(target);
   await page.locator("#assignDialog").waitFor({state:"visible"});
-  assert.equal(await page.locator("#assignCourt").inputValue(),"c4");
+  assert.equal(await page.locator("#assignCourt").inputValue(),"c3");
   assert.equal(await page.locator("#assignTime").inputValue(),"2030-01-01T09:00");
   assert.match(await page.locator("#assignTitle").textContent(),/Đổi sân/);
   assert.deepEqual(await page.evaluate(()=>window.__assignments),[],"drop must not write");
@@ -265,9 +267,9 @@ test("organizer can drag an already scheduled match between courts, with explici
   await source.dragTo(target);
   await page.locator("#assignSave").click();
   await page.locator("#assignDialog").waitFor({state:"hidden"});
-  await page.locator('#courtTimeline .court-column[data-drop-court="c4"] .match[data-match-id="scheduled-move"]').waitFor();
+  await page.locator('#courtTimeline .court-column[data-drop-court="c3"] .match[data-match-id="scheduled-move"]').waitFor();
   assert.deepEqual(await page.evaluate(()=>window.__assignments),[{
-   id:"scheduled-move",payload:{courtId:"c4",scheduledAt:"2030-01-01T02:00:00.000Z",expectedVersion:5}
+   id:"scheduled-move",payload:{courtId:"c3",scheduledAt:"2030-01-01T02:00:00.000Z",expectedVersion:5}
   }],"only one audit-worthy API change should be submitted");
   assert.equal(await page.locator('#courtTimeline .court-column[data-drop-court="c2"] [data-match-id="scheduled-move"]').count(),0);
   assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"1","existing unplaced queue remains untouched");
