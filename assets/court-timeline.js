@@ -2,6 +2,7 @@ import {buildCourtTimeline,isLiveTimelineMatch,filterTimelineMatches} from "./co
 const $=id=>document.getElementById(id);
 const api=window.PickleAPI;
 let state=null,selected=new URLSearchParams(location.search).get("tournament")||"",view="all",seq=0,canSchedule=false;
+let assignment=null,savingAssignment=false;
 const make=(tag,classes,text)=>{
  const el=document.createElement(tag);if(classes)el.className=classes;
  if(text!==undefined)el.textContent=String(text);return el;
@@ -15,7 +16,7 @@ const time=m=>{
  return Number.isFinite(date.getTime())?date.toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh"}):"Chưa có giờ";
 };
 const team=id=>state?.teams?.find(x=>String(x.id)===String(id))?.name||"Chưa xác định";
-function matchCard(m){
+function matchCard(m,unplaced=false){
  const isLive=isLiveTimelineMatch(m);
  const el=make("article","match"+(isLive?" is-live":""));
  el.dataset.matchId=m.id;
@@ -26,7 +27,13 @@ function matchCard(m){
  const division=state.divisions?.find(x=>String(x.id)===String(m.divisionId??m.division_id));
  bottom.append(make("span","",division?.name||m.stage||"Trận thi đấu"));
  const a=make("a","","Chi tiết trận →");a.href="/match.html?id="+encodeURIComponent(m.id);
- bottom.append(a);el.append(top,names,bottom);
+ bottom.append(a);
+ if(unplaced&&canSchedule&&!isLive){
+  const button=make("button","assign-match","Phân sân thủ công");
+  button.type="button";button.dataset.assignMatch=String(m.id);
+  bottom.append(button);
+ }
+ el.append(top,names,bottom);
  return el;
 }
 function updateSelect(){
@@ -45,6 +52,8 @@ function render(){
  actions.replaceChildren();actions.hidden=true;
  const empty=$("timelineEmpty");
  if(!payload){
+  if($("assignDialog").open)$("assignDialog").close();
+  assignment=null;
   $("tournamentTitle").textContent="Không tìm thấy giải đấu";
   $("tournamentMeta").textContent="Giải có thể không công khai hoặc tài khoản chưa được cấp quyền.";
   for(const k of ["timelineCourts","timelineLive","timelineAssigned","timelineUnplacedCount"])$(k).textContent="0";
@@ -84,9 +93,101 @@ function render(){
  }
  if(!columns.length)grid.append(make("div","empty","Chưa khai báo sân hoạt động. BTC có thể tạo sân trong trang quản trị."));
  const shown=filterTimelineMatches(unplaced,view);
- if(shown.length){for(const m of shown)queue.append(matchCard(m))}
+ if(shown.length){for(const m of shown)queue.append(matchCard(m,true))}
  else queue.append(make("div","unplaced-empty",unplaced.length?"Không có trận chưa xếp sân phù hợp bộ lọc.":"Tất cả các trận đang chờ đều đã được phân sân."));
 }
+// A public spectator never gets an assignment action. On submission the
+// authenticated Worker checks scope, participant/court conflicts and the
+// expected match version again; UI validation is only an early safeguard.
+function vietnamTimeInput(value){
+  const date=new Date(value||"");
+  if(!Number.isFinite(date.getTime()))return "";
+  const parts=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+  }).formatToParts(date).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
+  return parts.year+"-"+parts.month+"-"+parts.day+"T"+parts.hour+":"+parts.minute;
+}
+function vietnamTimeIso(value){
+  if(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(value))return null;
+  const date=new Date(value+":00+07:00");
+  return Number.isFinite(date.getTime())&&vietnamTimeInput(date.toISOString())===value?date.toISOString():null;
+}
+function availableAssignment(id){
+  if(!canSchedule||!state)return null;
+  const timeline=buildCourtTimeline(state,selected);
+  const match=timeline?.unplaced.find(m=>String(m.id)===String(id));
+  if(!match||isLiveTimelineMatch(match))return null;
+  return {match,timeline};
+}
+function openAssignment(id){
+  const current=availableAssignment(id);
+  if(!current)return;
+  const {match,timeline}=current;
+  const division=state.divisions.find(d=>String(d.id)===String(match.divisionId??match.division_id));
+  const version=Number(match.version);
+  if(!division||!Number.isSafeInteger(version)||version<1)return;
+  assignment={id:String(match.id),version,tournamentId:String(selected)};
+  const select=$("assignCourt");
+  select.replaceChildren();
+  for(const column of timeline.columns){
+    const option=make("option","",column.court.name);option.value=String(column.court.id);
+    select.append(option);
+  }
+  $("assignMatchName").textContent=team(match.a??match.teamAId??match.team_a_id)+" vs "+
+    team(match.b??match.teamBId??match.team_b_id)+" • "+division.name;
+  $("assignTime").value=vietnamTimeInput(match.scheduledAt||match.scheduled_at||
+    timeline.tournament.startAt||timeline.tournament.start_at);
+  $("assignFeedback").textContent="";
+  $("assignDialog").showModal();
+}
+$("unplacedMatches").addEventListener("click",event=>{
+  const target=event.target.closest("button[data-assign-match]");
+  if(target)openAssignment(target.dataset.assignMatch);
+});
+$("assignCancel").addEventListener("click",()=>{
+  if(savingAssignment)return;
+  $("assignDialog").close();assignment=null;
+});
+$("assignDialog").addEventListener("close",()=>{if(!savingAssignment)assignment=null});
+$("assignForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  if(savingAssignment||!assignment||!canSchedule)return;
+  const current=availableAssignment(assignment.id);
+  const feedback=$("assignFeedback"),courtId=$("assignCourt").value;
+  const scheduledAt=vietnamTimeIso($("assignTime").value);
+  if(!current||String(selected)!==assignment.tournamentId||
+     Number(current.match.version)!==assignment.version){
+    feedback.textContent="Lịch đã thay đổi. Đóng cửa sổ, tải lại và kiểm tra trước khi xếp sân.";return;
+  }
+  if(!current.timeline.columns.some(x=>String(x.court.id)===courtId)){
+    feedback.textContent="Sân không còn hoạt động trong giải này.";return;
+  }
+  if(!scheduledAt){feedback.textContent="Giờ thi đấu không hợp lệ.";return}
+  const courtName=current.timeline.columns.find(x=>String(x.court.id)===courtId).court.name;
+  if(!window.confirm("Xác nhận phân trận?\\nSân: "+courtName+"\\nGiờ Việt Nam: "+$("assignTime").value+
+    "\\nHệ thống sẽ kiểm tra xung đột trước khi lưu."))return;
+  const button=$("assignSave");savingAssignment=true;button.disabled=true;
+  $("assignCancel").disabled=true;feedback.textContent="Đang kiểm tra và lưu lịch…";
+  try{
+    await api.assignMatch(assignment.id,{courtId,scheduledAt,expectedVersion:assignment.version});
+    $("assignDialog").close();assignment=null;
+    await load();
+    $("scheduleMessage").classList.remove("is-error");
+    $("scheduleMessage").textContent="Đã phân sân thành công. Lịch mới đã được cập nhật.";
+  }catch(err){
+    feedback.textContent=({
+      COURT_SCHEDULE_CONFLICT:"Sân đã có trận trùng giờ. Vui lòng chọn sân hoặc giờ khác.",
+      PLAYER_SCHEDULE_CONFLICT:"VĐV trùng lịch hoặc chưa đủ thời gian nghỉ.",
+      VERSION_CONFLICT:"Lịch vừa thay đổi từ máy khác. Tải lại trước khi thao tác.",
+      MATCH_ASSIGNMENT_LOCKED:"Trận đã bắt đầu, không thể đổi sân/giờ.",
+      INVALID_COURT_SCOPE:"Sân đã ngừng hoạt động hoặc không thuộc giải này.",
+      INVALID_SCHEDULE_TIME:"Giờ bắt đầu không hợp lệ."
+    })[err.message]||"Không thể phân sân. Kiểm tra kết nối và quyền BTC.";
+  }finally{
+    savingAssignment=false;button.disabled=false;$("assignCancel").disabled=false;
+  }
+});
 async function load(){
  const id=++seq;
  try{
