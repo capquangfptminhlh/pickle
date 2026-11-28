@@ -148,3 +148,65 @@ test("manual schedule refuses invalid timestamps",async t=>{
   assert.equal(bad.data.error,"INVALID_SCHEDULE_TIME");
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,6);
 });
+
+test("manual six-court assignment rejects a one-minute court overlap and permits the exact slot boundary",async t=>{
+  const {f,create}=await fixture(t);
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const overlapping=await create(7,"court1",at(19));
+  assert.equal(overlapping.status,409);
+  assert.equal(overlapping.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const adjacent=await create(7,"court1",at(20));
+  assert.equal(adjacent.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
+
+test("manual scheduling rejects overlap at the beginning of an occupied slot and accepts exact preceding boundary",async t=>{
+  const {f,create}=await fixture(t);
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const overlapping=await create(7,"court1",at(-19));
+  assert.equal(overlapping.status,409);
+  assert.equal(overlapping.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='ASSIGN_MATCH'").get().n,0,"rejected pre-slot overlap must not create assignment audit");
+  const preceding=await create(7,"court1",at(-20));
+  assert.equal(preceding.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
+
+test("shared athlete cannot be booked immediately before an existing match across divisions",async t=>{
+  const {f}=await fixture(t);
+  f.db.exec("INSERT INTO divisions(id,tournament_id,name,minimum_rest_minutes,match_slot_minutes) VALUES('earlier-division','own','Earlier match',15,20); INSERT INTO teams(id,division_id,name) VALUES('earlier-a','earlier-division','Earlier A'),('earlier-b','earlier-division','Earlier B'); INSERT INTO team_players(team_id,player_id) VALUES('earlier-a','player-a1'),('earlier-b','player-b7')");
+  const book=scheduledAt=>f.api("/api/divisions/earlier-division/matches",
+    {teamAId:"earlier-a",teamBId:"earlier-b",courtId:"court2",scheduledAt},"POST");
+  const before=f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n;
+  const tooClose=await book(at(-34));
+  assert.equal(tooClose.status,409);
+  assert.equal(tooClose.data.error,"PLAYER_SCHEDULE_CONFLICT");
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before);
+  const boundary=await book(at(-35));
+  assert.equal(boundary.status,201);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM matches").get().n,before+1);
+});
+
+test("manual reassignment enforces one-minute overlap and preserves version and audit on rejection",async t=>{
+  const {f,matches}=await fixture(t);
+  const id=matches[1].id;
+  const before=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  const auditCount=()=>f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id=? AND action='ASSIGN_MATCH'").get(id).n;
+  const initialAudit=auditCount();
+  const overlap=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court1",scheduledAt:at(19),expectedVersion:before.version},"PATCH");
+  assert.equal(overlap.status,409);
+  assert.equal(overlap.data.error,"COURT_SCHEDULE_CONFLICT");
+  assert.deepEqual(f.db.prepare("SELECT * FROM matches WHERE id=?").get(id),before);
+  assert.equal(auditCount(),initialAudit,"failed reassignment must not record a successful audit");
+  const adjacent=await f.api("/api/matches/"+id+"/assignment",
+    {courtId:"court1",scheduledAt:at(20),expectedVersion:before.version},"PATCH");
+  assert.equal(adjacent.status,200);
+  const committed=f.db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+  assert.equal(committed.court_id,"court1");
+  assert.equal(committed.scheduled_at,at(20));
+  assert.ok(committed.version>before.version,"successful reassignment advances optimistic lock");
+  assert.equal(auditCount(),initialAudit+1);
+});
