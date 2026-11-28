@@ -171,7 +171,19 @@ $("assignForm").addEventListener("submit",async event=>{
   $("assignCancel").disabled=true;feedback.textContent="Đang kiểm tra và lưu lịch…";
   try{
     await api.assignMatch(assignment.id,{courtId,scheduledAt,expectedVersion:assignment.version});
+    // Render a confirmed assignment immediately; the subsequent full fetch may
+    // take longer, especially on mobile connections. Never render before the
+    // Worker has accepted the guarded write.
+    const saved=state?.matches?.find(m=>String(m.id)===assignment.id);
+    if(saved){
+      saved.courtId=courtId;
+      saved.court_id=courtId;
+      saved.scheduledAt=scheduledAt;
+      saved.scheduled_at=scheduledAt;
+      saved.version=assignment.version+1;
+    }
     $("assignDialog").close();assignment=null;
+    render();
     await load();
     $("scheduleMessage").classList.remove("is-error");
     $("scheduleMessage").textContent="Đã phân sân thành công. Lịch mới đã được cập nhật.";
