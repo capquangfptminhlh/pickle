@@ -2,7 +2,7 @@ import {buildCourtTimeline,isLiveTimelineMatch,filterTimelineMatches} from "./co
 const $=id=>document.getElementById(id);
 const api=window.PickleAPI;
 let state=null,selected=new URLSearchParams(location.search).get("tournament")||"",view="all",seq=0,canSchedule=false;
-let assignment=null,savingAssignment=false;
+let assignment=null,savingAssignment=false,draggingMatchId=null;
 const make=(tag,classes,text)=>{
  const el=document.createElement(tag);if(classes)el.className=classes;
  if(text!==undefined)el.textContent=String(text);return el;
@@ -20,6 +20,11 @@ function matchCard(m,unplaced=false){
  const isLive=isLiveTimelineMatch(m);
  const el=make("article","match"+(isLive?" is-live":""));
  el.dataset.matchId=m.id;
+ if(unplaced&&canSchedule&&!isLive){
+  el.draggable=true;
+  el.dataset.dragMatch=String(m.id);
+  el.title="Kéo trận này vào sân, hoặc dùng nút Phân sân thủ công";
+ }
  const top=make("div","match-top");
  top.append(make("span","",time(m)),make("span","match-status",label(m)));
  const names=make("strong","",team(m.a??m.teamAId??m.team_a_id)+"  vs  "+team(m.b??m.teamBId??m.team_b_id));
@@ -44,7 +49,9 @@ function updateSelect(){
  target.disabled=tours.length===0;
 }
 function render(){
+ clearDrag();
  const payload=buildCourtTimeline(state,selected);
+ $("dragHelp").hidden=!canSchedule;
  updateSelect();
  const grid=$("courtTimeline"),queue=$("unplacedMatches");
  grid.replaceChildren();queue.replaceChildren();
@@ -84,6 +91,7 @@ function render(){
  for(const {court,matches} of columns){
   const filtered=filterTimelineMatches(matches,view);
   const column=make("section","court-column");
+  if(canSchedule)column.dataset.dropCourt=String(court.id);
   const head=make("header","court-head");const title=make("h3","",court.name||"Sân");
   head.append(title,make("b","",filtered.length+" trận"));column.append(head);
   const body=make("div","court-items");
@@ -120,7 +128,7 @@ function availableAssignment(id){
   if(!match||isLiveTimelineMatch(match))return null;
   return {match,timeline};
 }
-function openAssignment(id){
+function openAssignment(id,requestedCourtId=null){
   const current=availableAssignment(id);
   if(!current)return;
   const {match,timeline}=current;
@@ -134,6 +142,9 @@ function openAssignment(id){
     const option=make("option","",column.court.name);option.value=String(column.court.id);
     select.append(option);
   }
+  if(requestedCourtId&&timeline.columns.some(x=>String(x.court.id)===String(requestedCourtId))){
+    select.value=String(requestedCourtId);
+  }
   $("assignMatchName").textContent=team(match.a??match.teamAId??match.team_a_id)+" vs "+
     team(match.b??match.teamBId??match.team_b_id)+" • "+division.name;
   $("assignTime").value=vietnamTimeInput(match.scheduledAt||match.scheduled_at||
@@ -141,6 +152,49 @@ function openAssignment(id){
   $("assignFeedback").textContent="";
   $("assignDialog").showModal();
 }
+// Native HTML drag/drop is available for mouse and trackpad operators.
+// Touch and keyboard users retain the equivalent "Phân sân thủ công" button.
+// Dropping only opens the existing confirmation dialog: never write on drop.
+function clearDrag(){
+ draggingMatchId=null;
+ for(const element of document.querySelectorAll(".court-column.is-drop-target")){
+   element.classList.remove("is-drop-target");
+ }
+}
+$("unplacedMatches").addEventListener("dragstart",event=>{
+ const card=event.target.closest(".match[data-drag-match]");
+ if(!card||!availableAssignment(card.dataset.dragMatch)){
+   event.preventDefault();return;
+ }
+ draggingMatchId=card.dataset.dragMatch;
+ if(event.dataTransfer){
+   event.dataTransfer.effectAllowed="move";
+   event.dataTransfer.setData("text/plain",draggingMatchId);
+ }
+});
+$("unplacedMatches").addEventListener("dragend",clearDrag);
+$("courtTimeline").addEventListener("dragover",event=>{
+ const column=event.target.closest(".court-column[data-drop-court]");
+ if(!column||!draggingMatchId||!availableAssignment(draggingMatchId))return;
+ event.preventDefault();
+ if(event.dataTransfer)event.dataTransfer.dropEffect="move";
+ for(const other of document.querySelectorAll(".court-column.is-drop-target")){
+   if(other!==column)other.classList.remove("is-drop-target");
+ }
+ column.classList.add("is-drop-target");
+});
+$("courtTimeline").addEventListener("dragleave",event=>{
+ const column=event.target.closest(".court-column.is-drop-target");
+ if(column&&!column.contains(event.relatedTarget))column.classList.remove("is-drop-target");
+});
+$("courtTimeline").addEventListener("drop",event=>{
+ const column=event.target.closest(".court-column[data-drop-court]");
+ if(!column||!draggingMatchId)return;
+ event.preventDefault();
+ const matchId=draggingMatchId,courtId=column.dataset.dropCourt;
+ clearDrag();
+ if(availableAssignment(matchId))openAssignment(matchId,courtId);
+});
 $("unplacedMatches").addEventListener("click",event=>{
   const target=event.target.closest("button[data-assign-match]");
   if(target)openAssignment(target.dataset.assignMatch);

@@ -65,6 +65,9 @@ test("public timeline shows courts and waitlist but never organizer actions",asy
    assert.equal(await page.locator("#unplacedMatches .match").count(),1);
    assert.equal(await page.locator("#autoScheduleActions button").count(),0);
    assert.equal(await page.locator("[data-assign-match]").count(),0,"public spectators cannot write match assignments");
+   assert.equal(await page.locator(".match[draggable=true]").count(),0,"public matches are not draggable");
+   assert.equal(await page.locator("[data-drop-court]").count(),0,"public court columns are not drop targets");
+   assert.equal(await page.locator("#dragHelp").isHidden(),true);
    await page.locator('[data-view="live"]').click();
    assert.equal(await page.locator("#courtTimeline .match").count(),1);
    assert.equal(await page.locator("#unplacedMatches .match").count(),0);
@@ -177,6 +180,59 @@ test("manual assignment rejects stale timeline data before writing and public ac
   await page.locator("#assignSave").click();
   await page.locator("#assignFeedback").getByText(/Lịch đã thay đổi/).waitFor();
   assert.deepEqual(await page.evaluate(()=>window.__assignments),[]);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("organizer drags an unplaced match to one of six courts, confirms separately, and persists only once",async()=>{
+ const fixture=structuredClone(data);
+ fixture.courts=[1,2,3,4,5,6].map(i=>({id:"c"+i,tournamentId:"t",name:"Sân "+i,active:true}));
+ fixture.matches[0].courtId="c1";
+ const {page,context,errors}=await makePage(true,fixture,1440);
+ try{
+  const source=page.locator('#unplacedMatches .match[data-drag-match="m2"]');
+  const target=page.locator('#courtTimeline .court-column[data-drop-court="c6"]');
+  assert.equal(await source.count(),1);
+  assert.equal(await target.count(),1);
+  assert.equal(await page.locator("#dragHelp").isVisible(),true);
+  await source.dragTo(target);
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  assert.equal(await page.locator("#assignCourt").inputValue(),"c6","dropping on court 6 preselects court 6");
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[],"drag only opens the dialog");
+  await page.locator("#assignCancel").click();
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[],"cancel never writes");
+  assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"1");
+  await source.dragTo(target);
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  await page.locator("#assignTime").fill("2030-01-01T12:30");
+  await page.locator("#assignSave").click();
+  await page.locator("#assignDialog").waitFor({state:"hidden"});
+  await page.waitForFunction(()=>document.querySelector("#timelineUnplacedCount")?.textContent==="0");
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[{
+   id:"m2",payload:{courtId:"c6",scheduledAt:"2030-01-01T05:30:00.000Z",expectedVersion:1}
+  }]);
+  assert.equal(await page.locator('#courtTimeline .court-column[data-drop-court="c6"] .match[data-match-id="m2"]').count(),1);
+  assert.deepEqual(errors,[]);
+ }finally{await context.close()}
+});
+
+test("drag onto occupied court only stages an assignment; server 409 leaves it in the queue",async()=>{
+ const fixture=structuredClone(data);
+ const {page,context,errors}=await makePage(true,fixture,1280);
+ try{
+  await page.locator('#unplacedMatches .match[data-drag-match="m2"]').dragTo(
+    page.locator('#courtTimeline .court-column[data-drop-court="c"]'));
+  await page.locator("#assignDialog").waitFor({state:"visible"});
+  assert.equal(await page.locator("#assignCourt").inputValue(),"c");
+  assert.deepEqual(await page.evaluate(()=>window.__assignments),[]);
+  await page.locator("#assignTime").fill("2030-01-01T09:00");
+  await page.evaluate(()=>window.__assignError="COURT_SCHEDULE_CONFLICT");
+  await page.locator("#assignSave").click();
+  await page.locator("#assignFeedback").getByText(/Sân đã có trận trùng giờ/).waitFor();
+  assert.equal(await page.locator("#assignDialog").isVisible(),true);
+  assert.equal(await page.locator("#timelineUnplacedCount").textContent(),"1");
+  assert.equal(await page.locator("#assignSave").isEnabled(),true);
+  assert.deepEqual(await page.evaluate(()=>window.__assignments.map(x=>x.payload.expectedVersion)),[1]);
   assert.deepEqual(errors,[]);
  }finally{await context.close()}
 });
